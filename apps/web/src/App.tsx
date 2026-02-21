@@ -64,6 +64,20 @@ function App() {
     initializeIdentity();
   }, [initializeIdentity]);
 
+  // Sync Nostr profile's hub with Engine state if they diverge (e.g., initial load)
+  useEffect(() => {
+    if (airline && homeAirport && airline.hubIata !== homeAirport.iata) {
+      const dbHub = AIRPORTS.find(a => a.iata === airline.hubIata);
+      if (dbHub) {
+        setHub(
+          dbHub,
+          { latitude: dbHub.latitude, longitude: dbHub.longitude, source: 'manual' },
+          'nostr profile'
+        );
+      }
+    }
+  }, [airline, homeAirport, setHub]);
+
   // Initialize hub from location
   useEffect(() => {
     // Strategy 1: Try GPS
@@ -127,8 +141,8 @@ function App() {
 
   const formatPax = (n: number) => n.toLocaleString();
   const formatDist = (km: number) => {
-    if (km < 1000) return `${Math.round(km)} km`;
-    return `${(km / 1000).toFixed(1)}K km`;
+    if (km < 1000) return `${Math.round(km)} km`;
+    return `${(km / 1000).toFixed(1)}K km`;
   };
 
   if (!homeAirport || !userLocation) {
