@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Airline } from '@airtr/core';
+import type { AirlineEntity } from '@airtr/core';
 import { fp } from '@airtr/core';
 import {
     waitForNip07,
@@ -8,6 +8,7 @@ import {
     ensureConnected,
     loadAirline,
     publishAirline,
+    type AirlineConfig
 } from '@airtr/nostr';
 
 /**
@@ -25,7 +26,7 @@ import {
 export type IdentityStatus = 'checking' | 'no-extension' | 'ready';
 
 export interface AirlineState {
-    airline: Airline | null;
+    airline: AirlineEntity | null;
     pubkey: string | null;
     identityStatus: IdentityStatus;
     isLoading: boolean;
@@ -33,7 +34,7 @@ export interface AirlineState {
 
     // Actions
     initializeIdentity: () => Promise<void>;
-    createAirline: (params: Omit<Airline, 'pubkey' | 'brandScore' | 'balance' | 'tier'>) => Promise<void>;
+    createAirline: (params: AirlineConfig) => Promise<void>;
     updateHub: (newHubIata: string) => Promise<void>;
 }
 
@@ -100,12 +101,20 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             const pubkey = await getPubkey();
             if (!pubkey) throw new Error('Lost identity during publish');
 
-            const newAirline: Airline = {
-                pubkey,
+            const newAirline: AirlineEntity = {
+                id: pubkey, // We'll just use pubkey as ID for the MVP store testing locally
+                foundedBy: pubkey,
+                status: 'private',
+                ceoPubkey: pubkey,
+                sharesOutstanding: 10000000,
+                shareholders: { [pubkey]: 10000000 },
                 ...params,
                 brandScore: 0.5,
-                balance: fp(100000000),
                 tier: 1,
+                corporateBalance: fp(100000000),
+                stockPrice: fp(10),
+                fleetIds: [],
+                routeIds: []
             };
 
             set({ airline: newAirline, pubkey, isLoading: false });
@@ -118,7 +127,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
         const { airline } = get();
         if (!airline) return;
 
-        const updated = { ...airline, hubIata: newHubIata };
+        const updated = { ...airline, hubs: [newHubIata] };
         set({ airline: updated });
 
         // Republish to Nostr so the hub change persists
@@ -129,7 +138,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
                 name: updated.name,
                 icaoCode: updated.icaoCode,
                 callsign: updated.callsign,
-                hubIata: updated.hubIata,
+                hubs: updated.hubs,
                 livery: updated.livery,
             });
         } catch (error: any) {

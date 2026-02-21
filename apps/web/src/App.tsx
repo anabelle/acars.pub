@@ -66,8 +66,8 @@ function App() {
 
   // Sync Nostr profile's hub with Engine state if they diverge (e.g., initial load)
   useEffect(() => {
-    if (airline && homeAirport && airline.hubIata !== homeAirport.iata) {
-      const dbHub = AIRPORTS.find(a => a.iata === airline.hubIata);
+    if (airline && homeAirport && airline.hubs[0] !== homeAirport.iata) {
+      const dbHub = AIRPORTS.find(a => a.iata === airline.hubs[0]);
       if (dbHub) {
         setHub(
           dbHub,
@@ -198,8 +198,7 @@ function App() {
                 Welcome, CEO of <span className="hero-title-accent">{airline.name}</span>
               </h1>
               <p className="hero-subtitle">
-                Your hub is <strong>{airline.hubIata}</strong> ({homeAirport.name}).
-                <br />
+                Your primary hub is <strong>{airline.hubs[0]}</strong> ({homeAirport.name}).<br />
                 It's <strong>{season}</strong> — {routes.length} routes computing.
               </p>
               <HubPicker currentHub={homeAirport} onSelect={handleHubChange} />
@@ -268,7 +267,7 @@ function App() {
           ))}
         </div>
       </main>
-    </div>
+    </div >
   );
 }
 

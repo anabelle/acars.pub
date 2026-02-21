@@ -1,6 +1,8 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { getNDK, ensureConnected } from './ndk.js';
-import { type Airline, fp } from '@airtr/core';
+import { type AirlineEntity, fp } from '@airtr/core';
+
+export type AirlineConfig = Pick<AirlineEntity, 'name' | 'icaoCode' | 'callsign' | 'hubs' | 'livery'>;
 
 const AIRLINE_KIND = 30078;
 const AIRLINE_D_TAG = 'airtr:airline';
@@ -8,7 +10,7 @@ const AIRLINE_D_TAG = 'airtr:airline';
 /**
  * Publishes an airline creation or update event to Nostr.
  */
-export async function publishAirline(airline: Omit<Airline, 'pubkey' | 'brandScore' | 'balance' | 'tier'>): Promise<NDKEvent> {
+export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> {
     ensureConnected();
     const ndk = getNDK();
 
@@ -20,12 +22,11 @@ export async function publishAirline(airline: Omit<Airline, 'pubkey' | 'brandSco
     event.kind = AIRLINE_KIND;
     event.tags = [['d', AIRLINE_D_TAG]];
 
-    // We don't save computed state (balance, score), just identity setup details.
     event.content = JSON.stringify({
         name: airline.name,
         icaoCode: airline.icaoCode,
         callsign: airline.callsign,
-        hubIata: airline.hubIata,
+        hubs: airline.hubs,
         livery: airline.livery,
     });
 
@@ -36,7 +37,7 @@ export async function publishAirline(airline: Omit<Airline, 'pubkey' | 'brandSco
 /**
  * Tries to fetch an existing airline configuration for the given pubkey.
  */
-export async function loadAirline(pubkey: string): Promise<Airline | null> {
+export async function loadAirline(pubkey: string): Promise<AirlineEntity | null> {
     ensureConnected();
     const ndk = getNDK();
 
@@ -62,19 +63,26 @@ export async function loadAirline(pubkey: string): Promise<Airline | null> {
     try {
         const data = JSON.parse(event.content);
 
-        // Convert the Nostr event payload back into full Airline state domain model.
-        // Balance and Tier should ideally be sourced from the core engine state, 
-        // but for now, they are zeroed/defaulted.
-        const loaded: Airline = {
-            pubkey: event.author.pubkey,
+        // Map event payload to AirlineEntity
+        const loaded: AirlineEntity = {
+            id: event.id,
+            foundedBy: event.author.pubkey,
+            status: 'private',
+            ceoPubkey: event.author.pubkey,
+            sharesOutstanding: 10000000,
+            shareholders: { [event.author.pubkey]: 10000000 },
             name: data.name,
             icaoCode: data.icaoCode || data.icao,
             callsign: data.callsign,
-            hubIata: data.hubIata || data.hub,
+            hubs: data.hubs || (data.hubIata ? [data.hubIata] : []), // Migration fallback
             livery: data.livery,
             brandScore: 0.5,
-            balance: fp(100000000), // starting balance (as fixedpoint integer conceptually)
             tier: 1,
+            // Defaults for derived metrics
+            corporateBalance: fp(100000000),
+            stockPrice: fp(10), // $10/share
+            fleetIds: [],
+            routeIds: []
         };
         return loaded;
     } catch (e) {

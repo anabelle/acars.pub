@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { calculateFlightRevenue, calculateFlightCost } from './finance.js';
 import { fp, fpToNumber } from './fixed-point.js';
-import type { AircraftType } from './types.js';
+import type { AircraftModel } from './types.js';
 
 describe('calculateFlightRevenue()', () => {
     it('calculates 100% load factor correctly', () => {
@@ -57,17 +57,37 @@ describe('calculateFlightRevenue()', () => {
 
 describe('calculateFlightCost()', () => {
     it('calculates cost components correctly', () => {
-        const aircraft: AircraftType = {
-            designator: 'A320neo',
-            name: 'Airbus A320neo',
+        const aircraft: AircraftModel = {
+            id: 'a320neo',
             manufacturer: 'Airbus',
-            seats: 180,
+            name: 'A320neo',
+            type: 'narrowbody',
+            generation: 'nextgen',
             rangeKm: 6300,
-            cruiseSpeedKmh: 830,
-            fuelPerKm: 2.5,
-            crewCount: 6,
+            speedKmh: 830,
+            maxTakeoffWeight: 79000,
+            capacity: {
+                economy: 180,
+                business: 0,
+                first: 0,
+                cargoKg: 2000
+            },
+            fuelBurnKgPerHour: 2075,
+            fuelBurnKgPerKm: 2.5,
+            blockHoursPerDay: 13,
+            turnaroundTimeMinutes: 35,
+            price: fp(110000000),
             monthlyLease: fp(380000),
-            maintPerHour: fp(850)
+            casm: fp(0.08),
+            maintCostPerHour: fp(850),
+            crewRequired: {
+                cockpit: 2,
+                cabin: 4
+            },
+            economicLifeYears: 20,
+            residualValuePercent: 15,
+            unlockTier: 1,
+            familyId: 'a320'
         };
 
         const result = calculateFlightCost({

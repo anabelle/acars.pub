@@ -30,8 +30,8 @@ export function AirlineCreator() {
         await createAirline({
             name,
             icaoCode: icao.toUpperCase(),
-            callsign: callsign.toUpperCase(),
-            hubIata: homeAirport.iata,
+            callsign: icao.toUpperCase() + ' HEAVY',
+            hubs: [homeAirport.iata],
             livery: {
                 primary,
                 secondary,

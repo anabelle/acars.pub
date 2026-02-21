@@ -5,7 +5,7 @@
 // ============================================================
 
 import { fp, fpAdd, fpScale } from './fixed-point.js';
-import type { AircraftType } from './types.js';
+import type { AircraftModel } from './types.js';
 import type { FixedPoint } from './types.js';
 
 // Global constants
@@ -32,7 +32,7 @@ export interface FlightRevenueParams {
 
 export interface FlightCostParams {
     distanceKm: number;
-    aircraft: AircraftType;
+    aircraft: AircraftModel;
     actualPassengers: number;
     blockHours: number;
 }
@@ -103,15 +103,16 @@ export function calculateFlightCost(params: FlightCostParams): {
     costTotal: FixedPoint;
 } {
     // Fuel: distance_km * fuel_per_km * fuel_price
-    const fuelKg = params.distanceKm * params.aircraft.fuelPerKm;
+    const fuelKg = params.distanceKm * params.aircraft.fuelBurnKgPerKm;
     const costFuel = fpScale(FUEL_PRICE_PER_KG, fuelKg);
 
     // Crew: blockHours * crewCostPerHour * crewCount
-    const crewHours = params.blockHours * params.aircraft.crewCount;
+    const crewCount = params.aircraft.crewRequired.cockpit + params.aircraft.crewRequired.cabin;
+    const crewHours = params.blockHours * crewCount;
     const costCrew = fpScale(CREW_COST_PER_HOUR, crewHours);
 
     // Maintenance: blockHours * maintPerHour
-    const costMaintenance = fpScale(params.aircraft.maintPerHour, params.blockHours);
+    const costMaintenance = fpScale(params.aircraft.maintCostPerHour, params.blockHours);
 
     // Airport Fees: landing + terminal + pax_fee * passengers (assume x2 for origin/dest)
     // Here we just calculate origin+dest together generically, or per departure.

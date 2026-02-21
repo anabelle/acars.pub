@@ -66,56 +66,92 @@ export interface DemandResult {
     first: number;
 }
 
-// --- Aircraft ---
+export interface AircraftModel {
+    id: string;               // e.g., "b737-800"
+    manufacturer: string;     // e.g., "Boeing"
+    name: string;             // e.g., "737-800"
+    type: 'turboprop' | 'regional' | 'narrowbody' | 'widebody';
+    generation: 'legacy' | 'modern' | 'nextgen';
 
-export interface AircraftType {
-    /** Aircraft type designator (e.g. "A320neo") */
-    designator: string;
-    /** Full name (e.g. "Airbus A320neo") */
-    name: string;
-    /** Manufacturer */
-    manufacturer: string;
-    /** Total seats (typical config) */
-    seats: number;
-    /** Maximum range in km */
+    // Specifications
     rangeKm: number;
-    /** Cruise speed in km/h */
-    cruiseSpeedKmh: number;
-    /** Fuel burn in kg per km */
-    fuelPerKm: number;
-    /** Crew required (cockpit + cabin) */
-    crewCount: number;
-    /** Monthly lease cost (USD, as FixedPoint) */
+    speedKmh: number;
+    maxTakeoffWeight: number; // kg
+    capacity: {
+        economy: number;
+        business: number;
+        first: number;
+        cargoKg: number;
+    };
+
+    // Operational Economics
+    fuelBurnKgPerHour: number;
+    fuelBurnKgPerKm: number;
+    blockHoursPerDay: number;
+    turnaroundTimeMinutes: number;
+
+    // Cost Structure
+    price: FixedPoint;
     monthlyLease: FixedPoint;
-    /** Maintenance cost per block hour (USD, as FixedPoint) */
-    maintPerHour: FixedPoint;
+    casm: FixedPoint;
+    maintCostPerHour: FixedPoint;
+    crewRequired: {
+        cockpit: number;
+        cabin: number;
+    };
+
+    // Lifecycle & Progression
+    economicLifeYears: number;
+    residualValuePercent: number;
+    unlockTier: number;
+    familyId: string;
 }
 
-// --- Airline ---
+export interface AircraftInstance {
+    id: string;               // Unique universally
+    ownerPubkey: string;      // The airline's Nostr pubkey
+    modelId: string;          // Reference to AircraftModel.id
+    name: string;             // User-assigned name
+    status: 'idle' | 'assigned' | 'maintenance';
+    assignedRouteId: string | null;
+    purchasedAtTick: number;
 
-export interface Airline {
-    /** Nostr pubkey (hex) */
-    pubkey: string;
-    /** Airline name */
+    // Wear and Tear Mechanics
+    flightHoursTotal: number;
+    flightHoursSinceCheck: number;
+    condition: number;        // 0.0 to 1.0 (1.0 = brand new)
+}
+
+export interface AirlineEntity {
+    id: string;               // Hash of corporate genesis event
+    foundedBy: string;        // Founder's pubkey
+    status: 'private' | 'public' | 'chapter11' | 'liquidated';
+
+    // Leadership & Ownership
+    ceoPubkey: string;        // Current operator
+    sharesOutstanding: number;
+    shareholders: Record<string, number>; // pubkey -> share count
+
+    // Core Identity
     name: string;
-    /** 3-letter ICAO-style code */
     icaoCode: string;
-    /** Radio callsign */
     callsign: string;
-    /** Hub airport IATA code */
-    hubIata: string;
-    /** Livery colors */
+    hubs: string[];           // Array of multiple IATA codes
     livery: {
         primary: string;
         secondary: string;
         accent: string;
     };
-    /** Brand score 0.0–1.0 */
     brandScore: number;
-    /** Current balance (FixedPoint) */
-    balance: FixedPoint;
-    /** Current tier (1–4) */
     tier: number;
+
+    // Financials
+    corporateBalance: FixedPoint;
+    stockPrice: FixedPoint;   // Derived purely from earnings & market cap
+
+    // Assets & Obligations
+    fleetIds: string[];
+    routeIds: string[];
 }
 
 // --- Route ---
