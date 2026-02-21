@@ -21,5 +21,13 @@ export function getNDK(): NDK {
 
 export async function connectNDK(): Promise<void> {
     const ndk = getNDK();
-    await ndk.connect();
+    try {
+        // Enforce a strict 2.5 second timeout so unresponsive relays don't hang the app
+        await Promise.race([
+            ndk.connect(2500),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2500))
+        ]);
+    } catch (e) {
+        console.warn("NDK connection warning (some relays may have failed):", e);
+    }
 }
