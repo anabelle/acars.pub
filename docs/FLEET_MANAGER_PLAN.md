@@ -67,6 +67,11 @@ export interface AircraftInstance {
     status: 'idle' | 'assigned' | 'maintenance';
     assignedRouteId: string | null; 
     purchasedAtTick: number;  // For age/depreciation calculations
+    
+    // Wear and Tear Mechanics
+    flightHoursTotal: number; // Total hours flown in its lifetime
+    flightHoursSinceCheck: number; // Hours since last A-Check
+    condition: number;        // 0.0 to 1.0 (1.0 = brand new). Affects QSI Service Score and fuel burn.
 }
 ```
 
@@ -143,6 +148,23 @@ During a tick:
 3. Calculates Revenue (Pax × Fare).
 4. Calculates Costs using the specific `AircraftModel`'s fuel burn, crew needs, and maintenance rates based on the route distance.
 5. Applies the net profit to the airline's ledger.
+6. Increases `flightHoursTotal` and `flightHoursSinceCheck` for the aircraft.
+7. Degrades the aircraft `condition` proportionally to the hours flown.
+
+### 4.2 Wear & Tear and Maintenance Mechanics
+Aircraft are depreciating assets that require constant upkeep. If ignored, they cost you passengers and money.
+
+1. **Condition Degradation**: Every hour flown slightly lowers the `condition` score.
+2. **Impact of Poor Condition**: 
+   - **Fuel Burn Penalty**: A plane at 0.5 condition burns 10% more fuel than a new one.
+   - **QSI Service Penalty**: Passengers don't like ragged planes. Low condition drops your Service Score in the QSI model, losing you market share.
+3. **A-Checks (Routine Maintenance)**: 
+   - Required every X flight hours (e.g., 500 hours).
+   - If `flightHoursSinceCheck` exceeds the limit, the aircraft is **forcibly grounded** (`status = 'maintenance'`) until it undergoes a check.
+   - Checks cost money and take time (e.g., grounded for 24 in-game hours).
+   - Resets `flightHoursSinceCheck` to 0 and slightly restores `condition`.
+4. **C-Checks / Overhauls**:
+   - A major manual action that heavily restores `condition` but costs a fortune and grounds the plane for days.
 
 ---
 
@@ -159,10 +181,12 @@ The user interface must feel premium, aviation-authentic, and highly tactical.
 ### 5.2 The Hangar (Fleet Management)
 - **List View**: Shows all owned `AircraftInstance`s.
 - **Status Indicators**: Colored pill badges indicating `[ IDLE ]` (yellow), `[ FLYING: JFK→LHR ]` (green), or `[ MAINTENANCE ]` (red).
+- **Condition & Hours**: Progress bars showing current `condition` and hours until next required maintenance check.
 - **Actions**:
   - Rename Aircraft
-  - Assign to Route (opens the Route Maker panel)
-  - Sell Aircraft (recovers depreciated value)
+  - Assign to Route / Unassign
+  - Schedule Maintenance (A-Check / Overhaul)
+  - Sell Aircraft (recovers depreciated value based on total flight hours and condition)
 
 ---
 
