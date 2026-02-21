@@ -11,39 +11,8 @@ import {
 } from '@airtr/core';
 import type { Airport, Season, FixedPoint } from '@airtr/core';
 
-// --- Global airport data (subset — Phase 1 will load all 7,000+) ---
-const AIRPORTS: Airport[] = [
-  // Americas
-  { id: '3797', name: 'John F Kennedy Intl', iata: 'JFK', icao: 'KJFK', latitude: 40.6398, longitude: -73.7789, altitude: 13, timezone: 'America/New_York', country: 'US', city: 'New York', population: 8_336_817, gdpPerCapita: 76_330, tags: ['business'] },
-  { id: '3484', name: 'Los Angeles Intl', iata: 'LAX', icao: 'KLAX', latitude: 33.9425, longitude: -118.408, altitude: 126, timezone: 'America/Los_Angeles', country: 'US', city: 'Los Angeles', population: 3_979_576, gdpPerCapita: 76_330, tags: ['general'] },
-  { id: '3830', name: "O'Hare Intl", iata: 'ORD', icao: 'KORD', latitude: 41.9786, longitude: -87.9048, altitude: 672, timezone: 'America/Chicago', country: 'US', city: 'Chicago', population: 2_693_976, gdpPerCapita: 76_330, tags: ['business'] },
-  { id: '3878', name: 'Hartsfield-Jackson', iata: 'ATL', icao: 'KATL', latitude: 33.6367, longitude: -84.4281, altitude: 1026, timezone: 'America/New_York', country: 'US', city: 'Atlanta', population: 498_715, gdpPerCapita: 76_330, tags: ['business'] },
-  { id: '3690', name: 'Miami Intl', iata: 'MIA', icao: 'KMIA', latitude: 25.7932, longitude: -80.2906, altitude: 8, timezone: 'America/New_York', country: 'US', city: 'Miami', population: 467_963, gdpPerCapita: 76_330, tags: ['beach'] },
-  { id: '3361', name: 'São Paulo–Guarulhos', iata: 'GRU', icao: 'SBGR', latitude: -23.4356, longitude: -46.4731, altitude: 2459, timezone: 'America/Sao_Paulo', country: 'BR', city: 'São Paulo', population: 12_325_232, gdpPerCapita: 8_917, tags: ['general'] },
-  { id: '2709', name: 'Benito Juárez Intl', iata: 'MEX', icao: 'MMMX', latitude: 19.4363, longitude: -99.0721, altitude: 7316, timezone: 'America/Mexico_City', country: 'MX', city: 'Mexico City', population: 9_209_944, gdpPerCapita: 10_045, tags: ['general'] },
-  { id: '2650', name: 'Ministro Pistarini', iata: 'EZE', icao: 'SAEZ', latitude: -34.8222, longitude: -58.5358, altitude: 67, timezone: 'America/Argentina/Buenos_Aires', country: 'AR', city: 'Buenos Aires', population: 3_075_646, gdpPerCapita: 13_650, tags: ['general'] },
-  { id: '2816', name: 'El Dorado Intl', iata: 'BOG', icao: 'SKBO', latitude: 4.70159, longitude: -74.1469, altitude: 8361, timezone: 'America/Bogota', country: 'CO', city: 'Bogotá', population: 7_412_566, gdpPerCapita: 6_104, tags: ['general'] },
-  { id: '2762', name: 'Arturo Merino Benítez', iata: 'SCL', icao: 'SCEL', latitude: -33.393, longitude: -70.7858, altitude: 1555, timezone: 'America/Santiago', country: 'CL', city: 'Santiago', population: 6_310_000, gdpPerCapita: 15_356, tags: ['general'] },
-  { id: '2851', name: 'Jorge Chávez Intl', iata: 'LIM', icao: 'SPJC', latitude: -12.0219, longitude: -77.1143, altitude: 113, timezone: 'America/Lima', country: 'PE', city: 'Lima', population: 10_391_000, gdpPerCapita: 6_977, tags: ['general'] },
-  { id: '2599', name: 'Tocumen Intl', iata: 'PTY', icao: 'MPTO', latitude: 9.0714, longitude: -79.3835, altitude: 135, timezone: 'America/Panama', country: 'PA', city: 'Panama City', population: 1_673_000, gdpPerCapita: 14_617, tags: ['business'] },
-  { id: '2851', name: 'José María Córdova', iata: 'MDE', icao: 'SKRG', latitude: 6.16454, longitude: -75.4231, altitude: 6955, timezone: 'America/Bogota', country: 'CO', city: 'Medellín', population: 2_569_000, gdpPerCapita: 6_104, tags: ['general'] },
-  { id: '2835', name: 'Rafael Núñez Intl', iata: 'CTG', icao: 'SKCG', latitude: 10.4424, longitude: -75.513, altitude: 4, timezone: 'America/Bogota', country: 'CO', city: 'Cartagena', population: 1_028_736, gdpPerCapita: 6_104, tags: ['beach'] },
-
-  // Europe
-  { id: '507', name: 'Heathrow', iata: 'LHR', icao: 'EGLL', latitude: 51.4706, longitude: -0.461941, altitude: 83, timezone: 'Europe/London', country: 'GB', city: 'London', population: 8_982_000, gdpPerCapita: 46_510, tags: ['business'] },
-  { id: '1382', name: 'Charles de Gaulle', iata: 'CDG', icao: 'LFPG', latitude: 49.0128, longitude: 2.55, altitude: 392, timezone: 'Europe/Paris', country: 'FR', city: 'Paris', population: 2_161_000, gdpPerCapita: 43_518, tags: ['general'] },
-  { id: '340', name: 'Frankfurt am Main', iata: 'FRA', icao: 'EDDF', latitude: 50.0333, longitude: 8.57046, altitude: 364, timezone: 'Europe/Berlin', country: 'DE', city: 'Frankfurt', population: 753_056, gdpPerCapita: 51_203, tags: ['business'] },
-  { id: '1555', name: 'Adolfo Suárez Madrid–Barajas', iata: 'MAD', icao: 'LEMD', latitude: 40.4719, longitude: -3.56264, altitude: 1998, timezone: 'Europe/Madrid', country: 'ES', city: 'Madrid', population: 3_223_334, gdpPerCapita: 30_103, tags: ['general'] },
-
-  // Asia-Pacific
-  { id: '2279', name: 'Narita Intl', iata: 'NRT', icao: 'RJAA', latitude: 35.7647, longitude: 140.386, altitude: 141, timezone: 'Asia/Tokyo', country: 'JP', city: 'Tokyo', population: 13_960_000, gdpPerCapita: 39_285, tags: ['business'] },
-  { id: '2188', name: 'Dubai Intl', iata: 'DXB', icao: 'OMDB', latitude: 25.2528, longitude: 55.3644, altitude: 62, timezone: 'Asia/Dubai', country: 'AE', city: 'Dubai', population: 3_478_300, gdpPerCapita: 43_103, tags: ['general'] },
-  { id: '3077', name: 'Singapore Changi', iata: 'SIN', icao: 'WSSS', latitude: 1.35019, longitude: 103.994, altitude: 22, timezone: 'Asia/Singapore', country: 'SG', city: 'Singapore', population: 5_686_000, gdpPerCapita: 65_233, tags: ['business'] },
-  { id: '3316', name: 'Sydney Kingsford Smith', iata: 'SYD', icao: 'YSSY', latitude: -33.9461, longitude: 151.177, altitude: 21, timezone: 'Australia/Sydney', country: 'AU', city: 'Sydney', population: 5_312_000, gdpPerCapita: 51_812, tags: ['general'] },
-
-  // Africa
-  { id: '813', name: 'OR Tambo Intl', iata: 'JNB', icao: 'FAOR', latitude: -26.1392, longitude: 28.246, altitude: 5558, timezone: 'Africa/Johannesburg', country: 'ZA', city: 'Johannesburg', population: 5_783_000, gdpPerCapita: 6_861, tags: ['general'] },
-];
+import { airports as AIRPORTS } from '@airtr/data';
+import { Globe } from '@airtr/map';
 
 interface RouteData {
   origin: Airport;
@@ -319,7 +288,8 @@ function App() {
   }, [homeAirport]);
 
   // Manual hub change
-  const handleHubChange = (airport: Airport) => {
+  const handleHubChange = (airport: Airport | null) => {
+    if (!airport) return;
     setHomeAirport(airport);
     setUserLocation({
       latitude: airport.latitude,
@@ -367,7 +337,14 @@ function App() {
         </div>
       </header>
 
-      <main className="main-content">
+      <Globe
+        airports={AIRPORTS}
+        selectedAirport={homeAirport}
+        onAirportSelect={handleHubChange}
+        className="map-bg"
+      />
+
+      <main className="main-content has-map">
         <section className="hero fade-in">
           <h1 className="hero-title">
             Your hub:&nbsp;
