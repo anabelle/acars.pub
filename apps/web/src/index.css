@@ -530,6 +530,8 @@ body {
 }
 
 .hub-picker {
+  position: relative;
+  z-index: 1;
   width: 90%;
   max-width: 480px;
   max-height: 80vh;
