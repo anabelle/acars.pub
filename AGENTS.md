@@ -27,11 +27,11 @@ Because state is calculated purely on the client side across different Javascrip
 ### Rule 5: Virtualize The UI
 You cannot render 10,000 aircraft rows into the DOM. Every list must use `@tanstack/react-virtual`. Every map uses WebGL instancing (MapLibre). If you add a list, ensure it scales to 1,000,000 rows without thrashing React.
 
-## 3. The Corporate Pivot (Phase 9 Readiness)
-In this greenfield development, we have already pivoted from a simple 1:1 mapping (Player = Airline) to a **Corporate Holding Model**:
-- An **AirlineEntity** is a cryptographic object (with a genesis hash ID, assets, and liabilities).
+## 3. The Corporate Architecture (First-Class Entities)
+In this game, the **Airline** has been a first-class citizen from day one. You are not building a simple 1:1 mapping (Player = Airline). We use a **Corporate Holding Model**:
+- An **AirlineEntity** is a distinct cryptographic object (with a genesis hash ID, assets, and liabilities).
 - A **Player** (Nostr Pubkey) is an investor and optionally the CEO.
-- Airlines have **Cap Tables** (10,000,000 shares) and can IPO, merger, issue dividends, file Chapter 11 bankruptcy, or suffer Hostile Takeovers via signed player vote events. 
+- Airlines have **Cap Tables** (10,000,000 shares) and can IPO, merge, issue dividends, file Chapter 11 bankruptcy, or suffer Hostile Takeovers via signed player vote events. 
 *Always write types to support the `AirlineEntity` structure, not a 1:1 player schema.*
 
 ## 4. Architecture Bounded Contexts
