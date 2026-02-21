@@ -86,10 +86,11 @@ Games that retain players for years use **nested engagement loops** operating at
 
 ### 2.2 The "Idle" Dimension — Persistent World Advantage
 
-Because the world is **persistent and tick-based**, the game works EVEN WHEN YOU'RE NOT PLAYING:
+Because the world is **persistent and tick-based**, the game works EVEN WHEN YOU'RE NOT PLAYING. 
+Critically, **Time in AirTR is exactly 1:1 with Real-World UTC Time**. Like Flightradar24, if a plane takes 7 hours to fly from JFK to LHR in reality, it takes exactly 7 hours in the game. You do not fast-forward time.
 
-- Your flights continue to fly and earn revenue
-- Competitors may open routes on your turf
+- Your flights continue to fly and earn revenue in real-time
+- Competitors may open routes on your turf while you sleep
 - Seasons change, demand shifts
 - Your brand reputation evolves
 

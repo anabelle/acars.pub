@@ -33,7 +33,7 @@ To balance profitability, a vibrant player-driven economy, and a frictionless fr
 Instead of relying on random ticket draws like casual games, AirTR leverages its deep economic simulation to reward skill.
 
 *   **The Funding**: We sell unintrusive, highly targeted ad space within the official `airtr.app` web client (e.g., a real aviation company sponsoring the map background, or an exchange sponsoring the leaderboard).
-*   **The Payout**: Every in-game "Year" (e.g., 2 real-world weeks), a script evaluates the global, mathematically verifiable Nostr state and distributes 50% of the ad treasury via **Lightning Zaps** to top players.
+*   **The Payout**: Every real-world Month (or Quarter), a script evaluates the global, mathematically verifiable Nostr state and distributes 50% of the ad treasury via **Lightning Zaps** to top players.
 *   **Why it works**: It creates massive organic viral marketing ("I made $100 running an airline on Nostr") and drives intense competitive engagement without hyper-inflating the game with generic tokens.
 
 ### Pillar 2: The Nostr Native P2P Economy

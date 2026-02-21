@@ -161,7 +161,7 @@ Aircraft are depreciating assets that require constant upkeep. If ignored, they 
 3. **A-Checks (Routine Maintenance)**: 
    - Required every X flight hours (e.g., 500 hours).
    - If `flightHoursSinceCheck` exceeds the limit, the aircraft is **forcibly grounded** (`status = 'maintenance'`) until it undergoes a check.
-   - Checks cost money and take time (e.g., grounded for 24 in-game hours).
+   - Checks cost money and take real time (e.g., grounded for 24 hours).
    - Resets `flightHoursSinceCheck` to 0 and slightly restores `condition`.
 4. **C-Checks / Overhauls**:
    - A major manual action that heavily restores `condition` but costs a fortune and grounds the plane for days.
