@@ -2,10 +2,34 @@ import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 import { getNDK } from './ndk.js';
 
 /**
- * Check if a NIP-07 extension (nos2x, Alby, etc.) is available.
+ * Check if a NIP-07 extension (nos2x, Alby, etc.) is available RIGHT NOW.
  */
 export function hasNip07(): boolean {
     return typeof window !== 'undefined' && typeof (window as any).nostr?.getPublicKey === 'function';
+}
+
+/**
+ * Wait for a NIP-07 extension to inject window.nostr.
+ * Extensions inject their content scripts AFTER page JS starts,
+ * so we poll briefly before giving up.
+ */
+export function waitForNip07(timeoutMs = 1500): Promise<boolean> {
+    return new Promise((resolve) => {
+        if (hasNip07()) { resolve(true); return; }
+
+        const interval = setInterval(() => {
+            if (hasNip07()) {
+                clearInterval(interval);
+                clearTimeout(timer);
+                resolve(true);
+            }
+        }, 100);
+
+        const timer = setTimeout(() => {
+            clearInterval(interval);
+            resolve(false);
+        }, timeoutMs);
+    });
 }
 
 /**

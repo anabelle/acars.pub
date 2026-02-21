@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { Airline } from '@airtr/core';
 import { fp } from '@airtr/core';
 import {
-    hasNip07,
+    waitForNip07,
     getPubkey,
     attachSigner,
     ensureConnected,
@@ -44,13 +44,14 @@ export const useAirlineStore = create<AirlineState>((set) => ({
     error: null,
 
     initializeIdentity: async () => {
-        // Step 1: Check for NIP-07 extension
-        if (!hasNip07()) {
+        set({ isLoading: true, error: null, airline: null, pubkey: null });
+
+        // Step 1: Wait for NIP-07 extension to inject (up to 1.5s)
+        const extensionReady = await waitForNip07();
+        if (!extensionReady) {
             set({ identityStatus: 'no-extension', isLoading: false });
             return;
         }
-
-        set({ isLoading: true, error: null, airline: null, pubkey: null });
 
         try {
             // Step 2: Get pubkey from extension (fresh every time — no caching)
