@@ -1,111 +1,63 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { IdentityGate } from '@/features/identity/components/IdentityGate';
-import { WorldMap } from '@/features/network/components/WorldMap';
-import { Ticker } from '@/features/network/components/Ticker';
-import { useAirlineStore, useEngineStore } from '@airtr/store';
-import { fpFormat } from '@airtr/core';
+import { useEngineStore } from '@airtr/store';
+import { fpFormat, fpAdd, FP_ZERO } from '@airtr/core';
 
 export const Route = createFileRoute('/')({
-    component: DashboardOverview,
+    component: OverviewDashboard,
 });
 
-function DashboardOverview() {
-    return (
-        <div className="relative flex h-screen w-full flex-col overflow-hidden bg-background">
-            {/* Layer 0: The WebGL Map */}
-            <WorldMap />
-
-            {/* Layer 1: The Gate overlaying the map */}
-            <div className="absolute inset-0 z-20 flex flex-col pointer-events-none">
-                <IdentityGate>
-                    {/* Floating Dashboard - only visible inside IdentityGate Success */}
-                    <div className="flex h-full w-full flex-col justify-between p-6 pb-12">
-                        {/* Top Navbar Area */}
-                        <div className="flex w-full items-start justify-between">
-                            <AirlineHeader />
-                            <div className="flex space-x-4 pointer-events-auto">
-                                {/* Future: Fleet, Routes, Corporate Navigation Tabs */}
-                            </div>
-                        </div>
-
-                        {/* Bottom Data Panels */}
-                        <div className="flex justify-between items-end gap-4 pointer-events-auto w-full md:w-auto overflow-x-auto pb-4">
-                            <RouteMetricsCard />
-                        </div>
-                    </div>
-                </IdentityGate>
-            </div>
-
-            {/* Layer 2: The Global Ticker */}
-            <Ticker />
-        </div>
-    );
-}
-
-// Small sub-components for the Dashboard
-function AirlineHeader() {
-    const { airline } = useAirlineStore();
-
-    if (!airline) return null;
-
-    return (
-        <div className="pointer-events-auto flex items-center space-x-4 rounded-xl border border-border/50 bg-background/60 p-4 shadow-xl backdrop-blur-xl">
-            <div
-                className="flex h-12 w-12 items-center justify-center rounded-lg shadow-inner"
-                style={{
-                    backgroundColor: airline.livery.primary,
-                    color: airline.livery.secondary,
-                }}
-            >
-                <span className="text-lg font-black">{airline.icaoCode}</span>
-            </div>
-            <div>
-                <h1 className="text-xl font-bold tracking-tight text-foreground">{airline.name}</h1>
-                <p className="text-xs text-muted-foreground uppercase tracking-widest">
-                    {airline.callsign} | <span className="text-green-400">{fpFormat(airline.corporateBalance)}</span>
-                </p>
-            </div>
-        </div>
-    );
-}
-
-function RouteMetricsCard() {
+function OverviewDashboard() {
     const routes = useEngineStore((s) => s.routes);
     const homeAirport = useEngineStore((s) => s.homeAirport);
 
-    if (!homeAirport || routes.length === 0) return null;
+    if (!homeAirport) return null;
 
     return (
-        <div className="min-w-[400px] flex flex-col space-y-3 rounded-xl border border-border/50 bg-background/60 p-5 shadow-xl backdrop-blur-xl max-h-[300px] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-border/50">
-                <h3 className="text-sm font-semibold tracking-tight uppercase text-muted-foreground">
-                    Origin: <span className="text-foreground">{homeAirport.iata}</span>
-                </h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary uppercase">
+        <div className="flex h-full w-full flex-col p-6">
+            <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-2xl font-bold tracking-tight text-foreground">Overview</h2>
+                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase text-primary">
                     {routes.length} Active Routes
                 </span>
             </div>
 
-            <div className="space-y-2">
-                {routes.slice(0, 5).map((r) => {
-                    const totalDemand = r.demand.economy + r.demand.business + r.demand.first;
-                    return (
-                        <div key={r.destination.iata} className="flex items-center justify-between text-sm py-1">
-                            <div className="flex items-center space-x-3 w-1/3">
-                                <span className="font-mono font-medium text-accent">{r.destination.iata}</span>
-                                <span className="text-xs text-muted-foreground max-w-[80px] truncate">{r.destination.city}</span>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="rounded-xl border border-border/50 bg-background/50 p-4">
+                    <p className="text-xs uppercase text-muted-foreground font-semibold">Total Weekly Pax</p>
+                    <p className="mt-2 text-2xl font-mono text-foreground">
+                        {routes.reduce((acc, r) => acc + r.demand.economy + r.demand.business + r.demand.first, 0).toLocaleString()}
+                    </p>
+                </div>
+                <div className="rounded-xl border border-border/50 bg-background/50 p-4">
+                    <p className="text-xs uppercase text-muted-foreground font-semibold">Projected Daily Rev</p>
+                    <p className="mt-2 text-2xl font-mono text-green-400">
+                        {fpFormat(routes.reduce((acc, r) => fpAdd(acc, r.estimatedDailyRevenue), FP_ZERO), 0)}
+                    </p>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-2">
+                    {routes.slice(0, 50).map((r) => {
+                        const totalDemand = r.demand.economy + r.demand.business + r.demand.first;
+                        return (
+                            <div key={r.destination.iata} className="flex items-center justify-between rounded-md border border-border/50 bg-background/40 px-4 py-3 hover:bg-accent/50 transition-colors">
+                                <div className="flex w-1/3 flex-col">
+                                    <span className="font-mono text-lg font-bold text-accent">{r.destination.iata}</span>
+                                    <span className="truncate text-xs text-muted-foreground">{r.destination.city}</span>
+                                </div>
+                                <div className="flex w-1/3 flex-col text-right">
+                                    <span className="text-[10px] uppercase text-muted-foreground">Weekly Demand</span>
+                                    <span className="font-mono text-sm">{totalDemand.toLocaleString()}</span>
+                                </div>
+                                <div className="flex w-1/3 flex-col text-right">
+                                    <span className="text-[10px] uppercase text-muted-foreground">Est. Value</span>
+                                    <span className="font-mono text-sm text-green-400">{fpFormat(r.estimatedDailyRevenue, 0)}</span>
+                                </div>
                             </div>
-                            <div className="text-right w-1/3">
-                                <span className="text-xs text-muted-foreground block">Weekly Pax</span>
-                                <span className="font-mono text-foreground">{totalDemand.toLocaleString()}</span>
-                            </div>
-                            <div className="text-right w-1/3">
-                                <span className="text-xs text-muted-foreground block">Est Daily Rev</span>
-                                <span className="font-mono text-green-400">{fpFormat(r.estimatedDailyRevenue, 0)}</span>
-                            </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );
