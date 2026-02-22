@@ -1,6 +1,6 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router';
-// import { TanStackRouterDevtools } from '@tanstack/router-devtools';
 import React, { Suspense } from 'react';
+import { AppInitializer } from '../app/AppInitializer';
 
 const TanStackRouterDevtools =
     process.env.NODE_ENV === 'production'
@@ -15,7 +15,9 @@ export const Route = createRootRoute({
     component: () => (
         <>
             <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-                <Outlet />
+                <AppInitializer>
+                    <Outlet />
+                </AppInitializer>
             </div>
             <Suspense fallback={null}>
                 <TanStackRouterDevtools />
