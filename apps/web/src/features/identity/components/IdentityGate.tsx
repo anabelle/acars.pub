@@ -7,17 +7,19 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
 
     if (identityStatus === 'checking') {
         return (
-            <div className="flex h-full w-full flex-col items-center justify-center space-y-4">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground animate-pulse">Establishing secure connection to Nostr network...</p>
+            <div className="flex h-full w-full items-center justify-center pointer-events-auto">
+                <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-border/50 bg-background/60 p-8 shadow-2xl backdrop-blur-xl">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm font-medium text-muted-foreground animate-pulse">Establishing secure connection to Nostr network...</p>
+                </div>
             </div>
         );
     }
 
     if (identityStatus === 'no-extension') {
         return (
-            <div className="flex h-full w-full items-center justify-center p-4">
-                <div className="max-w-md space-y-4 rounded-lg border border-border bg-card p-8 shadow-lg">
+            <div className="flex h-full w-full items-center justify-center p-4 pointer-events-auto backdrop-blur-sm bg-background/40">
+                <div className="max-w-md space-y-4 rounded-xl border border-border/50 bg-background/80 p-8 shadow-2xl backdrop-blur-xl">
                     <h2 className="text-2xl font-semibold tracking-tight">Identity Required</h2>
                     <p className="text-muted-foreground">
                         AirTR is a decentralized simulation. You must have a NIP-07 compatible wallet extension installed to access the network.
@@ -46,7 +48,7 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
     // If we have an identity but no airline entity
     if (identityStatus === 'ready' && !airline) {
         return (
-            <div className="flex h-full w-full items-center justify-center overflow-auto p-4 py-12">
+            <div className="flex h-full w-full items-center justify-center overflow-auto p-4 py-12 pointer-events-auto backdrop-blur-[2px] bg-background/20">
                 <AirlineCreator />
             </div>
         );

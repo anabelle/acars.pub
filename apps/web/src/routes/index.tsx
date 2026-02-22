@@ -11,31 +11,34 @@ export const Route = createFileRoute('/')({
 
 function DashboardOverview() {
     return (
-        <IdentityGate>
-            <div className="relative flex h-screen w-full flex-col overflow-hidden bg-background">
-                {/* Layer 0: The WebGL Map */}
-                <WorldMap />
+        <div className="relative flex h-screen w-full flex-col overflow-hidden bg-background">
+            {/* Layer 0: The WebGL Map */}
+            <WorldMap />
 
-                {/* Layer 1: Floating Dashboard */}
-                <div className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between p-6 pb-12">
-                    {/* Top Navbar Area */}
-                    <div className="flex w-full items-start justify-between">
-                        <AirlineHeader />
-                        <div className="flex space-x-4 pointer-events-auto">
-                            {/* Future: Fleet, Routes, Corporate Navigation Tabs */}
+            {/* Layer 1: The Gate overlaying the map */}
+            <div className="absolute inset-0 z-20 flex flex-col pointer-events-none">
+                <IdentityGate>
+                    {/* Floating Dashboard - only visible inside IdentityGate Success */}
+                    <div className="flex h-full w-full flex-col justify-between p-6 pb-12">
+                        {/* Top Navbar Area */}
+                        <div className="flex w-full items-start justify-between">
+                            <AirlineHeader />
+                            <div className="flex space-x-4 pointer-events-auto">
+                                {/* Future: Fleet, Routes, Corporate Navigation Tabs */}
+                            </div>
+                        </div>
+
+                        {/* Bottom Data Panels */}
+                        <div className="flex justify-between items-end gap-4 pointer-events-auto w-full md:w-auto overflow-x-auto pb-4">
+                            <RouteMetricsCard />
                         </div>
                     </div>
-
-                    {/* Bottom Data Panels */}
-                    <div className="flex justify-between items-end gap-4 pointer-events-auto w-full md:w-auto overflow-x-auto pb-4">
-                        <RouteMetricsCard />
-                    </div>
-                </div>
-
-                {/* Layer 2: The Global Ticker */}
-                <Ticker />
+                </IdentityGate>
             </div>
-        </IdentityGate>
+
+            {/* Layer 2: The Global Ticker */}
+            <Ticker />
+        </div>
     );
 }
 
