@@ -33,14 +33,8 @@ export const Route = createRootRoute({
                             <div className="flex flex-1 overflow-hidden relative pb-10">
                                 <Sidebar />
 
-                                {/* The main content area where domain views slide in.
-                    We give it padding and pointer-events-auto so the panels are interactive, 
-                    but the background remains transparent and un-clickable so the map below can be dragged if there is space. */}
-                                <main className="relative flex-1 p-6 h-full overflow-hidden pointer-events-none">
-                                    {/* Context Panel wrapper for domain views */}
-                                    <div className="h-full w-full max-w-2xl pointer-events-auto bg-background/85 border border-border rounded-xl shadow-[0_0_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl flex flex-col overflow-hidden">
-                                        <Outlet />
-                                    </div>
+                                <main className="relative flex-1 p-6 h-full overflow-hidden pointer-events-none flex">
+                                    <Outlet />
                                 </main>
                             </div>
 
