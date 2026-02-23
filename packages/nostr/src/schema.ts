@@ -5,6 +5,7 @@ import { type AirlineEntity, fp } from '@airtr/core';
 export type AirlineConfig = Pick<AirlineEntity, 'name' | 'icaoCode' | 'callsign' | 'hubs' | 'livery' | 'lastTick'> & {
     corporateBalance?: import('@airtr/core').FixedPoint;
     fleet?: import('@airtr/core').AircraftInstance[];
+    routes?: import('@airtr/core').Route[];
 };
 
 const AIRLINE_KIND = 30078;
@@ -39,6 +40,7 @@ export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> 
         livery: airline.livery,
         corporateBalance: airline.corporateBalance,
         fleet: airline.fleet,
+        routes: airline.routes,
         lastTick: airline.lastTick,
     });
 
@@ -49,7 +51,7 @@ export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> 
 /**
  * Tries to fetch an existing airline configuration for the given pubkey.
  */
-export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEntity, fleet: import('@airtr/core').AircraftInstance[] } | null> {
+export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEntity, fleet: import('@airtr/core').AircraftInstance[], routes: import('@airtr/core').Route[] } | null> {
     await ensureConnected();
     const ndk = getNDK();
 
@@ -99,10 +101,10 @@ export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEnt
             corporateBalance: data.corporateBalance || fp(100000000),
             stockPrice: fp(10), // $10/share
             fleetIds: data.fleet ? data.fleet.map((f: any) => f.id) : [],
-            routeIds: [],
+            routeIds: data.routes ? data.routes.map((r: any) => r.id) : [],
             lastTick: data.lastTick || 0
         };
-        return { airline: loaded, fleet: data.fleet || [] };
+        return { airline: loaded, fleet: data.fleet || [], routes: data.routes || [] };
     } catch (e) {
         console.error("Failed parsing airline Nostr event", e);
         return null;

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AirlineEntity, AircraftInstance, AircraftModel } from '@airtr/core';
+import type { AirlineEntity, AircraftInstance, AircraftModel, Route, FixedPoint } from '@airtr/core';
 import { fp, fpSub, fpAdd, calculateBookValue, fpScale, fpFormat } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
 import {
@@ -34,6 +34,7 @@ export type IdentityStatus = 'checking' | 'no-extension' | 'ready';
 export interface AirlineState {
     airline: AirlineEntity | null;
     fleet: AircraftInstance[];
+    routes: Route[];
     pubkey: string | null;
     identityStatus: IdentityStatus;
     isLoading: boolean;
@@ -47,12 +48,15 @@ export interface AirlineState {
     sellAircraft: (aircraftId: string) => Promise<void>;
     buyoutAircraft: (aircraftId: string) => Promise<void>;
     purchaseUsedAircraft: (listing: any) => Promise<void>;
+    openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;
+    assignAircraftToRoute: (aircraftId: string, routeId: string | null) => Promise<void>;
     processTick: (tick: number) => void;
 }
 
 export const useAirlineStore = create<AirlineState>((set, get) => ({
     airline: null,
     fleet: [],
+    routes: [],
     pubkey: null,
     identityStatus: 'checking',
     isLoading: false,
@@ -90,6 +94,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
                 pubkey,
                 airline: existing ? existing.airline : null,
                 fleet: existing ? existing.fleet : [],
+                routes: existing ? existing.routes : [],
                 identityStatus: 'ready',
                 isLoading: false,
             });
@@ -102,61 +107,69 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
         }
     },
 
-    createAirline: async (params) => {
+    createAirline: async (params: AirlineConfig) => {
         set({ isLoading: true, error: null });
         try {
-            // Ensure signer is attached and relays connected
             attachSigner();
             ensureConnected();
 
-            await publishAirline(params);
+            const event = await publishAirline({
+                ...params,
+                corporateBalance: fp(100000000), // Start with $100M
+                lastTick: useEngineStore.getState().tick,
+            });
 
-            // Get current pubkey (should already be known)
             const pubkey = await getPubkey();
-            if (!pubkey) throw new Error('Lost identity during publish');
+            if (!pubkey) throw new Error("No pubkey after extension ready");
 
-            const newAirline: AirlineEntity = {
-                id: pubkey, // We'll just use pubkey as ID for the MVP store testing locally
+            const airline: AirlineEntity = {
+                id: event.id,
                 foundedBy: pubkey,
-                status: 'private',
                 ceoPubkey: pubkey,
+                name: params.name,
+                icaoCode: params.icaoCode,
+                callsign: params.callsign,
+                hubs: params.hubs,
+                livery: params.livery,
+                status: 'private',
                 sharesOutstanding: 10000000,
                 shareholders: { [pubkey]: 10000000 },
-                ...params,
                 brandScore: 0.5,
                 tier: 1,
                 corporateBalance: fp(100000000),
                 stockPrice: fp(10),
                 fleetIds: [],
                 routeIds: [],
-                lastTick: useEngineStore.getState().tick
+                lastTick: useEngineStore.getState().tick,
             };
 
-            set({ airline: newAirline, pubkey, isLoading: false });
+            set({ airline, isLoading: false, fleet: [], routes: [] });
         } catch (error: any) {
             set({ error: error.message, isLoading: false });
         }
     },
 
-    updateHub: async (newHubIata: string) => {
-        const { airline } = get();
+    updateHub: async (targetHubIata: string) => {
+        const { airline, fleet, routes } = get();
         if (!airline) return;
 
-        const updated = { ...airline, hubs: [newHubIata] };
-        set({ airline: updated });
+        const updatedAirline = {
+            ...airline,
+            hubs: [targetHubIata] // For MVP, we only support one hub
+        };
 
-        // Republish to Nostr so the hub change persists
+        set({ airline: updatedAirline });
+
         try {
-            attachSigner();
-            ensureConnected();
             await publishAirline({
-                name: updated.name,
-                icaoCode: updated.icaoCode,
-                callsign: updated.callsign,
-                hubs: updated.hubs,
-                livery: updated.livery,
-                corporateBalance: updated.corporateBalance,
-                fleet: get().fleet,
+                name: updatedAirline.name,
+                icaoCode: updatedAirline.icaoCode,
+                callsign: updatedAirline.callsign,
+                hubs: updatedAirline.hubs,
+                livery: updatedAirline.livery,
+                corporateBalance: updatedAirline.corporateBalance,
+                fleet: fleet,
+                routes: routes,
                 lastTick: useEngineStore.getState().tick,
             });
         } catch (error: any) {
@@ -166,7 +179,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
     },
 
     purchaseAircraft: async (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string, purchaseType: 'buy' | 'lease' = 'buy') => {
-        const { airline, pubkey, fleet } = get();
+        const { airline, pubkey, fleet, routes } = get();
         if (!airline || !pubkey) throw new Error("No active identity or airline loaded.");
 
         const upfrontCost = purchaseType === 'buy'
@@ -206,6 +219,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             condition: 1.0,
         };
 
+        const updatedFleet = [...fleet, newInstance];
         const updatedAirline = {
             ...airline,
             corporateBalance: fpSub(airline.corporateBalance, upfrontCost),
@@ -214,7 +228,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
 
         set({
             airline: updatedAirline,
-            fleet: [...fleet, newInstance]
+            fleet: updatedFleet
         });
 
         // Publish to Nostr to persist
@@ -226,7 +240,8 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
                 hubs: updatedAirline.hubs,
                 livery: updatedAirline.livery,
                 corporateBalance: updatedAirline.corporateBalance,
-                fleet: [...fleet, newInstance],
+                fleet: updatedFleet,
+                routes: routes,
                 lastTick: useEngineStore.getState().tick,
             });
         } catch (e) {
@@ -235,7 +250,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
     },
 
     sellAircraft: async (aircraftId: string) => {
-        const { airline, fleet } = get();
+        const { airline, fleet, routes } = get();
         if (!airline) throw new Error("No active identity or airline loaded.");
 
         const instanceIndex = fleet.findIndex(f => f.id === aircraftId);
@@ -289,6 +304,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
                 livery: updatedAirline.livery,
                 corporateBalance: updatedAirline.corporateBalance,
                 fleet: updatedFleet,
+                routes: routes,
                 lastTick: currentTick,
             });
 
@@ -307,7 +323,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
     },
 
     buyoutAircraft: async (aircraftId: string) => {
-        const { airline, fleet } = get();
+        const { airline, fleet, routes } = get();
         if (!airline) throw new Error('No airline found.');
 
         const instance = fleet.find(f => f.id === aircraftId);
@@ -321,7 +337,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
         const cost = calculateBookValue(model, instance.flightHoursTotal, instance.condition, instance.purchasedAtTick, engineStore.tick);
 
         if (airline.corporateBalance < cost) {
-            throw new Error(`Insufficient funds for buyout of ${instance.name}. Needed: ${fpFormat(cost as any)}`);
+            throw new Error(`Insufficient funds for buyout of ${instance.name}. Needed: ${fpFormat(cost)}`);
         }
 
         const updatedFleet = fleet.map(ac =>
@@ -337,6 +353,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             await publishAirline({
                 ...updatedAirline,
                 fleet: updatedFleet,
+                routes: routes,
                 lastTick: engineStore.tick
             });
         } catch (e) {
@@ -345,7 +362,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
     },
 
     purchaseUsedAircraft: async (listing: any) => {
-        const { airline, pubkey, fleet } = get();
+        const { airline, pubkey, fleet, routes } = get();
         if (!airline || !pubkey) throw new Error("No active identity or airline loaded.");
 
         const price = listing.marketplacePrice;
@@ -382,26 +399,23 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
         delete (newInstance as any).source;
 
         const updatedBalance = fpSub(airline.corporateBalance, price);
+        const updatedFleet = [...fleet, newInstance];
         const updatedAirline = {
             ...airline,
             corporateBalance: updatedBalance,
             fleetIds: [...airline.fleetIds, newInstance.id]
         };
 
-        const updatedFleet = [...fleet, newInstance];
-
         set({
             airline: updatedAirline,
             fleet: updatedFleet
         });
 
-        // 2. Persist state to Nostr
+        // 2. Publish to Nostr
         try {
-            console.info('[Marketplace] Purchasing used aircraft...', newInstance.id);
             attachSigner();
             ensureConnected();
 
-            // A. Update airline fleet and balance
             await publishAirline({
                 name: updatedAirline.name,
                 icaoCode: updatedAirline.icaoCode,
@@ -410,27 +424,105 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
                 livery: updatedAirline.livery,
                 corporateBalance: updatedAirline.corporateBalance,
                 fleet: updatedFleet,
+                routes: routes,
                 lastTick: engineStore.tick,
             });
 
-            // B. Deletion request for the marketplace listing (Kind 5)
-            const eventIdToDelete = listing.id;
-            if (eventIdToDelete && !eventIdToDelete.startsWith('local-')) {
-                const ndk = getNDK();
-                const deletionEvent = new NDKEvent(ndk);
-                deletionEvent.kind = 5;
-                deletionEvent.tags = [['e', eventIdToDelete]];
-                deletionEvent.content = "Aircraft Sold (AirTR Marketplace)";
-                await deletionEvent.publish();
-                console.info('[Marketplace] Listing deleted from Network.');
-            }
+            // 3. Mark the marketplace listing as sold (by deleting it or updating it)
+            // For Kind 30079, deletion is standard.
+            const ndk = getNDK();
+            const deletionEvent = new NDKEvent(ndk);
+            deletionEvent.kind = 5; // Event deletion
+            deletionEvent.tags = [['e', listing.id]];
+            await deletionEvent.publish();
+            console.info('[Marketplace] Listing deleted from Network.');
         } catch (e) {
             console.error('Failed to sync purchase to Nostr:', e);
         }
     },
 
+    openRoute: async (originIata: string, destinationIata: string, distanceKm: number) => {
+        const { airline, routes, fleet, pubkey } = get();
+        if (!airline || !pubkey) throw new Error("No airline loaded.");
+
+        const SLOT_FEE = fp(100000); // $100k to open a route
+        if (airline.corporateBalance < SLOT_FEE) {
+            throw new Error("Insufficient funds to open route. Cost: $100,000");
+        }
+
+        const newRoute: Route = {
+            id: `rt-${Date.now().toString(36)}`,
+            originIata,
+            destinationIata,
+            airlinePubkey: pubkey,
+            distanceKm,
+            assignedAircraftIds: [],
+            fareEconomy: fp(Math.round(distanceKm * 0.15 + 50)), // Basic heuristic pricing
+            fareBusiness: fp(Math.round(distanceKm * 0.4 + 150)),
+            fareFirst: fp(Math.round(distanceKm * 0.8 + 400)),
+            status: 'active',
+        };
+
+        const updatedAirline = {
+            ...airline,
+            corporateBalance: fpSub(airline.corporateBalance, SLOT_FEE),
+            routeIds: [...airline.routeIds, newRoute.id]
+        };
+
+        const updatedRoutes = [...routes, newRoute];
+
+        set({ airline: updatedAirline, routes: updatedRoutes });
+
+        try {
+            await publishAirline({
+                ...updatedAirline,
+                fleet,
+                routes: updatedRoutes,
+                lastTick: useEngineStore.getState().tick,
+            });
+        } catch (e) {
+            console.error("Failed to sync route to Nostr:", e);
+        }
+    },
+
+    assignAircraftToRoute: async (aircraftId: string, routeId: string | null) => {
+        const { fleet, routes, airline } = get();
+
+        const updatedFleet = fleet.map(ac => {
+            if (ac.id === aircraftId) {
+                return { ...ac, assignedRouteId: routeId };
+            }
+            return ac;
+        });
+
+        const updatedRoutes = routes.map(rt => {
+            // Remove aircraft from ANY route it was on
+            const assigned = rt.assignedAircraftIds.filter(id => id !== aircraftId);
+            // Add if match
+            if (rt.id === routeId) {
+                assigned.push(aircraftId);
+            }
+            return { ...rt, assignedAircraftIds: assigned };
+        });
+
+        set({ fleet: updatedFleet, routes: updatedRoutes });
+
+        if (airline) {
+            try {
+                await publishAirline({
+                    ...airline,
+                    fleet: updatedFleet,
+                    routes: updatedRoutes,
+                    lastTick: useEngineStore.getState().tick
+                });
+            } catch (e) {
+                console.error("Failed to sync assignment to Nostr:", e);
+            }
+        }
+    },
+
     processTick: (tick: number) => {
-        const { fleet, airline } = get();
+        const { fleet, airline, routes } = get();
         if (!airline) return;
 
         let hasChanges = false;
@@ -463,7 +555,10 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             const updatedAirline = { ...airline, corporateBalance, fleet: updatedFleet, lastTick: tick };
             set({ fleet: updatedFleet, airline: updatedAirline });
 
-            publishAirline(updatedAirline).catch(e => console.error("Auto-sync tick failed", e));
+            publishAirline({
+                ...updatedAirline,
+                routes // Ensure routes are passed to publisher
+            }).catch(e => console.error("Auto-sync tick failed", e));
         }
     },
 }));

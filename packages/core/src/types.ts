@@ -175,22 +175,23 @@ export interface AirlineEntity {
 // --- Route ---
 
 export interface Route {
-    /** Origin IATA code */
-    originIata: string;
-    /** Destination IATA code */
-    destinationIata: string;
-    /** Airline pubkey */
-    airlinePubkey: string;
-    /** Flights per week */
-    frequencyPerWeek: number;
-    /** Aircraft type designator assigned */
-    aircraftType: string;
-    /** Economy fare (FixedPoint) */
+    id: string;               // Unique route ID
+    originIata: string;       // Origin Hub
+    destinationIata: string;  // Target Airport
+    airlinePubkey: string;    // Owner
+    distanceKm: number;
+
+    // Operations
+    assignedAircraftIds: string[]; // Which specific planes fly this?
+
+    // Pricing
     fareEconomy: FixedPoint;
-    /** Business fare (FixedPoint) */
     fareBusiness: FixedPoint;
-    /** First class fare (FixedPoint) */
     fareFirst: FixedPoint;
+
+    // Simulation
+    status: 'active' | 'suspended';
+    lastTickProcessed?: number;
 }
 
 // --- Flight Offer (for QSI calculation) ---
