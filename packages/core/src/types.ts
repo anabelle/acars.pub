@@ -105,6 +105,7 @@ export interface AircraftModel {
     residualValuePercent: number;
     unlockTier: number;
     familyId: string;
+    deliveryTimeTicks: number;
 }
 
 export interface AircraftInstance {
@@ -112,9 +113,19 @@ export interface AircraftInstance {
     ownerPubkey: string;      // The airline's Nostr pubkey
     modelId: string;          // Reference to AircraftModel.id
     name: string;             // User-assigned name
-    status: 'idle' | 'assigned' | 'maintenance';
+    status: 'idle' | 'assigned' | 'maintenance' | 'delivery'; // 'delivery' added
     assignedRouteId: string | null;
+    baseAirportIata: string;  // Where the aircraft is physically parked
     purchasedAtTick: number;
+    deliveryAtTick?: number;  // When it arrives at truth
+
+    // Interior Layout
+    configuration: {
+        economy: number;
+        business: number;
+        first: number;
+        cargoKg: number;
+    };
 
     // Wear and Tear Mechanics
     flightHoursTotal: number;
@@ -152,6 +163,9 @@ export interface AirlineEntity {
     // Assets & Obligations
     fleetIds: string[];
     routeIds: string[];
+
+    // Engine State
+    lastTick?: number;
 }
 
 // --- Route ---

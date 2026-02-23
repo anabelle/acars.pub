@@ -2,7 +2,10 @@ import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { getNDK, ensureConnected } from './ndk.js';
 import { type AirlineEntity, fp } from '@airtr/core';
 
-export type AirlineConfig = Pick<AirlineEntity, 'name' | 'icaoCode' | 'callsign' | 'hubs' | 'livery'>;
+export type AirlineConfig = Pick<AirlineEntity, 'name' | 'icaoCode' | 'callsign' | 'hubs' | 'livery' | 'lastTick'> & {
+    corporateBalance?: import('@airtr/core').FixedPoint;
+    fleet?: import('@airtr/core').AircraftInstance[];
+};
 
 const AIRLINE_KIND = 30078;
 const AIRLINE_D_TAG = 'airtr:airline';
@@ -28,6 +31,9 @@ export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> 
         callsign: airline.callsign,
         hubs: airline.hubs,
         livery: airline.livery,
+        corporateBalance: airline.corporateBalance,
+        fleet: airline.fleet,
+        lastTick: airline.lastTick,
     });
 
     await event.publish();
@@ -37,7 +43,7 @@ export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> 
 /**
  * Tries to fetch an existing airline configuration for the given pubkey.
  */
-export async function loadAirline(pubkey: string): Promise<AirlineEntity | null> {
+export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEntity, fleet: import('@airtr/core').AircraftInstance[] } | null> {
     ensureConnected();
     const ndk = getNDK();
 
@@ -79,12 +85,13 @@ export async function loadAirline(pubkey: string): Promise<AirlineEntity | null>
             brandScore: 0.5,
             tier: 1,
             // Defaults for derived metrics
-            corporateBalance: fp(100000000),
+            corporateBalance: data.corporateBalance || fp(100000000),
             stockPrice: fp(10), // $10/share
-            fleetIds: [],
-            routeIds: []
+            fleetIds: data.fleet ? data.fleet.map((f: any) => f.id) : [],
+            routeIds: [],
+            lastTick: data.lastTick || 0
         };
-        return loaded;
+        return { airline: loaded, fleet: data.fleet || [] };
     } catch (e) {
         console.error("Failed parsing airline Nostr event", e);
         return null;

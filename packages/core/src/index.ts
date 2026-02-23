@@ -53,3 +53,6 @@ export { calculateShares, allocatePassengers } from './qsi.js';
 
 // Finance
 export { calculateFlightRevenue, calculateFlightCost } from './finance.js';
+
+// Fleet
+export { calculateBookValue } from './fleet.js';

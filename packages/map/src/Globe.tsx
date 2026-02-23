@@ -7,11 +7,12 @@ export interface GlobeProps {
     airports: Airport[];
     selectedAirport: Airport | null;
     onAirportSelect: (airport: Airport | null) => void;
+    fleetBaseCounts?: Record<string, number>;
     className?: string;
     style?: React.CSSProperties;
 }
 
-export function Globe({ airports, selectedAirport, onAirportSelect, className = '', style }: GlobeProps) {
+export function Globe({ airports, selectedAirport, onAirportSelect, fleetBaseCounts, className = '', style }: GlobeProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapRef = useRef<maplibregl.Map | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
@@ -64,6 +65,26 @@ export function Globe({ airports, selectedAirport, onAirportSelect, className = 
                 },
             });
 
+            // Add fleet parked icons layer
+            map.addLayer({
+                id: 'fleet-layer',
+                type: 'symbol',
+                source: 'airports',
+                filter: ['>', ['get', 'fleetCount'], 0],
+                layout: {
+                    'text-field': '✈️ {fleetCount}',
+                    'text-size': 14,
+                    'text-anchor': 'bottom',
+                    'text-offset': [0, -0.5],
+                    'text-allow-overlap': true
+                },
+                paint: {
+                    'text-halo-color': '#000000',
+                    'text-halo-width': 2,
+                    'text-color': '#4ade80'
+                }
+            });
+
             // Add interaction
             map.on('click', 'airports-layer', (e) => {
                 if (!e.features || e.features.length === 0) return;
@@ -103,7 +124,10 @@ export function Globe({ airports, selectedAirport, onAirportSelect, className = 
             features: airports.map((a) => ({
                 type: 'Feature',
                 geometry: { type: 'Point', coordinates: [a.longitude, a.latitude] },
-                properties: { ...a }, // Spread all properties so select works
+                properties: {
+                    ...a,
+                    fleetCount: fleetBaseCounts?.[a.iata] || 0
+                }, // Spread all properties so select works
             })),
         };
 
@@ -111,7 +135,7 @@ export function Globe({ airports, selectedAirport, onAirportSelect, className = 
         if (source) {
             source.setData(geojson);
         }
-    }, [airports, mapLoaded]);
+    }, [airports, mapLoaded, fleetBaseCounts]);
 
     // Sync selection
     useEffect(() => {

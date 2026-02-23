@@ -2,11 +2,12 @@ import { Globe as CoreGlobe } from '@airtr/map';
 import { useEngineStore, useAirlineStore } from '@airtr/store';
 import { airports as AIRPORTS } from '@airtr/data';
 import type { Airport } from '@airtr/core';
+import { useMemo } from 'react';
 
 export function WorldMap() {
     const homeAirport = useEngineStore(s => s.homeAirport);
     const setHub = useEngineStore(s => s.setHub);
-    const { airline, updateHub } = useAirlineStore();
+    const { airline, updateHub, fleet } = useAirlineStore();
 
     const handleHubChange = (airport: Airport | null) => {
         if (!airport) return;
@@ -21,6 +22,16 @@ export function WorldMap() {
         }
     };
 
+    const fleetBaseCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        fleet.forEach((ac) => {
+            if (ac.baseAirportIata) {
+                counts[ac.baseAirportIata] = (counts[ac.baseAirportIata] || 0) + 1;
+            }
+        });
+        return counts;
+    }, [fleet]);
+
     if (!homeAirport) return null;
 
     return (
@@ -29,6 +40,7 @@ export function WorldMap() {
                 airports={AIRPORTS}
                 selectedAirport={homeAirport}
                 onAirportSelect={handleHubChange}
+                fleetBaseCounts={fleetBaseCounts}
             />
             {/* Map vignette overlay */}
             <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)] z-10" />

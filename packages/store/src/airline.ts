@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { AirlineEntity } from '@airtr/core';
-import { fp } from '@airtr/core';
+import type { AirlineEntity, AircraftInstance, AircraftModel } from '@airtr/core';
+import { fp, fpSub, fpAdd, calculateBookValue } from '@airtr/core';
+import { getAircraftById } from '@airtr/data';
 import {
     waitForNip07,
     getPubkey,
@@ -10,6 +11,7 @@ import {
     publishAirline,
     type AirlineConfig
 } from '@airtr/nostr';
+import { useEngineStore } from './engine';
 
 /**
  * User paths:
@@ -27,6 +29,7 @@ export type IdentityStatus = 'checking' | 'no-extension' | 'ready';
 
 export interface AirlineState {
     airline: AirlineEntity | null;
+    fleet: AircraftInstance[];
     pubkey: string | null;
     identityStatus: IdentityStatus;
     isLoading: boolean;
@@ -36,10 +39,14 @@ export interface AirlineState {
     initializeIdentity: () => Promise<void>;
     createAirline: (params: AirlineConfig) => Promise<void>;
     updateHub: (newHubIata: string) => Promise<void>;
+    purchaseAircraft: (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string) => Promise<void>;
+    sellAircraft: (aircraftId: string) => Promise<void>;
+    processTick: (tick: number) => void;
 }
 
 export const useAirlineStore = create<AirlineState>((set, get) => ({
     airline: null,
+    fleet: [],
     pubkey: null,
     identityStatus: 'checking',
     isLoading: false,
@@ -75,10 +82,16 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
 
             set({
                 pubkey,
-                airline: existing,
+                airline: existing ? existing.airline : null,
+                fleet: existing ? existing.fleet : [],
                 identityStatus: 'ready',
                 isLoading: false,
             });
+
+            // Initialize tick from saved state if it exists, otherwise leave at 0 or dev default
+            if (existing && existing.airline.lastTick !== undefined) {
+                useEngineStore.getState().setTick(existing.airline.lastTick);
+            }
         } catch (error: any) {
             set({
                 error: error.message,
@@ -114,7 +127,8 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
                 corporateBalance: fp(100000000),
                 stockPrice: fp(10),
                 fleetIds: [],
-                routeIds: []
+                routeIds: [],
+                lastTick: useEngineStore.getState().tick
             };
 
             set({ airline: newAirline, pubkey, isLoading: false });
@@ -140,10 +154,160 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
                 callsign: updated.callsign,
                 hubs: updated.hubs,
                 livery: updated.livery,
+                corporateBalance: updated.corporateBalance,
+                fleet: get().fleet,
+                lastTick: useEngineStore.getState().tick,
             });
         } catch (error: any) {
             console.warn('Failed to publish hub change to Nostr:', error);
             // Optimistic update already applied — will sync next publish
         }
     },
+
+    purchaseAircraft: async (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string) => {
+        const { airline, pubkey, fleet } = get();
+        if (!airline || !pubkey) throw new Error("No active identity or airline loaded.");
+
+        if (airline.corporateBalance < model.price) {
+            throw new Error(`Insufficient corporate balance to purchase ${model.name}.`);
+        }
+
+        const engineStore = useEngineStore.getState();
+        const homeAirport = engineStore.homeAirport;
+        const targetHubIata = deliveryHubIata || homeAirport?.iata;
+
+        if (!targetHubIata) {
+            throw new Error("You must establish a Hub airport before purchasing aircraft.");
+        }
+
+        const newInstanceId = `ac-${Date.now().toString(36)}`;
+
+        const newInstance: AircraftInstance = {
+            id: newInstanceId,
+            ownerPubkey: pubkey,
+            modelId: model.id,
+            name: customName && customName.trim() !== '' ? customName : `${model.name} ${fleet.length + 1}`,
+            status: 'delivery',
+            assignedRouteId: null,
+            baseAirportIata: targetHubIata,
+            purchasedAtTick: engineStore.tick,
+            deliveryAtTick: engineStore.tick + model.deliveryTimeTicks,
+            configuration: configuration || { ...model.capacity },
+            flightHoursTotal: 0,
+            flightHoursSinceCheck: 0,
+            condition: 1.0,
+        };
+
+        const updatedAirline = {
+            ...airline,
+            corporateBalance: fpSub(airline.corporateBalance, model.price),
+            fleetIds: [...airline.fleetIds, newInstanceId]
+        };
+
+        set({
+            airline: updatedAirline,
+            fleet: [...fleet, newInstance]
+        });
+
+        // Publish to Nostr to persist
+        try {
+            await publishAirline({
+                name: updatedAirline.name,
+                icaoCode: updatedAirline.icaoCode,
+                callsign: updatedAirline.callsign,
+                hubs: updatedAirline.hubs,
+                livery: updatedAirline.livery,
+                corporateBalance: updatedAirline.corporateBalance,
+                fleet: [...fleet, newInstance],
+                lastTick: useEngineStore.getState().tick,
+            });
+        } catch (e) {
+            console.error('Failed to sync aircraft purchase to Nostr:', e);
+        }
+    },
+
+    sellAircraft: async (aircraftId: string) => {
+        const { airline, fleet } = get();
+        if (!airline) throw new Error("No active identity or airline loaded.");
+
+        const instanceIndex = fleet.findIndex(f => f.id === aircraftId);
+        if (instanceIndex === -1) throw new Error("Aircraft not found in operational fleet.");
+
+        const instance = fleet[instanceIndex];
+        const model = getAircraftById(instance.modelId);
+        if (!model) throw new Error("Aircraft catalog model not found.");
+
+        const currentTick = useEngineStore.getState().tick;
+
+        // 1. Calculate the market book value
+        const resaleValue = calculateBookValue(
+            model,
+            instance.flightHoursTotal,
+            instance.condition,
+            instance.purchasedAtTick,
+            currentTick
+        );
+
+        // 2. Liquidate asset -> update corporate balance & fleet array
+        const updatedAirline = {
+            ...airline,
+            corporateBalance: fpAdd(airline.corporateBalance, resaleValue),
+            fleetIds: airline.fleetIds.filter(id => id !== aircraftId)
+        };
+
+        const updatedFleet = [...fleet];
+        updatedFleet.splice(instanceIndex, 1);
+
+        set({
+            airline: updatedAirline,
+            fleet: updatedFleet
+        });
+
+        // Persist to nostalgia
+        try {
+            await publishAirline({
+                name: updatedAirline.name,
+                icaoCode: updatedAirline.icaoCode,
+                callsign: updatedAirline.callsign,
+                hubs: updatedAirline.hubs,
+                livery: updatedAirline.livery,
+                corporateBalance: updatedAirline.corporateBalance,
+                fleet: updatedFleet,
+                lastTick: currentTick,
+            });
+        } catch (e) {
+            console.error('Failed to sync aircraft selling to Nostr:', e);
+        }
+    },
+
+    processTick: (tick: number) => {
+        const { fleet, airline } = get();
+        let hasChanges = false;
+        const updatedFleet = fleet.map(ac => {
+            if (ac.status === 'delivery' && ac.deliveryAtTick !== undefined && tick >= ac.deliveryAtTick) {
+                hasChanges = true;
+                return { ...ac, status: 'idle' as const };
+            }
+            return ac;
+        });
+
+        if (hasChanges) {
+            set({ fleet: updatedFleet });
+            if (airline) {
+                publishAirline({
+                    ...airline,
+                    corporateBalance: airline.corporateBalance,
+                    fleet: updatedFleet,
+                    lastTick: tick,
+                }).catch(e => console.error("Auto-sync tick failed", e));
+            }
+        }
+    },
 }));
+
+// Automatically process fleet ticks when engine ticks advance
+useEngineStore.subscribe((state, prevState) => {
+    if (state.tick !== prevState.tick) {
+        useAirlineStore.getState().processTick(state.tick);
+    }
+});

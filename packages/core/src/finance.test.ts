@@ -87,7 +87,8 @@ describe('calculateFlightCost()', () => {
             economicLifeYears: 20,
             residualValuePercent: 15,
             unlockTier: 1,
-            familyId: 'a320'
+            familyId: 'a320',
+            deliveryTimeTicks: 120
         };
 
         const result = calculateFlightCost({

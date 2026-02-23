@@ -71,12 +71,16 @@ export interface EngineState {
     advanceTick: () => void;
     startEngine: () => void;
     stopEngine: () => void;
+    setTick: (tick: number) => void;
 }
 
 let engineInterval: ReturnType<typeof setInterval> | null = null;
 
+const env = (import.meta as any).env;
+const INITIAL_TICK = env?.VITE_INITIAL_TICK ? parseInt(env.VITE_INITIAL_TICK, 10) : 0;
+
 export const useEngineStore = create<EngineState>((set, get) => ({
-    tick: 0,
+    tick: INITIAL_TICK,
     userLocation: null,
     homeAirport: null,
     routes: [],
@@ -119,5 +123,7 @@ export const useEngineStore = create<EngineState>((set, get) => ({
             engineInterval = null;
         }
         set({ isEngineRunning: false });
-    }
+    },
+
+    setTick: (tick) => set({ tick })
 }));
