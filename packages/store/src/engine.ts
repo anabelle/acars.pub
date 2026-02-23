@@ -57,63 +57,86 @@ function generateRoutes(home: Airport, tick: number): RouteData[] {
     });
 }
 
-// Add memoized distance lookups, etc. when needed
+// --- Universal Clock Configuration ---
+const env = (import.meta as any).env;
+
+/** 
+ * Launch Epoch: When the simulation first started. 
+ */
+const GENESIS_TIME = env?.VITE_GENESIS_TIME ? parseInt(env.VITE_GENESIS_TIME, 10) : 1740333600000;
+
+/** 
+ * How many milliseconds represent 1 simulation "tick". 
+ */
+const TICK_DURATION = env?.VITE_TICK_DURATION ? parseInt(env.VITE_TICK_DURATION, 10) : 3000;
+
+function calculateGlobalTick(): number {
+    const now = Date.now();
+    const elapsed = now - GENESIS_TIME;
+    return Math.max(0, Math.floor(elapsed / TICK_DURATION));
+}
 
 export interface EngineState {
     tick: number;
+    tickProgress: number; // 0 to 1
     userLocation: UserLocation | null;
     homeAirport: Airport | null;
     routes: RouteData[];
     locationMethod: string;
     isEngineRunning: boolean;
 
+    syncTick: () => void;
     setHub: (airport: Airport, loc: UserLocation, method: string) => void;
-    advanceTick: () => void;
     startEngine: () => void;
     stopEngine: () => void;
-    setTick: (tick: number) => void;
 }
 
 let engineInterval: ReturnType<typeof setInterval> | null = null;
 
-const env = (import.meta as any).env;
-const INITIAL_TICK = env?.VITE_INITIAL_TICK ? parseInt(env.VITE_INITIAL_TICK, 10) : 0;
-
 export const useEngineStore = create<EngineState>((set, get) => ({
-    tick: INITIAL_TICK,
+    tick: calculateGlobalTick(),
+    tickProgress: 0,
     userLocation: null,
     homeAirport: null,
     routes: [],
     locationMethod: '',
     isEngineRunning: false,
 
+    syncTick: () => {
+        const now = Date.now();
+        const elapsed = now - GENESIS_TIME;
+        const nextTick = Math.max(0, Math.floor(elapsed / TICK_DURATION));
+        const progress = (elapsed % TICK_DURATION) / TICK_DURATION;
+
+        const { tick, homeAirport } = get();
+
+        if (nextTick !== tick) {
+            set({
+                tick: nextTick,
+                tickProgress: progress,
+                routes: homeAirport ? generateRoutes(homeAirport, nextTick) : []
+            });
+        } else {
+            set({ tickProgress: progress });
+        }
+    },
+
     setHub: (airport, loc, method) => {
-        set((state) => ({
+        const currentTick = calculateGlobalTick();
+        set({
+            tick: currentTick,
             userLocation: loc,
             homeAirport: airport,
             locationMethod: method,
-            routes: generateRoutes(airport, state.tick)
-        }));
-    },
-
-    advanceTick: () => {
-        set((state) => {
-            const nextTick = state.tick + 1;
-            return {
-                tick: nextTick,
-                routes: state.homeAirport ? generateRoutes(state.homeAirport, nextTick) : []
-            };
+            routes: generateRoutes(airport, currentTick)
         });
     },
 
     startEngine: () => {
-        const { isEngineRunning, advanceTick } = get();
+        const { isEngineRunning, syncTick } = get();
         if (isEngineRunning) return;
-
-        engineInterval = setInterval(() => {
-            advanceTick();
-        }, 3000);
-
+        syncTick();
+        engineInterval = setInterval(() => { syncTick(); }, 1000);
         set({ isEngineRunning: true });
     },
 
@@ -124,6 +147,4 @@ export const useEngineStore = create<EngineState>((set, get) => ({
         }
         set({ isEngineRunning: false });
     },
-
-    setTick: (tick) => set({ tick })
 }));

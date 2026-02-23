@@ -11,6 +11,12 @@ const AIRLINE_KIND = 30078;
 const AIRLINE_D_TAG = 'airtr:airline';
 
 /**
+ * Kind for used aircraft listings.
+ */
+export const MARKETPLACE_KIND = 30079;
+export const MARKETPLACE_D_PREFIX = 'airtr:marketplace:';
+
+/**
  * Publishes an airline creation or update event to Nostr.
  */
 export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> {
@@ -96,4 +102,91 @@ export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEnt
         console.error("Failed parsing airline Nostr event", e);
         return null;
     }
+}
+
+const LOCAL_MARKETPLACE_CACHE: any[] = [];
+
+/**
+ * Publishes an aircraft to the global used marketplace.
+ */
+export async function publishUsedAircraft(aircraft: import('@airtr/core').AircraftInstance, price: import('@airtr/core').FixedPoint): Promise<NDKEvent> {
+    ensureConnected();
+    const ndk = getNDK();
+
+    if (!ndk.signer) throw new Error("No signer available.");
+
+    const event = new NDKEvent(ndk);
+    event.kind = MARKETPLACE_KIND as any;
+    event.tags = [
+        ['d', `${MARKETPLACE_D_PREFIX}${aircraft.id}`],
+        ['model', aircraft.modelId],
+        ['owner', aircraft.ownerPubkey],
+        ['price', price.toString()],
+    ];
+
+    const payload = {
+        ...aircraft,
+        marketplacePrice: price,
+        listedAt: Date.now(),
+    };
+
+    event.content = JSON.stringify(payload);
+
+    // Optimistically add to local cache for immediate feedback
+    LOCAL_MARKETPLACE_CACHE.unshift({
+        ...payload,
+        id: 'local-' + Date.now(),
+        instanceId: aircraft.id,
+        sellerPubkey: 'me', // Will be replaced by actual pubkey on load if found on relay
+        createdAt: Math.floor(Date.now() / 1000),
+        isOptimistic: true
+    });
+
+    await event.publish();
+    return event;
+}
+
+/**
+ * Loads all active used aircraft listings from the global marketplace.
+ */
+export async function loadMarketplace(): Promise<any[]> {
+    ensureConnected();
+    const ndk = getNDK();
+
+    const filter: NDKFilter = {
+        kinds: [MARKETPLACE_KIND as any],
+        limit: 100,
+    };
+
+    // Use fetchEvents which resolves on EOSE or timeout
+    const events = await ndk.fetchEvents(filter, { closeOnEose: true });
+
+    const listingsMap = new Map<string, any>();
+
+    // Start with local cache (optimistic)
+    for (const local of LOCAL_MARKETPLACE_CACHE) {
+        listingsMap.set(local.instanceId, local);
+    }
+
+    for (const event of Array.from(events)) {
+        try {
+            const data = JSON.parse(event.content);
+            if (!data.modelId || !data.id) continue;
+
+            const listing = {
+                ...data,
+                id: event.id,
+                instanceId: data.id,
+                sellerPubkey: event.author.pubkey,
+                createdAt: event.created_at,
+            };
+
+            // Relay data always supersedes optimistic data
+            listingsMap.set(listing.instanceId, listing);
+        } catch (e) {
+            console.warn("Failed to parse marketplace event", e);
+        }
+    }
+
+    return Array.from(listingsMap.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }

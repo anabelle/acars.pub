@@ -9,6 +9,8 @@ import {
     ensureConnected,
     loadAirline,
     publishAirline,
+    publishUsedAircraft,
+    loadMarketplace,
     type AirlineConfig
 } from '@airtr/nostr';
 import { useEngineStore } from './engine';
@@ -87,11 +89,6 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
                 identityStatus: 'ready',
                 isLoading: false,
             });
-
-            // Initialize tick from saved state if it exists, otherwise leave at 0 or dev default
-            if (existing && existing.airline.lastTick !== undefined) {
-                useEngineStore.getState().setTick(existing.airline.lastTick);
-            }
         } catch (error: any) {
             set({
                 error: error.message,
@@ -265,6 +262,13 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
 
         // Persist to nostalgia
         try {
+            // Ensure identity is attached for signing the sale and listing
+            attachSigner();
+            ensureConnected();
+
+            console.info(`[Marketplace] Listing aircraft ${instance.id} for ${resaleValue}...`);
+
+            // 1. Update the airline event (removing the aircraft from fleet)
             await publishAirline({
                 name: updatedAirline.name,
                 icaoCode: updatedAirline.icaoCode,
@@ -275,9 +279,17 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
                 fleet: updatedFleet,
                 lastTick: currentTick,
             });
+
+            // 2. Publish to Global Marketplace for others to buy
+            await publishUsedAircraft(instance as any, resaleValue);
+
+            console.info(`[Marketplace] Successfully listed ${instance.id} for sale.`);
         } catch (e) {
-            console.error('Failed to sync aircraft selling to Nostr:', e);
+            console.error('Failed to sync aircraft selling or marketplace listing to Nostr:', e);
+            alert("Failed to sync sale to Nostr. The local state is updated, but the global marketplace listing may be missing.");
         }
+
+
     },
 
     processTick: (tick: number) => {

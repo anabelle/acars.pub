@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
 import { getAircraftById } from '@airtr/data';
+import { calculateBookValue, fpFormat } from '@airtr/core';
 import { AircraftDealer } from './AircraftDealer';
 import { Plane, Wrench, Settings, Search, PlusCircle, LayoutGrid, List, Trash2, Timer } from 'lucide-react';
 
@@ -23,7 +24,7 @@ export function FleetManager() {
                     </button>
                 </div>
                 <div className="flex-1 overflow-hidden min-h-0">
-                    <AircraftDealer />
+                    <AircraftDealer onPurchaseSuccess={() => setView('owned')} />
                 </div>
             </div>
         );
@@ -170,8 +171,14 @@ export function FleetManager() {
                                             <button className="flex items-center justify-center p-2 rounded-lg bg-background border border-border/50 text-muted-foreground hover:text-orange-400 hover:bg-orange-400/10 transition-colors tooltip-trigger" title="Maintenance" disabled={ac.status === 'delivery'}>
                                                 <Wrench className="h-4 w-4" />
                                             </button>
-                                            <button onClick={() => { if (confirm('Sell this aircraft at market value?')) sellAircraft(ac.id); }} className="flex items-center justify-center p-2 rounded-lg bg-background border border-border/50 text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-colors tooltip-trigger" title="Sell Aircraft">
+                                            <button onClick={() => {
+                                                const val = calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.purchasedAtTick, tick);
+                                                if (confirm(`Sell ${ac.name} for ${fpFormat(val)}?\n\nCurrent book value includes depreciation and usage penalties.`)) {
+                                                    sellAircraft(ac.id);
+                                                }
+                                            }} className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all group/sell block shrink-0" title="Sell Aircraft">
                                                 <Trash2 className="h-4 w-4" />
+                                                <span className="text-[10px] font-bold uppercase">Sell for {fpFormat(calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.purchasedAtTick, tick))}</span>
                                             </button>
                                         </div>
                                     </div>

@@ -1,16 +1,20 @@
 import { useState, useMemo } from 'react';
-import { aircraftModels } from '@airtr/data';
-import type { AircraftModel } from '@airtr/core';
-import { fpFormat } from '@airtr/core';
+import { aircraftModels, getAircraftById } from '@airtr/data';
+import type { AircraftModel, AircraftInstance, FixedPoint } from '@airtr/core';
+import { fpFormat, FP_ZERO } from '@airtr/core';
 import { useAirlineStore } from '@airtr/store';
-import { Search, Plane, Users, ArrowRight, Coins, Check, Timer, X, MapPin, Tag } from 'lucide-react';
+import { loadMarketplace } from '@airtr/nostr';
+import { Search, Plane, Users, ArrowRight, Coins, Check, Timer, X, MapPin, Tag, ShoppingBag, History } from 'lucide-react';
 
-export function AircraftDealer() {
+export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () => void }) {
+    const [mode, setMode] = useState<'factory' | 'marketplace'>('factory');
     const [search, setSearch] = useState('');
     const [selectedTier, setSelectedTier] = useState<number | 'all'>('all');
     const [selectedModel, setSelectedModel] = useState<AircraftModel | null>(null);
+    const [usedListings, setUsedListings] = useState<any[]>([]);
+    const [isLoadingUsed, setIsLoadingUsed] = useState(false);
 
-    const filteredAircraft = useMemo(() => {
+    const filteredFactory = useMemo(() => {
         let list = aircraftModels;
         if (selectedTier !== 'all') {
             list = list.filter((a) => a.unlockTier === selectedTier);
@@ -26,62 +30,135 @@ export function AircraftDealer() {
         return list;
     }, [search, selectedTier]);
 
+    const fetchUsed = async () => {
+        setIsLoadingUsed(true);
+        try {
+            const listings = await loadMarketplace();
+            setUsedListings(listings);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoadingUsed(false);
+        }
+    };
+
+    const filteredUsed = useMemo(() => {
+        if (search) {
+            const q = search.toLowerCase();
+            return usedListings.filter(l =>
+                l.modelId.toLowerCase().includes(q) ||
+                l.name.toLowerCase().includes(q)
+            );
+        }
+        return usedListings;
+    }, [search, usedListings]);
+
     return (
         <div className="flex flex-col h-full space-y-6">
+            {/* Mode Switcher */}
+            <div className="flex items-center gap-2 border-b border-border/40 pb-4">
+                <button
+                    onClick={() => setMode('factory')}
+                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${mode === 'factory' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-accent/40'}`}
+                >
+                    <ShoppingBag className="h-4 w-4" />
+                    Factory New
+                </button>
+                <button
+                    onClick={() => { setMode('marketplace'); fetchUsed(); }}
+                    className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${mode === 'marketplace' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-muted-foreground hover:bg-accent/40'}`}
+                >
+                    <History className={`h-4 w-4 ${isLoadingUsed ? 'animate-spin' : ''}`} />
+                    Used Marketplace
+                </button>
+            </div>
+
             {/* Header & Filters */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-card border border-border/40 p-4 shadow-sm backdrop-blur-xl">
-                <div className="relative flex items-center min-w-[300px]">
-                    <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
-                    <input
-                        className="h-10 w-full rounded-xl bg-background border border-border/50 pl-10 pr-4 text-sm transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground outline-none"
-                        placeholder="Search aircraft models..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+                <div className="flex items-center gap-3 flex-1 min-w-[300px]">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
+                        <input
+                            className="h-10 w-full rounded-xl bg-background border border-border/50 pl-10 pr-4 text-sm transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground outline-none"
+                            placeholder={mode === 'factory' ? "Search aircraft models..." : "Search marketplace listings..."}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+                    {mode === 'marketplace' && (
+                        <button
+                            onClick={fetchUsed}
+                            disabled={isLoadingUsed}
+                            className="h-10 px-4 rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 transition-all font-bold text-xs flex items-center gap-2 disabled:opacity-50"
+                        >
+                            <History className={`h-4 w-4 ${isLoadingUsed ? 'animate-spin' : ''}`} />
+                            Refresh
+                        </button>
+                    )}
                 </div>
 
-                <div className="flex items-center space-x-2 bg-background p-1 rounded-xl border border-border/50">
-                    <button
-                        onClick={() => setSelectedTier('all')}
-                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${selectedTier === 'all'
-                            ? 'bg-primary/20 text-primary shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                            }`}
-                    >
-                        All
-                    </button>
-                    {[1, 2, 3, 4].map((tier) => (
+
+                {mode === 'factory' && (
+                    <div className="flex items-center space-x-2 bg-background p-1 rounded-xl border border-border/50">
                         <button
-                            key={tier}
-                            onClick={() => setSelectedTier(tier)}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${selectedTier === tier
+                            onClick={() => setSelectedTier('all')}
+                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${selectedTier === 'all'
                                 ? 'bg-primary/20 text-primary shadow-sm'
                                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                                 }`}
                         >
-                            Tier {tier}
+                            All
                         </button>
-                    ))}
-                </div>
+                        {[1, 2, 3, 4].map((tier) => (
+                            <button
+                                key={tier}
+                                onClick={() => setSelectedTier(tier)}
+                                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${selectedTier === tier
+                                    ? 'bg-primary/20 text-primary shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                    }`}
+                            >
+                                Tier {tier}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Grid */}
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar pb-10">
-                <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
-                    {filteredAircraft.map((aircraft) => (
-                        <AircraftCard
-                            key={aircraft.id}
-                            aircraft={aircraft}
-                            onSelect={() => setSelectedModel(aircraft)}
-                        />
-                    ))}
-                    {filteredAircraft.length === 0 && (
-                        <div className="col-span-full py-20 text-center flex flex-col items-center border border-dashed border-border/50 rounded-2xl bg-card/20">
-                            <Plane className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                            <p className="text-muted-foreground">No aircraft found matching your criteria.</p>
-                        </div>
-                    )}
-                </div>
+                {mode === 'factory' ? (
+                    <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
+                        {filteredFactory.map((aircraft) => (
+                            <AircraftCard
+                                key={aircraft.id}
+                                aircraft={aircraft}
+                                onSelect={() => setSelectedModel(aircraft)}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
+                        {isLoadingUsed ? (
+                            Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="h-64 rounded-2xl bg-card animate-pulse border border-border/40" />
+                            ))
+                        ) : filteredUsed.length > 0 ? (
+                            filteredUsed.map((listing) => (
+                                <UsedAircraftCard
+                                    key={listing.id}
+                                    listing={listing}
+                                    onBuy={() => alert('Used purchase flow coming soon! This would transfer funds and update fleet.')}
+                                />
+                            ))
+                        ) : (
+                            <div className="col-span-full py-20 text-center flex flex-col items-center border border-dashed border-border/50 rounded-2xl bg-card/20">
+                                <History className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
+                                <p className="text-muted-foreground">No used aircraft currently listed on the Marketplace.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Purchase Modal */}
@@ -89,6 +166,7 @@ export function AircraftDealer() {
                 <PurchaseModal
                     aircraft={selectedModel}
                     onClose={() => setSelectedModel(null)}
+                    onPurchaseSuccess={onPurchaseSuccess}
                 />
             )}
         </div>
@@ -183,7 +261,78 @@ function AircraftCard({ aircraft, onSelect }: { aircraft: AircraftModel, onSelec
     );
 }
 
-function PurchaseModal({ aircraft, onClose }: { aircraft: AircraftModel, onClose: () => void }) {
+// ...
+function UsedAircraftCard({ listing, onBuy }: { listing: AircraftInstance & { marketplacePrice: FixedPoint, sellerPubkey: string, isOptimistic?: boolean }, onBuy: () => void }) {
+    const model = getAircraftById(listing.modelId);
+    if (!model) return null;
+
+    const bgGradient = 'from-orange-500/10 via-orange-900/5 to-transparent';
+
+    return (
+        <div className="group relative flex flex-col rounded-2xl bg-card border border-orange-500/20 overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(249,115,22,0.2)] hover:border-orange-500/40">
+            <div className={`h-28 w-full bg-gradient-to-br ${bgGradient} relative flex items-center justify-center border-b border-orange-500/10`}>
+                <div className="absolute top-3 left-3 flex gap-2">
+                    <span className="inline-flex items-center rounded-full bg-orange-500/20 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-orange-400 border border-orange-500/20 uppercase">
+                        {listing.isOptimistic ? 'Syncing...' : 'Used'}
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-background/80 backdrop-blur-md px-2 py-0.5 text-[10px] font-semibold text-muted-foreground border border-border/50">
+                        Tier {model.unlockTier}
+                    </span>
+                </div>
+
+                <Plane className="h-12 w-12 text-orange-500/20 rotate-[-15deg] group-hover:scale-110 group-hover:text-orange-500/40 transition-all duration-500" />
+            </div>
+
+            <div className="flex flex-col flex-1 p-4">
+                <div className="mb-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">{model.manufacturer}</p>
+                    <h3 className="text-lg font-bold text-foreground line-clamp-1">{listing.name}</h3>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-4 mt-auto bg-background/40 p-3 rounded-xl border border-border/20">
+                    <div>
+                        <p className="text-[9px] uppercase text-muted-foreground font-bold">Condition</p>
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1 rounded-full bg-border/50 overflow-hidden">
+                                <div
+                                    className={`h-full ${listing.condition > 0.8 ? 'bg-emerald-500' : listing.condition > 0.5 ? 'bg-orange-500' : 'bg-red-500'}`}
+                                    style={{ width: `${listing.condition * 100}%` }}
+                                />
+                            </div>
+                            <span className="text-[10px] font-mono font-bold">{(listing.condition * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-[9px] uppercase text-muted-foreground font-bold">Flight Hours</p>
+                        <p className="text-xs font-mono font-bold">{(listing.flightHoursTotal || 0).toLocaleString()}h</p>
+                    </div>
+                </div>
+
+                <div className="flex items-end justify-between pt-2">
+                    <div>
+                        <p className="text-[10px] uppercase text-muted-foreground font-bold mb-0.5">Asking Price</p>
+                        <p className="text-lg font-bold text-orange-400 drop-shadow-[0_0_10px_rgba(249,115,22,0.2)]">
+                            {fpFormat(listing.marketplacePrice || FP_ZERO, 0)}
+                        </p>
+                        <p className="text-[9px] text-muted-foreground mt-0.5 italic line-clamp-1">
+                            Seller: {listing.sellerPubkey?.slice(0, 8)}...
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={onBuy}
+                        className="rounded-lg bg-orange-500 px-4 py-2 text-xs font-bold text-white hover:bg-orange-600 transition-all hover:shadow-[0_0_15px_rgba(249,115,22,0.4)]"
+                    >
+                        Purchase
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+function PurchaseModal({ aircraft, onClose, onPurchaseSuccess }: { aircraft: AircraftModel, onClose: () => void, onPurchaseSuccess?: () => void }) {
     const hubs = useAirlineStore(state => state.airline?.hubs || []);
     const purchaseAircraft = useAirlineStore(state => state.purchaseAircraft);
     const corporateBalance = useAirlineStore(state => state.airline?.corporateBalance);
@@ -214,6 +363,7 @@ function PurchaseModal({ aircraft, onClose }: { aircraft: AircraftModel, onClose
             );
             setIsPurchasing(false);
             onClose();
+            if (onPurchaseSuccess) onPurchaseSuccess();
         } catch (error: any) {
             alert(error.message);
             setIsPurchasing(false);
