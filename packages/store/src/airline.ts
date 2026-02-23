@@ -248,13 +248,16 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
         const currentTick = useEngineStore.getState().tick;
 
         // 1. Calculate the market book value
-        const resaleValue = calculateBookValue(
-            model,
-            instance.flightHoursTotal,
-            instance.condition,
-            instance.purchasedAtTick,
-            currentTick
-        );
+        const isLease = instance.purchaseType === 'lease';
+        const resaleValue = isLease
+            ? fp(0)
+            : calculateBookValue(
+                model,
+                instance.flightHoursTotal,
+                instance.condition,
+                instance.purchasedAtTick,
+                currentTick
+            );
 
         // 2. Liquidate asset -> update corporate balance & fleet array
         const updatedAirline = {
@@ -277,8 +280,6 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             attachSigner();
             ensureConnected();
 
-            console.info(`[Marketplace] Listing aircraft ${instance.id} for ${resaleValue}...`);
-
             // 1. Update the airline event (removing the aircraft from fleet)
             await publishAirline({
                 name: updatedAirline.name,
@@ -291,13 +292,17 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
                 lastTick: currentTick,
             });
 
-            // 2. Publish to Global Marketplace for others to buy
-            await publishUsedAircraft(instance as any, resaleValue);
-
-            console.info(`[Marketplace] Successfully listed ${instance.id} for sale.`);
+            // 2. Publish to Global Marketplace only if it was owned
+            if (!isLease) {
+                console.info(`[Marketplace] Listing aircraft ${instance.id} for ${resaleValue}...`);
+                await publishUsedAircraft(instance as any, resaleValue);
+                console.info(`[Marketplace] Successfully listed ${instance.id} for sale.`);
+            } else {
+                console.info(`[Fleet] Leased aircraft ${instance.id} returned to lessor.`);
+            }
         } catch (e) {
             console.error('Failed to sync aircraft selling or marketplace listing to Nostr:', e);
-            alert("Failed to sync sale to Nostr. The local state is updated, but the global marketplace listing may be missing.");
+            alert("Failed to sync fleet change to Nostr. The local state is updated, but global sync may be delayed.");
         }
     },
 
