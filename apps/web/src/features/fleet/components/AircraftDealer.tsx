@@ -371,6 +371,7 @@ function PurchaseModal({ aircraft, onClose, onPurchaseSuccess }: { aircraft: Air
 
     const [selectedHub, setSelectedHub] = useState<string>(hubs[0] || '');
     const [customName, setCustomName] = useState('');
+    const [purchaseType, setPurchaseType] = useState<'buy' | 'lease'>('buy');
     const [isPurchasing, setIsPurchasing] = useState(false);
 
     const [busSeats, setBusSeats] = useState(aircraft.capacity.business);
@@ -391,7 +392,8 @@ function PurchaseModal({ aircraft, onClose, onPurchaseSuccess }: { aircraft: Air
                 aircraft,
                 selectedHub,
                 { economy: econSeats, business: busSeats, first: firstSeats, cargoKg: aircraft.capacity.cargoKg },
-                customName
+                customName,
+                purchaseType
             );
             setIsPurchasing(false);
             onClose();
@@ -411,7 +413,8 @@ function PurchaseModal({ aircraft, onClose, onPurchaseSuccess }: { aircraft: Air
     };
     const bgGradient = gradientMap[aircraft.manufacturer] || 'from-zinc-500/20 via-zinc-900/10 to-transparent';
 
-    const canAfford = typeof corporateBalance === 'number' ? corporateBalance >= aircraft.price : true; // naive fallback
+    const upfrontCost = purchaseType === 'buy' ? aircraft.price : Math.round(aircraft.price * 0.1); // 10% Deposit
+    const canAfford = typeof corporateBalance === 'number' ? corporateBalance >= upfrontCost : true;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -472,6 +475,39 @@ function PurchaseModal({ aircraft, onClose, onPurchaseSuccess }: { aircraft: Air
                                 </div>
                             )}
                         </div>
+                    </div>
+
+                    {/* Acquisition Type */}
+                    <div className="space-y-3">
+                        <h4 className="text-sm font-bold flex items-center gap-2">
+                            <ShoppingBag className="h-4 w-4 text-primary" />
+                            Acquisition Method
+                        </h4>
+                        <div className="flex p-1 bg-background/50 border border-border/50 rounded-xl w-full">
+                            <button
+                                onClick={() => setPurchaseType('buy')}
+                                className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold transition-all ${purchaseType === 'buy'
+                                    ? 'bg-primary text-primary-foreground shadow-lg'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                                    }`}
+                            >
+                                Cash Purchase
+                            </button>
+                            <button
+                                onClick={() => setPurchaseType('lease')}
+                                className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold transition-all ${purchaseType === 'lease'
+                                    ? 'bg-orange-500 text-white shadow-lg'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                                    }`}
+                            >
+                                Lease Agreement
+                            </button>
+                        </div>
+                        {purchaseType === 'lease' && (
+                            <p className="text-[10px] text-muted-foreground italic px-2">
+                                * Lease requires a 10% refundable security deposit and monthly payments of {fpFormat(aircraft.monthlyLease, 0)}.
+                            </p>
+                        )}
                     </div>
 
                     <div className="h-px w-full bg-border/50" />
@@ -553,10 +589,17 @@ function PurchaseModal({ aircraft, onClose, onPurchaseSuccess }: { aircraft: Air
                 {/* Footer Action */}
                 <div className="p-6 border-t border-border/50 bg-background/50 flex items-center justify-between shrink-0">
                     <div>
-                        <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1">Total Cost</p>
-                        <p className={`text-2xl font-bold drop-shadow-[0_0_10px_rgba(16,185,129,0.2)] ${canAfford ? 'text-primary' : 'text-red-500'}`}>
-                            {fpFormat(aircraft.price, 0)}
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1">
+                            {purchaseType === 'buy' ? 'Full Purchase Price' : 'Security Deposit (10%)'}
                         </p>
+                        <p className={`text-2xl font-bold drop-shadow-[0_0_10px_rgba(16,185,129,0.2)] ${canAfford ? 'text-primary' : 'text-red-500'}`}>
+                            {fpFormat(upfrontCost as any, 0)}
+                        </p>
+                        {purchaseType === 'lease' && (
+                            <p className="text-[10px] font-bold text-orange-400 uppercase mt-0.5">
+                                + {fpFormat(aircraft.monthlyLease, 0)} / month
+                            </p>
+                        )}
                         <p className="text-xs text-yellow-500 font-medium mt-1 flex items-center gap-1">
                             <Timer className="h-3 w-3" /> Delivery in {aircraft.deliveryTimeTicks} Ticks
                         </p>

@@ -6,7 +6,7 @@ import { AircraftDealer } from './AircraftDealer';
 import { Plane, Wrench, Settings, Search, PlusCircle, LayoutGrid, List, Trash2, Timer } from 'lucide-react';
 
 export function FleetManager() {
-    const { fleet, sellAircraft } = useAirlineStore(state => state);
+    const { fleet, sellAircraft, buyoutAircraft } = useAirlineStore(state => state);
     const tick = useEngineStore(state => state.tick);
     const [view, setView] = useState<'owned' | 'dealer'>('owned');
     const [layout, setLayout] = useState<'grid' | 'list'>('grid');
@@ -98,7 +98,7 @@ export function FleetManager() {
                         <p className="text-muted-foreground">No aircraft found matching "{search}".</p>
                     </div>
                 ) : layout === 'grid' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-2 gap-6">
                         {filteredFleet.map((ac) => {
                             const model = getAircraftById(ac.modelId);
                             if (!model) return null;
@@ -111,13 +111,18 @@ export function FleetManager() {
                                                 <p className="text-xs font-semibold text-primary mb-1">{model.manufacturer} {model.name}</p>
                                                 <h3 className="text-lg font-bold text-foreground">{ac.name}</h3>
                                             </div>
-                                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${ac.status === 'idle' ? 'bg-primary/20 text-primary border border-primary/20' :
-                                                ac.status === 'assigned' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' :
-                                                    ac.status === 'delivery' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/20 animate-pulse' :
-                                                        'bg-orange-500/20 text-orange-400 border border-orange-500/20'
-                                                }`}>
-                                                {ac.status}
-                                            </span>
+                                            <div className="flex gap-2">
+                                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${ac.status === 'idle' ? 'bg-primary/20 text-primary border border-primary/20' :
+                                                    ac.status === 'assigned' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' :
+                                                        ac.status === 'delivery' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/20 animate-pulse' :
+                                                            'bg-orange-500/20 text-orange-400 border border-orange-500/20'
+                                                    }`}>
+                                                    {ac.status}
+                                                </span>
+                                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${ac.purchaseType === 'lease' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/20' : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20'}`}>
+                                                    {ac.purchaseType === 'lease' ? 'Leased' : 'Owned'}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm mb-6 bg-background/50 rounded-xl p-3 border border-border/20">
@@ -146,9 +151,36 @@ export function FleetManager() {
                                                 <p className="font-mono text-xs">{ac.flightHoursTotal.toLocaleString()}</p>
                                             </div>
                                             <div>
-                                                <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">Last Check</p>
-                                                <p className="font-mono text-xs">{ac.flightHoursSinceCheck}h ago</p>
+                                                <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">Type</p>
+                                                <p className="font-mono text-xs capitalize">{ac.purchaseType || 'buy'}</p>
                                             </div>
+                                            <div>
+                                                <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">{ac.purchaseType === 'lease' ? 'Buyout Price' : 'Market Value'}</p>
+                                                <p className="font-mono text-xs">
+                                                    {fpFormat(calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.purchasedAtTick, tick), 0)}
+                                                </p>
+                                            </div>
+                                            {ac.purchaseType === 'lease' && (
+                                                <div className="col-span-2 mt-2 pt-2 border-t border-border/20">
+                                                    <div className="flex justify-between items-center bg-orange-500/5 p-2 rounded-lg border border-orange-500/10">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[9px] uppercase font-bold text-orange-400">Monthly Cycle</span>
+                                                            <span className="text-xs font-mono font-bold text-orange-200">Next payment in {30 - (tick % 30)} Ticks</span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => {
+                                                                const cost = calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.purchasedAtTick, tick);
+                                                                if (confirm(`Convert ${ac.name} to full ownership for ${fpFormat(cost)}?`)) {
+                                                                    buyoutAircraft(ac.id);
+                                                                }
+                                                            }}
+                                                            className="px-3 py-1.5 bg-orange-500 text-white text-[10px] font-bold rounded-md hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/20"
+                                                        >
+                                                            Buyout Now
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="h-px w-full bg-border/50 mb-4" />
@@ -172,13 +204,18 @@ export function FleetManager() {
                                                 <Wrench className="h-4 w-4" />
                                             </button>
                                             <button onClick={() => {
-                                                const val = calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.purchasedAtTick, tick);
-                                                if (confirm(`Sell ${ac.name} for ${fpFormat(val)}?\n\nCurrent book value includes depreciation and usage penalties.`)) {
+                                                const isLease = ac.purchaseType === 'lease';
+                                                const val = isLease ? 0 : calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.purchasedAtTick, tick);
+                                                const msg = isLease
+                                                    ? `Return leased aircraft ${ac.name}? You will lose your security deposit but stop future lease payments.`
+                                                    : `Sell ${ac.name} for ${fpFormat(val as any)}?\n\nCurrent book value includes depreciation and usage penalties.`;
+
+                                                if (confirm(msg)) {
                                                     sellAircraft(ac.id);
                                                 }
-                                            }} className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all group/sell block shrink-0" title="Sell Aircraft">
+                                            }} className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all group/sell block shrink-0" title={ac.purchaseType === 'lease' ? "Return Lease" : "Sell Aircraft"}>
                                                 <Trash2 className="h-4 w-4" />
-                                                <span className="text-[10px] font-bold uppercase">Sell for {fpFormat(calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.purchasedAtTick, tick))}</span>
+                                                <span className="text-[10px] font-bold uppercase">{ac.purchaseType === 'lease' ? 'Return Lease' : `Sell for ${fpFormat(calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.purchasedAtTick, tick))}`}</span>
                                             </button>
                                         </div>
                                     </div>
@@ -190,11 +227,12 @@ export function FleetManager() {
                     <div className="flex flex-col border border-border/50 rounded-2xl overflow-hidden bg-card">
                         <div className="grid grid-cols-12 gap-4 border-b border-border/50 bg-background/50 p-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             <div className="col-span-3">Aircraft</div>
-                            <div className="col-span-2">Registry</div>
+                            <div className="col-span-1">Registry</div>
                             <div className="col-span-1">Base</div>
                             <div className="col-span-2">Status</div>
                             <div className="col-span-2">Condition</div>
                             <div className="col-span-1">Hours</div>
+                            <div className="col-span-1 text-center">Type</div>
                             <div className="col-span-1 text-right">Actions</div>
                         </div>
                         <div className="divide-y divide-border/20">
@@ -208,7 +246,7 @@ export function FleetManager() {
                                             <span className="font-bold">{ac.name}</span>
                                             <span className="text-xs text-muted-foreground">{model.manufacturer} {model.name}</span>
                                         </div>
-                                        <div className="col-span-2 font-mono text-xs text-muted-foreground">
+                                        <div className="col-span-1 font-mono text-xs text-muted-foreground truncate">
                                             {ac.id}
                                         </div>
                                         <div className="col-span-1 font-mono text-xs font-bold text-accent">
@@ -233,6 +271,23 @@ export function FleetManager() {
                                         </div>
                                         <div className="col-span-1 font-mono text-xs">
                                             {ac.flightHoursTotal.toLocaleString()}h
+                                        </div>
+                                        <div className="col-span-1 flex flex-col items-center justify-center">
+                                            <span className={`text-[10px] font-bold uppercase ${ac.purchaseType === 'lease' ? 'text-orange-400' : 'text-zinc-500'}`}>
+                                                {ac.purchaseType === 'lease' ? 'Lease' : 'Owned'}
+                                            </span>
+                                            {ac.purchaseType === 'lease' && (
+                                                <button
+                                                    onClick={() => {
+                                                        const cost = calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.purchasedAtTick, tick);
+                                                        if (confirm(`Buyout ${ac.name} for ${fpFormat(cost)}?`)) buyoutAircraft(ac.id);
+                                                    }}
+                                                    className="text-[9px] text-muted-foreground hover:text-primary transition-colors cursor-help underline underline-offset-2"
+                                                    title="Click to buyout"
+                                                >
+                                                    {fpFormat(model.monthlyLease, 0)}
+                                                </button>
+                                            )}
                                         </div>
                                         <div className="col-span-1 flex justify-end gap-1">
                                             <button className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors">

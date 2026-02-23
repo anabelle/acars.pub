@@ -119,6 +119,10 @@ export interface AircraftInstance {
     purchasedAtTick: number;
     deliveryAtTick?: number;  // When it arrives at truth
 
+    // Acquisition
+    purchaseType: 'buy' | 'lease';
+    leaseStartedAtTick?: number;
+
     // Interior Layout
     configuration: {
         economy: number;

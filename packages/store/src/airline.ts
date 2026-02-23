@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AirlineEntity, AircraftInstance, AircraftModel } from '@airtr/core';
-import { fp, fpSub, fpAdd, calculateBookValue } from '@airtr/core';
+import { fp, fpSub, fpAdd, calculateBookValue, fpScale, fpFormat } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
 import {
     waitForNip07,
@@ -43,8 +43,9 @@ export interface AirlineState {
     initializeIdentity: () => Promise<void>;
     createAirline: (params: AirlineConfig) => Promise<void>;
     updateHub: (newHubIata: string) => Promise<void>;
-    purchaseAircraft: (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string) => Promise<void>;
+    purchaseAircraft: (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string, purchaseType?: 'buy' | 'lease') => Promise<void>;
     sellAircraft: (aircraftId: string) => Promise<void>;
+    buyoutAircraft: (aircraftId: string) => Promise<void>;
     purchaseUsedAircraft: (listing: any) => Promise<void>;
     processTick: (tick: number) => void;
 }
@@ -164,12 +165,17 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
         }
     },
 
-    purchaseAircraft: async (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string) => {
+    purchaseAircraft: async (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string, purchaseType: 'buy' | 'lease' = 'buy') => {
         const { airline, pubkey, fleet } = get();
         if (!airline || !pubkey) throw new Error("No active identity or airline loaded.");
 
-        if (airline.corporateBalance < model.price) {
-            throw new Error(`Insufficient corporate balance to purchase ${model.name}.`);
+        const upfrontCost = purchaseType === 'buy'
+            ? model.price
+            : fpScale(model.price, 0.1);
+
+        if (airline.corporateBalance < upfrontCost) {
+            const label = purchaseType === 'buy' ? 'purchase' : 'lease deposit';
+            throw new Error(`Insufficient corporate balance for ${label} of ${model.name}.`);
         }
 
         const engineStore = useEngineStore.getState();
@@ -188,6 +194,8 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             modelId: model.id,
             name: customName && customName.trim() !== '' ? customName : `${model.name} ${fleet.length + 1}`,
             status: 'delivery',
+            purchaseType,
+            leaseStartedAtTick: purchaseType === 'lease' ? engineStore.tick : undefined,
             assignedRouteId: null,
             baseAirportIata: targetHubIata,
             purchasedAtTick: engineStore.tick,
@@ -200,7 +208,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
 
         const updatedAirline = {
             ...airline,
-            corporateBalance: fpSub(airline.corporateBalance, model.price),
+            corporateBalance: fpSub(airline.corporateBalance, upfrontCost),
             fleetIds: [...airline.fleetIds, newInstanceId]
         };
 
@@ -293,6 +301,44 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
         }
     },
 
+    buyoutAircraft: async (aircraftId: string) => {
+        const { airline, fleet } = get();
+        if (!airline) throw new Error('No airline found.');
+
+        const instance = fleet.find(f => f.id === aircraftId);
+        if (!instance) throw new Error('Aircraft not found.');
+        if (instance.purchaseType === 'buy') throw new Error('Aircraft is already owned.');
+
+        const model = getAircraftById(instance.modelId);
+        if (!model) throw new Error('Aircraft model not found.');
+
+        const engineStore = useEngineStore.getState();
+        const cost = calculateBookValue(model, instance.flightHoursTotal, instance.condition, instance.purchasedAtTick, engineStore.tick);
+
+        if (airline.corporateBalance < cost) {
+            throw new Error(`Insufficient funds for buyout of ${instance.name}. Needed: ${fpFormat(cost as any)}`);
+        }
+
+        const updatedFleet = fleet.map(ac =>
+            ac.id === aircraftId ? { ...ac, purchaseType: 'buy' as const } : ac
+        );
+
+        const newBalance = fpSub(airline.corporateBalance, cost);
+        const updatedAirline = { ...airline, corporateBalance: newBalance };
+
+        set({ airline: updatedAirline, fleet: updatedFleet });
+
+        try {
+            await publishAirline({
+                ...updatedAirline,
+                fleet: updatedFleet,
+                lastTick: engineStore.tick
+            });
+        } catch (e) {
+            console.error('Failed to sync buyout to Nostr:', e);
+        }
+    },
+
     purchaseUsedAircraft: async (listing: any) => {
         const { airline, pubkey, fleet } = get();
         if (!airline || !pubkey) throw new Error("No active identity or airline loaded.");
@@ -317,6 +363,7 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             id: newInstanceId,
             ownerPubkey: pubkey,
             status: 'delivery',
+            purchaseType: 'buy',
             baseAirportIata: targetHubIata,
             purchasedAtTick: engineStore.tick,
             deliveryAtTick: engineStore.tick + 20,
@@ -379,7 +426,12 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
 
     processTick: (tick: number) => {
         const { fleet, airline } = get();
+        if (!airline) return;
+
         let hasChanges = false;
+        let corporateBalance = airline.corporateBalance;
+
+        // 1. Delivery transitions
         const updatedFleet = fleet.map(ac => {
             if (ac.status === 'delivery' && ac.deliveryAtTick !== undefined && tick >= ac.deliveryAtTick) {
                 hasChanges = true;
@@ -388,16 +440,25 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             return ac;
         });
 
-        if (hasChanges) {
-            set({ fleet: updatedFleet });
-            if (airline) {
-                publishAirline({
-                    ...airline,
-                    corporateBalance: airline.corporateBalance,
-                    fleet: updatedFleet,
-                    lastTick: tick,
-                }).catch(e => console.error("Auto-sync tick failed", e));
+        // 2. Lease deductions (Every 30 ticks = 1 Month)
+        const MONTH_TICKS = 30;
+        if (tick > 0 && tick % MONTH_TICKS === 0) {
+            for (const ac of updatedFleet) {
+                if (ac.purchaseType === 'lease') {
+                    const model = getAircraftById(ac.modelId);
+                    if (model) {
+                        corporateBalance = fpSub(corporateBalance, model.monthlyLease);
+                        hasChanges = true;
+                    }
+                }
             }
+        }
+
+        if (hasChanges) {
+            const updatedAirline = { ...airline, corporateBalance, fleet: updatedFleet, lastTick: tick };
+            set({ fleet: updatedFleet, airline: updatedAirline });
+
+            publishAirline(updatedAirline).catch(e => console.error("Auto-sync tick failed", e));
         }
     },
 }));
