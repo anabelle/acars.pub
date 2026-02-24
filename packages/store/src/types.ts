@@ -37,4 +37,5 @@ export interface AirlineState {
     globalFleet: AircraftInstance[];
     globalRoutes: Route[];
     syncWorld: () => Promise<void>;
+    processGlobalTick: (tick: number) => void;
 }

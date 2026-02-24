@@ -397,17 +397,19 @@ function parseMarketplaceListing(data: unknown, eventId: string, authorPubkey: s
 }
 
 /**
- * A map of seller pubkey -> Set of aircraft instanceIds they currently own.
- * Used to filter stale marketplace listings where the seller no longer owns the aircraft.
+ * A map of pubkey -> Set of aircraft instanceIds they currently own.
+ * Used to filter stale marketplace listings via ownership cross-referencing.
  */
 export type SellerFleetIndex = Map<string, Set<string>>;
 
 /**
  * Loads all active used aircraft listings from the global marketplace.
  *
- * @param sellerFleets - Optional index of known seller fleets for ownership verification.
- *   If provided, listings where the seller's fleet no longer contains the aircraft are
- *   filtered out as stale. Pass data from worldSlice.competitors + own fleet.
+ * @param sellerFleets - Optional index of ALL known airline fleets (pubkey -> Set<instanceId>).
+ *   Used for two-pass ownership verification:
+ *   1. If the seller's fleet no longer contains the aircraft → stale (seller removed it).
+ *   2. If ANY other airline's fleet contains the aircraft → stale (someone else bought it,
+ *      but the seller's client hasn't settled yet — covers pre-existing listings).
  */
 export async function loadMarketplace(sellerFleets?: SellerFleetIndex): Promise<MarketplaceListing[]> {
     await ensureConnected();
@@ -463,18 +465,37 @@ export async function loadMarketplace(sellerFleets?: SellerFleetIndex): Promise<
 
     let result = Array.from(listingsMap.values());
 
-    // Ownership verification: filter out stale listings where the seller no longer owns the aircraft
+    // Ownership verification: filter out stale listings
     if (sellerFleets && sellerFleets.size > 0) {
+        // Build reverse index: aircraftId -> ownerPubkey (for all known fleets)
+        const aircraftOwner = new Map<string, string>();
+        for (const [pubkey, aircraftIds] of sellerFleets) {
+            for (const aircraftId of aircraftIds) {
+                aircraftOwner.set(aircraftId, pubkey);
+            }
+        }
+
         const beforeCount = result.length;
         result = result.filter(listing => {
+            const currentOwner = aircraftOwner.get(listing.instanceId);
+
+            // Check 1: If another airline (not the seller) now owns this aircraft,
+            // it was already purchased. The seller's state may not be updated yet
+            // (pre-settlement), but the listing is definitely stale.
+            if (currentOwner && currentOwner !== listing.sellerPubkey) {
+                console.info(`[Nostr] Filtering stale listing: ${listing.instanceId} (now owned by ${currentOwner.slice(0, 8)}..., not seller ${listing.sellerPubkey.slice(0, 8)}...)`);
+                return false;
+            }
+
+            // Check 2: If we have the seller's fleet data and it no longer contains
+            // this aircraft, the seller already settled/scrapped it.
             const sellerAircraftIds = sellerFleets.get(listing.sellerPubkey);
-            // If we don't have data for this seller, we can't verify — keep the listing
-            if (!sellerAircraftIds) return true;
-            // If the seller's fleet still contains this aircraft, the listing is valid
-            if (sellerAircraftIds.has(listing.instanceId)) return true;
-            // Seller no longer owns this aircraft — stale listing
-            console.info(`[Nostr] Filtering stale listing: ${listing.instanceId} (seller ${listing.sellerPubkey.slice(0, 8)}... no longer owns it)`);
-            return false;
+            if (sellerAircraftIds && !sellerAircraftIds.has(listing.instanceId)) {
+                console.info(`[Nostr] Filtering stale listing: ${listing.instanceId} (seller ${listing.sellerPubkey.slice(0, 8)}... no longer owns it)`);
+                return false;
+            }
+
+            return true;
         });
         const filtered = beforeCount - result.length;
         if (filtered > 0) {

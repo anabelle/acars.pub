@@ -29,6 +29,7 @@ export const useAirlineStore = create<AirlineState>()((...a) => ({
 useEngineStore.subscribe((state) => {
     const store = useAirlineStore.getState();
     store.processTick(state.tick);
+    store.processGlobalTick(state.tick);
 
     // Sync world state every 60 ticks (~3 mins)
     if (state.tick % 60 === 0) {

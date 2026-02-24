@@ -5,6 +5,7 @@ import { fpAdd, fpFormat, GENESIS_TIME, TICK_DURATION } from '@airtr/core';
 import { loadGlobalAirlines, publishAirline, getNDK, NDKEvent, MARKETPLACE_KIND } from '@airtr/nostr';
 import { getAircraftById } from '@airtr/data';
 import { useEngineStore } from '../engine';
+import { processFlightEngine } from '../FlightEngine';
 
 export interface WorldSlice {
     competitors: Map<string, AirlineEntity>;
@@ -12,6 +13,7 @@ export interface WorldSlice {
     globalFleet: AircraftInstance[];
     globalRoutes: Route[];
     syncWorld: () => Promise<void>;
+    processGlobalTick: (tick: number) => void;
 }
 
 export const createWorldSlice: StateCreator<
@@ -25,6 +27,68 @@ export const createWorldSlice: StateCreator<
     globalFleet: [],
     globalRoutes: [],
 
+    processGlobalTick: (tick: number) => {
+        const { competitors, globalFleet, globalRoutes } = get();
+        if (competitors.size === 0) return;
+
+        // Group fleet and routes by owner for efficient batch processing
+        const fleetByOwner = new Map<string, AircraftInstance[]>();
+        for (const ac of globalFleet) {
+            const list = fleetByOwner.get(ac.ownerPubkey) || [];
+            list.push(ac);
+            fleetByOwner.set(ac.ownerPubkey, list);
+        }
+
+        const routesByOwner = new Map<string, Route[]>();
+        for (const r of globalRoutes) {
+            const list = routesByOwner.get(r.airlinePubkey) || [];
+            list.push(r);
+            routesByOwner.set(r.airlinePubkey, list);
+        }
+
+        const updatedGlobalFleet: AircraftInstance[] = [];
+        const updatedCompetitors = new Map(competitors);
+        let anyChanges = false;
+
+        for (const [pubkey, airline] of competitors) {
+            const compFleet = fleetByOwner.get(pubkey) || [];
+            const compRoutes = routesByOwner.get(pubkey) || [];
+
+            // Skip if no flights to process
+            if (compFleet.length === 0) continue;
+
+            // We advance each competitor by 1 tick using the same deterministic engine
+            const result = processFlightEngine(
+                tick,
+                compFleet,
+                compRoutes,
+                airline.corporateBalance,
+                tick - 1,
+                new Map(), // Visual only: ignore global market for speed
+                pubkey,
+                airline.brandScore || 0.5
+            );
+
+            updatedGlobalFleet.push(...result.updatedFleet);
+
+            if (result.hasChanges) {
+                anyChanges = true;
+                updatedCompetitors.set(pubkey, {
+                    ...airline,
+                    corporateBalance: result.corporateBalance,
+                    lastTick: tick
+                });
+            }
+        }
+
+        if (anyChanges || updatedGlobalFleet.length !== globalFleet.length) {
+            set({
+                globalFleet: updatedGlobalFleet,
+                competitors: updatedCompetitors
+            });
+        }
+    },
+
     syncWorld: async () => {
         try {
             const results = await loadGlobalAirlines();
@@ -32,14 +96,48 @@ export const createWorldSlice: StateCreator<
             const registry = new Map<string, FlightOffer[]>();
             const allGlobalFleet: AircraftInstance[] = [];
             const allGlobalRoutes: Route[] = [];
+            const globalTick = useEngineStore.getState().tick;
 
             // Process results into maps and flat arrays
             for (const { airline, fleet, routes } of results) {
                 // Skip our own airline if it's in the global results
                 if (airline.ceoPubkey === get().pubkey) continue;
 
-                competitors.set(airline.ceoPubkey, airline);
-                allGlobalFleet.push(...fleet);
+                // Visual Catch-up: Simulate what other planes would be doing right now
+                // if their owners were online. This makes the world feel alive.
+                const lastTick = airline.lastTick ?? (globalTick - 1);
+                let currentFleet = [...fleet];
+                let currentBalance = airline.corporateBalance;
+
+                // Capped catch-up to avoid heavy UI blocking
+                const MAX_CATCHUP = 10000; // ~8 hours of catch-up
+                const targetTick = Math.min(globalTick, lastTick + MAX_CATCHUP);
+
+                if (targetTick > lastTick) {
+                    for (let t = lastTick + 1; t <= targetTick; t++) {
+                        const res = processFlightEngine(
+                            t,
+                            currentFleet,
+                            routes,
+                            currentBalance,
+                            t - 1,
+                            new Map(), // Visual only: ignore global market for speed
+                            airline.ceoPubkey,
+                            airline.brandScore || 0.5
+                        );
+                        currentFleet = res.updatedFleet;
+                        currentBalance = res.corporateBalance;
+                    }
+                }
+
+                const updatedAirline = {
+                    ...airline,
+                    corporateBalance: currentBalance,
+                    lastTick: targetTick
+                };
+
+                competitors.set(airline.ceoPubkey, updatedAirline);
+                allGlobalFleet.push(...currentFleet);
                 allGlobalRoutes.push(...routes);
 
                 // For each route, create a FlightOffer
