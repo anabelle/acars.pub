@@ -12,7 +12,10 @@ import {
     TICK_DURATION,
     calculateDemand,
     getSeason,
-    getProsperityIndex
+    getProsperityIndex,
+    allocatePassengers,
+    FlightOffer,
+    detectPriceWar
 } from '@airtr/core';
 import { getAircraftById, airports } from '@airtr/data';
 
@@ -36,7 +39,10 @@ export function processFlightEngine(
     fleet: AircraftInstance[],
     routes: Route[],
     initialBalance: FixedPoint,
-    lastTick: number = tick - 1
+    lastTick: number = tick - 1,
+    globalRouteRegistry: Map<string, FlightOffer[]> = new Map(),
+    playerPubkey: string = '',
+    playerBrandScore: number = 0.5
 ): EngineTickResult {
     let hasChanges = false;
     let corporateBalance = initialBalance;
@@ -151,31 +157,77 @@ export function processFlightEngine(
                 const origin = airports.find(a => a.iata === route.originIata);
                 const destination = airports.find(a => a.iata === route.destinationIata);
 
-                let demandResult = { economy: 50, business: 5, first: 1 }; // Fallback
+                let weeklyDemandResult = { economy: 350, business: 35, first: 7, origin: route.originIata, destination: route.destinationIata };
 
                 if (origin && destination) {
-                    const simulatedTimestamp = GENESIS_TIME + (tick * TICK_DURATION);
                     const now = new Date(simulatedTimestamp);
                     const season = getSeason(destination.latitude, now);
                     const prosperity = getProsperityIndex(tick);
 
                     const weeklyDemand = calculateDemand(origin, destination, season, prosperity);
-                    // Convert weekly to per-flight potential (assuming daily frequency for now, or scaled by some factor)
-                    demandResult = {
-                        economy: Math.floor(weeklyDemand.economy / 7),
-                        business: Math.floor(weeklyDemand.business / 7),
-                        first: Math.floor(weeklyDemand.first / 7),
+                    weeklyDemandResult = {
+                        origin: route.originIata,
+                        destination: route.destinationIata,
+                        economy: weeklyDemand.economy,
+                        business: weeklyDemand.business,
+                        first: weeklyDemand.first,
                     };
                 }
 
-                // Capture Rate: How much of the demand we actually get
-                // 0.85 is a high "monopoly" capture rate. 
-                // Later this should be based on competition and QSI.
-                const captureRate = 0.85;
+                // --- NEW MP ALLOCATION LOGIC ---
+                const routeKey = `${route.originIata}-${route.destinationIata}`;
+                const competitorOffers = globalRouteRegistry.get(routeKey) || [];
 
-                const paxE = Math.floor(Math.min(model.capacity.economy, demandResult.economy) * captureRate);
-                const paxB = Math.floor(Math.min(model.capacity.business, demandResult.business) * captureRate);
-                const paxF = Math.floor(Math.min(model.capacity.first, demandResult.first) * captureRate);
+                // Frequency for our offer: how many planes we (the player) have on this route?
+                const ourFrequency = Math.max(1, route.assignedAircraftIds.length * 7);
+
+                // Travel time for our current aircraft
+                const ourTravelTime = Math.round((route.distanceKm / (model.speedKmh || 800)) * 60);
+
+                const ourOffer: FlightOffer = {
+                    airlinePubkey: playerPubkey,
+                    fareEconomy: route.fareEconomy,
+                    fareBusiness: route.fareBusiness,
+                    fareFirst: route.fareFirst,
+                    frequencyPerWeek: ourFrequency,
+                    travelTimeMinutes: ourTravelTime,
+                    stops: 0,
+                    serviceScore: 0.7,
+                    brandScore: playerBrandScore,
+                };
+
+                const allOffers = [ourOffer, ...competitorOffers];
+
+                // --- PRICE WAR DYNAMICS ---
+                const pw = detectPriceWar(allOffers);
+                if (pw.isPriceWar) {
+                    // Stimulation: Increase route demand by 10%
+                    weeklyDemandResult.economy = Math.floor(weeklyDemandResult.economy * 1.1);
+                    weeklyDemandResult.business = Math.floor(weeklyDemandResult.business * 1.1);
+                    weeklyDemandResult.first = Math.floor(weeklyDemandResult.first * 1.1);
+
+                    // If we are undercutting, trigger a brand damage event
+                    if (pw.lowPricedAirlines.includes(playerPubkey)) {
+                        events.push({
+                            id: `evt-pricewar-${ac.id}-${tick}`,
+                            tick,
+                            timestamp: simulatedTimestamp,
+                            type: 'price_war',
+                            aircraftId: ac.id,
+                            aircraftName: ac.name,
+                            description: `[PRICE WAR] Extreme undercutting on ${route.originIata}-${route.destinationIata} is damaging your brand reputation.`
+                        });
+                    }
+                }
+
+                const allocations = allocatePassengers(allOffers, weeklyDemandResult);
+                const ourWeeklyAllocation = allocations.get(playerPubkey) || { economy: 0, business: 0, first: 0 };
+
+                // Per-flight allocation (Weekly allocation / frequency)
+                const paxE = Math.min(model.capacity.economy, Math.floor(ourWeeklyAllocation.economy / ourFrequency));
+                const paxB = Math.min(model.capacity.business, Math.floor(ourWeeklyAllocation.business / ourFrequency));
+                const paxF = Math.min(model.capacity.first, Math.floor(ourWeeklyAllocation.first / ourFrequency));
+                // --- END NEW MP ALLOCATION ---
 
                 const rev = calculateFlightRevenue({
                     passengersEconomy: paxE,

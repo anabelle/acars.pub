@@ -28,4 +28,10 @@ export interface AirlineState {
     assignAircraftToRoute: (aircraftId: string, routeId: string | null) => Promise<void>;
     updateRouteFares: (routeId: string, fares: { economy?: number; business?: number; first?: number }) => Promise<void>;
     processTick: (tick: number) => Promise<void>;
+    // World / Multi-player
+    competitors: Map<string, AirlineEntity>;
+    globalRouteRegistry: Map<string, FlightOffer[]>;
+    syncWorld: () => Promise<void>;
 }
+
+import { FlightOffer } from '@airtr/core';

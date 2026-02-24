@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
-import { fpFormat, fpAdd, FP_ZERO, getSuggestedFares } from '@airtr/core';
+import { fpFormat, fpAdd, FP_ZERO, getSuggestedFares, calculateShares } from '@airtr/core';
 import { Globe, PlusCircle, CheckCircle2, AlertCircle, TrendingUp, DollarSign, MapPin } from 'lucide-react';
 
 export function RouteManager() {
-    const { airline, routes: activeRoutes, openRoute, updateRouteFares } = useAirlineStore();
+    const {
+        airline,
+        pubkey,
+        routes: activeRoutes,
+        openRoute,
+        updateRouteFares,
+        globalRouteRegistry,
+        competitors
+    } = useAirlineStore();
     const { routes: prospectiveRoutes, homeAirport } = useEngineStore();
     const [tab, setTab] = useState<'active' | 'opportunities'>('active');
     const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
@@ -226,6 +234,85 @@ export function RouteManager() {
                                                     Manage Assignments
                                                 </button>
                                             </div>
+                                        </div>
+
+                                        {/* Market Analysis Tab */}
+                                        <div className="mt-5 pt-5 border-t border-border/50">
+                                            <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3 flex items-center gap-2">
+                                                <TrendingUp className="h-3 w-3" />
+                                                Market Analysis
+                                            </h4>
+
+                                            {(() => {
+                                                const routeKey = `${route.originIata}-${route.destinationIata}`;
+                                                const offers = globalRouteRegistry.get(routeKey) || [];
+
+                                                if (offers.length === 0) {
+                                                    return (
+                                                        <div className="bg-emerald-500/5 rounded-xl p-3 border border-emerald-500/10">
+                                                            <p className="text-[11px] text-emerald-400/80 font-medium flex items-center gap-2">
+                                                                <CheckCircle2 className="h-3 w-3" />
+                                                                Monopoly Market: No active competitors found on this route.
+                                                            </p>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <div className="grid grid-cols-1 gap-2">
+                                                        {offers.map((offer: any, idx: number) => {
+                                                            const comp = competitors.get(offer.airlinePubkey);
+
+                                                            // Calculate estimated share for this offer vs ours
+                                                            const ourFrequency = route.assignedAircraftIds.length * 7;
+                                                            const ourTravelTime = Math.round((route.distanceKm / 800) * 60); // simplified model speed
+
+                                                            const ourOffer: any = {
+                                                                airlinePubkey: pubkey || '',
+                                                                fareEconomy: route.fareEconomy,
+                                                                fareBusiness: route.fareBusiness,
+                                                                fareFirst: route.fareFirst,
+                                                                frequencyPerWeek: ourFrequency || 1, // at least 1 for display
+                                                                travelTimeMinutes: ourTravelTime,
+                                                                stops: 0,
+                                                                serviceScore: 0.7,
+                                                                brandScore: airline.brandScore || 0.5
+                                                            };
+
+                                                            const allOffers = [ourOffer, ...offers];
+                                                            const shares = calculateShares(allOffers);
+                                                            const compShare = (shares.economy.get(offer.airlinePubkey) || 0) * 100;
+
+                                                            return (
+                                                                <div key={idx} className="flex items-center justify-between bg-muted/30 rounded-xl px-4 py-2.5 border border-border/50">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
+                                                                            {comp?.icaoCode || '??'}
+                                                                        </div>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-xs font-bold text-foreground">{comp?.name || 'Unknown Airline'}</span>
+                                                                            <span className="text-[9px] text-muted-foreground uppercase font-semibold">Freq: {offer.frequencyPerWeek}/wk</span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="flex gap-4 items-center">
+                                                                        <div className="flex gap-2">
+                                                                            <span className="text-[10px] font-mono text-zinc-500">E: {fpFormat(offer.fareEconomy, 0)}</span>
+                                                                            <span className="text-[10px] font-mono text-blue-400">B: {fpFormat(offer.fareBusiness, 0)}</span>
+                                                                            <span className="text-[10px] font-mono text-yellow-500">F: {fpFormat(offer.fareFirst, 0)}</span>
+                                                                        </div>
+                                                                        <div className="h-8 w-px bg-border/50" />
+                                                                        <div className="flex flex-col text-right">
+                                                                            <span className="text-[9px] text-muted-foreground uppercase font-bold">Est. Share</span>
+                                                                            <span className="text-xs font-bold text-accent">{compShare.toFixed(1)}%</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 );

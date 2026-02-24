@@ -282,7 +282,8 @@ export type TimelineEventType =
     | 'sale'
     | 'lease_payment'
     | 'maintenance'
-    | 'delivery';
+    | 'delivery'
+    | 'price_war';
 
 export interface TimelineEvent {
     id: string;

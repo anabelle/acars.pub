@@ -51,6 +51,7 @@ export const createEngineSlice: StateCreator<
 
             let currentFleet = [...fleet];
             let currentBalance = airline.corporateBalance;
+            let currentBrandScore = airline.brandScore || 0.5;
             let currentTimeline = [...get().timeline];
             let anyChanges = false;
 
@@ -60,12 +61,22 @@ export const createEngineSlice: StateCreator<
                     currentFleet,
                     routes,
                     currentBalance,
-                    t - 1 // Inform the engine of the previous tick state
+                    t - 1,
+                    get().globalRouteRegistry,
+                    get().pubkey || '',
+                    currentBrandScore
                 );
                 currentFleet = result.updatedFleet;
                 currentBalance = result.corporateBalance;
 
                 if (result.events && result.events.length > 0) {
+                    // Handle Price War Brand Damage
+                    const pwEvents = result.events.filter(e => e.type === 'price_war');
+                    if (pwEvents.length > 0) {
+                        currentBrandScore = Math.max(0.1, currentBrandScore - (0.005 * pwEvents.length));
+                        anyChanges = true;
+                    }
+
                     console.log(`[EngineSlice] Tick ${t}: Captured ${result.events.length} events. Total timeline now: ${currentTimeline.length + result.events.length}`);
                     currentTimeline = [...result.events, ...currentTimeline].slice(0, 200);
                 }
@@ -77,6 +88,7 @@ export const createEngineSlice: StateCreator<
             const updatedAirline = {
                 ...airline,
                 corporateBalance: currentBalance,
+                brandScore: currentBrandScore,
                 lastTick: targetTick,
                 timeline: currentTimeline
             };

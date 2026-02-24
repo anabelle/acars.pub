@@ -5,8 +5,31 @@
 // ============================================================
 
 import { fp, fpAdd, fpScale } from './fixed-point.js';
-import type { AircraftModel } from './types.js';
+import type { AircraftModel, FlightOffer } from './types.js';
 import type { FixedPoint } from './types.js';
+
+// ... (rest of imports)
+
+/**
+ * Detects if a price war is occurring on a route.
+ */
+export function detectPriceWar(offers: FlightOffer[]): {
+    isPriceWar: boolean;
+    lowPricedAirlines: string[];
+} {
+    if (offers.length < 2) return { isPriceWar: false, lowPricedAirlines: [] };
+
+    // Use Economy fare as the benchmark
+    const avgPrice = offers.reduce((acc, o) => acc + Number(o.fareEconomy), 0) / offers.length;
+    const lowPricedAirlines = offers
+        .filter(o => Number(o.fareEconomy) < avgPrice * 0.7) // >30% below avg
+        .map(o => o.airlinePubkey);
+
+    return {
+        isPriceWar: lowPricedAirlines.length > 0,
+        lowPricedAirlines
+    };
+}
 
 // Global constants
 const FUEL_PRICE_PER_KG = fp(1.20); // $1.20 per kg

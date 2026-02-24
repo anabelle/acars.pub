@@ -213,3 +213,72 @@ export async function loadMarketplace(): Promise<any[]> {
     console.groupEnd();
     return result;
 }
+/**
+ * Loads all active airlines from the global network.
+ */
+export async function loadGlobalAirlines(): Promise<{ airline: AirlineEntity, fleet: import('@airtr/core').AircraftInstance[], routes: import('@airtr/core').Route[] }[]> {
+    await ensureConnected();
+    const ndk = getNDK();
+
+    const filter: NDKFilter = {
+        kinds: [AIRLINE_KIND],
+        '#d': [AIRLINE_D_TAG],
+        limit: 500, // Reasonable cap for global discovery
+    };
+
+    const airlinesMap = new Map<string, any>();
+
+    await new Promise<void>((resolve) => {
+        const sub = ndk.subscribe(filter, { closeOnEose: true });
+        const timeout = setTimeout(() => {
+            sub.stop();
+            resolve();
+        }, 8000);
+
+        sub.on('event', (event: NDKEvent) => {
+            try {
+                if (!event.content.trim().startsWith('{')) return;
+                const data = JSON.parse(event.content);
+
+                const airline: AirlineEntity = {
+                    id: event.id,
+                    foundedBy: event.author.pubkey,
+                    status: 'private',
+                    ceoPubkey: event.author.pubkey,
+                    sharesOutstanding: 10000000,
+                    shareholders: { [event.author.pubkey]: 10000000 },
+                    name: data.name,
+                    icaoCode: data.icaoCode || data.icao,
+                    callsign: data.callsign,
+                    hubs: data.hubs || (data.hubIata ? [data.hubIata] : []),
+                    livery: data.livery,
+                    brandScore: 0.5,
+                    tier: 1,
+                    corporateBalance: data.corporateBalance || fp(100000000),
+                    stockPrice: fp(10),
+                    fleetIds: data.fleet ? data.fleet.map((f: any) => f.id) : [],
+                    routeIds: data.routes ? data.routes.map((r: any) => r.id) : [],
+                    timeline: data.timeline || [],
+                    lastTick: data.lastTick || 0
+                };
+
+                const entry = { airline, fleet: data.fleet || [], routes: data.routes || [] };
+
+                // Only keep latest event from each author
+                const existing = airlinesMap.get(event.author.pubkey);
+                if (!existing || event.created_at! > existing.created_at) {
+                    airlinesMap.set(event.author.pubkey, { ...entry, created_at: event.created_at });
+                }
+            } catch (e) {
+                // Ignore malformed
+            }
+        });
+
+        sub.on('eose', () => {
+            clearTimeout(timeout);
+            resolve();
+        });
+    });
+
+    return Array.from(airlinesMap.values()).map(({ airline, fleet, routes }) => ({ airline, fleet, routes }));
+}
