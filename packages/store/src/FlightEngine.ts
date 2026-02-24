@@ -88,6 +88,11 @@ export function processFlightEngine(
 
         // State: ENROUTE -> Land if time reached
         else if (ac.status === 'enroute' && ac.flight && tick >= ac.flight.arrivalTick) {
+            // Guard: Don't land multiple times on the same arrival tick if somehow re-processed
+            if (ac.arrivalTickProcessed === ac.flight.arrivalTick) {
+                continue;
+            }
+
             const route = routes.find(r => r.id === ac.assignedRouteId);
             if (route) {
                 // LANDING & REVENUE PROCESSING
@@ -118,14 +123,17 @@ export function processFlightEngine(
                 corporateBalance = fpAdd(corporateBalance, profit);
 
                 // Wear and Tear
-                const flightHoursData = (ac.flight.arrivalTick - ac.flight.departureTick) / TICKS_PER_HOUR;
+                const durationTicks = (ac.flight.arrivalTick - ac.flight.departureTick);
+                const flightHoursData = Math.min(24, durationTicks / TICKS_PER_HOUR); // Sanity cap: no flight > 24h
+
                 ac.flightHoursTotal += flightHoursData;
+                ac.flightHoursSinceCheck += flightHoursData;
                 ac.condition = Math.max(0, ac.condition - (0.001 * flightHoursData));
 
                 // Set to Turnaround
                 const turnaroundTicks = Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR);
                 ac.status = 'turnaround';
-                ac.arrivalTickProcessed = tick;
+                ac.arrivalTickProcessed = ac.flight.arrivalTick; // Mark THIS flight as landed
                 ac.turnaroundEndTick = tick + Math.max(1, turnaroundTicks);
                 hasChanges = true;
             }

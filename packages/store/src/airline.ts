@@ -10,7 +10,8 @@ import {
     calculateFlightRevenue,
     calculateFlightCost,
     TICKS_PER_HOUR,
-    TICK_DURATION
+    TICK_DURATION,
+    GENESIS_TIME
 } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
 import {
@@ -102,10 +103,20 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             // Step 5: Try to load existing airline for this pubkey
             const existing = await loadAirline(pubkey);
 
+            // Step 5: Data Integrity Check (Health Check)
+            // If any plane has impossible hours, cap it at a realistic maximum based on time since genesis
+            const maxPossibleHours = (Date.now() - GENESIS_TIME) / 3600000 + 48; // +48 buffer
+
+            const cleanFleet = existing && existing.fleet ? existing.fleet.map(ac => ({
+                ...ac,
+                flightHoursTotal: Math.min(ac.flightHoursTotal, maxPossibleHours),
+                flightHoursSinceCheck: Math.min(ac.flightHoursSinceCheck, maxPossibleHours)
+            })) : [];
+
             set({
                 pubkey,
                 airline: existing ? existing.airline : null,
-                fleet: existing ? existing.fleet : [],
+                fleet: cleanFleet,
                 routes: existing ? existing.routes : [],
                 identityStatus: 'ready',
                 isLoading: false,
@@ -559,10 +570,12 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             airline.corporateBalance
         );
 
-        if (hasChanges) {
-            const updatedAirline = { ...airline, corporateBalance, lastTick: tick };
-            set({ fleet: updatedFleet, airline: updatedAirline });
+        // IMPORTANT: Always update local state to preserve 'lastTickProcessed' even if nothing significant changed.
+        const updatedAirline = { ...airline, corporateBalance, lastTick: tick };
+        set({ fleet: updatedFleet, airline: updatedAirline });
 
+        // ONLY publish to Nostr relays if there were significant changes (Landing, Takeoff, Delivery etc.)
+        if (hasChanges) {
             publishAirline({
                 ...updatedAirline,
                 fleet: updatedFleet,
@@ -573,8 +586,11 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
 }));
 
 // Automatically process fleet ticks when engine ticks advance
-useEngineStore.subscribe((state, prevState) => {
-    if (state.tick !== prevState.tick) {
+let lastSimulatedTick = useEngineStore.getState().tick;
+
+useEngineStore.subscribe((state) => {
+    if (state.tick > lastSimulatedTick) {
+        lastSimulatedTick = state.tick;
         useAirlineStore.getState().processTick(state.tick);
     }
 });
