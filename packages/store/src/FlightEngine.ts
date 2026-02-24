@@ -1,0 +1,179 @@
+import {
+    AircraftInstance,
+    AirlineEntity,
+    Route,
+    fpAdd,
+    fpSub,
+    calculateFlightRevenue,
+    calculateFlightCost,
+    TICKS_PER_HOUR,
+    FixedPoint
+} from '@airtr/core';
+import { getAircraftById } from '@airtr/data';
+
+/**
+ * Result of the engine processing a single tick.
+ */
+export interface EngineTickResult {
+    updatedFleet: AircraftInstance[];
+    corporateBalance: FixedPoint;
+    hasChanges: boolean;
+}
+
+/**
+ * PURE ENGINE LOGIC
+ * Separated from Zustand/Nostr to allow for headless simulation,
+ * future worker-offloading, and easier testing.
+ */
+export function processFlightEngine(
+    tick: number,
+    fleet: AircraftInstance[],
+    routes: Route[],
+    initialBalance: FixedPoint
+): EngineTickResult {
+    let hasChanges = false;
+    let corporateBalance = initialBalance;
+    const updatedFleetMap = new Map<string, AircraftInstance>(
+        fleet.map(ac => [ac.id, { ...ac }])
+    );
+
+
+    // 1. Process each aircraft
+    for (const [id, ac] of updatedFleetMap) {
+        // Optimization: Already processed this tick?
+        if (ac.lastTickProcessed === tick) continue;
+        ac.lastTickProcessed = tick;
+
+        // Handle Delivery
+        if (ac.status === 'delivery') {
+            if (ac.deliveryAtTick !== undefined && tick >= ac.deliveryAtTick) {
+                ac.status = 'idle';
+                hasChanges = true;
+            }
+            continue;
+        }
+
+        // Handle Maintenance (Placeholders for now)
+        if (ac.status === 'maintenance') continue;
+
+        const model = getAircraftById(ac.modelId);
+        if (!model) continue;
+
+        // --- FLIGHT STATE MACHINE ---
+
+        // State: IDLE -> Start Flight if assigned
+        if (ac.status === 'idle' && ac.assignedRouteId) {
+            const route = routes.find(r => r.id === ac.assignedRouteId);
+            if (route && route.status === 'active') {
+                // Safety check for range
+                if (route.distanceKm > (model.rangeKm || 0)) {
+                    continue;
+                }
+
+                // Real-world duration calculation
+                const hours = route.distanceKm / (model.speedKmh || 800);
+                const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
+
+                ac.status = 'enroute';
+                ac.flight = {
+                    originIata: route.originIata,
+                    destinationIata: route.destinationIata,
+                    departureTick: tick,
+                    arrivalTick: tick + Math.max(1, durationTicks),
+                    direction: 'outbound'
+                };
+                hasChanges = true;
+            }
+        }
+
+        // State: ENROUTE -> Land if time reached
+        else if (ac.status === 'enroute' && ac.flight && tick >= ac.flight.arrivalTick) {
+            const route = routes.find(r => r.id === ac.assignedRouteId);
+            if (route) {
+                // LANDING & REVENUE PROCESSING
+                const dailyDemand = 500; // Placeholder
+                const captureRate = 0.85;
+                const paxE = Math.floor(Math.min(model.capacity.economy, dailyDemand * 0.8) * captureRate);
+                const paxB = Math.floor(Math.min(model.capacity.business, dailyDemand * 0.15) * captureRate);
+                const paxF = Math.floor(Math.min(model.capacity.first, dailyDemand * 0.05) * captureRate);
+
+                const rev = calculateFlightRevenue({
+                    passengersEconomy: paxE,
+                    passengersBusiness: paxB,
+                    passengersFirst: paxF,
+                    fareEconomy: route.fareEconomy,
+                    fareBusiness: route.fareBusiness,
+                    fareFirst: route.fareFirst,
+                    seatsOffered: model.capacity.economy + model.capacity.business + model.capacity.first
+                });
+
+                const cost = calculateFlightCost({
+                    distanceKm: route.distanceKm,
+                    aircraft: model,
+                    actualPassengers: rev.actualPassengers,
+                    blockHours: (ac.flight.arrivalTick - ac.flight.departureTick) / TICKS_PER_HOUR
+                });
+
+                const profit = fpSub(rev.revenueTotal, cost.costTotal);
+                corporateBalance = fpAdd(corporateBalance, profit);
+
+                // Wear and Tear
+                const flightHoursData = (ac.flight.arrivalTick - ac.flight.departureTick) / TICKS_PER_HOUR;
+                ac.flightHoursTotal += flightHoursData;
+                ac.condition = Math.max(0, ac.condition - (0.001 * flightHoursData));
+
+                // Set to Turnaround
+                const turnaroundTicks = Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR);
+                ac.status = 'turnaround';
+                ac.arrivalTickProcessed = tick;
+                ac.turnaroundEndTick = tick + Math.max(1, turnaroundTicks);
+                hasChanges = true;
+            }
+        }
+
+        // State: TURNAROUND -> Return flight
+        else if (ac.status === 'turnaround' && tick >= (ac.turnaroundEndTick || 0)) {
+            const route = routes.find(r => r.id === ac.assignedRouteId);
+            if (route && ac.flight) {
+                const hours = route.distanceKm / (model.speedKmh || 800);
+                const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
+                const isReturning = ac.flight.direction === 'outbound';
+
+                ac.status = 'enroute';
+                ac.flight = {
+                    originIata: isReturning ? route.destinationIata : route.originIata,
+                    destinationIata: isReturning ? route.originIata : route.destinationIata,
+                    departureTick: tick,
+                    arrivalTick: tick + Math.max(1, durationTicks),
+                    direction: isReturning ? 'inbound' : 'outbound'
+                };
+                hasChanges = true;
+            } else {
+                ac.status = 'idle';
+                ac.flight = null;
+                hasChanges = true;
+            }
+        }
+    }
+
+    // 2. Lease deductions (Every 30 REAL Days)
+    const TICKS_PER_DAY = 24 * TICKS_PER_HOUR;
+    const MONTH_TICKS = 30 * TICKS_PER_DAY;
+    if (tick > 0 && tick % MONTH_TICKS === 0) {
+        for (const ac of updatedFleetMap.values()) {
+            if (ac.purchaseType === 'lease') {
+                const model = getAircraftById(ac.modelId);
+                if (model) {
+                    corporateBalance = fpSub(corporateBalance, model.monthlyLease);
+                    hasChanges = true;
+                }
+            }
+        }
+    }
+
+    return {
+        updatedFleet: Array.from(updatedFleetMap.values()),
+        corporateBalance,
+        hasChanges
+    };
+}
