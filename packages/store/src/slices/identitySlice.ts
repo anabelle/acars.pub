@@ -1,7 +1,7 @@
-import { StateCreator } from 'zustand';
-import { AirlineState } from '../types';
-import { fp, GENESIS_TIME, AircraftInstance, Route, TimelineEvent } from '@airtr/core';
-import { AirlineEntity } from '@airtr/core';
+import type { StateCreator } from 'zustand';
+import type { AirlineState } from '../types';
+import type { AircraftInstance, Route, TimelineEvent, AirlineEntity } from '@airtr/core';
+import { fp, GENESIS_TIME } from '@airtr/core';
 import {
     waitForNip07,
     getPubkey,

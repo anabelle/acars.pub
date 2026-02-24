@@ -1,4 +1,4 @@
-import type { AirlineEntity, AircraftInstance, AircraftModel, Route, TimelineEvent } from '@airtr/core';
+import type { AirlineEntity, AircraftInstance, AircraftModel, Route, TimelineEvent, FixedPoint, FlightOffer } from '@airtr/core';
 import type { AirlineConfig } from '@airtr/nostr';
 
 export type IdentityStatus = 'checking' | 'no-extension' | 'ready';
@@ -26,7 +26,8 @@ export interface AirlineState {
     performMaintenance: (aircraftId: string) => Promise<void>;
     openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;
     assignAircraftToRoute: (aircraftId: string, routeId: string | null) => Promise<void>;
-    updateRouteFares: (routeId: string, fares: { economy?: number; business?: number; first?: number }) => Promise<void>;
+    updateRouteFares: (routeId: string, fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint }) => Promise<void>;
+    updateHub: (newHubIata: string) => Promise<void>;
     processTick: (tick: number) => Promise<void>;
     // World / Multi-player
     competitors: Map<string, AirlineEntity>;
@@ -35,5 +36,3 @@ export interface AirlineState {
     globalRoutes: Route[];
     syncWorld: () => Promise<void>;
 }
-
-import { FlightOffer } from '@airtr/core';

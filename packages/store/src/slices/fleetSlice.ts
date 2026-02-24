@@ -1,16 +1,18 @@
-import { StateCreator } from 'zustand';
-import { AirlineState } from '../types';
-import {
+import type { StateCreator } from 'zustand';
+import type { AirlineState } from '../types';
+import type {
     AircraftInstance,
     AircraftModel,
+    FixedPoint,
+    TimelineEvent,
+} from '@airtr/core';
+import {
     fpSub,
     fpAdd,
     calculateBookValue,
     fpScale,
     fp,
     fpFormat,
-    FixedPoint,
-    TimelineEvent,
     GENESIS_TIME,
     TICK_DURATION
 } from '@airtr/core';

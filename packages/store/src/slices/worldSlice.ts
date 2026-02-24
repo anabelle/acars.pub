@@ -1,6 +1,6 @@
-import { StateCreator } from 'zustand';
-import { AirlineState } from '../types';
-import { AirlineEntity, FlightOffer, Route, AircraftInstance } from '@airtr/core';
+import type { StateCreator } from 'zustand';
+import type { AirlineState } from '../types';
+import type { AirlineEntity, FlightOffer, Route, AircraftInstance } from '@airtr/core';
 import { loadGlobalAirlines } from '@airtr/nostr';
 import { getAircraftById } from '@airtr/data';
 

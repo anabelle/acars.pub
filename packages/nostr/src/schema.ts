@@ -56,7 +56,7 @@ function parseAirlineContent(data: unknown): {
     };
 
     const corporateBalance = typeof data.corporateBalance === 'number' && Number.isFinite(data.corporateBalance)
-        ? data.corporateBalance
+        ? fp(data.corporateBalance)
         : null;
 
     const lastTick = typeof data.lastTick === 'number' && Number.isFinite(data.lastTick)

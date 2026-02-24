@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
-import { fpFormat, getSuggestedFares, calculateShares, haversineDistance, calculateDemand, getSeason, getProsperityIndex, fpScale, fp } from '@airtr/core';
+import { fpFormat, fpToNumber, getSuggestedFares, calculateShares, haversineDistance, calculateDemand, getSeason, getProsperityIndex, fpScale, fp } from '@airtr/core';
 import { airports as ALL_AIRPORTS } from '@airtr/data';
 import { Globe, PlusCircle, CheckCircle2, AlertCircle, TrendingUp, MapPin, Search } from 'lucide-react';
 
@@ -10,7 +10,7 @@ export function RouteManager() {
         pubkey,
         routes: activeRoutes,
         openRoute,
-        updateRouteFares,
+    updateRouteFares,
         globalRouteRegistry,
         competitors
     } = useAirlineStore();
@@ -183,7 +183,7 @@ export function RouteManager() {
                                                                         className="w-16 text-[10px] font-mono bg-black/40 border border-white/10 rounded px-1 py-0.5 focus:outline-none focus:border-primary/50"
                                                                         placeholder="E"
                                                                     />
-                                                                    <span className="text-[8px] text-white/20 mt-0.5 font-mono">Sug: {Number(getSuggestedFares(route.distanceKm).economy) / 10000}</span>
+                                                                    <span className="text-[8px] text-white/20 mt-0.5 font-mono">Sug: {fpToNumber(getSuggestedFares(route.distanceKm).economy)}</span>
                                                                 </div>
                                                                 <div className="flex flex-col">
                                                                     <input
@@ -193,7 +193,7 @@ export function RouteManager() {
                                                                         className="w-16 text-[10px] font-mono bg-black/40 border border-white/10 rounded px-1 py-0.5 focus:outline-none focus:border-blue-400/50 text-blue-400"
                                                                         placeholder="B"
                                                                     />
-                                                                    <span className="text-[8px] text-blue-400/30 mt-0.5 font-mono">Sug: {Number(getSuggestedFares(route.distanceKm).business) / 10000}</span>
+                                                                    <span className="text-[8px] text-blue-400/30 mt-0.5 font-mono">Sug: {fpToNumber(getSuggestedFares(route.distanceKm).business)}</span>
                                                                 </div>
                                                                 <div className="flex flex-col">
                                                                     <input
@@ -203,16 +203,16 @@ export function RouteManager() {
                                                                         className="w-16 text-[10px] font-mono bg-black/40 border border-white/10 rounded px-1 py-0.5 focus:outline-none focus:border-yellow-500/50 text-yellow-500"
                                                                         placeholder="F"
                                                                     />
-                                                                    <span className="text-[8px] text-yellow-500/30 mt-0.5 font-mono">Sug: {Number(getSuggestedFares(route.distanceKm).first) / 10000}</span>
+                                                                    <span className="text-[8px] text-yellow-500/30 mt-0.5 font-mono">Sug: {fpToNumber(getSuggestedFares(route.distanceKm).first)}</span>
                                                                 </div>
 
                                                                 <button
                                                                     onClick={() => {
                                                                         const sug = getSuggestedFares(route.distanceKm);
                                                                         setTempFares({
-                                                                            e: (Number(sug.economy) / 10000).toString(),
-                                                                            b: (Number(sug.business) / 10000).toString(),
-                                                                            f: (Number(sug.first) / 10000).toString(),
+                                                                            e: fpToNumber(sug.economy).toString(),
+                                                                            b: fpToNumber(sug.business).toString(),
+                                                                            f: fpToNumber(sug.first).toString(),
                                                                         });
                                                                     }}
                                                                     className="ml-2 px-2 py-0.5 rounded border border-white/5 bg-white/5 text-[8px] uppercase font-bold text-white/40 hover:bg-white/10 transition-colors"
@@ -244,14 +244,14 @@ export function RouteManager() {
                                                     <div className="flex gap-2">
                                                         <button
                                                             onClick={async () => {
-                                                                const eVal = parseInt(tempFares.e.replace(/[^0-9]/g, ''));
-                                                                const bVal = parseInt(tempFares.b.replace(/[^0-9]/g, ''));
-                                                                const fVal = parseInt(tempFares.f.replace(/[^0-9]/g, ''));
+                                                                const eVal = parseInt(tempFares.e.replace(/[^0-9]/g, ''), 10);
+                                                                const bVal = parseInt(tempFares.b.replace(/[^0-9]/g, ''), 10);
+                                                                const fVal = parseInt(tempFares.f.replace(/[^0-9]/g, ''), 10);
 
                                                                 await updateRouteFares(route.id, {
-                                                                    economy: isNaN(eVal) ? undefined : eVal * 10000,
-                                                                    business: isNaN(bVal) ? undefined : bVal * 10000,
-                                                                    first: isNaN(fVal) ? undefined : fVal * 10000,
+                                                                    economy: isNaN(eVal) ? undefined : fp(eVal),
+                                                                    business: isNaN(bVal) ? undefined : fp(bVal),
+                                                                    first: isNaN(fVal) ? undefined : fp(fVal),
                                                                 });
                                                                 setEditingRouteId(null);
                                                             }}
@@ -271,9 +271,9 @@ export function RouteManager() {
                                                         onClick={() => {
                                                             setEditingRouteId(route.id);
                                                             setTempFares({
-                                                                e: (Number(route.fareEconomy) / 10000).toString(),
-                                                                b: (Number(route.fareBusiness) / 10000).toString(),
-                                                                f: (Number(route.fareFirst) / 10000).toString(),
+                                                                e: fpToNumber(route.fareEconomy).toString(),
+                                                                b: fpToNumber(route.fareBusiness).toString(),
+                                                                f: fpToNumber(route.fareFirst).toString(),
                                                             });
                                                         }}
                                                         className="px-4 py-2 bg-white/5 text-white/60 border border-white/5 rounded-xl text-sm font-bold hover:bg-white/10 transition-all"

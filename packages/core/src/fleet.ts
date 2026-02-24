@@ -1,4 +1,4 @@
-import { fp, fpScale } from './fixed-point.js';
+import { fpScale } from './fixed-point.js';
 import type { AircraftModel, FixedPoint } from './types.js';
 import { TICKS_PER_HOUR } from './types.js';
 

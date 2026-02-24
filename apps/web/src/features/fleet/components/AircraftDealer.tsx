@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { aircraftModels, getAircraftById } from '@airtr/data';
 import type { AircraftModel, AircraftInstance, FixedPoint } from '@airtr/core';
-import { fpFormat, FP_ZERO, TICK_DURATION } from '@airtr/core';
+import { fpFormat, fpScale, FP_ZERO, TICK_DURATION } from '@airtr/core';
 import { useAirlineStore } from '@airtr/store';
 import { loadMarketplace } from '@airtr/nostr';
 import { Search, Plane, Users, ArrowRight, Coins, Check, Timer, X, MapPin, Tag, ShoppingBag, History } from 'lucide-react';
@@ -422,7 +422,9 @@ function PurchaseModal({ aircraft, onClose, onPurchaseSuccess }: { aircraft: Air
     };
     const bgGradient = gradientMap[aircraft.manufacturer] || 'from-zinc-500/20 via-zinc-900/10 to-transparent';
 
-    const upfrontCost = purchaseType === 'buy' ? aircraft.price : Math.round(aircraft.price * 0.1); // 10% Deposit
+    const upfrontCost = purchaseType === 'buy'
+        ? aircraft.price
+        : fpScale(aircraft.price, 0.1); // 10% Deposit
     const canAfford = typeof corporateBalance === 'number' ? corporateBalance >= upfrontCost : true;
 
     return (
@@ -602,7 +604,7 @@ function PurchaseModal({ aircraft, onClose, onPurchaseSuccess }: { aircraft: Air
                             {purchaseType === 'buy' ? 'Full Purchase Price' : 'Security Deposit (10%)'}
                         </p>
                         <p className={`text-2xl font-bold drop-shadow-[0_0_10px_rgba(16,185,129,0.2)] ${canAfford ? 'text-primary' : 'text-red-500'}`}>
-                            {fpFormat(upfrontCost as any, 0)}
+                            {fpFormat(upfrontCost, 0)}
                         </p>
                         {purchaseType === 'lease' && (
                             <p className="text-[10px] font-bold text-orange-400 uppercase mt-0.5">

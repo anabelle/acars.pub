@@ -1,5 +1,5 @@
-import { StateCreator } from 'zustand';
-import { AirlineState } from '../types';
+import type { StateCreator } from 'zustand';
+import type { AirlineState } from '../types';
 import { processFlightEngine } from '../FlightEngine';
 import { publishAirline } from '@airtr/nostr';
 import { fpToNumber } from '@airtr/core';

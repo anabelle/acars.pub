@@ -1,21 +1,23 @@
-import {
+import type {
     AircraftInstance,
     Route,
+    FixedPoint,
+    TimelineEvent,
+    FlightOffer,
+} from '@airtr/core';
+import {
     fpAdd,
     fpSub,
     fpToNumber,
     calculateFlightRevenue,
     calculateFlightCost,
     TICKS_PER_HOUR,
-    FixedPoint,
-    TimelineEvent,
     GENESIS_TIME,
     TICK_DURATION,
     calculateDemand,
     getSeason,
     getProsperityIndex,
     allocatePassengers,
-    FlightOffer,
     detectPriceWar
 } from '@airtr/core';
 import { getAircraftById, airports } from '@airtr/data';

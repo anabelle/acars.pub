@@ -1,6 +1,7 @@
-import { StateCreator } from 'zustand';
-import { AirlineState } from '../types';
-import { Route, fpSub, fp, TimelineEvent, GENESIS_TIME, TICK_DURATION, fpFormat, getSuggestedFares } from '@airtr/core';
+import type { StateCreator } from 'zustand';
+import type { AirlineState } from '../types';
+import type { Route, FixedPoint, TimelineEvent } from '@airtr/core';
+import { fpSub, fp, GENESIS_TIME, TICK_DURATION, fpFormat, getSuggestedFares } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
 import { publishAirline } from '@airtr/nostr';
 import { useEngineStore } from '../engine';
@@ -10,7 +11,7 @@ export interface NetworkSlice {
     updateHub: (newHubIata: string) => Promise<void>;
     openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;
     assignAircraftToRoute: (aircraftId: string, routeId: string | null) => Promise<void>;
-    updateRouteFares: (routeId: string, fares: { economy?: number; business?: number; first?: number }) => Promise<void>;
+    updateRouteFares: (routeId: string, fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint }) => Promise<void>;
 }
 
 export const createNetworkSlice: StateCreator<
@@ -216,7 +217,7 @@ export const createNetworkSlice: StateCreator<
         }
     },
 
-    updateRouteFares: async (routeId: string, fares: { economy?: number; business?: number; first?: number }) => {
+    updateRouteFares: async (routeId: string, fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint }) => {
         const { routes, airline, fleet } = get();
         if (!airline) return;
 
@@ -224,9 +225,9 @@ export const createNetworkSlice: StateCreator<
             if (rt.id === routeId) {
                 return {
                     ...rt,
-                    fareEconomy: fares.economy !== undefined ? fp(fares.economy) : rt.fareEconomy,
-                    fareBusiness: fares.business !== undefined ? fp(fares.business) : rt.fareBusiness,
-                    fareFirst: fares.first !== undefined ? fp(fares.first) : rt.fareFirst,
+                    fareEconomy: fares.economy !== undefined ? fares.economy : rt.fareEconomy,
+                    fareBusiness: fares.business !== undefined ? fares.business : rt.fareBusiness,
+                    fareFirst: fares.first !== undefined ? fares.first : rt.fareFirst,
                 };
             }
             return rt;

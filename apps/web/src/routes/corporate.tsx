@@ -6,13 +6,14 @@ import { Building2, Landmark, Users, MapPin, Palette, CheckCircle2 } from 'lucid
 import { AirlineTimeline } from '@/features/airline/components/Timeline';
 import { HubPicker } from '@/features/network/components/HubPicker';
 import type { Airport } from '@airtr/core';
+import { airports } from '@airtr/data';
 
 export const Route = createFileRoute('/corporate')({
   component: CorporateDashboard,
 });
 
 function CorporateDashboard() {
-  const { airline, updateAirlineHubs } = useAirlineStore();
+  const { airline, updateAirlineHubs, updateHub } = useAirlineStore();
   const { homeAirport, setHub } = useEngineStore();
 
   if (!airline) return null;
@@ -21,20 +22,24 @@ function CorporateDashboard() {
     if (!airport || airline.hubs.includes(airport.iata)) return;
     const newHubs = [...airline.hubs, airport.iata];
     await updateAirlineHubs(newHubs);
+    setHub(
+      airport,
+      { latitude: airport.latitude, longitude: airport.longitude, source: 'manual' },
+      'manual add'
+    );
   };
 
-  const handleSwitchActiveHub = (iata: string) => {
-    // Note: In a production app, we would fetch the full Airport object from @airtr/data 
-    // but since we already have the IATA, we can find it.
-    const { airports } = require('@airtr/data');
-    const airport = airports.find((a: any) => a.iata === iata);
-    if (airport) {
-      setHub(
-        airport,
-        { latitude: airport.latitude, longitude: airport.longitude, source: 'manual' },
-        'manual switch'
-      );
-    }
+  const handleSwitchActiveHub = async (iata: string) => {
+    const airport = airports.find((a) => a.iata === iata);
+    if (!airport) return;
+
+    setHub(
+      airport,
+      { latitude: airport.latitude, longitude: airport.longitude, source: 'manual' },
+      'manual switch'
+    );
+
+    await updateHub(iata);
   };
 
   return (

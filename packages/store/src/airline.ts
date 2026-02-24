@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AirlineState } from './types.js';
+import type { AirlineState } from './types.js';
 import { createIdentitySlice } from './slices/identitySlice.js';
 import { createFleetSlice } from './slices/fleetSlice.js';
 import { createNetworkSlice } from './slices/networkSlice.js';
