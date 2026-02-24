@@ -501,6 +501,18 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
     assignAircraftToRoute: async (aircraftId: string, routeId: string | null) => {
         const { fleet, routes, airline } = get();
 
+        const aircraft = fleet.find(ac => ac.id === aircraftId);
+        const route = routes.find(r => r.id === routeId);
+
+        if (aircraft && route) {
+            const model = getAircraftById(aircraft.modelId);
+            if (model && route.distanceKm > model.rangeKm) {
+                // In a real app we might want a Toast or Error state in the store, 
+                // but for now throwing is handled by the UI catch.
+                throw new Error(`${aircraft.name} (${model.rangeKm}km) does not have enough range for this route (${route.distanceKm}km).`);
+            }
+        }
+
         const updatedFleet = fleet.map(ac => {
             if (ac.id === aircraftId) {
                 return { ...ac, assignedRouteId: routeId };
@@ -569,6 +581,12 @@ export const useAirlineStore = create<AirlineState>((set, get) => ({
             if (ac.status === 'idle' && ac.assignedRouteId) {
                 const route = routes.find(r => r.id === ac.assignedRouteId);
                 if (route && route.status === 'active') {
+                    // Safety check for range
+                    if (route.distanceKm > (model.rangeKm || 0)) {
+                        console.warn(`Aircraft ${ac.id} assigned to route ${route.id} which is out of range (${route.distanceKm} > ${model.rangeKm}). Skipping flight.`);
+                        continue;
+                    }
+
                     // Real-world duration calculation
                     const hours = route.distanceKm / (model.speedKmh || 800);
                     const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);

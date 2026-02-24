@@ -195,14 +195,28 @@ export function FleetManager() {
                                                         <select
                                                             className="flex-1 bg-background border border-border/50 rounded-xl px-3 py-2 text-xs font-bold outline-none ring-primary/20 focus:ring-2 focus:border-primary/50 transition-all appearance-none cursor-pointer"
                                                             value={ac.assignedRouteId || ''}
-                                                            onChange={(e) => assignAircraftToRoute(ac.id, e.target.value || null)}
+                                                            onChange={async (e) => {
+                                                                try {
+                                                                    await assignAircraftToRoute(ac.id, e.target.value || null);
+                                                                } catch (err: any) {
+                                                                    alert(err.message);
+                                                                }
+                                                            }}
                                                         >
                                                             <option value="">Unassigned (Idle)</option>
-                                                            {routes.map(r => (
-                                                                <option key={r.id} value={r.id}>
-                                                                    {r.originIata} &rarr; {r.destinationIata} ({r.distanceKm}km)
-                                                                </option>
-                                                            ))}
+                                                            {routes.map(r => {
+                                                                const isOutOfRange = r.distanceKm > model.rangeKm;
+                                                                return (
+                                                                    <option
+                                                                        key={r.id}
+                                                                        value={r.id}
+                                                                        className={isOutOfRange ? 'text-muted-foreground' : ''}
+                                                                    >
+                                                                        {r.originIata} &rarr; {r.destinationIata} ({r.distanceKm}km)
+                                                                        {isOutOfRange ? ' — [OUT OF RANGE]' : ''}
+                                                                    </option>
+                                                                );
+                                                            })}
                                                         </select>
                                                         {ac.assignedRouteId && (
                                                             <button
@@ -310,14 +324,28 @@ export function FleetManager() {
                                                 <select
                                                     className="w-full bg-background border border-border/50 rounded-lg px-2 py-1 text-[11px] font-bold outline-none focus:border-primary/50 transition-all appearance-none cursor-pointer"
                                                     value={ac.assignedRouteId || ''}
-                                                    onChange={(e) => assignAircraftToRoute(ac.id, e.target.value || null)}
+                                                    onChange={async (e) => {
+                                                        try {
+                                                            await assignAircraftToRoute(ac.id, e.target.value || null);
+                                                        } catch (err: any) {
+                                                            alert(err.message);
+                                                        }
+                                                    }}
                                                 >
                                                     <option value="">(Idle)</option>
-                                                    {routes.map(r => (
-                                                        <option key={r.id} value={r.id}>
-                                                            {r.originIata} → {r.destinationIata}
-                                                        </option>
-                                                    ))}
+                                                    {routes.map(r => {
+                                                        const isOutOfRange = r.distanceKm > model.rangeKm;
+                                                        return (
+                                                            <option
+                                                                key={r.id}
+                                                                value={r.id}
+                                                                className={isOutOfRange ? 'text-muted-foreground' : ''}
+                                                            >
+                                                                {r.originIata} &rarr; {r.destinationIata} ({r.distanceKm}km)
+                                                                {isOutOfRange ? ' [RANGE!]' : ''}
+                                                            </option>
+                                                        );
+                                                    })}
                                                 </select>
                                             ) : (
                                                 <span className="text-[10px] text-muted-foreground italic">In Delivery...</span>

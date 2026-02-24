@@ -15,6 +15,43 @@ export interface GlobeProps {
     style?: React.CSSProperties;
 }
 
+// --- Navigation Helpers (Great Circle Math) ---
+function getGreatCircleInterpolation(p1: [number, number], p2: [number, number], f: number): [number, number] {
+    const lon1 = p1[0] * Math.PI / 180;
+    const lat1 = p1[1] * Math.PI / 180;
+    const lon2 = p2[0] * Math.PI / 180;
+    const lat2 = p2[1] * Math.PI / 180;
+
+    // Haversine distance in radians
+    const d = 2 * Math.asin(Math.sqrt(Math.pow(Math.sin((lat1 - lat2) / 2), 2) +
+        Math.cos(lat1) * Math.cos(lat2) * Math.pow(Math.sin((lon1 - lon2) / 2), 2)));
+
+    if (d === 0) return p1;
+
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+    const x = A * Math.cos(lat1) * Math.cos(lon1) + B * Math.cos(lat2) * Math.cos(lon2);
+    const y = A * Math.cos(lat1) * Math.sin(lon1) + B * Math.cos(lat2) * Math.sin(lon2);
+    const z = A * Math.sin(lat1) + B * Math.sin(lat2);
+    const lat = Math.atan2(z, Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2)));
+    const lon = Math.atan2(y, x);
+
+    return [lon * 180 / Math.PI, lat * 180 / Math.PI];
+}
+
+function getBearing(p1: [number, number], p2: [number, number]): number {
+    const lon1 = p1[0] * Math.PI / 180;
+    const lat1 = p1[1] * Math.PI / 180;
+    const lon2 = p2[0] * Math.PI / 180;
+    const lat2 = p2[1] * Math.PI / 180;
+
+    const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) -
+        Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+    const brng = Math.atan2(y, x);
+    return (brng * 180 / Math.PI + 360) % 360;
+}
+
 export function Globe({ airports, selectedAirport, onAirportSelect, fleetBaseCounts, fleet = [], tick = 0, tickProgress = 0, className = '', style }: GlobeProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapRef = useRef<maplibregl.Map | null>(null);
@@ -186,9 +223,20 @@ export function Globe({ airports, selectedAirport, onAirportSelect, fleetBaseCou
                 const origin = airports.find(a => a.iata === ac.flight?.originIata);
                 const dest = airports.find(a => a.iata === ac.flight?.destinationIata);
                 if (origin && dest) {
+                    // Generate Great Circle Arc points
+                    const points: [number, number][] = [];
+                    const SEGMENTS = 50;
+                    for (let i = 0; i <= SEGMENTS; i++) {
+                        points.push(getGreatCircleInterpolation(
+                            [origin.longitude, origin.latitude],
+                            [dest.longitude, dest.latitude],
+                            i / SEGMENTS
+                        ));
+                    }
+
                     arcFeatures.push({
                         type: 'Feature',
-                        geometry: { type: 'LineString', coordinates: [[origin.longitude, origin.latitude], [dest.longitude, dest.latitude]] },
+                        geometry: { type: 'LineString', coordinates: points },
                         properties: {}
                     });
                 }
@@ -216,21 +264,27 @@ export function Globe({ airports, selectedAirport, onAirportSelect, fleetBaseCou
                 const elapsed = (tick - f.departureTick) + tickProgress;
                 const progress = Math.max(0, Math.min(1, elapsed / duration));
 
-                // Great Circle is complex, keeping linear but ensuring anti-meridian safety
-                let dLng = dest.longitude - origin.longitude;
-                if (dLng > 180) dLng -= 360;
-                if (dLng < -180) dLng += 360;
+                // Great Circle Interpolation
+                const coords = getGreatCircleInterpolation(
+                    [origin.longitude, origin.latitude],
+                    [dest.longitude, dest.latitude],
+                    progress
+                );
 
-                const lng = origin.longitude + dLng * progress;
-                const lat = origin.latitude + (dest.latitude - origin.latitude) * progress;
+                // Dynamic Bearing (look slightly ahead for realism)
+                const nextProgress = Math.min(1, progress + 0.01);
+                const nextCoords = getGreatCircleInterpolation(
+                    [origin.longitude, origin.latitude],
+                    [dest.longitude, dest.latitude],
+                    nextProgress
+                );
 
-                // Simple bearing
-                const bearing = Math.atan2(dest.latitude - origin.latitude, dLng) * (180 / Math.PI);
+                const bearing = getBearing(coords, nextCoords);
 
                 return {
                     type: 'Feature',
-                    geometry: { type: 'Point', coordinates: [lng, lat] },
-                    properties: { id: ac.id, bearing: bearing + 90 }
+                    geometry: { type: 'Point', coordinates: coords },
+                    properties: { id: ac.id, bearing: bearing }
                 };
             })
             .filter(Boolean) as GeoJSON.Feature[];
