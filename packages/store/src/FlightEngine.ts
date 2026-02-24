@@ -261,6 +261,7 @@ export function processFlightEngine(
                 // Set to Turnaround
                 const turnaroundTicks = Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR);
                 ac.status = 'turnaround';
+                ac.baseAirportIata = ac.flight.destinationIata;
                 ac.arrivalTickProcessed = ac.flight.arrivalTick; // Mark THIS flight as landed
                 ac.turnaroundEndTick = tick + Math.max(1, turnaroundTicks);
                 hasChanges = true;

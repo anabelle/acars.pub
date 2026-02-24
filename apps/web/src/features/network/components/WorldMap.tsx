@@ -9,7 +9,7 @@ export function WorldMap() {
     const tick = useEngineStore(s => s.tick);
     const tickProgress = useEngineStore(s => s.tickProgress);
     const setHub = useEngineStore(s => s.setHub);
-    const { airline, updateHub, fleet, globalFleet, globalRoutes } = useAirlineStore();
+    const { airline, updateAirlineHubs, fleet, globalFleet, globalRoutes } = useAirlineStore();
 
     const handleHubChange = (airport: Airport | null) => {
         if (!airport) return;
@@ -20,14 +20,14 @@ export function WorldMap() {
         );
         // If airline exists, persist hub change to Nostr
         if (airline) {
-            updateHub(airport.iata);
+            updateAirlineHubs([airport.iata]);
         }
     };
 
     const fleetBaseCounts = useMemo(() => {
         const counts: Record<string, number> = {};
         fleet.forEach((ac) => {
-            if (ac.baseAirportIata) {
+            if (ac.baseAirportIata && ac.status !== 'enroute' && ac.status !== 'delivery') {
                 counts[ac.baseAirportIata] = (counts[ac.baseAirportIata] || 0) + 1;
             }
         });
