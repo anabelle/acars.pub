@@ -6,40 +6,24 @@ import { Building2, Landmark, Users, MapPin, Palette, CheckCircle2 } from 'lucid
 import { AirlineTimeline } from '@/features/airline/components/Timeline';
 import { HubPicker } from '@/features/network/components/HubPicker';
 import type { Airport } from '@airtr/core';
-import { airports } from '@airtr/data';
 
 export const Route = createFileRoute('/corporate')({
   component: CorporateDashboard,
 });
 
 function CorporateDashboard() {
-  const { airline, updateAirlineHubs, updateHub } = useAirlineStore();
-  const { homeAirport, setHub } = useEngineStore();
+  const { airline, modifyHubs } = useAirlineStore();
+  const homeAirport = useEngineStore(s => s.homeAirport);
 
   if (!airline) return null;
 
   const handleAddHub = async (airport: Airport | null) => {
     if (!airport || airline.hubs.includes(airport.iata)) return;
-    const newHubs = [...airline.hubs, airport.iata];
-    await updateAirlineHubs(newHubs);
-    setHub(
-      airport,
-      { latitude: airport.latitude, longitude: airport.longitude, source: 'manual' },
-      'manual add'
-    );
+    await modifyHubs({ type: 'add', iata: airport.iata });
   };
 
   const handleSwitchActiveHub = async (iata: string) => {
-    const airport = airports.find((a) => a.iata === iata);
-    if (!airport) return;
-
-    setHub(
-      airport,
-      { latitude: airport.latitude, longitude: airport.longitude, source: 'manual' },
-      'manual switch'
-    );
-
-    await updateHub(iata);
+    await modifyHubs({ type: 'switch', iata });
   };
 
   return (

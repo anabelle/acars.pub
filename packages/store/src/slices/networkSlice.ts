@@ -30,50 +30,101 @@ export const createNetworkSlice: StateCreator<
 > = (set, get) => ({
     routes: [],
 
-    updateHub: async (targetHubIata: string) => {
+    modifyHubs: async (action: HubAction) => {
         const { airline, fleet, routes } = get();
         if (!airline) return;
+
+        const currentHubs = airline.hubs || [];
+        let newHubs: string[];
+        let description: string;
+
+        switch (action.type) {
+            case 'add': {
+                if (currentHubs.includes(action.iata)) return;
+                newHubs = [...currentHubs, action.iata];
+                description = `Opened new operations hub at ${action.iata}.`;
+                break;
+            }
+            case 'switch': {
+                if (currentHubs[0] === action.iata) return; // Already active
+                newHubs = [action.iata, ...currentHubs.filter(h => h !== action.iata)];
+                description = `Transferred main operations hub to ${action.iata}.`;
+                break;
+            }
+            case 'remove': {
+                if (!currentHubs.includes(action.iata)) return;
+                if (currentHubs.length <= 1) return; // Can't remove last hub
+                newHubs = currentHubs.filter(h => h !== action.iata);
+                description = `Closed operations hub at ${action.iata}.`;
+                break;
+            }
+        }
 
         const currentTimeline = [...get().timeline];
         const currentTick = useEngineStore.getState().tick;
         const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
 
         const newEvent: TimelineEvent = {
-            id: `evt-hub-${targetHubIata}-${currentTick}`,
+            id: `evt-hub-${action.type}-${action.iata}-${currentTick}`,
             tick: currentTick,
             timestamp: simulatedTimestamp,
-            type: 'delivery',
-            description: `Transferred main operations hub to ${targetHubIata}.`
+            type: 'hub_change',
+            description,
         };
 
         const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
 
-        const updatedHubs = Array.from(new Set([targetHubIata, ...(airline.hubs || [])]));
         const updatedAirline = {
             ...airline,
-            hubs: updatedHubs,
-            timeline: finalTimeline
+            hubs: newHubs,
+            timeline: finalTimeline,
         };
 
         const previousState = { airline, fleet, routes, timeline: get().timeline };
 
         set({
             airline: updatedAirline,
-            timeline: finalTimeline
+            timeline: finalTimeline,
         });
+
+        // Atomically sync engine homeAirport to hubs[0]
+        const activeIata = newHubs[0];
+        const activeAirport = airports.find(a => a.iata === activeIata);
+        if (activeAirport) {
+            useEngineStore.getState().setHub(
+                activeAirport,
+                { latitude: activeAirport.latitude, longitude: activeAirport.longitude, source: 'manual' },
+                `hub ${action.type}`
+            );
+        }
 
         try {
             await publishAirline({
                 ...updatedAirline,
-                fleet: fleet,
-                routes: routes,
+                fleet,
+                routes,
                 timeline: finalTimeline,
                 lastTick: currentTick,
             });
         } catch (error: any) {
             set(previousState);
+            // Roll back engine hub too
+            const rollbackIata = previousState.airline.hubs[0];
+            const rollbackAirport = airports.find(a => a.iata === rollbackIata);
+            if (rollbackAirport) {
+                useEngineStore.getState().setHub(
+                    rollbackAirport,
+                    { latitude: rollbackAirport.latitude, longitude: rollbackAirport.longitude, source: 'manual' },
+                    'hub rollback'
+                );
+            }
             console.warn('Failed to publish hub change to Nostr:', error);
         }
+    },
+
+    // Thin wrapper for backward compat — delegates to modifyHubs
+    updateHub: async (targetHubIata: string) => {
+        await get().modifyHubs({ type: 'switch', iata: targetHubIata });
     },
 
     openRoute: async (originIata: string, destinationIata: string, distanceKm: number) => {

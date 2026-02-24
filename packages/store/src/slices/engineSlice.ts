@@ -101,11 +101,25 @@ export const createEngineSlice: StateCreator<
 
             // 4. Sync to Nostr only if significant events happened
             if (anyChanges) {
-                publishAirline({
-                    ...updatedAirline,
-                    fleet: currentFleet,
-                    routes
-                }).catch(e => console.error("Auto-sync tick failed", e));
+                // Re-read current state at publish time to avoid overwriting
+                // concurrent changes (e.g. hub modifications during tick processing).
+                // We merge the tick's computed values with the fresh airline identity.
+                const freshState = get();
+                const freshAirline = freshState.airline;
+                if (freshAirline) {
+                    publishAirline({
+                        name: freshAirline.name,
+                        icaoCode: freshAirline.icaoCode,
+                        callsign: freshAirline.callsign,
+                        hubs: freshAirline.hubs,
+                        livery: freshAirline.livery,
+                        corporateBalance: currentBalance,
+                        lastTick: targetTick,
+                        timeline: currentTimeline,
+                        fleet: currentFleet,
+                        routes: freshState.routes,
+                    }).catch(e => console.error("Auto-sync tick failed", e));
+                }
             }
         } finally {
             isProcessing = false;

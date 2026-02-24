@@ -1,5 +1,7 @@
 import type { AirlineEntity, AircraftInstance, AircraftModel, Route, TimelineEvent, FixedPoint, FlightOffer } from '@airtr/core';
 import type { AirlineConfig, MarketplaceListing } from '@airtr/nostr';
+import type { HubAction } from './slices/networkSlice';
+export type { HubAction } from './slices/networkSlice';
 
 export type IdentityStatus = 'checking' | 'no-extension' | 'ready';
 
@@ -16,7 +18,7 @@ export interface AirlineState {
     // Actions
     initializeIdentity: () => Promise<void>;
     createAirline: (params: AirlineConfig) => Promise<void>;
-    updateAirlineHubs: (hubs: string[]) => Promise<void>;
+    modifyHubs: (action: HubAction) => Promise<void>;
     purchaseAircraft: (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string, purchaseType?: 'buy' | 'lease') => Promise<void>;
     sellAircraft: (aircraftId: string) => Promise<void>;
     buyoutAircraft: (aircraftId: string) => Promise<void>;

@@ -440,7 +440,13 @@ export const createFleetSlice: StateCreator<
         const model = getAircraftById(instance.modelId);
         if (!model) throw new Error("Model not found.");
 
-        // 1. Price Ceiling: Max 120% of Factory MSRP
+        // 1. Price Floor: Minimum $1,000 (10% of scrap value or $1k, whichever is higher)
+        const MIN_LISTING_PRICE = fp(1000);
+        if (price < MIN_LISTING_PRICE) {
+            throw new Error(`Listing price too low. Minimum allowed is ${fpFormat(MIN_LISTING_PRICE)}.`);
+        }
+
+        // 2. Price Ceiling: Max 120% of Factory MSRP
         const maxPrice = fpScale(model.price, 1.2);
 
         if (price > maxPrice) {

@@ -8,22 +8,21 @@ export function WorldMap() {
     const homeAirport = useEngineStore(s => s.homeAirport);
     const tick = useEngineStore(s => s.tick);
     const tickProgress = useEngineStore(s => s.tickProgress);
-    const setHub = useEngineStore(s => s.setHub);
-    const { airline, updateAirlineHubs, fleet, globalFleet, globalRoutes } = useAirlineStore();
+    const { airline, modifyHubs, fleet, globalFleet, globalRoutes } = useAirlineStore();
 
     const handleHubChange = (airport: Airport | null) => {
         if (!airport) return;
-        setHub(
-            airport,
-            { latitude: airport.latitude, longitude: airport.longitude, source: 'manual' },
-            'manual selection'
-        );
-        // If airline exists, persist hub change to Nostr
-        // Add the new hub to the front (making it active) while preserving existing hubs
         if (airline) {
-            const existingHubs = airline.hubs || [];
-            const updatedHubs = [airport.iata, ...existingHubs.filter(h => h !== airport.iata)];
-            updateAirlineHubs(updatedHubs);
+            // modifyHubs atomically syncs engine homeAirport
+            modifyHubs({ type: 'switch', iata: airport.iata });
+        } else {
+            // No airline yet — just move the engine hub for exploration
+            const setHub = useEngineStore.getState().setHub;
+            setHub(
+                airport,
+                { latitude: airport.latitude, longitude: airport.longitude, source: 'manual' },
+                'manual selection'
+            );
         }
     };
 

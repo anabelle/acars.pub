@@ -59,6 +59,7 @@ function findAirportByTimezone(): Airport | null {
 
 export function AppInitializer({ children }: { children: React.ReactNode }) {
     const { airline, initializeIdentity } = useAirlineStore();
+    const identityStatus = useAirlineStore(s => s.identityStatus);
     const homeAirport = useEngineStore(s => s.homeAirport);
     const setHub = useEngineStore(s => s.setHub);
     const startEngine = useEngineStore(s => s.startEngine);
@@ -67,25 +68,32 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
         initializeIdentity();
     }, [initializeIdentity]);
 
-    // Sync Nostr profile's hub with Engine state if they diverge
+    // Once airline loads from Nostr, authoritatively set engine hub to hubs[0].
+    // This takes priority over any geo-detection that may have run first.
     useEffect(() => {
-        if (airline && homeAirport && airline.hubs[0] !== homeAirport.iata) {
-            const dbHub = AIRPORTS.find(a => a.iata === airline.hubs[0]);
-            if (dbHub) {
-                setHub(
-                    dbHub,
-                    { latitude: dbHub.latitude, longitude: dbHub.longitude, source: 'manual' },
-                    'nostr profile'
-                );
-            }
+        if (!airline || !airline.hubs[0]) return;
+        const dbHub = AIRPORTS.find(a => a.iata === airline.hubs[0]);
+        if (dbHub) {
+            setHub(
+                dbHub,
+                { latitude: dbHub.latitude, longitude: dbHub.longitude, source: 'manual' },
+                'nostr profile'
+            );
         }
-    }, [airline, homeAirport, setHub]);
+        startEngine();
+    }, [airline, setHub, startEngine]);
 
-    // Initialize hub from location
+    // Initialize hub from geolocation — only for new users (no airline loaded yet).
+    // Wait until identity check has completed so we know if a Nostr profile exists.
     useEffect(() => {
         if (homeAirport) return; // Already initialized
+        if (identityStatus !== 'ready') return; // Identity still loading — wait
+        if (airline) return; // Returning user — Nostr sync effect handles hub
 
         const fallbackLocate = () => {
+            // Guard: airline may have loaded while geo was pending
+            if (useAirlineStore.getState().airline) return;
+
             const tzAirport = findAirportByTimezone();
             if (tzAirport) {
                 const loc: UserLocation = {
@@ -105,6 +113,9 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
         if ('geolocation' in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
+                    // Guard: airline may have loaded while geo was pending
+                    if (useAirlineStore.getState().airline) return;
+
                     const loc: UserLocation = {
                         latitude: pos.coords.latitude,
                         longitude: pos.coords.longitude,
@@ -120,7 +131,7 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
         } else {
             fallbackLocate();
         }
-    }, [homeAirport, setHub, startEngine]);
+    }, [homeAirport, identityStatus, airline, setHub, startEngine]);
 
     return <>{children}</>;
 }

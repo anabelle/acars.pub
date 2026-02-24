@@ -274,6 +274,20 @@ export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEnt
  * Publishes an aircraft to the global used marketplace.
  */
 export async function publishUsedAircraft(aircraft: import('@airtr/core').AircraftInstance, price: import('@airtr/core').FixedPoint): Promise<NDKEvent> {
+    // Input validation — defense-in-depth against malformed or malicious calls
+    if (!aircraft || typeof aircraft.id !== 'string' || !aircraft.id) {
+        throw new Error('Invalid aircraft: missing id');
+    }
+    if (typeof aircraft.modelId !== 'string' || !aircraft.modelId) {
+        throw new Error('Invalid aircraft: missing modelId');
+    }
+    if (typeof aircraft.ownerPubkey !== 'string' || !aircraft.ownerPubkey) {
+        throw new Error('Invalid aircraft: missing ownerPubkey');
+    }
+    if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
+        throw new Error('Invalid listing price: must be a positive finite number');
+    }
+
     await ensureConnected();
     const ndk = getNDK();
 
