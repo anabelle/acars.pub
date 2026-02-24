@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { AirlineState } from '../types';
-import { Route, fpSub, fp } from '@airtr/core';
+import { Route, fpSub, fp, TimelineEvent, GENESIS_TIME, TICK_DURATION, fpFormat } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
 import { publishAirline } from '@airtr/nostr';
 import { useEngineStore } from '../engine';
@@ -29,7 +29,22 @@ export const createNetworkSlice: StateCreator<
             hubs: [targetHubIata]
         };
 
-        set({ airline: updatedAirline });
+        const currentTimeline = [...get().timeline];
+        const currentTick = useEngineStore.getState().tick;
+        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
+
+        const newEvent: TimelineEvent = {
+            id: `evt-hub-${targetHubIata}-${currentTick}`,
+            tick: currentTick,
+            timestamp: simulatedTimestamp,
+            type: 'delivery', // Re-using delivery for generic logistic shifts
+            description: `Transferred main operations hub to ${targetHubIata}.`
+        };
+
+        set({
+            airline: updatedAirline,
+            timeline: [newEvent, ...currentTimeline].slice(0, 200)
+        });
 
         try {
             await publishAirline({
@@ -77,8 +92,27 @@ export const createNetworkSlice: StateCreator<
         };
 
         const updatedRoutes = [...routes, newRoute];
+        const currentTimeline = [...get().timeline];
+        const currentTick = useEngineStore.getState().tick;
+        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
 
-        set({ airline: updatedAirline, routes: updatedRoutes });
+        const newEvent: TimelineEvent = {
+            id: `evt-route-open-${newRoute.id}`,
+            tick: currentTick,
+            timestamp: simulatedTimestamp,
+            type: 'purchase',
+            routeId: newRoute.id,
+            originIata: originIata,
+            destinationIata: destinationIata,
+            cost: SLOT_FEE,
+            description: `Opened new route: ${originIata} ↔ ${destinationIata}. Slot fee: ${fpFormat(SLOT_FEE, 0)}`
+        };
+
+        set({
+            airline: updatedAirline,
+            routes: updatedRoutes,
+            timeline: [newEvent, ...currentTimeline].slice(0, 200)
+        });
 
         try {
             await publishAirline({
@@ -120,7 +154,31 @@ export const createNetworkSlice: StateCreator<
             return { ...rt, assignedAircraftIds: assigned };
         });
 
-        set({ fleet: updatedFleet, routes: updatedRoutes });
+        const currentTimeline = [...get().timeline];
+        const currentTick = useEngineStore.getState().tick;
+        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
+
+        const aircraftName = aircraft?.name || 'Aircraft';
+        const routeName = route ? `${route.originIata}-${route.destinationIata}` : 'None';
+
+        const newEvent: TimelineEvent = {
+            id: `evt-assign-${aircraftId}-${currentTick}`,
+            tick: currentTick,
+            timestamp: simulatedTimestamp,
+            type: 'maintenance', // Re-using maintenance/delivery for config changes
+            aircraftId,
+            aircraftName,
+            routeId: routeId || undefined,
+            description: routeId
+                ? `Assigned ${aircraftName} to route ${routeName}.`
+                : `Unassigned ${aircraftName} from all routes.`
+        };
+
+        set({
+            fleet: updatedFleet,
+            routes: updatedRoutes,
+            timeline: [newEvent, ...currentTimeline].slice(0, 200)
+        });
 
         if (airline) {
             try {

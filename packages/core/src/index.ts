@@ -24,6 +24,8 @@ export type {
     TickResult,
     AirlineTickResult,
     RouteTickResult,
+    TimelineEvent,
+    TimelineEventType
 } from './types.js';
 
 // Fixed-point arithmetic

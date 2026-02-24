@@ -6,7 +6,10 @@ import {
     calculateFlightRevenue,
     calculateFlightCost,
     TICKS_PER_HOUR,
-    FixedPoint
+    FixedPoint,
+    TimelineEvent,
+    GENESIS_TIME,
+    TICK_DURATION
 } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
 
@@ -17,6 +20,7 @@ export interface EngineTickResult {
     updatedFleet: AircraftInstance[];
     corporateBalance: FixedPoint;
     hasChanges: boolean;
+    events: TimelineEvent[];
 }
 
 /**
@@ -33,6 +37,9 @@ export function processFlightEngine(
 ): EngineTickResult {
     let hasChanges = false;
     let corporateBalance = initialBalance;
+    const events: TimelineEvent[] = [];
+    const simulatedTimestamp = GENESIS_TIME + (tick * TICK_DURATION);
+
     const updatedFleetMap = new Map<string, AircraftInstance>(
         fleet.map(ac => [ac.id, { ...ac }])
     );
@@ -49,6 +56,15 @@ export function processFlightEngine(
             if (ac.deliveryAtTick !== undefined && tick >= ac.deliveryAtTick) {
                 ac.status = 'idle';
                 hasChanges = true;
+                events.push({
+                    id: `evt-delivery-${ac.id}-${tick}`,
+                    tick,
+                    timestamp: simulatedTimestamp,
+                    type: 'delivery',
+                    aircraftId: ac.id,
+                    aircraftName: ac.name,
+                    description: `${ac.name} has been delivered and is ready for operations.`
+                });
             }
             continue;
         }
@@ -83,6 +99,19 @@ export function processFlightEngine(
                     direction: 'outbound'
                 };
                 hasChanges = true;
+
+                events.push({
+                    id: `evt-takeoff-${ac.id}-${tick}`,
+                    tick,
+                    timestamp: simulatedTimestamp,
+                    type: 'takeoff',
+                    aircraftId: ac.id,
+                    aircraftName: ac.name,
+                    routeId: route.id,
+                    originIata: route.originIata,
+                    destinationIata: route.destinationIata,
+                    description: `${ac.name} taking off: ${route.originIata} → ${route.destinationIata}`
+                });
             }
         }
 
@@ -137,6 +166,24 @@ export function processFlightEngine(
                 ac.arrivalTickProcessed = ac.flight.arrivalTick; // Mark THIS flight as landed
                 ac.turnaroundEndTick = tick + Math.max(1, turnaroundTicks);
                 hasChanges = true;
+
+                const landingEvent: TimelineEvent = {
+                    id: `evt-landing-${ac.id}-${tick}`,
+                    tick,
+                    timestamp: simulatedTimestamp,
+                    type: 'landing',
+                    aircraftId: ac.id,
+                    aircraftName: ac.name,
+                    routeId: route.id,
+                    originIata: route.originIata,
+                    destinationIata: route.destinationIata,
+                    revenue: rev.revenueTotal,
+                    cost: cost.costTotal,
+                    profit: profit,
+                    description: `${ac.name} landed at ${ac.flight?.destinationIata}. Net Profit: ${profit > 0 ? '+' : ''}${profit / 10000}`
+                };
+                events.push(landingEvent);
+                console.log(`[FlightEngine] Plane ${ac.name} landed. Event generated:`, landingEvent.id);
             }
         }
 
@@ -157,6 +204,19 @@ export function processFlightEngine(
                     direction: isReturning ? 'inbound' : 'outbound'
                 };
                 hasChanges = true;
+
+                events.push({
+                    id: `evt-takeoff-rtn-${ac.id}-${tick}`,
+                    tick,
+                    timestamp: simulatedTimestamp,
+                    type: 'takeoff',
+                    aircraftId: ac.id,
+                    aircraftName: ac.name,
+                    routeId: route.id,
+                    originIata: ac.flight.originIata,
+                    destinationIata: ac.flight.destinationIata,
+                    description: `${ac.name} returning: ${ac.flight.originIata} → ${ac.flight.destinationIata}`
+                });
             } else {
                 ac.status = 'idle';
                 ac.flight = null;
@@ -180,6 +240,16 @@ export function processFlightEngine(
                 if (model) {
                     for (let i = 0; i < numCycles; i++) {
                         corporateBalance = fpSub(corporateBalance, model.monthlyLease);
+                        events.push({
+                            id: `evt-lease-${ac.id}-${tick}-${i}`,
+                            tick,
+                            timestamp: simulatedTimestamp,
+                            type: 'lease_payment',
+                            aircraftId: ac.id,
+                            aircraftName: ac.name,
+                            cost: model.monthlyLease,
+                            description: `Monthly lease payment for ${ac.name}`
+                        });
                     }
                     hasChanges = true;
                 }
@@ -190,6 +260,7 @@ export function processFlightEngine(
     return {
         updatedFleet: Array.from(updatedFleetMap.values()),
         corporateBalance,
-        hasChanges
+        hasChanges,
+        events
     };
 }

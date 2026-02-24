@@ -1,4 +1,4 @@
-import type { AirlineEntity, AircraftInstance, AircraftModel, Route } from '@airtr/core';
+import type { AirlineEntity, AircraftInstance, AircraftModel, Route, TimelineEvent } from '@airtr/core';
 import type { AirlineConfig } from '@airtr/nostr';
 
 export type IdentityStatus = 'checking' | 'no-extension' | 'ready';
@@ -7,6 +7,7 @@ export interface AirlineState {
     airline: AirlineEntity | null;
     fleet: AircraftInstance[];
     routes: Route[];
+    timeline: TimelineEvent[];
     pubkey: string | null;
     identityStatus: IdentityStatus;
     isLoading: boolean;

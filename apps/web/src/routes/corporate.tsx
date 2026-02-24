@@ -3,6 +3,7 @@ import { PanelLayout } from '@/shared/components/layout/PanelLayout';
 import { useAirlineStore } from '@airtr/store';
 import { fpFormat } from '@airtr/core';
 import { Building2, Landmark, Users, MapPin, Palette } from 'lucide-react';
+import { AirlineTimeline } from '@/features/airline/components/Timeline';
 
 export const Route = createFileRoute('/corporate')({
   component: CorporateDashboard,
@@ -96,10 +97,19 @@ function CorporateDashboard() {
           </div>
         </div>
 
+        {/* Timeline Section */}
+        <div className="mt-8 mb-4 flex items-center space-x-2 text-muted-foreground px-1">
+          <Landmark className="h-4 w-4" />
+          <span className="text-[10px] uppercase font-bold tracking-wider">Operational Audit Trail (Ledger)</span>
+        </div>
+        <div className="rounded-xl border border-border/50 bg-background/50 overflow-hidden">
+          <AirlineTimeline />
+        </div>
+
         {/* Footer simulation info */}
-        <div className="mt-auto pt-8 pb-2 text-center">
-          <p className="text-[10px] text-muted-foreground/30 font-mono tracking-widest uppercase italic">
-            Nostr Registered Identity • Verified On-Chain
+        <div className="mt-8 pt-8 pb-4 text-center">
+          <p className="text-[10px] text-muted-foreground/30 font-mono tracking-widest uppercase italic border-t border-white/5 pt-4">
+            Nostr Registered Identity • Verified Operations Ledger
           </p>
         </div>
       </div>

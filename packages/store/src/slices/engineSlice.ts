@@ -38,6 +38,7 @@ export const createEngineSlice: StateCreator<
 
             let currentFleet = [...fleet];
             let currentBalance = airline.corporateBalance;
+            let currentTimeline = [...get().timeline];
             let anyChanges = false;
 
             for (let t = lastTick + 1; t <= targetTick; t++) {
@@ -50,6 +51,12 @@ export const createEngineSlice: StateCreator<
                 );
                 currentFleet = result.updatedFleet;
                 currentBalance = result.corporateBalance;
+
+                if (result.events && result.events.length > 0) {
+                    console.log(`[EngineSlice] Tick ${t}: Captured ${result.events.length} events. Total timeline now: ${currentTimeline.length + result.events.length}`);
+                    currentTimeline = [...result.events, ...currentTimeline].slice(0, 200);
+                }
+
                 if (result.hasChanges) anyChanges = true;
             }
 
@@ -57,9 +64,10 @@ export const createEngineSlice: StateCreator<
             const updatedAirline = {
                 ...airline,
                 corporateBalance: currentBalance,
-                lastTick: targetTick
+                lastTick: targetTick,
+                timeline: currentTimeline
             };
-            set({ fleet: currentFleet, airline: updatedAirline });
+            set({ fleet: currentFleet, airline: updatedAirline, timeline: currentTimeline });
 
             // 4. Sync to Nostr only if significant events happened
             if (anyChanges) {

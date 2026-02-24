@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { AirlineState } from '../types';
-import { fp, GENESIS_TIME } from '@airtr/core';
+import { fp, GENESIS_TIME, AircraftInstance, Route, TimelineEvent } from '@airtr/core';
 import { AirlineEntity } from '@airtr/core';
 import {
     waitForNip07,
@@ -19,6 +19,9 @@ export interface IdentitySlice {
     isLoading: boolean;
     error: string | null;
     airline: AirlineEntity | null;
+    fleet: AircraftInstance[];
+    routes: Route[];
+    timeline: TimelineEvent[];
     initializeIdentity: () => Promise<void>;
     createAirline: (params: AirlineConfig) => Promise<void>;
 }
@@ -34,6 +37,9 @@ export const createIdentitySlice: StateCreator<
     isLoading: false,
     error: null,
     airline: null,
+    fleet: [],
+    routes: [],
+    timeline: [],
 
     initializeIdentity: async () => {
         set({ isLoading: true, error: null, airline: null, pubkey: null });
@@ -65,11 +71,28 @@ export const createIdentitySlice: StateCreator<
                 flightHoursSinceCheck: Math.min(ac.flightHoursSinceCheck, maxPossibleHours)
             })) : [];
 
+            // Step 6: Bidirectional Route/Fleet Reconciliation
+            // 6a. Ensure routes only list planes that actually exist
+            const fleetIds = new Set(cleanFleet.map(ac => ac.id));
+            const rawRoutes = existing && existing.routes ? existing.routes : [];
+            const reconciledRoutes = rawRoutes.map(route => ({
+                ...route,
+                assignedAircraftIds: route.assignedAircraftIds.filter(id => fleetIds.has(id))
+            }));
+
+            // 6b. Ensure planes only point to routes that actually exist
+            const routeIds = new Set(reconciledRoutes.map(r => r.id));
+            const reconciledFleet = cleanFleet.map(ac => ({
+                ...ac,
+                assignedRouteId: ac.assignedRouteId && routeIds.has(ac.assignedRouteId) ? ac.assignedRouteId : null
+            }));
+
             set({
                 pubkey,
                 airline: existing ? existing.airline : null,
-                fleet: cleanFleet,
-                routes: existing ? existing.routes : [],
+                fleet: reconciledFleet,
+                routes: reconciledRoutes,
+                timeline: existing?.airline?.timeline || [],
                 identityStatus: 'ready',
                 isLoading: false,
             });
@@ -118,7 +141,7 @@ export const createIdentitySlice: StateCreator<
                 lastTick: useEngineStore.getState().tick,
             };
 
-            set({ airline, isLoading: false, fleet: [], routes: [] });
+            set({ airline, isLoading: false, fleet: [], routes: [], timeline: [] });
         } catch (error: any) {
             set({ error: error.message, isLoading: false });
         }

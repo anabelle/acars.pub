@@ -10,7 +10,10 @@ import {
     fp,
     fpFormat,
     fpToNumber,
-    FixedPoint
+    FixedPoint,
+    TimelineEvent,
+    GENESIS_TIME,
+    TICK_DURATION
 } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
 import {
@@ -41,6 +44,7 @@ export const createFleetSlice: StateCreator<
     FleetSlice
 > = (set, get) => ({
     fleet: [],
+    timeline: [],
 
     purchaseAircraft: async (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string, purchaseType: 'buy' | 'lease' = 'buy') => {
         const { airline, pubkey, fleet, routes } = get();
@@ -93,21 +97,34 @@ export const createFleetSlice: StateCreator<
             fleetIds: [...airline.fleetIds, newInstanceId]
         };
 
+        const currentTimeline = [...get().timeline];
+        const simulatedTimestamp = GENESIS_TIME + (engineStore.tick * TICK_DURATION);
+
+        const newEvent: TimelineEvent = {
+            id: `evt-purchase-${newInstanceId}`,
+            tick: engineStore.tick,
+            timestamp: simulatedTimestamp,
+            type: 'purchase',
+            aircraftId: newInstanceId,
+            aircraftName: newInstance.name,
+            cost: upfrontCost,
+            description: `Purchased ${model.name} for ${fpFormat(upfrontCost, 0)}.`
+        };
+
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+
         set({
             airline: updatedAirline,
-            fleet: updatedFleet
+            fleet: updatedFleet,
+            timeline: finalTimeline
         });
 
         try {
             await publishAirline({
-                name: updatedAirline.name,
-                icaoCode: updatedAirline.icaoCode,
-                callsign: updatedAirline.callsign,
-                hubs: updatedAirline.hubs,
-                livery: updatedAirline.livery,
-                corporateBalance: updatedAirline.corporateBalance,
+                ...updatedAirline,
                 fleet: updatedFleet,
                 routes: routes,
+                timeline: finalTimeline,
                 lastTick: engineStore.tick,
             });
         } catch (e) {
@@ -153,9 +170,30 @@ export const createFleetSlice: StateCreator<
         const updatedFleet = [...fleet];
         updatedFleet.splice(instanceIndex, 1);
 
+        const updatedRoutes = routes.map(rt => ({
+            ...rt,
+            assignedAircraftIds: rt.assignedAircraftIds.filter(id => id !== aircraftId)
+        }));
+
+        const currentTimeline = [...get().timeline];
+        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
+
+        const newEvent: TimelineEvent = {
+            id: `evt-sale-${aircraftId}-${currentTick}`,
+            tick: currentTick,
+            timestamp: simulatedTimestamp,
+            type: 'sale',
+            aircraftId,
+            aircraftName: instance.name,
+            revenue: resaleValue,
+            description: `Sold ${instance.name} for scrap. Recovered ${fpFormat(resaleValue, 0)}.`
+        };
+
         set({
             airline: updatedAirline,
-            fleet: updatedFleet
+            fleet: updatedFleet,
+            routes: updatedRoutes,
+            timeline: [newEvent, ...currentTimeline].slice(0, 200)
         });
 
         try {
@@ -163,14 +201,10 @@ export const createFleetSlice: StateCreator<
             ensureConnected();
 
             await publishAirline({
-                name: updatedAirline.name,
-                icaoCode: updatedAirline.icaoCode,
-                callsign: updatedAirline.callsign,
-                hubs: updatedAirline.hubs,
-                livery: updatedAirline.livery,
-                corporateBalance: updatedAirline.corporateBalance,
+                ...updatedAirline,
                 fleet: updatedFleet,
-                routes: routes,
+                routes: updatedRoutes,
+                timeline: get().timeline,
                 lastTick: currentTick,
             });
 
@@ -214,7 +248,26 @@ export const createFleetSlice: StateCreator<
         const newBalance = fpSub(airline.corporateBalance, cost);
         const updatedAirline = { ...airline, corporateBalance: newBalance };
 
-        set({ airline: updatedAirline, fleet: updatedFleet });
+        const currentTimeline = [...get().timeline];
+        const currentTick = useEngineStore.getState().tick;
+        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
+
+        const newEvent: TimelineEvent = {
+            id: `evt-buyout-${aircraftId}-${currentTick}`,
+            tick: currentTick,
+            timestamp: simulatedTimestamp,
+            type: 'purchase',
+            aircraftId,
+            aircraftName: instance.name,
+            cost: cost,
+            description: `Lease buyout for ${instance.name}. Paid remaining balance: ${fpFormat(cost, 0)}.`
+        };
+
+        set({
+            airline: updatedAirline,
+            fleet: updatedFleet,
+            timeline: [newEvent, ...currentTimeline].slice(0, 200)
+        });
 
         try {
             await publishAirline({
@@ -301,9 +354,26 @@ export const createFleetSlice: StateCreator<
             fleetIds: updatedFleet.map(ac => ac.id)
         };
 
+        const currentTimeline = [...get().timeline];
+        const simulatedTimestamp = GENESIS_TIME + (engineStore.tick * TICK_DURATION);
+
+        const newEvent: TimelineEvent = {
+            id: `evt-purchase-used-${listing.instanceId}-${engineStore.tick}`,
+            tick: engineStore.tick,
+            timestamp: simulatedTimestamp,
+            type: 'purchase',
+            aircraftId: listing.instanceId,
+            aircraftName: listing.name,
+            cost: price as any,
+            description: `Purchased used ${listing.name} from marketplace for ${fpFormat(price as any, 0)}.`
+        };
+
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+
         set({
             airline: updatedAirline,
-            fleet: updatedFleet
+            fleet: updatedFleet,
+            timeline: finalTimeline
         });
 
         try {
@@ -311,14 +381,10 @@ export const createFleetSlice: StateCreator<
             ensureConnected();
 
             await publishAirline({
-                name: updatedAirline.name,
-                icaoCode: updatedAirline.icaoCode,
-                callsign: updatedAirline.callsign,
-                hubs: updatedAirline.hubs,
-                livery: updatedAirline.livery,
-                corporateBalance: updatedAirline.corporateBalance,
+                ...updatedAirline,
                 fleet: updatedFleet,
                 routes: routes,
+                timeline: finalTimeline,
                 lastTick: engineStore.tick,
             });
 

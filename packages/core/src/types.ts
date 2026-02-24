@@ -186,6 +186,7 @@ export interface AirlineEntity {
 
     // Engine State
     lastTick?: number;
+    timeline?: TimelineEvent[];
 }
 
 // --- Route ---
@@ -270,4 +271,31 @@ export interface RouteTickResult {
     revenue: FixedPoint;
     /** Costs (FixedPoint) */
     costs: FixedPoint;
+}
+
+// --- Timeline & Auditing ---
+
+export type TimelineEventType =
+    | 'takeoff'
+    | 'landing'
+    | 'purchase'
+    | 'sale'
+    | 'lease_payment'
+    | 'maintenance'
+    | 'delivery';
+
+export interface TimelineEvent {
+    id: string;
+    tick: number;
+    timestamp: number;
+    type: TimelineEventType;
+    description: string;
+    aircraftId?: string;
+    aircraftName?: string;
+    routeId?: string;
+    originIata?: string;
+    destinationIata?: string;
+    revenue?: FixedPoint;
+    cost?: FixedPoint;
+    profit?: FixedPoint;
 }

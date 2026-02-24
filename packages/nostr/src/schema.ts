@@ -6,6 +6,7 @@ export type AirlineConfig = Pick<AirlineEntity, 'name' | 'icaoCode' | 'callsign'
     corporateBalance?: import('@airtr/core').FixedPoint;
     fleet?: import('@airtr/core').AircraftInstance[];
     routes?: import('@airtr/core').Route[];
+    timeline?: import('@airtr/core').TimelineEvent[];
 };
 
 const AIRLINE_KIND = 30078;
@@ -41,6 +42,7 @@ export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> 
         corporateBalance: airline.corporateBalance,
         fleet: airline.fleet,
         routes: airline.routes,
+        timeline: airline.timeline,
         lastTick: airline.lastTick,
     });
 
@@ -102,6 +104,7 @@ export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEnt
             stockPrice: fp(10), // $10/share
             fleetIds: data.fleet ? data.fleet.map((f: any) => f.id) : [],
             routeIds: data.routes ? data.routes.map((r: any) => r.id) : [],
+            timeline: data.timeline || [],
             lastTick: data.lastTick || 0
         };
         return { airline: loaded, fleet: data.fleet || [], routes: data.routes || [] };
