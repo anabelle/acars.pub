@@ -60,7 +60,7 @@ export { calculateDemand, getProsperityIndex } from './demand.js';
 export { calculateShares, allocatePassengers } from './qsi.js';
 
 // Finance
-export { calculateFlightRevenue, calculateFlightCost } from './finance.js';
+export { calculateFlightRevenue, calculateFlightCost, getSuggestedFares } from './finance.js';
 
 // Fleet
 export { calculateBookValue } from './fleet.js';

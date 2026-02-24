@@ -84,6 +84,26 @@ export function processFlightEngine(
         if (ac.status === 'idle' && ac.assignedRouteId) {
             const route = routes.find(r => r.id === ac.assignedRouteId);
             if (route && route.status === 'active') {
+                // SAFETY GROUNDING CHECK
+                const isGrounded = ac.condition < 0.2 || ac.flightHoursSinceCheck > 600;
+
+                if (isGrounded) {
+                    // Logic: If maintenance is ignored, the plane sits idle 
+                    // and generates a warning event once per day (roughly)
+                    if (tick % (TICKS_PER_HOUR * 24) === 0) {
+                        events.push({
+                            id: `evt-grounded-${ac.id}-${tick}`,
+                            tick,
+                            timestamp: simulatedTimestamp,
+                            type: 'maintenance',
+                            aircraftId: ac.id,
+                            aircraftName: ac.name,
+                            description: `[SAFETY ALERT] ${ac.name} is GROUNDED. Condition: ${Math.round(ac.condition * 100)}%. Hours since check: ${Math.round(ac.flightHoursSinceCheck)}. Maintenance required!`
+                        });
+                    }
+                    continue; // Do not take off
+                }
+
                 // Safety check for range
                 if (route.distanceKm > (model.rangeKm || 0)) {
                     continue;

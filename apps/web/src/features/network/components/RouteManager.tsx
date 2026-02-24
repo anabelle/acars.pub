@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
-import { fpFormat, fpAdd, FP_ZERO } from '@airtr/core';
+import { fpFormat, fpAdd, FP_ZERO, getSuggestedFares } from '@airtr/core';
 import { Globe, PlusCircle, CheckCircle2, AlertCircle, TrendingUp, DollarSign, MapPin } from 'lucide-react';
 
 export function RouteManager() {
@@ -111,28 +111,53 @@ export function RouteManager() {
                                                 <div className="flex flex-col">
                                                     <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Pricing</span>
                                                     {editingRouteId === route.id ? (
-                                                        <div className="flex gap-2 mt-1">
-                                                            <input
-                                                                type="text"
-                                                                value={tempFares.e}
-                                                                onChange={(e) => setTempFares({ ...tempFares, e: e.target.value })}
-                                                                className="w-16 text-[10px] font-mono bg-black/40 border border-white/10 rounded px-1 py-0.5 focus:outline-none focus:border-primary/50"
-                                                                placeholder="E"
-                                                            />
-                                                            <input
-                                                                type="text"
-                                                                value={tempFares.b}
-                                                                onChange={(e) => setTempFares({ ...tempFares, b: e.target.value })}
-                                                                className="w-16 text-[10px] font-mono bg-black/40 border border-white/10 rounded px-1 py-0.5 focus:outline-none focus:border-blue-400/50 text-blue-400"
-                                                                placeholder="B"
-                                                            />
-                                                            <input
-                                                                type="text"
-                                                                value={tempFares.f}
-                                                                onChange={(e) => setTempFares({ ...tempFares, f: e.target.value })}
-                                                                className="w-16 text-[10px] font-mono bg-black/40 border border-white/10 rounded px-1 py-0.5 focus:outline-none focus:border-yellow-500/50 text-yellow-500"
-                                                                placeholder="F"
-                                                            />
+                                                        <div className="flex flex-col gap-2 mt-1">
+                                                            <div className="flex gap-2">
+                                                                <div className="flex flex-col">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={tempFares.e}
+                                                                        onChange={(e) => setTempFares({ ...tempFares, e: e.target.value })}
+                                                                        className="w-16 text-[10px] font-mono bg-black/40 border border-white/10 rounded px-1 py-0.5 focus:outline-none focus:border-primary/50"
+                                                                        placeholder="E"
+                                                                    />
+                                                                    <span className="text-[8px] text-white/20 mt-0.5 font-mono">Sug: {Number(getSuggestedFares(route.distanceKm).economy) / 10000}</span>
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={tempFares.b}
+                                                                        onChange={(e) => setTempFares({ ...tempFares, b: e.target.value })}
+                                                                        className="w-16 text-[10px] font-mono bg-black/40 border border-white/10 rounded px-1 py-0.5 focus:outline-none focus:border-blue-400/50 text-blue-400"
+                                                                        placeholder="B"
+                                                                    />
+                                                                    <span className="text-[8px] text-blue-400/30 mt-0.5 font-mono">Sug: {Number(getSuggestedFares(route.distanceKm).business) / 10000}</span>
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <input
+                                                                        type="text"
+                                                                        value={tempFares.f}
+                                                                        onChange={(e) => setTempFares({ ...tempFares, f: e.target.value })}
+                                                                        className="w-16 text-[10px] font-mono bg-black/40 border border-white/10 rounded px-1 py-0.5 focus:outline-none focus:border-yellow-500/50 text-yellow-500"
+                                                                        placeholder="F"
+                                                                    />
+                                                                    <span className="text-[8px] text-yellow-500/30 mt-0.5 font-mono">Sug: {Number(getSuggestedFares(route.distanceKm).first) / 10000}</span>
+                                                                </div>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const sug = getSuggestedFares(route.distanceKm);
+                                                                        setTempFares({
+                                                                            e: (Number(sug.economy) / 10000).toString(),
+                                                                            b: (Number(sug.business) / 10000).toString(),
+                                                                            f: (Number(sug.first) / 10000).toString(),
+                                                                        });
+                                                                    }}
+                                                                    className="ml-2 px-2 py-0.5 rounded border border-white/5 bg-white/5 text-[8px] uppercase font-bold text-white/40 hover:bg-white/10 transition-colors"
+                                                                >
+                                                                    Fix to Suggested
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     ) : (
                                                         <div className="flex gap-3 mt-1">

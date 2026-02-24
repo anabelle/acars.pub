@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand';
 import { AirlineState } from '../types';
 import { processFlightEngine } from '../FlightEngine';
 import { publishAirline } from '@airtr/nostr';
+import { fpToNumber } from '@airtr/core';
 
 export interface EngineSlice {
     processTick: (tick: number) => Promise<void>;
@@ -19,7 +20,19 @@ export const createEngineSlice: StateCreator<
         if (isProcessing) return;
 
         const { fleet, airline, routes } = get();
-        if (!airline) return;
+        if (!airline || airline.status === 'liquidated') return;
+
+        // EMERGENCY BANKRUPTCY CHECK
+        // If balance is severely negative (e.g. -$10M), auto-pause operations
+        if (fpToNumber(airline.corporateBalance) < -10000000 && airline.status !== 'chapter11') {
+            const updatedAirline = { ...airline, status: 'chapter11' as const };
+            set({ airline: updatedAirline });
+            publishAirline({ ...updatedAirline, fleet, routes }).catch(e => console.error("Bankruptcy sync failed", e));
+            return;
+        }
+
+        // Prevent processing flights for a bankrupt airline
+        if (airline.status === 'chapter11') return;
 
         // 1. Determine where we are vs where we need to be
         const lastTick = airline.lastTick ?? (tick - 1);

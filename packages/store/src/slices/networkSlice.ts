@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { AirlineState } from '../types';
-import { Route, fpSub, fp, TimelineEvent, GENESIS_TIME, TICK_DURATION, fpFormat } from '@airtr/core';
+import { Route, fpSub, fp, TimelineEvent, GENESIS_TIME, TICK_DURATION, fpFormat, getSuggestedFares } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
 import { publishAirline } from '@airtr/nostr';
 import { useEngineStore } from '../engine';
@@ -25,11 +25,6 @@ export const createNetworkSlice: StateCreator<
         const { airline, fleet, routes } = get();
         if (!airline) return;
 
-        const updatedAirline = {
-            ...airline,
-            hubs: [targetHubIata]
-        };
-
         const currentTimeline = [...get().timeline];
         const currentTick = useEngineStore.getState().tick;
         const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
@@ -38,26 +33,30 @@ export const createNetworkSlice: StateCreator<
             id: `evt-hub-${targetHubIata}-${currentTick}`,
             tick: currentTick,
             timestamp: simulatedTimestamp,
-            type: 'delivery', // Re-using delivery for generic logistic shifts
+            type: 'delivery',
             description: `Transferred main operations hub to ${targetHubIata}.`
+        };
+
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+
+        const updatedAirline = {
+            ...airline,
+            hubs: [targetHubIata],
+            timeline: finalTimeline
         };
 
         set({
             airline: updatedAirline,
-            timeline: [newEvent, ...currentTimeline].slice(0, 200)
+            timeline: finalTimeline
         });
 
         try {
             await publishAirline({
-                name: updatedAirline.name,
-                icaoCode: updatedAirline.icaoCode,
-                callsign: updatedAirline.callsign,
-                hubs: updatedAirline.hubs,
-                livery: updatedAirline.livery,
-                corporateBalance: updatedAirline.corporateBalance,
+                ...updatedAirline,
                 fleet: fleet,
                 routes: routes,
-                lastTick: useEngineStore.getState().tick,
+                timeline: finalTimeline,
+                lastTick: currentTick,
             });
         } catch (error: any) {
             console.warn('Failed to publish hub change to Nostr:', error);
@@ -73,6 +72,8 @@ export const createNetworkSlice: StateCreator<
             throw new Error("Insufficient funds to open route. Cost: $100,000");
         }
 
+        const suggested = getSuggestedFares(distanceKm);
+
         const newRoute: Route = {
             id: `rt-${Date.now().toString(36)}`,
             originIata,
@@ -80,16 +81,10 @@ export const createNetworkSlice: StateCreator<
             airlinePubkey: pubkey,
             distanceKm,
             assignedAircraftIds: [],
-            fareEconomy: fp(Math.round(distanceKm * 0.15 + 50)),
-            fareBusiness: fp(Math.round(distanceKm * 0.4 + 150)),
-            fareFirst: fp(Math.round(distanceKm * 0.8 + 400)),
+            fareEconomy: suggested.economy,
+            fareBusiness: suggested.business,
+            fareFirst: suggested.first,
             status: 'active',
-        };
-
-        const updatedAirline = {
-            ...airline,
-            corporateBalance: fpSub(airline.corporateBalance, SLOT_FEE),
-            routeIds: [...airline.routeIds, newRoute.id]
         };
 
         const updatedRoutes = [...routes, newRoute];
@@ -109,10 +104,18 @@ export const createNetworkSlice: StateCreator<
             description: `Opened new route: ${originIata} ↔ ${destinationIata}. Slot fee: ${fpFormat(SLOT_FEE, 0)}`
         };
 
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+        const updatedAirline = {
+            ...airline,
+            corporateBalance: fpSub(airline.corporateBalance, SLOT_FEE),
+            routeIds: [...airline.routeIds, newRoute.id],
+            timeline: finalTimeline
+        };
+
         set({
             airline: updatedAirline,
             routes: updatedRoutes,
-            timeline: [newEvent, ...currentTimeline].slice(0, 200)
+            timeline: finalTimeline
         });
 
         try {
@@ -120,7 +123,8 @@ export const createNetworkSlice: StateCreator<
                 ...updatedAirline,
                 fleet,
                 routes: updatedRoutes,
-                lastTick: useEngineStore.getState().tick,
+                timeline: finalTimeline,
+                lastTick: currentTick,
             });
         } catch (e) {
             console.error("Failed to sync route to Nostr:", e);
@@ -129,6 +133,7 @@ export const createNetworkSlice: StateCreator<
 
     assignAircraftToRoute: async (aircraftId: string, routeId: string | null) => {
         const { fleet, routes, airline } = get();
+        if (!airline) return;
 
         const aircraft = fleet.find(ac => ac.id === aircraftId);
         const route = routes.find(r => r.id === routeId);
@@ -175,28 +180,35 @@ export const createNetworkSlice: StateCreator<
                 : `Unassigned ${aircraftName} from all routes.`
         };
 
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+        const updatedAirline = {
+            ...airline,
+            timeline: finalTimeline
+        };
+
         set({
+            airline: updatedAirline,
             fleet: updatedFleet,
             routes: updatedRoutes,
-            timeline: [newEvent, ...currentTimeline].slice(0, 200)
+            timeline: finalTimeline
         });
 
-        if (airline) {
-            try {
-                await publishAirline({
-                    ...airline,
-                    fleet: updatedFleet,
-                    routes: updatedRoutes,
-                    lastTick: useEngineStore.getState().tick
-                });
-            } catch (e) {
-                console.error("Failed to sync assignment to Nostr:", e);
-            }
+        try {
+            await publishAirline({
+                ...updatedAirline,
+                fleet: updatedFleet,
+                routes: updatedRoutes,
+                timeline: finalTimeline,
+                lastTick: currentTick
+            });
+        } catch (e) {
+            console.error("Failed to sync assignment to Nostr:", e);
         }
     },
 
     updateRouteFares: async (routeId: string, fares: { economy?: number; business?: number; first?: number }) => {
         const { routes, airline, fleet } = get();
+        if (!airline) return;
 
         const updatedRoutes = routes.map(rt => {
             if (rt.id === routeId) {
@@ -210,19 +222,24 @@ export const createNetworkSlice: StateCreator<
             return rt;
         });
 
-        set({ routes: updatedRoutes });
+        const currentTimeline = get().timeline;
+        const updatedAirline = {
+            ...airline,
+            timeline: currentTimeline
+        };
 
-        if (airline) {
-            try {
-                await publishAirline({
-                    ...airline,
-                    fleet,
-                    routes: updatedRoutes,
-                    lastTick: useEngineStore.getState().tick
-                });
-            } catch (e) {
-                console.error("Failed to sync fares to Nostr:", e);
-            }
+        set({ routes: updatedRoutes, airline: updatedAirline });
+
+        try {
+            await publishAirline({
+                ...updatedAirline,
+                fleet,
+                routes: updatedRoutes,
+                timeline: currentTimeline,
+                lastTick: useEngineStore.getState().tick
+            });
+        } catch (e) {
+            console.error("Failed to sync fares to Nostr:", e);
         }
     },
 });

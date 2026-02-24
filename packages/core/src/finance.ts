@@ -157,3 +157,18 @@ export function calculateFlightCost(params: FlightCostParams): {
         costTotal
     };
 }
+
+/**
+ * Get suggestions for baseline fares based on distance.
+ */
+export function getSuggestedFares(distanceKm: number): {
+    economy: FixedPoint;
+    business: FixedPoint;
+    first: FixedPoint;
+} {
+    return {
+        economy: fp(Math.round(distanceKm * 0.15 + 50)),
+        business: fp(Math.round(distanceKm * 0.4 + 150)),
+        first: fp(Math.round(distanceKm * 0.8 + 400)),
+    };
+}

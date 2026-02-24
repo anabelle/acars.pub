@@ -35,6 +35,7 @@ export interface FleetSlice {
     purchaseUsedAircraft: (listing: any) => Promise<void>;
     listAircraft: (aircraftId: string, price: FixedPoint) => Promise<void>;
     cancelListing: (aircraftId: string) => Promise<void>;
+    performMaintenance: (aircraftId: string) => Promise<void>;
 }
 
 export const createFleetSlice: StateCreator<
@@ -263,10 +264,12 @@ export const createFleetSlice: StateCreator<
             description: `Lease buyout for ${instance.name}. Paid remaining balance: ${fpFormat(cost, 0)}.`
         };
 
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+
         set({
             airline: updatedAirline,
             fleet: updatedFleet,
-            timeline: [newEvent, ...currentTimeline].slice(0, 200)
+            timeline: finalTimeline
         });
 
         try {
@@ -274,6 +277,7 @@ export const createFleetSlice: StateCreator<
                 ...updatedAirline,
                 fleet: updatedFleet,
                 routes: routes,
+                timeline: finalTimeline,
                 lastTick: engineStore.tick
             });
         } catch (e) {
@@ -448,6 +452,7 @@ export const createFleetSlice: StateCreator<
                 corporateBalance: updatedBalance,
                 fleet: updatedFleet,
                 routes,
+                timeline: get().timeline,
                 lastTick: useEngineStore.getState().tick
             });
 
@@ -483,6 +488,7 @@ export const createFleetSlice: StateCreator<
                 ...airline,
                 fleet: updatedFleet,
                 routes,
+                timeline: get().timeline,
                 lastTick: useEngineStore.getState().tick
             });
 
@@ -497,6 +503,80 @@ export const createFleetSlice: StateCreator<
         } catch (e) {
             console.error("Cancellation failed:", e);
             alert("Failed to remove listing from Nostr.");
+        }
+    },
+
+    performMaintenance: async (aircraftId: string) => {
+        const { fleet, airline, routes } = get();
+        if (!airline) throw new Error("No airline loaded.");
+
+        const instanceIndex = fleet.findIndex(f => f.id === aircraftId);
+        if (instanceIndex === -1) throw new Error("Aircraft not found.");
+        const instance = fleet[instanceIndex];
+
+        if (instance.status === 'enroute') {
+            throw new Error("Cannot perform maintenance while aircraft is enroute.");
+        }
+
+        const model = getAircraftById(instance.modelId);
+        if (!model) throw new Error("Model not found.");
+
+        // Formula: Base fee ($15k) + Wear Repair (10% of MSRP for zero-condition)
+        const baseFee = fp(15000);
+        const repairCost = fpScale(model.price, (1 - instance.condition) * 0.1);
+        const totalCost = fpAdd(baseFee, repairCost);
+
+        if (airline.corporateBalance < totalCost) {
+            throw new Error(`Insufficient funds for maintenance. Required: ${fpFormat(totalCost)}`);
+        }
+
+        const updatedFleet = [...fleet];
+        updatedFleet[instanceIndex] = {
+            ...instance,
+            condition: 1.0,
+            flightHoursSinceCheck: 0,
+            status: 'maintenance',
+            turnaroundEndTick: useEngineStore.getState().tick + (6 * 60) / 10 // 6 hour downtime
+        };
+
+        const updatedAirline = {
+            ...airline,
+            corporateBalance: fpSub(airline.corporateBalance, totalCost)
+        };
+
+        const currentTimeline = [...get().timeline];
+        const currentTick = useEngineStore.getState().tick;
+        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
+
+        const newEvent: TimelineEvent = {
+            id: `evt-maint-${aircraftId}-${currentTick}`,
+            tick: currentTick,
+            timestamp: simulatedTimestamp,
+            type: 'maintenance',
+            aircraftId,
+            aircraftName: instance.name,
+            cost: totalCost,
+            description: `Performed heavy maintenance (D-Check) on ${instance.name}. Cost: ${fpFormat(totalCost, 0)}. Condition restored to 100%.`
+        };
+
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+
+        set({
+            airline: { ...updatedAirline, timeline: finalTimeline },
+            fleet: updatedFleet,
+            timeline: finalTimeline
+        });
+
+        try {
+            await publishAirline({
+                ...updatedAirline,
+                fleet: updatedFleet,
+                routes,
+                timeline: finalTimeline,
+                lastTick: currentTick
+            });
+        } catch (e) {
+            console.error("Maintenance sync failed:", e);
         }
     }
 });
