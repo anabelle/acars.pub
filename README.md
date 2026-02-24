@@ -18,6 +18,8 @@ AirTR is a real-world aviation simulation where players build and operate virtua
 - **Economic Safety Net** — Chapter 11 bankruptcy status to pause operations during severe financial distress
 - **Suggested Pricing** — Distance-aware fare intelligence with "Fix to Suggested" optimization shortcuts
 - **Route Scheduling** — Real-time aircraft assignment and automated flight operations
+
+### Planned
 - Corporate mechanics (IPO, M&A, stock trading, dividends)
 - Alliance system with codeshares
 - 3D CesiumJS cockpit view
@@ -96,10 +98,13 @@ pnpm clean        # Remove all build artifacts
 ```
 airtr/
 ├── apps/
-│   └── web/                 # React frontend
-│       └── src/
-│           ├── App.tsx      # Main application
-│           └── components/  # UI components
+│   ├── web/                 # React 19 frontend (TanStack Router)
+│   │   └── src/
+│   │       ├── app/         # Global app setup (Providers, Router)
+│   │       ├── routes/      # TanStack Router file-based routes
+│   │       ├── shared/      # Reusable UI (buttons, cards, layout)
+│   │       └── features/    # Feature modules (fleet, network, etc.)
+│   └── web-legacy/          # Previous prototype (archived)
 ├── packages/
 │   ├── core/                # Pure game engine (zero dependencies)
 │   │   └── src/
@@ -107,11 +112,15 @@ airtr/
 │   │       ├── demand.ts        # Gravity model
 │   │       ├── qsi.ts           # Market share allocation
 │   │       ├── finance.ts       # Revenue & costs
+│   │       ├── fleet.ts         # Depreciation & book value
 │   │       └── ...
 │   ├── data/                # Static data catalogs
-│   │   └── src/airports.ts  # Airport database
+│   │   └── src/
+│   │       ├── airports.ts  # 14,000+ airports
+│   │       └── aircraft.ts  # 15 aircraft models
 │   ├── map/                 # MapLibre GL components
-│   ├── nostr/               # Nostr I/O layer
+│   │   └── src/Globe.tsx    # Interactive globe with routes
+│   ├── nostr/               # Nostr I/O layer (NDK)
 │   └── store/               # Zustand state management
 ├── docs/
 │   ├── DESIGN_BIBLE.md      # Gameplay vision & UI targets
@@ -119,7 +128,9 @@ airtr/
 │   ├── CORPORATE_MODEL.md   # Wall Street mechanics (M&A, IPOs)
 │   ├── FLEET_MANAGER_PLAN.md    # Aircraft lifecycle
 │   ├── MONETIZATION_MODEL.md    # Bitcoin/Lightning revenue
+│   ├── SCALABILITY.md       # Map/rendering scaling strategy
 │   └── ROADMAP.md           # Development phases
+├── .agent/                  # Agent development coordination
 └── AGENTS.md                # AI agent onboarding guide
 ```
 

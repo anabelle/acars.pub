@@ -3,7 +3,7 @@
 
 As AirTR scales to millions of users, the traditional "One Player = One Airline" model becomes overly restrictive. To simulate a true, dynamic global economy with corporate drama, we must separate the **Player** from the **Airline**.
 
-This document outlines the architecture for Phase 9 of the roadmap: The Corporate Era.
+This document outlines the architecture for Phase 8 ("Social & Depth") of the roadmap: The Corporate Era.
 
 ---
 

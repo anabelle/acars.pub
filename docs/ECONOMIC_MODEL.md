@@ -78,7 +78,7 @@ A global economic multiplier that oscillates over time:
 prosperityIndex(tick) = 1.0 + 0.15 × sin(2π × tick / TICKS_PER_ECONOMIC_CYCLE)
 ```
 
-Where `TICKS_PER_ECONOMIC_CYCLE` = 10,512,000 (one real-world year, assuming 1200 ticks per hour).
+Where `TICKS_PER_ECONOMIC_CYCLE` = 10,519,200 (one real-world year, assuming 1200 ticks per hour × 24 hours × 365.25 days).
 Range: 0.85 (recession) to 1.15 (boom).
 
 **UI Visualization**: SURFACED in the `RouteManager` as the "Global Prosperity Index." Includes a dynamic sentiment indicator (Boom/Recession) and a sparkline visualization to guide strategic expansion.
@@ -284,5 +284,5 @@ All of the above calculations are:
 - **User Interface Formatting**: To maintain immersion, the unit "Ticks" is **never** shown to the user. All time-durations are displayed in human-readable `minutes:seconds` (e.g., "Ready in 2:45"), and all ledger timestamps use **Relative Time** (e.g., "5m ago").
 - All random values use the **seeded PRNG** (`prng.ts`), seeded by tick number.
 - Distance calculations use the **Haversine formula** (implemented in `@airtr/core`).
-- The tick processor processes ALL airlines simultaneously per tick (hourly).
+- The tick processor processes ALL airlines simultaneously per tick (every 3 seconds).
 - Sort order in loops MUST be deterministic (sort by airline pubkey, then by route IATA pair).

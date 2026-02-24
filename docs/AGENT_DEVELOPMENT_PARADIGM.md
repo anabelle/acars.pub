@@ -95,17 +95,15 @@ airtr/
 │   ├── @airtr/data          ← ZONE: "data"
 │   ├── @airtr/nostr         ← ZONE: "nostr"
 │   ├── @airtr/map           ← ZONE: "map"
-│   ├── @airtr/3d            ← ZONE: "3d"
-│   ├── @airtr/ui            ← ZONE: "ui"
-│   ├── @airtr/store         ← ZONE: "store"
-│   ├── @airtr/audio         ← ZONE: "audio"
-│   └── @airtr/i18n          ← ZONE: "i18n"
+│   └── @airtr/store         ← ZONE: "store"
 │
 ├── apps/
 │   └── web/                 ← ZONE: "app"
 │
 └── docs/                    ← ZONE: "docs"
 ```
+
+> **Note**: The Design Bible describes additional planned packages (`@airtr/ui`, `@airtr/3d`, `@airtr/audio`, `@airtr/i18n`) that have not yet been created. When they are implemented, they will become additional ownership zones.
 
 ### 2.2 OWNERS.md Format
 
@@ -705,18 +703,18 @@ This ordered reading list ensures every agent starts with the same context, rega
 The system supports **N agents working simultaneously**, limited only by zone availability:
 
 ```
-Scenario: 4 agents available, 9 zones
+Scenario: 4 agents available, 6 zones
 
 Agent-A claims @airtr/core         → works on TASK-010
-Agent-B claims @airtr/ui           → works on TASK-011
+Agent-B claims apps/web            → works on TASK-011
 Agent-C claims @airtr/map          → works on TASK-012
-Agent-D claims @airtr/audio        → works on TASK-013
+Agent-D claims @airtr/nostr        → works on TASK-013
 
 All 4 agents work IN PARALLEL on separate zones.
 No conflicts possible — they literally cannot touch each other's files.
 
 When Agent-A finishes and releases @airtr/core:
-Agent-D (finished with audio) can claim @airtr/core for TASK-014.
+Agent-D (finished with nostr) can claim @airtr/core for TASK-014.
 ```
 
 ### 9.2 Dependency-Aware Scheduling
@@ -776,27 +774,21 @@ agents:
     max_concurrent_tasks: 1
 
   - id: agent-ui
-    name: "UI Component Agent"  
-    capabilities: [react, css, accessibility, i18n]
-    preferred_zones: [ui, i18n, app]
+    name: "UI & Frontend Agent"  
+    capabilities: [react, css, accessibility, routing]
+    preferred_zones: [app]
     max_concurrent_tasks: 1
 
   - id: agent-map
-    name: "Map & 3D Agent"
-    capabilities: [webgl, maplibre, cesium, geospatial]
-    preferred_zones: [map, 3d]
+    name: "Map & Visualization Agent"
+    capabilities: [webgl, maplibre, geospatial]
+    preferred_zones: [map]
     max_concurrent_tasks: 1
 
   - id: agent-infra
     name: "Infrastructure Agent"
     capabilities: [nostr, networking, build-tools, ci-cd]
     preferred_zones: [nostr, store]
-    max_concurrent_tasks: 1
-
-  - id: agent-creative
-    name: "Audio & Creative Agent"
-    capabilities: [web-audio, sound-design, animation]
-    preferred_zones: [audio]
     max_concurrent_tasks: 1
 ```
 
@@ -941,14 +933,11 @@ The human operator gets a real-time dashboard showing:
 ║  ZONES          OWNER         TASK        STATUS                ║
 ║  ─────          ─────         ────        ──────                ║
 ║  @airtr/core    agent-core    TASK-010    ██████░░ 75% done     ║
-║  @airtr/ui      agent-ui      TASK-011    ████░░░░ 50% done     ║
 ║  @airtr/map     agent-map     TASK-012    ██░░░░░░ 25% done     ║
-║  @airtr/audio   agent-creative TASK-013   █░░░░░░░ 12% done     ║
 ║  @airtr/store   (available)   —           ░░░░░░░░ available    ║
 ║  @airtr/nostr   (available)   —           ░░░░░░░░ available    ║
 ║  @airtr/data    (available)   —           ░░░░░░░░ available    ║
-║  @airtr/3d      (available)   —           ░░░░░░░░ available    ║
-║  @airtr/i18n    (available)   —           ░░░░░░░░ available    ║
+║  apps/web       (available)   —           ░░░░░░░░ available    ║
 ║                                                                 ║
 ║  PIPELINE        BACKLOG: 24   ACTIVE: 4   DONE: 12   FAIL: 1  ║
 ║  TRUNK STATUS    ✅ GREEN (all gates passing)                    ║

@@ -10,6 +10,29 @@ Enable the concurrent rendering and simulation of 10,000 to 100,000+ aircraft in
 
 ---
 
+## Phase 0: Algorithmic Optimizations (Implemented)
+*Eliminating the worst CPU-side bottlenecks within the existing MapLibre layer architecture.*
+
+### 1. O(1) Airport Lookups
+Replaced `airports.find(a => a.iata === ...)` linear scans with a `Map<string, Airport>` index built via `useMemo`. At 10K routes with ~4 lookups each, this eliminates ~240M string comparisons per update cycle.
+
+### 2. Viewport Culling
+Both arc geometry computation and aircraft position updates now skip entities outside the current map viewport. Uses AABB overlap tests with generous great-circle curvature margins. At typical zoom levels, this eliminates 70-90% of geometry computation.
+
+### 3. Zoom-Adaptive LOD (Level of Detail)
+Arc segment count scales with zoom level: 8 segments at z<2, up to 50 at z>8. At low zoom (world view), this reduces coordinate count by ~85% with no visible quality difference. Cache is invalidated when LOD tier changes.
+
+### 4. Arc Geometry Memoization
+Computed arc coordinates are cached in a `Map<string, [number, number][]>` keyed by `origin-dest-segments`. Global route arcs (which rarely change) are computed once and reused across frames. Cache invalidates automatically on LOD tier changes.
+
+### 5. requestAnimationFrame Flight Animation
+Aircraft position interpolation now runs via `requestAnimationFrame` instead of `setInterval(..., 1000)`, providing smooth 60fps movement. Uses React refs to avoid stale closures without re-registering the RAF loop on every state change.
+
+### 6. Debounced Viewport Updates
+Arc re-computation on pan/zoom is debounced at 150ms to avoid thrashing during continuous map interaction.
+
+---
+
 ## Phase A: Custom WebGL/WebGPU Layer (Rendering Scale)
 *Moving from CPU-driven positions to GPU-calculated positions.*
 
@@ -71,6 +94,11 @@ Only load and simulate other players' planes that are "nearby" or "on shared rou
 ## Technical Feasibility Log
 | Strategy | Difficulty | Impact | Status |
 |----------|------------|--------|--------|
+| O(1) Airport Index | Low | Algorithmic Speed | **Implemented** |
+| Viewport Culling | Low | Rendering Speed | **Implemented** |
+| Zoom-Adaptive LOD | Low | Rendering Speed | **Implemented** |
+| Arc Memoization | Low | CPU Reduction | **Implemented** |
+| RAF Flight Animation | Low | Visual Quality | **Implemented** |
 | Custom WebGL Layer | High | Rendering Speed | Proposed |
 | Web Worker Engine | Medium | UI Stability | Proposed |
 | Shader Interpolation | High | Zero CPU Cost | Proposed |

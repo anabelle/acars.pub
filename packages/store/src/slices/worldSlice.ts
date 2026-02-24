@@ -16,12 +16,7 @@ export interface WorldSlice {
     processGlobalTick: (tick: number) => void;
 }
 
-interface CachedData {
-    fleetByOwner: Map<string, AircraftInstance[]>;
-    routesByOwner: Map<string, Route[]>;
-    fleetVersion: number;
-    routesVersion: number;
-}
+
 
 export const createWorldSlice: StateCreator<
     AirlineState,

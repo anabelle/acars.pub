@@ -40,16 +40,22 @@ To ensure that any AI Agent or human contributor can build predictably, we are s
 ### 3.1 Routing: TanStack Router
 *Why:* It is 100% type-safe. It generates a route tree dynamically. An AI agent cannot accidentally link to a broken page (`/airline/abc` instead of `/airlines/abc`) because the TypeScript compiler will immediately fail. It is the most robust routing solution for complex web apps in 2024/2025.
 
-### 3.2 UI Components: Tailwind CSS + shadcn/ui
-*Why:* Traditional CSS (`index.css`) becomes brittle and spaghetti-like at scale. Tailwind provides strict design tokens constraint. **shadcn/ui** provides accessible (Radix UI), beautifully designed base components that AI agents inherently understand and can compose without writing custom CSS.
+### 3.2 UI Components: Tailwind CSS + Radix UI + CVA (shadcn/ui Pattern)
+*Why:* Traditional CSS (`index.css`) becomes brittle and spaghetti-like at scale. Tailwind provides strict design tokens constraint. We follow the **shadcn/ui component pattern** — accessible Radix UI primitives styled via `class-variance-authority` (CVA), `clsx`, and `tailwind-merge` — that AI agents inherently understand and can compose without writing custom CSS.
 
-### 3.3 State & Data: Zustand + TanStack Query
+> **Implementation Note:** The project uses the same dependency stack as shadcn/ui (`@radix-ui/react-slot`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`) but components were assembled manually rather than scaffolded via the `npx shadcn-ui` CLI (no `components.json` config exists).
+
+### 3.3 State & Data: Zustand (+ TanStack Query planned)
 *Why:* 
-- `Zustand`: For synchronous, global engine state (the current Tick, the Airline Entity).
-- `TanStack Query`: For asynchronous data fetching from Nostr relays (e.g., retrieving historical price data for a stock chart, or querying the global leaderboard).
+- `Zustand`: For synchronous, global engine state (the current Tick, the Airline Entity). Currently handles all state management including Nostr relay data via the `@airtr/store` layer with direct NDK calls.
+- `TanStack Query`: Intended for asynchronous data fetching from Nostr relays (e.g., retrieving historical price data for a stock chart, or querying the global leaderboard).
 
-### 3.4 The Map: MapLibre GL JS + react-map-gl
+> **Implementation Note:** `@tanstack/react-query` is declared in `apps/web/package.json` but is **not yet imported or used** anywhere in the source code. All async Nostr data currently flows through direct NDK calls in the `@airtr/store` Zustand slices. TanStack Query integration is a future enhancement.
+
+### 3.4 The Map: MapLibre GL JS (Direct API)
 *Why:* Mapbox is proprietary and expensive. MapLibre is open-source, highly performant WebGL, and can render 100,000 pulsing route lines instantly without destroying device battery.
+
+> **Implementation Note:** The map (`packages/map/src/Globe.tsx`) uses **direct `maplibregl.Map()` calls** — not the `react-map-gl` wrapper. The map instance is managed imperatively via `useRef`/`useEffect`, with layers, sources, and animations controlled through the raw MapLibre GL JS API. This gives full control over WebGL rendering, viewport culling, and arc geometry caching for O(1) scalability.
 
 ### 3.5 Virtualization: TanStack Virtual
 *Why:* DOM nodes are the enemy of performance. If a player looks at the global Fleet Market (used aircraft), there might be 5,000 items. `tanstack/react-virtual` ensures only the 15 items visible on screen actually exist in HTML.

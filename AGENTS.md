@@ -16,7 +16,7 @@ This is not a casual clicker game. This is a **massive, persistent, Wall Street-
 Do not try to add PostgreSQL, Redis, or Firebase. All game state is a deterministic reduction of a decentralized Nostr event log (NIP-33, kind: 30078, etc.). The client does the heavy lifting. If a player buys a plane, it is a signed event broadcast to relays.
 
 ### Rule 2: Strict 1:1 Real-Time Sync (UTC)
-Time is not fast-forwarded. 1 Game Tick = exactly 1 Real-World Hour in UTC. If a flight takes 7 hours from JFK to LHR, it takes exactly 7 real-world hours to resolve. The game plays like a financial dashboard (or *Flightradar24*), generating a highly addictive "Idle/Check-in" loop. 
+Time is not fast-forwarded. Game time maps 1:1 to real-world UTC time. 1 Game Tick = 3 seconds (`TICK_DURATION = 3000ms`), with 1,200 ticks per real-world hour (`TICKS_PER_HOUR = 1200`). If a flight takes 7 hours from JFK to LHR, it takes exactly 7 real-world hours to resolve. The game plays like a financial dashboard (or *Flightradar24*), generating a highly addictive "Idle/Check-in" loop. 
 
 ### Rule 3: $O(1)$ Math Over $O(N^2)$ Loops
 Because this scales to tens of thousands of flights, **you cannot simulate individual passengers**. If your code loops over every passenger, you failed. We use macro-economic formulas (Gravity Model for Demand, QSI for Market Share) that resolve instantly regardless of volume.
@@ -40,6 +40,7 @@ This repo is a strict Monorepo using `pnpm` workspaces. Do NOT mix concerns:
 - `@airtr/data`: Static catalogs (Airports, AircraftModels, Routes). 
 - `@airtr/nostr`: The I/O layer. Reading/Writing signed events via NDK.
 - `@airtr/store`: Rehydration of the Nostr log into Zustand state memory for React.
+- `@airtr/map`: MapLibre GL globe and route visualization.
 - `apps/web`: The UI. 
 
 ## 5. Your Required Reading List

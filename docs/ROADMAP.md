@@ -14,17 +14,16 @@
 | T-003 | Create `@airtr/data` package skeleton | data | T-001 |
 | T-004 | Create `@airtr/nostr` package skeleton | nostr | T-001 |
 | T-005 | Create `@airtr/store` package skeleton (Zustand) | store | T-001 |
-| T-006 | Create `@airtr/ui` package skeleton (React components) | ui | T-001 |
 | T-007 | Create `@airtr/map` package skeleton (MapLibre GL) | map | T-001 |
-| T-008 | Create `@airtr/i18n` package skeleton (i18next) | i18n | T-001 |
-| T-009 | Create `@airtr/audio` package skeleton (Web Audio API) | audio | T-001 |
 | T-010 | Create `apps/web` Vite+React application | app | T-001 |
 | T-011 | Set up ESLint, Prettier, TypeScript strict config (shared) | infra | T-001 |
 | T-012 | Set up GitHub Actions CI (gates pipeline) | infra | T-011 |
 | T-013 | Write CONTRACT.md for `@airtr/core` | core | T-002 |
 | T-014 | Write CONTRACT.md for `@airtr/data` | data | T-003 |
 
-**Estimated effort**: 14 tasks, ~2 days with 2 agents
+> **Note**: Tasks T-006 (`@airtr/ui`), T-008 (`@airtr/i18n`), and T-009 (`@airtr/audio`) from the original plan have been deferred. These packages will be created in later phases as needed.
+
+**Estimated effort**: 11 tasks, ~2 days with 2 agents
 
 ---
 
@@ -112,11 +111,11 @@
 | T-088 | Route performance panel (load factor, revenue per route) | ui | T-065, T-087 |
 | T-089 | Simulation tick runner (interval timer driving the core engine) | store | T-068, T-046 |
 | T-090 | Persist game actions as Nostr events (route open, price change, etc.) | nostr | T-042, T-070 |
-| T-091 | Onboarding tutorial flow (guided first 5 minutes) | ui | T-080 through T-088 |
-| T-092 | Cabin chime sound on route creation | audio | T-009, T-080 |
-| T-093 | Revenue tick sound (cash register) | audio | T-009, T-065 |
+| T-091 | Onboarding tutorial flow (guided first 5 minutes) | app | T-080 through T-088 |
+| T-092 | Cabin chime sound on route creation | audio | *(deferred — `@airtr/audio` not yet created)* |
+| T-093 | Revenue tick sound (cash register) | audio | *(deferred — `@airtr/audio` not yet created)* |
 
-**Estimated effort**: 14 tasks, ~3 days with 4 agents. **STATUS: 100% COMPLETE ✅**
+**Estimated effort**: 14 tasks, ~3 days with 4 agents. **STATUS: CORE GAMEPLAY COMPLETE ✅** (T-091 onboarding, T-092/T-093 audio deferred)
 
 ---
 
@@ -204,7 +203,7 @@
 
 | Phase | Name | Tasks | Agents | Duration | Milestone |
 |-------|------|-------|--------|----------|-----------|
-| 0 | Foundation | ~14 | 2 | 2 days | Monorepo builds ✅ |
+| 0 | Foundation | ~11 | 2 | 2 days | Monorepo builds ✅ |
 | 1 | Static World | ~12 | 3 | 2 days | Globe with airports ✅ |
 | 2 | Airline Identity | ~9 | 3 | 2 days | Create airline on Nostr ✅ |
 | 3 | Core Economy | ~12 | 1 | 3 days | Simulation engine works ✅ |

@@ -371,7 +371,7 @@ Your airline is YOUR identity. It's published as a Nostr addressable event and v
     "name": "Aurora Airlines",
     "icao": "AUR",
     "callsign": "AURORA",
-    "hubICAO": "KJFK",
+    "hubs": ["JFK"],
     "founded": "2026-02-20",
     "livery": {
       "primary": "#1a1a2e",
@@ -660,37 +660,32 @@ Each package has a clear contract and can evolve independently:
         │               │               │
         ▼               ▼               ▼
 ┌──────────────┐ ┌─────────────┐ ┌──────────────┐
-│ @airtr/map   │ │ @airtr/ui   │ │ @airtr/3d    │
-│ MapLibre     │ │ React comp. │ │ CesiumJS     │
-│ Layers, etc. │ │ Panels, etc.│ │ 3D models    │
+│ @airtr/map   │ │ @airtr/store│ │ @airtr/nostr │
+│ MapLibre     │ │ Zustand     │ │ NDK Adapter  │
+│ Globe, Arcs  │ │ State mgmt  │ │ Events I/O   │
 └──────┬───────┘ └──────┬──────┘ └──────┬───────┘
        │                │               │
        └────────────┬───┘───────────────┘
                     │ depends on
                     ▼
             ┌──────────────┐
-            │ @airtr/store │  Zustand state
-            │              │  Multiple small stores
+            │ @airtr/core  │  Pure domain logic
+            │              │  Zero external deps
             └──────┬───────┘
                    │ depends on
                    ▼
            ┌───────────────┐
-           │ @airtr/nostr  │  NDK adapter
-           │               │  Event schema
-           └──────┬────────┘
-                  │ depends on
-                  ▼
-          ┌───────────────┐     ┌──────────────┐
-          │ @airtr/core   │     │ @airtr/data  │
-          │ Pure domain   │────▶│ Static data  │
-          │ No deps       │     │ Airports etc │
-          └───────────────┘     └──────────────┘
+           │ @airtr/data   │  Static data
+           │ Airports, etc │  Aircraft catalog
+           └───────────────┘
 
-          ┌───────────────┐     ┌──────────────┐
-          │ @airtr/audio  │     │ @airtr/i18n  │
-          │ Web Audio API │     │ i18next      │
-          │ Sound engine  │     │ Translations │
-          └───────────────┘     └──────────────┘
+    ┌────────────────────────────────────────────┐
+    │  PLANNED (not yet implemented):            │
+    │  @airtr/ui    — Shared React components    │
+    │  @airtr/3d    — CesiumJS 3D globe view     │
+    │  @airtr/audio — Web Audio API sound engine  │
+    │  @airtr/i18n  — i18next translations        │
+    └────────────────────────────────────────────┘
 ```
 
 ### 8.5 Testing Strategy

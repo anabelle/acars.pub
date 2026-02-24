@@ -78,8 +78,13 @@ export interface AircraftModel {
 | B737-800 | Narrowbody | 189 | 5,765 | $106M | $0.09 | 12-13 | 35 | b737 |
 | B737 MAX 8 | Narrowbody | 178 | 6,570 | $121M | $0.07 | 12-13 | 35 | b737 |
 | A321neo | Narrowbody | 244 | 7,400 | $129M | $0.07 | 12-13 | 40 | a320 |
+| A330-300 | Widebody | 300 | 11,750 | $264M | $0.07 | 13-14 | 60 | a330 |
 | A330-900 | Widebody | 293 | 13,300 | $296M | $0.06 | 13-14 | 60 | a330 |
 | B787-9 | Widebody | 290 | 14,140 | $292M | $0.05 | 13-14 | 55 | b787 |
+| B777-300ER | Widebody | 396 | 13,650 | $375M | $0.05 | 13-14 | 60 | b777 |
+| A350-900 | Widebody | 325 | 15,000 | $317M | $0.05 | 13-14 | 55 | a350 |
+| A380-800 | Widebody | 525 | 15,200 | $446M | $0.06 | 13-14 | 90 | a380 |
+| B747-8 | Widebody | 410 | 14,310 | $418M | $0.06 | 13-14 | 75 | b747 |
 
 **Key Insight from Real Airlines:** Low-cost carriers (Ryanair, Southwest) achieve 13-14 block hours/day through quick turnarounds (15-25 min). Hub-and-spoke carriers typically achieve 10-12 hours due to connection timing constraints.
 
@@ -110,11 +115,11 @@ export interface AircraftInstance {
 All game actions must be codified as signed events.
 
 ### 3.1 Game Action Event Schema
-Instead of creating a new NIP per action, we use a structured payload inside a specific event kind (e.g., `kind: 30080` for Game Actions).
+Instead of creating a new NIP per action, we use a structured payload inside a specific event kind. Airline state is stored as `kind: 30078` (NIP-33 addressable), and marketplace listings use `kind: 30079`.
 
 ```json
 {
-  "kind": 30080,
+  "kind": 30078,
   "tags": [
     ["d", "airtr:action:buy_aircraft"],
     ["airline", "<airline_pubkey>"]
@@ -318,6 +323,8 @@ function calculateCommonalityBonus(
 ### 4.5 Maintenance System (A/B/C/D Checks)
 *"An aircraft on ground costs $10,000-$150,000 per hour."*
 
+> **Implementation Status**: The current code implements a simplified single-action maintenance system (`performMaintenance` in `fleetSlice.ts`) that restores condition to 100% and resets hour counters. The full A/B/C/D tiered check system described below is the **target design** for a future phase.
+
 Real airlines follow a structured maintenance program based on flight hours and cycles. Poor planning leads to AOG (Aircraft on Ground) events that devastate profits.
 
 #### Maintenance Check Types (Real Aviation)
@@ -392,15 +399,16 @@ Random mechanical failures that force unscheduled maintenance:
 
 Aircraft are depreciating assets. Understanding residual value is critical for fleet planning and exit strategies.
 
-#### Depreciation Model (Straight-Line)
-Real airlines typically depreciate over 20-25 years with 10-15% residual value:
+#### Depreciation Model (Declining Balance)
+Real airlines typically depreciate over 20-25 years with 10-15% residual value. The implementation uses a **declining balance** (exponential) model with a 10% annual rate, which provides a more realistic front-loaded depreciation curve:
 
 ```
-Annual Depreciation = (Purchase Price - Residual Value) / Useful Life
+Book Value = Purchase Price × (1 - 0.10)^AgeYears
 
 Example: B737-800 ($106M, 25-year life, 10% residual)
-Annual Depreciation = ($106M - $10.6M) / 25 = $3.8M/year
-Monthly Depreciation = $316K/month
+Year 1:  $106M × 0.90^1  = $95.4M
+Year 5:  $106M × 0.90^5  = $62.5M
+Year 10: $106M × 0.90^10 = $36.9M
 ```
 
 #### Book Value Calculation
@@ -412,28 +420,26 @@ function calculateBookValue(
     purchasedAtTick: number,
     currentTick: number
 ): FixedPoint {
-    const ticksPerYear = 365; // Assuming daily ticks
+    const ticksPerDay = TICKS_PER_HOUR * 24;
+    const ticksPerYear = ticksPerDay * 365;
     const ageYears = (currentTick - purchasedAtTick) / ticksPerYear;
     
-    // Straight-line depreciation
-    const residualValue = model.price * (model.residualValuePercent / 100);
-    const depreciableBase = model.price - residualValue;
-    const annualDepreciation = depreciableBase / model.economicLifeYears;
-    
-    let bookValue = model.price - (annualDepreciation * ageYears);
+    // Declining balance depreciation (10% annual rate)
+    const annualRate = 0.10;
+    let bookValue = model.price * Math.pow(1 - annualRate, ageYears);
     
     // Condition adjustment: poor condition reduces value further
     const conditionPenalty = (1 - condition) * 0.3; // Up to 30% additional loss
     bookValue = bookValue * (1 - conditionPenalty);
     
     // High hours penalty (above average utilization)
-    const averageAnnualHours = model.blockHoursPerDay * 365;
-    const actualAnnualHours = flightHoursTotal / Math.max(ageYears, 0.1);
-    if (actualAnnualHours > averageAnnualHours * 1.2) {
+    const expectedHours = (model.blockHoursPerDay * 365) * ageYears;
+    if (ageYears > 0.01 && flightHoursTotal > expectedHours * 1.2) {
         bookValue = bookValue * 0.9; // 10% penalty for overutilization
     }
     
     // Floor at residual value
+    const residualValue = model.price * (model.residualValuePercent / 100);
     return Math.max(bookValue, residualValue);
 }
 ```
