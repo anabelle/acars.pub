@@ -24,7 +24,8 @@ import {
     publishUsedAircraft,
     getNDK,
     NDKEvent,
-    MARKETPLACE_KIND
+    MARKETPLACE_KIND,
+    type MarketplaceListing
 } from '@airtr/nostr';
 import { useEngineStore } from '../engine';
 
@@ -33,7 +34,7 @@ export interface FleetSlice {
     purchaseAircraft: (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string, purchaseType?: 'buy' | 'lease') => Promise<void>;
     sellAircraft: (aircraftId: string) => Promise<void>;
     buyoutAircraft: (aircraftId: string) => Promise<void>;
-    purchaseUsedAircraft: (listing: any) => Promise<void>;
+    purchaseUsedAircraft: (listing: MarketplaceListing) => Promise<void>;
     listAircraft: (aircraftId: string, price: FixedPoint) => Promise<void>;
     cancelListing: (aircraftId: string) => Promise<void>;
     performMaintenance: (aircraftId: string) => Promise<void>;
@@ -296,13 +297,12 @@ export const createFleetSlice: StateCreator<
         }
     },
 
-    purchaseUsedAircraft: async (listing: any) => {
+    purchaseUsedAircraft: async (listing: MarketplaceListing) => {
         const { airline, pubkey, fleet, routes } = get();
         if (!airline || !pubkey) throw new Error("No active identity or airline loaded.");
 
-        const listingPrice = listing.marketplacePrice;
-        if (typeof listingPrice !== 'number') throw new Error("Invalid price on marketplace listing.");
-        const price = listingPrice as FixedPoint;
+        // Price is already validated as FixedPoint by parseMarketplaceListing
+        const price = listing.marketplacePrice;
 
         if (airline.corporateBalance < price) {
             throw new Error(`Insufficient corporate balance: ${fpFormat(airline.corporateBalance)} vs ${fpFormat(price)}`);
@@ -320,12 +320,10 @@ export const createFleetSlice: StateCreator<
         const existingInstance = fleet.find(ac => ac.id === listing.instanceId);
 
         // 2. Inheritance: Take original manufacture date (birthTick) if available
-        const inheritedBirthTick = listing.birthTick || listing.purchasedAtTick || engineStore.tick;
+        // Use ?? so that 0 is preserved as valid tick
+        const inheritedBirthTick = listing.birthTick ?? listing.purchasedAtTick ?? engineStore.tick;
 
         console.log(`[Fleet] Purchasing used ${listing.name} (ID: ${listing.instanceId}) for ${fpFormat(price)}`);
-
-        // 3. Create or Update the instance
-        const { marketplacePrice, listedAt, sellerPubkey, isOptimistic, source, ...cleanedAircraft } = listing;
 
         let updatedFleet: AircraftInstance[];
 
@@ -342,25 +340,31 @@ export const createFleetSlice: StateCreator<
                         listingPrice: null,
                         purchasePrice: price,
                         purchasedAtTick: engineStore.tick,
-                        status: 'idle' // Don't put it in delivery if we already have it
+                        status: 'idle' as const
                     }
                     : ac
             );
         } else {
-            // New purchase: Create new instance (Keep original airframe ID if possible)
+            // New purchase: Construct AircraftInstance explicitly from validated fields
             const newInstance: AircraftInstance = {
-                ...cleanedAircraft,
-                id: listing.instanceId, // Keep original ID to maintain airframe identity
+                id: listing.instanceId,
                 ownerPubkey: pubkey,
+                modelId: listing.modelId,
+                name: listing.name,
                 status: 'delivery',
                 purchaseType: 'buy',
+                assignedRouteId: null,
                 baseAirportIata: targetHubIata,
                 purchasedAtTick: engineStore.tick,
                 purchasePrice: price,
-                listingPrice: null, // CLEAR LISTING PRICE
+                listingPrice: null,
                 birthTick: inheritedBirthTick,
                 deliveryAtTick: engineStore.tick + 20,
                 flight: null,
+                configuration: { ...listing.configuration },
+                flightHoursTotal: listing.flightHoursTotal,
+                flightHoursSinceCheck: listing.flightHoursSinceCheck,
+                condition: listing.condition,
             };
             updatedFleet = [...fleet, newInstance];
         }

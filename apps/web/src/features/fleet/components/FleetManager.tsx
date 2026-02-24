@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
 import { getAircraftById } from '@airtr/data';
-import { calculateBookValue, fpFormat, fpScale, fp, fpToNumber, TICK_DURATION, FP_ZERO } from '@airtr/core';
+import { calculateBookValue, fpFormat, fpScale, fp, fpToNumber, TICK_DURATION, FP_ZERO, type FixedPoint } from '@airtr/core';
 import { AircraftDealer } from './AircraftDealer';
 import { Settings, Search, PlusCircle, Trash2, Timer, Tag, XCircle, Plane } from 'lucide-react';
 import { NARROWBODY_SVG, TURBOPROP_SVG, WIDEBODY_SVG, REGIONAL_SVG } from '@airtr/map';
@@ -307,30 +307,31 @@ export function FleetManager() {
                                                             onClick={() => {
                                                                 const marketVal = calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.birthTick || ac.purchasedAtTick, tick);
                                                                 const msrp = calculateBookValue(model, 0, 1, tick, tick); // Get MSRP (0 hours, 100% condition, 0 age)
-                                                                const maxPrice = fpToNumber(msrp) * 1.2;
+                                                                const maxPriceFp = fpScale(msrp, 1.2) as FixedPoint;
 
                                                                 const priceStr = prompt(
                                                                     `List ${ac.name} on the Global Marketplace.\n\n` +
                                                                     `• Appraisal: ${fpFormat(marketVal)}\n` +
-                                                                    `• Max Allowed (120% MSRP): ${fpFormat(fp(maxPrice))}\n\n` +
+                                                                    `• Max Allowed (120% MSRP): ${fpFormat(maxPriceFp)}\n\n` +
                                                                     `NOTE: A 0.5% non-refundable Listing Fee will be deducted from your account.`,
                                                                     fpToNumber(marketVal).toString()
                                                                 );
 
                                                                 if (priceStr) {
-                                                                    const price = parseFloat(priceStr);
-                                                                    if (isNaN(price) || price <= 0) {
+                                                                    const priceNum = parseFloat(priceStr);
+                                                                    if (isNaN(priceNum) || priceNum <= 0) {
                                                                         alert("Please enter a valid positive price.");
                                                                         return;
                                                                     }
-                                                                    if (price > maxPrice) {
-                                                                        alert(`Price exceeds the ceiling of ${fpFormat(fp(maxPrice))}`);
+                                                                    const priceFp = fp(priceNum);
+                                                                    if (priceFp > maxPriceFp) {
+                                                                        alert(`Price exceeds the ceiling of ${fpFormat(maxPriceFp)}`);
                                                                         return;
                                                                     }
 
-                                                                    const fee = price * 0.005;
-                                                                    if (confirm(`Listing this aircraft for ${fpFormat(fp(price))} will cost ${fpFormat(fp(fee))} in non-refundable listing fees. Continue?`)) {
-                                                                        listAircraft(ac.id, fp(price));
+                                                                    const feeFp = fpScale(priceFp, 0.005);
+                                                                    if (confirm(`Listing this aircraft for ${fpFormat(priceFp)} will cost ${fpFormat(feeFp)} in non-refundable listing fees. Continue?`)) {
+                                                                        listAircraft(ac.id, priceFp);
                                                                     }
                                                                 }
                                                             }}

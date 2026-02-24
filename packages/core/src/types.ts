@@ -283,6 +283,7 @@ export type TimelineEventType =
     | 'lease_payment'
     | 'maintenance'
     | 'delivery'
+    | 'hub_change'
     | 'price_war';
 
 export interface TimelineEvent {

@@ -16,6 +16,19 @@ export function fp(value: number): FixedPoint {
     return Math.round(value * FP_SCALE) as FixedPoint;
 }
 
+/**
+ * Cast an already-scaled integer back to FixedPoint.
+ * Use this when deserializing from JSON where the value was stored
+ * as the raw FP integer (e.g., 1000000 for $100.00).
+ * Returns FP_ZERO if the value is not a finite number.
+ */
+export function fpRaw(value: unknown): FixedPoint {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return Math.round(value) as FixedPoint;
+    }
+    return 0 as FixedPoint;
+}
+
 /** Convert FixedPoint back to a regular number for display */
 export function fpToNumber(value: FixedPoint): number {
     return value / FP_SCALE;

@@ -1,5 +1,5 @@
 import type { AirlineEntity, AircraftInstance, AircraftModel, Route, TimelineEvent, FixedPoint, FlightOffer } from '@airtr/core';
-import type { AirlineConfig } from '@airtr/nostr';
+import type { AirlineConfig, MarketplaceListing } from '@airtr/nostr';
 
 export type IdentityStatus = 'checking' | 'no-extension' | 'ready';
 
@@ -20,8 +20,8 @@ export interface AirlineState {
     purchaseAircraft: (model: AircraftModel, deliveryHubIata?: string, configuration?: { economy: number; business: number; first: number; cargoKg: number; }, customName?: string, purchaseType?: 'buy' | 'lease') => Promise<void>;
     sellAircraft: (aircraftId: string) => Promise<void>;
     buyoutAircraft: (aircraftId: string) => Promise<void>;
-    purchaseUsedAircraft: (listing: any) => Promise<void>;
-    listAircraft: (aircraftId: string, price: any) => Promise<void>;
+    purchaseUsedAircraft: (listing: MarketplaceListing) => Promise<void>;
+    listAircraft: (aircraftId: string, price: FixedPoint) => Promise<void>;
     cancelListing: (aircraftId: string) => Promise<void>;
     performMaintenance: (aircraftId: string) => Promise<void>;
     openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;

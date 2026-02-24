@@ -1,6 +1,53 @@
 import { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { getNDK, ensureConnected } from './ndk.js';
-import { type AirlineEntity, fp } from '@airtr/core';
+import { type AirlineEntity, type FixedPoint, fp, fpRaw, FP_ZERO } from '@airtr/core';
+
+/**
+ * A validated marketplace listing from Nostr.
+ */
+export interface MarketplaceListing {
+    /** Nostr event ID */
+    id: string;
+    /** Original aircraft instance ID */
+    instanceId: string;
+    /** Seller's Nostr pubkey (from event signature, not content) */
+    sellerPubkey: string;
+    /** Event creation timestamp */
+    createdAt: number;
+    /** Aircraft model ID */
+    modelId: string;
+    /** Aircraft display name */
+    name: string;
+    /** Owner pubkey (from content) */
+    ownerPubkey: string;
+    /** Asking price (FixedPoint) */
+    marketplacePrice: FixedPoint;
+    /** When the listing was created */
+    listedAt: number;
+    /** Aircraft condition 0.0-1.0 */
+    condition: number;
+    /** Total flight hours */
+    flightHoursTotal: number;
+    /** Flight hours since last check */
+    flightHoursSinceCheck: number;
+    /** Tick when aircraft was originally manufactured */
+    birthTick: number;
+    /** Tick when current owner purchased */
+    purchasedAtTick: number;
+    /** Original purchase price (FixedPoint) */
+    purchasePrice: FixedPoint;
+    /** Base airport */
+    baseAirportIata: string;
+    /** Purchase type */
+    purchaseType: 'buy' | 'lease';
+    /** Interior configuration */
+    configuration: {
+        economy: number;
+        business: number;
+        first: number;
+        cargoKg: number;
+    };
+}
 
 export type AirlineConfig = Pick<AirlineEntity, 'name' | 'icaoCode' | 'callsign' | 'hubs' | 'livery' | 'lastTick'> & {
     corporateBalance?: import('@airtr/core').FixedPoint;
@@ -56,7 +103,7 @@ function parseAirlineContent(data: unknown): {
     };
 
     const corporateBalance = typeof data.corporateBalance === 'number' && Number.isFinite(data.corporateBalance)
-        ? fp(data.corporateBalance)
+        ? fpRaw(data.corporateBalance)
         : null;
 
     const lastTick = typeof data.lastTick === 'number' && Number.isFinite(data.lastTick)
@@ -258,9 +305,87 @@ export async function publishUsedAircraft(aircraft: import('@airtr/core').Aircra
 }
 
 /**
+ * Validates and parses raw marketplace listing data from a Nostr event.
+ * Returns null if the data fails validation.
+ */
+function parseMarketplaceListing(data: unknown, eventId: string, authorPubkey: string, createdAt: number): MarketplaceListing | null {
+    if (!isRecord(data)) return null;
+
+    // Required string fields
+    const modelId = typeof data.modelId === 'string' ? data.modelId : null;
+    const instanceId = typeof data.id === 'string' ? data.id : null;
+    if (!modelId || !instanceId) return null;
+
+    const name = typeof data.name === 'string' ? data.name : 'Unknown Aircraft';
+    const ownerPubkey = typeof data.ownerPubkey === 'string' ? data.ownerPubkey : authorPubkey;
+    const baseAirportIata = typeof data.baseAirportIata === 'string' ? data.baseAirportIata : 'XXX';
+
+    // Price: must be a positive finite number (already in FixedPoint scale from publishUsedAircraft)
+    const rawPrice = data.marketplacePrice;
+    if (typeof rawPrice !== 'number' || !Number.isFinite(rawPrice) || rawPrice <= 0) return null;
+    const marketplacePrice = fpRaw(rawPrice);
+
+    // Numeric fields with safe defaults (use ?? to handle 0 correctly)
+    const condition = typeof data.condition === 'number' && Number.isFinite(data.condition)
+        ? Math.max(0, Math.min(1, data.condition))
+        : 0.5;
+
+    const flightHoursTotal = typeof data.flightHoursTotal === 'number' && Number.isFinite(data.flightHoursTotal)
+        ? Math.max(0, data.flightHoursTotal)
+        : 0;
+
+    const flightHoursSinceCheck = typeof data.flightHoursSinceCheck === 'number' && Number.isFinite(data.flightHoursSinceCheck)
+        ? Math.max(0, data.flightHoursSinceCheck)
+        : 0;
+
+    const birthTick = typeof data.birthTick === 'number' && Number.isFinite(data.birthTick) ? data.birthTick : 0;
+    const purchasedAtTick = typeof data.purchasedAtTick === 'number' && Number.isFinite(data.purchasedAtTick) ? data.purchasedAtTick : 0;
+    const listedAt = typeof data.listedAt === 'number' && Number.isFinite(data.listedAt) ? data.listedAt : Date.now();
+
+    const purchasePrice = typeof data.purchasePrice === 'number' && Number.isFinite(data.purchasePrice)
+        ? fpRaw(data.purchasePrice)
+        : FP_ZERO;
+
+    const purchaseType = data.purchaseType === 'lease' ? 'lease' as const : 'buy' as const;
+
+    // Configuration: validate each field or use sane defaults
+    const rawConfig = isRecord(data.configuration) ? data.configuration : null;
+    const configuration = {
+        economy: typeof rawConfig?.economy === 'number' ? Math.max(0, Math.round(rawConfig.economy)) : 150,
+        business: typeof rawConfig?.business === 'number' ? Math.max(0, Math.round(rawConfig.business)) : 0,
+        first: typeof rawConfig?.first === 'number' ? Math.max(0, Math.round(rawConfig.first)) : 0,
+        cargoKg: typeof rawConfig?.cargoKg === 'number' ? Math.max(0, Math.round(rawConfig.cargoKg)) : 0,
+    };
+
+    // Verify seller matches content owner (reject impersonation)
+    if (ownerPubkey !== authorPubkey) return null;
+
+    return {
+        id: eventId,
+        instanceId,
+        sellerPubkey: authorPubkey,
+        createdAt,
+        modelId,
+        name,
+        ownerPubkey,
+        marketplacePrice,
+        listedAt,
+        condition,
+        flightHoursTotal,
+        flightHoursSinceCheck,
+        birthTick,
+        purchasedAtTick,
+        purchasePrice,
+        baseAirportIata,
+        purchaseType,
+        configuration,
+    };
+}
+
+/**
  * Loads all active used aircraft listings from the global marketplace.
  */
-export async function loadMarketplace(): Promise<any[]> {
+export async function loadMarketplace(): Promise<MarketplaceListing[]> {
     await ensureConnected();
     const ndk = getNDK();
 
@@ -272,7 +397,7 @@ export async function loadMarketplace(): Promise<any[]> {
         limit: 100,
     };
 
-    const listingsMap = new Map<string, any>();
+    const listingsMap = new Map<string, MarketplaceListing>();
 
     // We use a manual subscription to collect events as they stream in.
     // This is more resilient than fetchEvents which can be unpredictable with slow relays.
@@ -291,19 +416,14 @@ export async function loadMarketplace(): Promise<any[]> {
 
             try {
                 const data = JSON.parse(event.content);
-                if (!data.modelId || !data.id) return;
+                const listing = parseMarketplaceListing(data, event.id, event.author.pubkey, event.created_at ?? 0);
+                if (!listing) return;
 
-                const listing = {
-                    ...data,
-                    id: event.id,
-                    instanceId: data.id,
-                    sellerPubkey: event.author.pubkey,
-                    createdAt: event.created_at,
-                };
-
-                const existing = listingsMap.get(listing.instanceId);
-                if (!existing || listing.createdAt >= (existing.createdAt || 0)) {
-                    listingsMap.set(listing.instanceId, listing);
+                // Dedup by instanceId:sellerPubkey, keeping latest
+                const dedupKey = `${listing.instanceId}:${listing.sellerPubkey}`;
+                const existing = listingsMap.get(dedupKey);
+                if (!existing || listing.createdAt >= existing.createdAt) {
+                    listingsMap.set(dedupKey, listing);
                 }
             } catch (e) {
                 // Silently skip truly malformed events that match our prefix

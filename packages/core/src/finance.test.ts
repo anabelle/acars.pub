@@ -107,8 +107,9 @@ describe('calculateFlightCost()', () => {
         // Maint: 5 * 850 = 4250
         expect(fpToNumber(result.costMaintenance)).toBe(4250);
 
-        // Airport: (1000 + 500 + 15 * 150) * 2 = (3750) * 2 = 7500
-        expect(fpToNumber(result.costAirport)).toBe(7500);
+        // Airport: (LANDING_FEE_PER_1000KG * MTOW_tonnes + TERMINAL_BASE_FEE + PAX_FACILITY_CHARGE * pax) * 2
+        // = (12 * 79 + 250 + 12 * 150) * 2 = (948 + 250 + 1800) * 2 = 5996
+        expect(fpToNumber(result.costAirport)).toBe(5996);
 
         // Nav: 4000 * 0.5 = 2000
         expect(fpToNumber(result.costNavigation)).toBe(2000);
@@ -116,8 +117,8 @@ describe('calculateFlightCost()', () => {
         // Lease: 380000 / 120 = 3166.6666...
         expect(fpToNumber(result.costLeasing)).toBeCloseTo(3166.6666, 2);
 
-        // Total base: 12000 + 4500 + 4250 + 7500 + 2000 + 3166.6666 = 33416.6666
-        const totalBase = 12000 + 4500 + 4250 + 7500 + 2000 + 3166.6666;
+        // Total base: 12000 + 4500 + 4250 + 5996 + 2000 + 3166.6666 = 31912.6666
+        const totalBase = 12000 + 4500 + 4250 + 5996 + 2000 + 3166.6666;
 
         // Overhead: 5% of total base
         const overhead = totalBase * 0.05;

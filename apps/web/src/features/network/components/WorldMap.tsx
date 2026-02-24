@@ -19,8 +19,11 @@ export function WorldMap() {
             'manual selection'
         );
         // If airline exists, persist hub change to Nostr
+        // Add the new hub to the front (making it active) while preserving existing hubs
         if (airline) {
-            updateAirlineHubs([airport.iata]);
+            const existingHubs = airline.hubs || [];
+            const updatedHubs = [airport.iata, ...existingHubs.filter(h => h !== airport.iata)];
+            updateAirlineHubs(updatedHubs);
         }
     };
 

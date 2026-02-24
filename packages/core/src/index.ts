@@ -31,6 +31,7 @@ export type {
 // Fixed-point arithmetic
 export {
     fp,
+    fpRaw,
     fpToNumber,
     fpAdd,
     fpSub,

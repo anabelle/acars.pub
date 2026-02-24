@@ -3,11 +3,19 @@ import type { AirlineState } from '../types';
 import type { Route, FixedPoint, TimelineEvent } from '@airtr/core';
 import { fpSub, fp, GENESIS_TIME, TICK_DURATION, fpFormat, getSuggestedFares } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
+import { airports } from '@airtr/data';
 import { publishAirline } from '@airtr/nostr';
 import { useEngineStore } from '../engine';
 
+export type HubAction =
+    | { type: 'add'; iata: string }
+    | { type: 'switch'; iata: string }
+    | { type: 'remove'; iata: string };
+
 export interface NetworkSlice {
     routes: Route[];
+    modifyHubs: (action: HubAction) => Promise<void>;
+    /** @deprecated Use modifyHubs instead */
     updateHub: (newHubIata: string) => Promise<void>;
     openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;
     assignAircraftToRoute: (aircraftId: string, routeId: string | null) => Promise<void>;
