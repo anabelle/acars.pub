@@ -397,9 +397,19 @@ function parseMarketplaceListing(data: unknown, eventId: string, authorPubkey: s
 }
 
 /**
- * Loads all active used aircraft listings from the global marketplace.
+ * A map of seller pubkey -> Set of aircraft instanceIds they currently own.
+ * Used to filter stale marketplace listings where the seller no longer owns the aircraft.
  */
-export async function loadMarketplace(): Promise<MarketplaceListing[]> {
+export type SellerFleetIndex = Map<string, Set<string>>;
+
+/**
+ * Loads all active used aircraft listings from the global marketplace.
+ *
+ * @param sellerFleets - Optional index of known seller fleets for ownership verification.
+ *   If provided, listings where the seller's fleet no longer contains the aircraft are
+ *   filtered out as stale. Pass data from worldSlice.competitors + own fleet.
+ */
+export async function loadMarketplace(sellerFleets?: SellerFleetIndex): Promise<MarketplaceListing[]> {
     await ensureConnected();
     const ndk = getNDK();
 
@@ -451,7 +461,28 @@ export async function loadMarketplace(): Promise<MarketplaceListing[]> {
         });
     });
 
-    const result = Array.from(listingsMap.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    let result = Array.from(listingsMap.values());
+
+    // Ownership verification: filter out stale listings where the seller no longer owns the aircraft
+    if (sellerFleets && sellerFleets.size > 0) {
+        const beforeCount = result.length;
+        result = result.filter(listing => {
+            const sellerAircraftIds = sellerFleets.get(listing.sellerPubkey);
+            // If we don't have data for this seller, we can't verify — keep the listing
+            if (!sellerAircraftIds) return true;
+            // If the seller's fleet still contains this aircraft, the listing is valid
+            if (sellerAircraftIds.has(listing.instanceId)) return true;
+            // Seller no longer owns this aircraft — stale listing
+            console.info(`[Nostr] Filtering stale listing: ${listing.instanceId} (seller ${listing.sellerPubkey.slice(0, 8)}... no longer owns it)`);
+            return false;
+        });
+        const filtered = beforeCount - result.length;
+        if (filtered > 0) {
+            console.info(`[Nostr] Filtered ${filtered} stale marketplace listing(s) via ownership verification.`);
+        }
+    }
+
+    result.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     console.info(`[Nostr] Returning ${result.length} unique marketplace listings.`);
     console.groupEnd();
     return result;

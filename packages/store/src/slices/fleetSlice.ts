@@ -222,8 +222,10 @@ export const createFleetSlice: StateCreator<
                 const ndk = getNDK();
                 const deletionEvent = new NDKEvent(ndk);
                 deletionEvent.kind = 5;
-                // Important: We need the NIP-33 address for the replaceable event
-                deletionEvent.tags = [['e', aircraftId], ['a', `${MARKETPLACE_KIND}:${instance.ownerPubkey}:airtr:marketplace:${aircraftId}`]];
+                // NIP-33 addressable event deletion: use ['a', ...] tag only.
+                // We don't have the Nostr event ID, and ['e', aircraftId] was using
+                // the app-level ID which is invalid for the 'e' tag.
+                deletionEvent.tags = [['a', `${MARKETPLACE_KIND}:${instance.ownerPubkey}:airtr:marketplace:${aircraftId}`]];
                 await deletionEvent.publish();
             }
         } catch (e) {
@@ -414,15 +416,11 @@ export const createFleetSlice: StateCreator<
                 lastTick: engineStore.tick,
             });
 
-            const ndk = getNDK();
-            const deletionEvent = new NDKEvent(ndk);
-            deletionEvent.kind = 5;
-            // Delete by event ID and by address if it's a replaceable event
-            deletionEvent.tags = [
-                ['e', listing.id],
-                ['a', `${MARKETPLACE_KIND}:${listing.sellerPubkey}:airtr:marketplace:${listing.instanceId}`]
-            ];
-            await deletionEvent.publish();
+            // NOTE: We intentionally do NOT publish a kind-5 deletion event here.
+            // Per NIP-09, only the original author (seller) can delete their own events.
+            // Buyer-signed deletions are rejected by compliant relays.
+            // The seller's client will detect the sale via syncWorld() and clean up
+            // their own listing (seller-side settlement).
         } catch (e) {
             set(previousState);
             console.error('Failed to sync purchase to Nostr:', e);

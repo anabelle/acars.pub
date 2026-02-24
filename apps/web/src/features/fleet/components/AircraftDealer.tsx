@@ -3,7 +3,7 @@ import { aircraftModels, getAircraftById } from '@airtr/data';
 import type { AircraftModel, AircraftInstance, FixedPoint } from '@airtr/core';
 import { fpFormat, fpScale, FP_ZERO, TICK_DURATION } from '@airtr/core';
 import { useAirlineStore } from '@airtr/store';
-import { loadMarketplace } from '@airtr/nostr';
+import { loadMarketplace, type SellerFleetIndex } from '@airtr/nostr';
 import { Search, Plane, Users, ArrowRight, Coins, Check, Timer, X, MapPin, Tag, ShoppingBag, History } from 'lucide-react';
 
 export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () => void }) {
@@ -49,7 +49,23 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
         setIsLoadingUsed(true);
         console.log('[AircraftDealer] fetchUsed triggered');
         try {
-            const listings = await loadMarketplace();
+            // Build seller fleet index from world state for ownership verification
+            const state = useAirlineStore.getState();
+            const sellerFleets: SellerFleetIndex = new Map();
+
+            // Add all known competitors' fleets
+            if (state.competitors.size > 0) {
+                for (const [pubkey, airline] of state.competitors) {
+                    sellerFleets.set(pubkey, new Set(airline.fleetIds));
+                }
+            }
+
+            // Add our own fleet (in case we listed something and it was sold)
+            if (state.pubkey && state.fleet.length > 0) {
+                sellerFleets.set(state.pubkey, new Set(state.fleet.map(ac => ac.id)));
+            }
+
+            const listings = await loadMarketplace(sellerFleets);
             console.log(`[AircraftDealer] fetchUsed raw count: ${listings.length}`);
             listings.forEach(l => {
                 const model = getAircraftById(l.modelId);

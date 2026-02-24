@@ -1,8 +1,10 @@
 import type { StateCreator } from 'zustand';
 import type { AirlineState } from '../types';
-import type { AirlineEntity, FlightOffer, Route, AircraftInstance } from '@airtr/core';
-import { loadGlobalAirlines } from '@airtr/nostr';
+import type { AirlineEntity, FlightOffer, Route, AircraftInstance, TimelineEvent } from '@airtr/core';
+import { fpAdd, fpFormat, GENESIS_TIME, TICK_DURATION } from '@airtr/core';
+import { loadGlobalAirlines, publishAirline, getNDK, NDKEvent, MARKETPLACE_KIND } from '@airtr/nostr';
 import { getAircraftById } from '@airtr/data';
+import { useEngineStore } from '../engine';
 
 export interface WorldSlice {
     competitors: Map<string, AirlineEntity>;
@@ -89,8 +91,133 @@ export const createWorldSlice: StateCreator<
                 globalFleet: allGlobalFleet,
                 globalRoutes: allGlobalRoutes
             });
+
+            // --- Seller-side settlement ---
+            // Detect aircraft we listed for sale that now appear in a competitor's fleet.
+            // This means the buyer purchased it; we must settle: remove from our fleet,
+            // credit the listing price, delete our marketplace event (NIP-09 compliant),
+            // and record a timeline event.
+            await settleMarketplaceSales(get, set, allGlobalFleet);
+
         } catch (error) {
             console.error('[WorldSlice] Failed to sync world:', error);
         }
     }
 });
+
+/**
+ * Seller-side marketplace settlement.
+ *
+ * For each aircraft in our fleet that has a `listingPrice` set, check if the
+ * same instanceId now exists in a competitor's fleet (globalFleet). If so,
+ * the buyer has claimed it — settle the transaction on our side.
+ */
+async function settleMarketplaceSales(
+    get: () => AirlineState,
+    set: (state: Partial<AirlineState>) => void,
+    globalFleet: AircraftInstance[]
+): Promise<void> {
+    const { airline, fleet, routes, timeline, pubkey } = get();
+    if (!airline || !pubkey) return;
+
+    // Build a set of all aircraft IDs owned by competitors
+    const competitorAircraftIds = new Set(globalFleet.map(ac => ac.id));
+
+    // Find our listed aircraft that now appear in a competitor's fleet
+    const soldAircraft = fleet.filter(ac =>
+        ac.listingPrice != null &&
+        ac.listingPrice > 0 &&
+        competitorAircraftIds.has(ac.id)
+    );
+
+    if (soldAircraft.length === 0) return;
+
+    console.info(`[WorldSlice] Detected ${soldAircraft.length} sold aircraft requiring settlement.`);
+
+    const currentTick = useEngineStore.getState().tick;
+    let updatedFleet = [...fleet];
+    let updatedBalance = airline.corporateBalance;
+    const newTimelineEvents: TimelineEvent[] = [];
+
+    for (const sold of soldAircraft) {
+        const salePrice = sold.listingPrice!;
+        updatedBalance = fpAdd(updatedBalance, salePrice);
+
+        // Remove from fleet
+        updatedFleet = updatedFleet.filter(ac => ac.id !== sold.id);
+
+        // Remove from any assigned routes
+        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
+
+        const saleEvent: TimelineEvent = {
+            id: `evt-marketplace-sale-${sold.id}-${currentTick}`,
+            tick: currentTick,
+            timestamp: simulatedTimestamp,
+            type: 'sale',
+            aircraftId: sold.id,
+            aircraftName: sold.name,
+            revenue: salePrice,
+            description: `Sold ${sold.name} on marketplace for ${fpFormat(salePrice, 0)}. Settlement completed.`
+        };
+
+        newTimelineEvents.push(saleEvent);
+        console.info(`[WorldSlice] Settled sale of ${sold.name} (${sold.id}) for ${fpFormat(salePrice, 0)}`);
+    }
+
+    // Clean up routes that referenced sold aircraft
+    const soldIds = new Set(soldAircraft.map(ac => ac.id));
+    const updatedRoutes = routes.map(rt => {
+        const cleaned = rt.assignedAircraftIds.filter(id => !soldIds.has(id));
+        return cleaned.length !== rt.assignedAircraftIds.length
+            ? { ...rt, assignedAircraftIds: cleaned }
+            : rt;
+    });
+
+    const updatedAirline = {
+        ...airline,
+        corporateBalance: updatedBalance,
+        fleetIds: updatedFleet.map(ac => ac.id)
+    };
+
+    const finalTimeline = [...newTimelineEvents, ...timeline].slice(0, 200);
+
+    // Optimistic update
+    set({
+        airline: updatedAirline,
+        fleet: updatedFleet,
+        routes: updatedRoutes,
+        timeline: finalTimeline
+    });
+
+    // Publish updated airline state + delete marketplace listings (seller-signed, NIP-09 compliant)
+    try {
+        await publishAirline({
+            ...updatedAirline,
+            fleet: updatedFleet,
+            routes: updatedRoutes,
+            timeline: finalTimeline,
+            lastTick: currentTick,
+        });
+
+        // Delete our own marketplace listings (we are the author, so NIP-09 allows this)
+        const ndk = getNDK();
+        for (const sold of soldAircraft) {
+            try {
+                const deletionEvent = new NDKEvent(ndk);
+                deletionEvent.kind = 5;
+                deletionEvent.tags = [
+                    ['a', `${MARKETPLACE_KIND}:${pubkey}:airtr:marketplace:${sold.id}`]
+                ];
+                await deletionEvent.publish();
+                console.info(`[WorldSlice] Published NIP-09 deletion for marketplace listing: ${sold.id}`);
+            } catch (e) {
+                // Non-critical: listing will be filtered by ownership verification on other clients
+                console.warn(`[WorldSlice] Failed to publish deletion for listing ${sold.id}:`, e);
+            }
+        }
+    } catch (e) {
+        // Rollback on publish failure
+        console.error('[WorldSlice] Failed to publish marketplace settlement:', e);
+        set({ airline, fleet, routes, timeline });
+    }
+}
