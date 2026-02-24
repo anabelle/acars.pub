@@ -9,7 +9,6 @@ import {
     fpScale,
     fp,
     fpFormat,
-    fpToNumber,
     FixedPoint,
     TimelineEvent,
     GENESIS_TIME,
@@ -114,6 +113,8 @@ export const createFleetSlice: StateCreator<
 
         const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
 
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+
         set({
             airline: updatedAirline,
             fleet: updatedFleet,
@@ -129,6 +130,7 @@ export const createFleetSlice: StateCreator<
                 lastTick: engineStore.tick,
             });
         } catch (e) {
+            set(previousState);
             console.error('Failed to sync aircraft purchase to Nostr:', e);
         }
     },
@@ -190,11 +192,14 @@ export const createFleetSlice: StateCreator<
             description: `Sold ${instance.name} for scrap. Recovered ${fpFormat(resaleValue, 0)}.`
         };
 
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+        const nextTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+
         set({
             airline: updatedAirline,
             fleet: updatedFleet,
             routes: updatedRoutes,
-            timeline: [newEvent, ...currentTimeline].slice(0, 200)
+            timeline: nextTimeline
         });
 
         try {
@@ -205,7 +210,7 @@ export const createFleetSlice: StateCreator<
                 ...updatedAirline,
                 fleet: updatedFleet,
                 routes: updatedRoutes,
-                timeline: get().timeline,
+                timeline: nextTimeline,
                 lastTick: currentTick,
             });
 
@@ -219,6 +224,7 @@ export const createFleetSlice: StateCreator<
                 await deletionEvent.publish();
             }
         } catch (e) {
+            set(previousState);
             console.error('Failed to sync aircraft selling or marketplace listing to Nostr:', e);
             alert("Failed to sync fleet change to Nostr.");
         }
@@ -266,6 +272,8 @@ export const createFleetSlice: StateCreator<
 
         const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
 
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+
         set({
             airline: updatedAirline,
             fleet: updatedFleet,
@@ -281,6 +289,7 @@ export const createFleetSlice: StateCreator<
                 lastTick: engineStore.tick
             });
         } catch (e) {
+            set(previousState);
             console.error('Failed to sync buyout to Nostr:', e);
         }
     },
@@ -289,11 +298,12 @@ export const createFleetSlice: StateCreator<
         const { airline, pubkey, fleet, routes } = get();
         if (!airline || !pubkey) throw new Error("No active identity or airline loaded.");
 
-        const price = Number(listing.marketplacePrice);
-        if (isNaN(price)) throw new Error("Invalid price on marketplace listing.");
+        const listingPrice = listing.marketplacePrice;
+        if (typeof listingPrice !== 'number') throw new Error("Invalid price on marketplace listing.");
+        const price = listingPrice as FixedPoint;
 
         if (airline.corporateBalance < price) {
-            throw new Error(`Insufficient corporate balance: ${fpFormat(airline.corporateBalance)} vs ${fpFormat(price as any)}`);
+            throw new Error(`Insufficient corporate balance: ${fpFormat(airline.corporateBalance)} vs ${fpFormat(price)}`);
         }
 
         const engineStore = useEngineStore.getState();
@@ -310,7 +320,7 @@ export const createFleetSlice: StateCreator<
         // 2. Inheritance: Take original manufacture date (birthTick) if available
         const inheritedBirthTick = listing.birthTick || listing.purchasedAtTick || engineStore.tick;
 
-        console.log(`[Fleet] Purchasing used ${listing.name} (ID: ${listing.instanceId}) for ${fpFormat(price as any)}`);
+        console.log(`[Fleet] Purchasing used ${listing.name} (ID: ${listing.instanceId}) for ${fpFormat(price)}`);
 
         // 3. Create or Update the instance
         const { marketplacePrice, listedAt, sellerPubkey, isOptimistic, source, ...cleanedAircraft } = listing;
@@ -328,7 +338,7 @@ export const createFleetSlice: StateCreator<
                     ? {
                         ...ac,
                         listingPrice: null,
-                        purchasePrice: price as any,
+                        purchasePrice: price,
                         purchasedAtTick: engineStore.tick,
                         status: 'idle' // Don't put it in delivery if we already have it
                     }
@@ -344,7 +354,7 @@ export const createFleetSlice: StateCreator<
                 purchaseType: 'buy',
                 baseAirportIata: targetHubIata,
                 purchasedAtTick: engineStore.tick,
-                purchasePrice: price as any,
+                purchasePrice: price,
                 listingPrice: null, // CLEAR LISTING PRICE
                 birthTick: inheritedBirthTick,
                 deliveryAtTick: engineStore.tick + 20,
@@ -353,7 +363,7 @@ export const createFleetSlice: StateCreator<
             updatedFleet = [...fleet, newInstance];
         }
 
-        const updatedBalance = fpSub(airline.corporateBalance, price as any);
+        const updatedBalance = fpSub(airline.corporateBalance, price);
         console.log(`[Fleet] Balance: ${fpFormat(airline.corporateBalance)} -> ${fpFormat(updatedBalance)}`);
 
         const updatedAirline = {
@@ -372,11 +382,13 @@ export const createFleetSlice: StateCreator<
             type: 'purchase',
             aircraftId: listing.instanceId,
             aircraftName: listing.name,
-            cost: price as any,
-            description: `Purchased used ${listing.name} from marketplace for ${fpFormat(price as any, 0)}.`
+            cost: price,
+            description: `Purchased used ${listing.name} from marketplace for ${fpFormat(price, 0)}.`
         };
 
         const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
 
         set({
             airline: updatedAirline,
@@ -406,6 +418,7 @@ export const createFleetSlice: StateCreator<
             ];
             await deletionEvent.publish();
         } catch (e) {
+            set(previousState);
             console.error('Failed to sync purchase to Nostr:', e);
         }
     },
@@ -422,16 +435,14 @@ export const createFleetSlice: StateCreator<
         if (!model) throw new Error("Model not found.");
 
         // 1. Price Ceiling: Max 120% of Factory MSRP
-        const msrp = fpToNumber(model.price);
-        const maxPrice = msrp * 1.2;
-        const requestedPrice = Number(price);
+        const maxPrice = fpScale(model.price, 1.2);
 
-        if (requestedPrice > maxPrice) {
-            throw new Error(`Listing price too high. Maximum allowed is ${fpFormat(fp(maxPrice))} (120% of MSRP).`);
+        if (price > maxPrice) {
+            throw new Error(`Listing price too high. Maximum allowed is ${fpFormat(maxPrice)} (120% of MSRP).`);
         }
 
         // 2. Listing Fee: 0.5% non-refundable tax
-        const fee = fp(requestedPrice * 0.005);
+        const fee = fpScale(price, 0.005);
         if (airline.corporateBalance < fee) {
             throw new Error(`Insufficient funds for the marketplace listing fee (${fpFormat(fee)}).`);
         }
@@ -441,8 +452,11 @@ export const createFleetSlice: StateCreator<
             ac.id === aircraftId ? { ...ac, listingPrice: price } : ac
         );
 
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+        const updatedAirline = { ...airline, corporateBalance: updatedBalance };
+
         set({
-            airline: { ...airline, corporateBalance: updatedBalance },
+            airline: updatedAirline,
             fleet: updatedFleet
         });
 
@@ -452,8 +466,7 @@ export const createFleetSlice: StateCreator<
 
             // 3. Update Airline State
             await publishAirline({
-                ...airline,
-                corporateBalance: updatedBalance,
+                ...updatedAirline,
                 fleet: updatedFleet,
                 routes,
                 timeline: get().timeline,
@@ -465,6 +478,7 @@ export const createFleetSlice: StateCreator<
 
             alert(`Aircraft ${instance.name} listed on Marketplace for ${fpFormat(price)}`);
         } catch (e) {
+            set(previousState);
             console.error("Listing failed:", e);
             alert("Failed to publish listing to Nostr.");
         }
@@ -480,6 +494,8 @@ export const createFleetSlice: StateCreator<
         const updatedFleet = fleet.map(ac =>
             ac.id === aircraftId ? { ...ac, listingPrice: null } : ac
         );
+
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
 
         set({ fleet: updatedFleet });
 
@@ -505,6 +521,7 @@ export const createFleetSlice: StateCreator<
 
             alert("Listing cancelled.");
         } catch (e) {
+            set(previousState);
             console.error("Cancellation failed:", e);
             alert("Failed to remove listing from Nostr.");
         }
@@ -565,6 +582,8 @@ export const createFleetSlice: StateCreator<
 
         const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
 
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+
         set({
             airline: { ...updatedAirline, timeline: finalTimeline },
             fleet: updatedFleet,
@@ -580,6 +599,7 @@ export const createFleetSlice: StateCreator<
                 lastTick: currentTick
             });
         } catch (e) {
+            set(previousState);
             console.error("Maintenance sync failed:", e);
         }
     }

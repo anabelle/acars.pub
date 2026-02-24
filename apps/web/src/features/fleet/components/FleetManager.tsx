@@ -3,7 +3,22 @@ import { useAirlineStore, useEngineStore } from '@airtr/store';
 import { getAircraftById } from '@airtr/data';
 import { calculateBookValue, fpFormat, fpScale, fp, fpToNumber, TICK_DURATION, FP_ZERO } from '@airtr/core';
 import { AircraftDealer } from './AircraftDealer';
-import { Plane, Settings, Search, PlusCircle, Trash2, Timer, Tag, XCircle } from 'lucide-react';
+import { Settings, Search, PlusCircle, Trash2, Timer, Tag, XCircle, Plane } from 'lucide-react';
+import { NARROWBODY_SVG, TURBOPROP_SVG, WIDEBODY_SVG, REGIONAL_SVG } from '@airtr/map';
+
+function AircraftSilhouette({ type, className }: { type: string; className?: string }) {
+    const svg = type === 'turboprop' ? TURBOPROP_SVG :
+        type === 'regional' ? REGIONAL_SVG :
+            type === 'widebody' ? WIDEBODY_SVG :
+                NARROWBODY_SVG;
+
+    return (
+        <div
+            className={className}
+            dangerouslySetInnerHTML={{ __html: svg.replace('fill="white"', 'fill="currentColor"') }}
+        />
+    );
+}
 
 export function FleetManager() {
     const { fleet, routes, timeline, sellAircraft, buyoutAircraft, assignAircraftToRoute, listAircraft, cancelListing } = useAirlineStore(state => state);
@@ -105,7 +120,7 @@ export function FleetManager() {
                                         </div>
 
                                         <div className="absolute -bottom-6 -right-6 text-zinc-800/20 select-none">
-                                            <Plane className="h-48 w-48 rotate-12" />
+                                            <AircraftSilhouette type={model.type} className="h-48 w-48 rotate-12" />
                                         </div>
 
                                         <div className="relative z-10 flex flex-col h-full justify-end">

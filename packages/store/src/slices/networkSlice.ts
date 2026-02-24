@@ -39,11 +39,14 @@ export const createNetworkSlice: StateCreator<
 
         const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
 
+        const updatedHubs = Array.from(new Set([targetHubIata, ...(airline.hubs || [])]));
         const updatedAirline = {
             ...airline,
-            hubs: [targetHubIata],
+            hubs: updatedHubs,
             timeline: finalTimeline
         };
+
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
 
         set({
             airline: updatedAirline,
@@ -59,6 +62,7 @@ export const createNetworkSlice: StateCreator<
                 lastTick: currentTick,
             });
         } catch (error: any) {
+            set(previousState);
             console.warn('Failed to publish hub change to Nostr:', error);
         }
     },
@@ -112,6 +116,8 @@ export const createNetworkSlice: StateCreator<
             timeline: finalTimeline
         };
 
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+
         set({
             airline: updatedAirline,
             routes: updatedRoutes,
@@ -127,6 +133,7 @@ export const createNetworkSlice: StateCreator<
                 lastTick: currentTick,
             });
         } catch (e) {
+            set(previousState);
             console.error("Failed to sync route to Nostr:", e);
         }
     },
@@ -186,6 +193,8 @@ export const createNetworkSlice: StateCreator<
             timeline: finalTimeline
         };
 
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+
         set({
             airline: updatedAirline,
             fleet: updatedFleet,
@@ -202,6 +211,7 @@ export const createNetworkSlice: StateCreator<
                 lastTick: currentTick
             });
         } catch (e) {
+            set(previousState);
             console.error("Failed to sync assignment to Nostr:", e);
         }
     },
@@ -228,6 +238,8 @@ export const createNetworkSlice: StateCreator<
             timeline: currentTimeline
         };
 
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+
         set({ routes: updatedRoutes, airline: updatedAirline });
 
         try {
@@ -239,6 +251,7 @@ export const createNetworkSlice: StateCreator<
                 lastTick: useEngineStore.getState().tick
             });
         } catch (e) {
+            set(previousState);
             console.error("Failed to sync fares to Nostr:", e);
         }
     },

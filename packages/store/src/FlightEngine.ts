@@ -3,6 +3,7 @@ import {
     Route,
     fpAdd,
     fpSub,
+    fpToNumber,
     calculateFlightRevenue,
     calculateFlightCost,
     TICKS_PER_HOUR,
@@ -279,7 +280,7 @@ export function processFlightEngine(
                     revenue: rev.revenueTotal,
                     cost: cost.costTotal,
                     profit: profit,
-                    description: `${ac.name} landed at ${ac.flight?.destinationIata}. Net Profit: ${profit > 0 ? '+' : ''}${profit / 10000}`,
+                    description: `${ac.name} landed at ${ac.flight?.destinationIata}. Net Profit: ${profit > 0 ? '+' : ''}${fpToNumber(profit)}`,
                     details: {
                         revenue: {
                             tickets: rev.revenueTicket,

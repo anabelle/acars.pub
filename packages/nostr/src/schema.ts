@@ -11,17 +11,75 @@ export type AirlineConfig = Pick<AirlineEntity, 'name' | 'icaoCode' | 'callsign'
 
 const AIRLINE_KIND = 30078;
 const AIRLINE_D_TAG = 'airtr:airline';
+const AIRLINE_PUBLISH_DEBOUNCE_MS = 300;
 
-/**
- * Kind for used aircraft listings.
- */
-export const MARKETPLACE_KIND = 30079;
-export const MARKETPLACE_D_PREFIX = 'airtr:marketplace:';
+let airlinePublishTimer: ReturnType<typeof setTimeout> | null = null;
+let airlinePublishPromise: Promise<NDKEvent> | null = null;
+let airlinePublishResolve: ((event: NDKEvent) => void) | null = null;
+let airlinePublishReject: ((error: unknown) => void) | null = null;
+let latestAirlineSnapshot: AirlineConfig | null = null;
+let publishChain = Promise.resolve();
 
-/**
- * Publishes an airline creation or update event to Nostr.
- */
-export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> {
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+function parseAirlineContent(data: unknown): {
+    name: string;
+    icaoCode: string | null;
+    callsign: string | null;
+    hubs: string[];
+    livery: AirlineEntity['livery'];
+    corporateBalance: import('@airtr/core').FixedPoint | null;
+    fleet: import('@airtr/core').AircraftInstance[];
+    routes: import('@airtr/core').Route[];
+    timeline: import('@airtr/core').TimelineEvent[];
+    lastTick: number | null;
+} | null {
+    if (!isRecord(data)) return null;
+
+    const name = typeof data.name === 'string' ? data.name : null;
+    const icaoCode = typeof data.icaoCode === 'string'
+        ? data.icaoCode
+        : (typeof data.icao === 'string' ? data.icao : null);
+    const callsign = typeof data.callsign === 'string' ? data.callsign : null;
+
+    const hubs = Array.isArray(data.hubs)
+        ? data.hubs.filter((hub): hub is string => typeof hub === 'string')
+        : (typeof data.hubIata === 'string' ? [data.hubIata] : []);
+
+    const liverySource = isRecord(data.livery) ? data.livery : null;
+    const livery = {
+        primary: typeof liverySource?.primary === 'string' ? liverySource.primary : '#1f2937',
+        secondary: typeof liverySource?.secondary === 'string' ? liverySource.secondary : '#3b82f6',
+        accent: typeof liverySource?.accent === 'string' ? liverySource.accent : '#f59e0b',
+    };
+
+    const corporateBalance = typeof data.corporateBalance === 'number' && Number.isFinite(data.corporateBalance)
+        ? data.corporateBalance
+        : null;
+
+    const lastTick = typeof data.lastTick === 'number' && Number.isFinite(data.lastTick)
+        ? data.lastTick
+        : null;
+
+    if (!name) return null;
+
+    return {
+        name,
+        icaoCode,
+        callsign,
+        hubs,
+        livery,
+        corporateBalance,
+        fleet: Array.isArray(data.fleet) ? data.fleet : [],
+        routes: Array.isArray(data.routes) ? data.routes : [],
+        timeline: Array.isArray(data.timeline) ? data.timeline : [],
+        lastTick,
+    };
+}
+
+async function publishAirlineNow(airline: AirlineConfig): Promise<NDKEvent> {
     await ensureConnected();
     const ndk = getNDK();
 
@@ -48,6 +106,56 @@ export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> 
 
     await event.publish();
     return event;
+}
+
+/**
+ * Kind for used aircraft listings.
+ */
+export const MARKETPLACE_KIND = 30079;
+export const MARKETPLACE_D_PREFIX = 'airtr:marketplace:';
+
+/**
+ * Publishes an airline creation or update event to Nostr.
+ */
+export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> {
+    latestAirlineSnapshot = airline;
+
+    if (airlinePublishPromise) return airlinePublishPromise;
+
+    airlinePublishPromise = new Promise<NDKEvent>((resolve, reject) => {
+        airlinePublishResolve = resolve;
+        airlinePublishReject = reject;
+    });
+
+    if (!airlinePublishTimer) {
+        airlinePublishTimer = setTimeout(() => {
+            const snapshot = latestAirlineSnapshot;
+            latestAirlineSnapshot = null;
+            airlinePublishTimer = null;
+
+            const resolve = airlinePublishResolve;
+            const reject = airlinePublishReject;
+            airlinePublishResolve = null;
+            airlinePublishReject = null;
+            airlinePublishPromise = null;
+
+            if (!snapshot) {
+                reject?.(new Error('No airline snapshot to publish.'));
+                return;
+            }
+
+            publishChain = publishChain
+                .then(async () => {
+                    const event = await publishAirlineNow(snapshot);
+                    resolve?.(event);
+                })
+                .catch(error => {
+                    reject?.(error);
+                });
+        }, AIRLINE_PUBLISH_DEBOUNCE_MS);
+    }
+
+    return airlinePublishPromise;
 }
 
 /**
@@ -82,7 +190,8 @@ export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEnt
             return null;
         }
 
-        const data = JSON.parse(event.content);
+        const parsed = parseAirlineContent(JSON.parse(event.content));
+        if (!parsed) return null;
 
         // Map event payload to AirlineEntity
         const loaded: AirlineEntity = {
@@ -92,22 +201,22 @@ export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEnt
             ceoPubkey: event.author.pubkey,
             sharesOutstanding: 10000000,
             shareholders: { [event.author.pubkey]: 10000000 },
-            name: data.name,
-            icaoCode: data.icaoCode || data.icao,
-            callsign: data.callsign,
-            hubs: data.hubs || (data.hubIata ? [data.hubIata] : []), // Migration fallback
-            livery: data.livery,
+            name: parsed.name,
+            icaoCode: parsed.icaoCode || '',
+            callsign: parsed.callsign || '',
+            hubs: parsed.hubs,
+            livery: parsed.livery,
             brandScore: 0.5,
             tier: 1,
             // Defaults for derived metrics
-            corporateBalance: data.corporateBalance || fp(100000000),
+            corporateBalance: parsed.corporateBalance ?? fp(100000000),
             stockPrice: fp(10), // $10/share
-            fleetIds: data.fleet ? data.fleet.map((f: any) => f.id) : [],
-            routeIds: data.routes ? data.routes.map((r: any) => r.id) : [],
-            timeline: data.timeline || [],
-            lastTick: data.lastTick || 0
+            fleetIds: parsed.fleet.map((f: any) => f.id),
+            routeIds: parsed.routes.map((r: any) => r.id),
+            timeline: parsed.timeline,
+            lastTick: parsed.lastTick ?? 0
         };
-        return { airline: loaded, fleet: data.fleet || [], routes: data.routes || [] };
+        return { airline: loaded, fleet: parsed.fleet, routes: parsed.routes };
     } catch (e) {
         console.error("Failed parsing airline Nostr event", e);
         return null;
@@ -238,7 +347,8 @@ export async function loadGlobalAirlines(): Promise<{ airline: AirlineEntity, fl
         sub.on('event', (event: NDKEvent) => {
             try {
                 if (!event.content.trim().startsWith('{')) return;
-                const data = JSON.parse(event.content);
+                const parsed = parseAirlineContent(JSON.parse(event.content));
+                if (!parsed) return;
 
                 const airline: AirlineEntity = {
                     id: event.id,
@@ -247,22 +357,22 @@ export async function loadGlobalAirlines(): Promise<{ airline: AirlineEntity, fl
                     ceoPubkey: event.author.pubkey,
                     sharesOutstanding: 10000000,
                     shareholders: { [event.author.pubkey]: 10000000 },
-                    name: data.name,
-                    icaoCode: data.icaoCode || data.icao,
-                    callsign: data.callsign,
-                    hubs: data.hubs || (data.hubIata ? [data.hubIata] : []),
-                    livery: data.livery,
+                    name: parsed.name,
+                    icaoCode: parsed.icaoCode || '',
+                    callsign: parsed.callsign || '',
+                    hubs: parsed.hubs,
+                    livery: parsed.livery,
                     brandScore: 0.5,
                     tier: 1,
-                    corporateBalance: data.corporateBalance || fp(100000000),
+                    corporateBalance: parsed.corporateBalance ?? fp(100000000),
                     stockPrice: fp(10),
-                    fleetIds: data.fleet ? data.fleet.map((f: any) => f.id) : [],
-                    routeIds: data.routes ? data.routes.map((r: any) => r.id) : [],
-                    timeline: data.timeline || [],
-                    lastTick: data.lastTick || 0
+                    fleetIds: parsed.fleet.map((f: any) => f.id),
+                    routeIds: parsed.routes.map((r: any) => r.id),
+                    timeline: parsed.timeline,
+                    lastTick: parsed.lastTick ?? 0
                 };
 
-                const entry = { airline, fleet: data.fleet || [], routes: data.routes || [] };
+                const entry = { airline, fleet: parsed.fleet, routes: parsed.routes };
 
                 // Only keep latest event from each author
                 const existing = airlinesMap.get(event.author.pubkey);

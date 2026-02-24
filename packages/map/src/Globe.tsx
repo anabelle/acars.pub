@@ -3,7 +3,10 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Airport, AircraftInstance, Route } from '@airtr/core';
 
-const AIRPLANE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`;
+import { NARROWBODY_SVG, TURBOPROP_SVG, WIDEBODY_SVG, REGIONAL_SVG } from './icons.js';
+
+import { aircraftModels } from '@airtr/data';
+const aircraftModelMap = new Map(aircraftModels.map(m => [m.id, m]));
 
 export interface GlobeProps {
     airports: Airport[];
@@ -107,14 +110,21 @@ export function Globe({ airports, selectedAirport, onAirportSelect, fleetBaseCou
         map.on('load', () => {
             setMapLoaded(true);
 
-            // Add airplane icon as SDF for dynamic coloring
-            const img = new Image();
-            img.onload = () => {
-                if (!map.hasImage('airplane-icon')) {
-                    map.addImage('airplane-icon', img, { sdf: true });
-                }
+            // Helper to add SVG to map as SDF
+            const addIcon = (id: string, svg: string) => {
+                const img = new Image();
+                img.onload = () => {
+                    if (!map.hasImage(id)) {
+                        map.addImage(id, img, { sdf: true });
+                    }
+                };
+                img.src = 'data:image/svg+xml;base64,' + btoa(svg);
             };
-            img.src = 'data:image/svg+xml;base64,' + btoa(AIRPLANE_SVG);
+
+            addIcon('airplane-icon', NARROWBODY_SVG);
+            addIcon('airplane-turboprop', TURBOPROP_SVG);
+            addIcon('airplane-regional', REGIONAL_SVG);
+            addIcon('airplane-widebody', WIDEBODY_SVG);
 
             // Sources
             map.addSource('airports', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -194,8 +204,22 @@ export function Globe({ airports, selectedAirport, onAirportSelect, fleetBaseCou
                 type: 'symbol',
                 source: 'global-flights',
                 layout: {
-                    'icon-image': 'airplane-icon',
-                    'icon-size': 0.8,
+                    'icon-image': [
+                        'match',
+                        ['get', 'type'],
+                        'turboprop', 'airplane-turboprop',
+                        'regional', 'airplane-regional',
+                        'widebody', 'airplane-widebody',
+                        'airplane-icon' // fallback to narrowbody
+                    ],
+                    'icon-size': [
+                        'match',
+                        ['get', 'type'],
+                        'turboprop', 0.65,
+                        'regional', 0.75,
+                        'widebody', 1.1,
+                        0.8 // narrowbody
+                    ],
                     'icon-rotate': ['get', 'bearing'],
                     'icon-rotation-alignment': 'map',
                     'icon-allow-overlap': true,
@@ -214,8 +238,22 @@ export function Globe({ airports, selectedAirport, onAirportSelect, fleetBaseCou
                 type: 'symbol',
                 source: 'flights',
                 layout: {
-                    'icon-image': 'airplane-icon',
-                    'icon-size': 1.1,
+                    'icon-image': [
+                        'match',
+                        ['get', 'type'],
+                        'turboprop', 'airplane-turboprop',
+                        'regional', 'airplane-regional',
+                        'widebody', 'airplane-widebody',
+                        'airplane-icon' // fallback to narrowbody
+                    ],
+                    'icon-size': [
+                        'match',
+                        ['get', 'type'],
+                        'turboprop', 0.9,
+                        'regional', 1.0,
+                        'widebody', 1.4,
+                        1.1 // narrowbody
+                    ],
                     'icon-rotate': ['get', 'bearing'],
                     'icon-rotation-alignment': 'map',
                     'icon-allow-overlap': true,
@@ -350,11 +388,13 @@ export function Globe({ airports, selectedAirport, onAirportSelect, fleetBaseCou
                     );
 
                     const bearing = getBearing(coords, nextCoords);
+                    const model = aircraftModelMap.get(ac.modelId);
+                    const type = model?.type || 'narrowbody';
 
                     return {
                         type: 'Feature',
                         geometry: { type: 'Point', coordinates: coords },
-                        properties: { id: ac.id, bearing: bearing }
+                        properties: { id: ac.id, bearing: bearing, type: type }
                     };
                 })
                 .filter(Boolean) as GeoJSON.Feature[];

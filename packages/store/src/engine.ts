@@ -6,6 +6,7 @@ import {
     getSeason,
     fpScale,
     fp,
+    fpDiv,
     GENESIS_TIME,
     TICK_DURATION,
 } from '@airtr/core';
@@ -54,7 +55,7 @@ function generateRoutes(home: Airport, tick: number): RouteData[] {
         const avgFarePerKm = 0.12;
         const baseFare = Math.max(80, Math.round(distance * avgFarePerKm));
         const totalPax = demand.economy + demand.business + demand.first;
-        const estimatedDailyRevenue = fpScale(fp(baseFare), totalPax / 7);
+        const estimatedDailyRevenue = fpDiv(fpScale(fp(baseFare), totalPax), fp(7));
         return { origin: home, destination: dest, distance, demand, estimatedDailyRevenue, season };
     });
 }

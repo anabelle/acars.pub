@@ -152,7 +152,8 @@ export const createIdentitySlice: StateCreator<
         const { airline, fleet, routes } = get();
         if (!airline) return;
 
-        set({ isLoading: true });
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+        set({ isLoading: true, error: null });
         try {
             const updatedAirline = { ...airline, hubs };
             await publishAirline({
@@ -162,7 +163,7 @@ export const createIdentitySlice: StateCreator<
             });
             set({ airline: updatedAirline, isLoading: false });
         } catch (error: any) {
-            set({ error: error.message, isLoading: false });
+            set({ ...previousState, error: error.message, isLoading: false });
         }
     },
 });

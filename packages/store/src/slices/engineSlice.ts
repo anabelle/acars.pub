@@ -26,8 +26,13 @@ export const createEngineSlice: StateCreator<
         // If balance is severely negative (e.g. -$10M), auto-pause operations
         if (fpToNumber(airline.corporateBalance) < -10000000 && airline.status !== 'chapter11') {
             const updatedAirline = { ...airline, status: 'chapter11' as const };
+            const previousState = { airline, fleet, routes, timeline: get().timeline };
             set({ airline: updatedAirline });
-            publishAirline({ ...updatedAirline, fleet, routes }).catch(e => console.error("Bankruptcy sync failed", e));
+            publishAirline({ ...updatedAirline, fleet, routes })
+                .catch(e => {
+                    set(previousState);
+                    console.error("Bankruptcy sync failed", e);
+                });
             return;
         }
 

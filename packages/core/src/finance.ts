@@ -4,11 +4,9 @@
 // See docs/ECONOMIC_MODEL.md §3 and §4 for full specification.
 // ============================================================
 
-import { fp, fpAdd, fpScale } from './fixed-point.js';
+import { fp, fpAdd, fpScale, fpDiv, FP_ZERO } from './fixed-point.js';
 import type { AircraftModel, FlightOffer } from './types.js';
 import type { FixedPoint } from './types.js';
-
-// ... (rest of imports)
 
 /**
  * Detects if a price war is occurring on a route.
@@ -20,9 +18,11 @@ export function detectPriceWar(offers: FlightOffer[]): {
     if (offers.length < 2) return { isPriceWar: false, lowPricedAirlines: [] };
 
     // Use Economy fare as the benchmark
-    const avgPrice = offers.reduce((acc, o) => acc + Number(o.fareEconomy), 0) / offers.length;
+    const totalEconomy = offers.reduce((acc, o) => fpAdd(acc, o.fareEconomy), FP_ZERO);
+    const avgPrice = fpDiv(totalEconomy, fp(offers.length));
+    const threshold = fpScale(avgPrice, 0.7);
     const lowPricedAirlines = offers
-        .filter(o => Number(o.fareEconomy) < avgPrice * 0.7) // >30% below avg
+        .filter(o => o.fareEconomy < threshold) // >30% below avg
         .map(o => o.airlinePubkey);
 
     return {
@@ -42,6 +42,7 @@ const TERMINAL_BASE_FEE = fp(250);     // $250 base
 const PAX_FACILITY_CHARGE = fp(12);    // $12 per passenger
 
 const ASSUMED_FLIGHTS_PER_MONTH = 120; // For leasing amortization (4 flights/day)
+const ANCILLARY_PER_PAX = fp(20);
 
 export interface FlightRevenueParams {
     passengersEconomy: number;
@@ -97,8 +98,7 @@ export function calculateFlightRevenue(params: FlightRevenueParams): {
     const revenueTicket = fpAdd(fpAdd(revEconomy, revBusiness), revFirst);
 
     // Ancillary revenue: generic $20 per passenger
-    const ancillaryPerPax = fp(20);
-    const revenueAncillary = fpScale(ancillaryPerPax, actualPassengers);
+    const revenueAncillary = fpScale(ANCILLARY_PER_PAX, actualPassengers);
 
     const revenueTotal = fpAdd(revenueTicket, revenueAncillary);
 
@@ -161,7 +161,7 @@ export function calculateFlightCost(params: FlightCostParams): {
         costAirport,
         costNavigation,
         costLeasing
-    ].reduce((acc, val) => fpAdd(acc, val), fp(0));
+    ].reduce((acc, val) => fpAdd(acc, val), FP_ZERO);
 
     // Overhead: 5% of all other costs
     const costOverhead = fpScale(baseTotal, 0.05);
