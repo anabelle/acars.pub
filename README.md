@@ -12,13 +12,12 @@ AirTR is a real-world aviation simulation where players build and operate virtua
 - **Nostr Integration** — Decentralized identity via NIP-07, airline state stored as signed events
 - **Real Airport Data** — 14,000+ airports from OpenFlights with population, GDP, and seasonal tags
 - **Interactive Globe** — MapLibre GL map with virtualized airport selection
-- **Seasonal Demand** — Dynamic demand multipliers based on destination type and real-world date
-- **Flight Economics** — Revenue, cost modeling (fuel, crew, maintenance, airport fees, navigation)
-
-### Planned
-- Fleet management with aircraft depreciation and maintenance
-- Route scheduling and flight operations
-- Real-time competition and multiplayer sync
+- **Fleet Management** — Purchase (BUY/LEASE), aircraft depreciation, and structural condition tracking
+- **Operations Ledger** — Detailed financial event history persistent on Nostr (revenue/cost breakdowns)
+- **Maintenance System** — Aircraft grounding based on wear-and-tear (Condition < 20%) or flight hours (>600h)
+- **Economic Safety Net** — Chapter 11 bankruptcy status to pause operations during severe financial distress
+- **Suggested Pricing** — Distance-aware fare intelligence with "Fix to Suggested" optimization shortcuts
+- **Route Scheduling** — Real-time aircraft assignment and automated flight operations
 - Corporate mechanics (IPO, M&A, stock trading, dividends)
 - Alliance system with codeshares
 - 3D CesiumJS cockpit view

@@ -81,6 +81,17 @@ prosperityIndex(tick) = 1.0 + 0.15 × sin(2π × tick / TICKS_PER_ECONOMIC_CYCLE
 Where `TICKS_PER_ECONOMIC_CYCLE` = 10,512,000 (one real-world year, assuming 1200 ticks per hour).
 Range: 0.85 (recession) to 1.15 (boom).
 
+### 1.7 Maintenance & Grounding (Tycoon Realism)
+
+Aircraft health directly limits operational capacity.
+
+| Threshold | Effect | Action Required |
+|-----------|--------|-----------------|
+| **Condition < 20%** | **SAFETY GROUNDING** | Heavy Maintenance (D-Check) |
+| **Hours since check > 600h** | **INTERVAL GROUNDING** | Routine Maintenance (A-Check) |
+
+Grounded aircraft remain `idle` at their current airport and generate a **[SAFETY ALERT]** event in the Operations Ledger once per simulated day until serviced.
+
 ---
 
 ## 2. Quality Service Index (QSI)
@@ -205,10 +216,14 @@ Balance(tick) = Balance(tick-1) + Profit(tick)
 
 ### 5.1 Bankruptcy
 
-If `Balance < -1,000,000` (negative $1M) for 30 consecutive ticks:
-- Player enters "restructuring" mode
-- Must sell aircraft or close routes to reduce costs
-- If balance reaches `-5,000,000`: game over (but can restart)
+If `Balance < -10,000,000` (negative $10M):
+- Player enters **"Chapter 11"** status.
+- All flight operations are automatically suspended.
+- Ticket revenue, fuel costs, and crew costs are paused.
+- The airline state is persisted as "Chapter 11" on Nostr to prevent further debt accumulation while offline.
+- Player must reorganize (sell assets) to restore positive balance and resume operations.
+
+If balance reaches `-50,000,000`: game over (Liquidation).
 
 ---
 

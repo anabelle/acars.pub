@@ -179,20 +179,19 @@ During a tick:
 6. Increases `flightHoursTotal` and `flightHoursSinceCheck` for the aircraft.
 7. Degrades the aircraft `condition` proportionally to the hours flown.
 
-### 4.2 Wear & Tear and Maintenance Mechanics
+### 4.2 Maintenance & Grounding Mechanics (IMPLEMENTED ✅)
 Aircraft are depreciating assets that require constant upkeep. If ignored, they cost you passengers and money.
 
 1. **Condition Degradation**: Every hour flown slightly lowers the `condition` score.
-2. **Impact of Poor Condition**: 
-   - **Fuel Burn Penalty**: A plane at 0.5 condition burns 10% more fuel than a new one.
-   - **QSI Service Penalty**: Passengers don't like ragged planes. Low condition drops your Service Score in the QSI model, losing you market share.
-3. **A-Checks (Routine Maintenance)**: 
-   - Required every X flight hours (e.g., 500 hours).
-   - If `flightHoursSinceCheck` exceeds the limit, the aircraft is **forcibly grounded** (`status = 'maintenance'`) until it undergoes a check.
-   - Checks cost money and take real time (e.g., grounded for 24 hours).
-   - Resets `flightHoursSinceCheck` to 0 and slightly restores `condition`.
-4. **C-Checks / Overhauls**:
-   - A major manual action that heavily restores `condition` but costs a fortune and grounds the plane for days.
+2. **Impact of Poor Condition (Thresholds)**: 
+   - **Condition < 20%**: Forced Safety Grounding. Plane sits idle and refuses takeoff.
+   - **AOG (Aircraft on Ground) Events**: Grounded for maintenance restores condition but stops revenue.
+3. **Routine Checks (A-Checks)**: 
+   - Required every 600 flight hours.
+   - If limits exceeded, aircraft is forcibly grounded until serviced.
+4. **Maintenance Action**: 
+   - Players can trigger a "Repair/Maintain" action that costs a base fee + repair materials.
+   - Restores condition to 100% and resets hour counters.
 
 ### 4.3 Aircraft Utilization (The Profit Multiplier)
 *"Airplanes only make money when they're flying."*

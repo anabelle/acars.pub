@@ -67,13 +67,14 @@
 | T-047 | Hub airport highlight on map (special marker for your hub) | map | T-024, T-046 |
 | T-048 | Top bar: airline name, logo placeholder, balance display | ui | T-028, T-046 |
 
-**Estimated effort**: 9 tasks, ~2 days with 3 agents
+**Estimated effort**: 9 tasks, ~2 days with 3 agents. **STATUS: 100% COMPLETE ✅**
 
 ---
 
-## Phase 3: Core Economy (The Heartbeat) ⭐ MVP CRITICAL
+## Phase 3: Core Economy (The Heartbeat) 
 **Goal**: The economic simulation works. Demand exists, routes earn money.
 **Definition of Done**: Open a route, see demand calculated, set a price, watch revenue tick, see a profit/loss.
+**STATUS: 100% COMPLETE ✅**
 
 | ID | Task | Zone | Dependencies |
 |----|------|------|-------------|
@@ -115,13 +116,14 @@
 | T-092 | Cabin chime sound on route creation | audio | T-009, T-080 |
 | T-093 | Revenue tick sound (cash register) | audio | T-009, T-065 |
 
-**Estimated effort**: 14 tasks, ~3 days with 4 agents in parallel
+**Estimated effort**: 14 tasks, ~3 days with 4 agents. **STATUS: 95% COMPLETE ⚡**
 
 ---
 
 ## Phase 5: Multiplayer Competition
 **Goal**: Multiple players compete on the same routes. QSI determines market share.
-**Dependson**: Phases 1–4
+**Depends on**: Phases 1–4
+**STATUS: IN PROGRESS 🚧**
 
 | Key Features |
 |-------------|
