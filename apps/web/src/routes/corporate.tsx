@@ -20,15 +20,13 @@ function CorporateDashboard() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  if (!airline) return null;
-
   const currentMonthlyOpex = useMemo(
-    () => airline.hubs.reduce((sum, hub) => sum + getHubPricingForIata(hub).monthlyOpex, 0),
-    [airline.hubs]
+    () => airline?.hubs.reduce((sum, hub) => sum + getHubPricingForIata(hub).monthlyOpex, 0) ?? 0,
+    [airline?.hubs]
   );
 
   const handleAddHub = async (airport: Airport | null) => {
-    if (!airport || airline.hubs.includes(airport.iata)) return;
+    if (!airport || !airline || airline.hubs.includes(airport.iata)) return;
     setActionError(null);
     setPendingAction({ type: 'add', iata: airport.iata });
   };
@@ -44,14 +42,15 @@ function CorporateDashboard() {
   };
 
   const confirmHubAction = async () => {
-    if (!pendingAction) return;
+    if (!pendingAction || !airline) return;
     setIsProcessing(true);
     setActionError(null);
     try {
       await modifyHubs(pendingAction);
       setPendingAction(null);
-    } catch (error: any) {
-      setActionError(error?.message || 'Unable to complete hub action');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to complete hub action';
+      setActionError(message);
     } finally {
       setIsProcessing(false);
     }
@@ -74,7 +73,9 @@ function CorporateDashboard() {
         : currentMonthlyOpex
     : currentMonthlyOpex;
 
-  const canAfford = pendingCost <= airline.corporateBalance;
+  const canAfford = airline ? pendingCost <= airline.corporateBalance : false;
+
+  if (!airline) return null;
 
   return (
     <PanelLayout>

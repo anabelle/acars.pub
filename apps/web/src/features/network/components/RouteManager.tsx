@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
-import { fpFormat, fpToNumber, getSuggestedFares, calculateShares, haversineDistance, calculateDemand, getSeason, getProsperityIndex, fpScale, fp } from '@airtr/core';
+import { fpFormat, fpToNumber, getSuggestedFares, calculateShares, haversineDistance, calculateDemand, getSeason, getProsperityIndex, fpScale, fp, type Airport, type Season, type FixedPoint, type FlightOffer } from '@airtr/core';
 import { airports as ALL_AIRPORTS } from '@airtr/data';
 import { Globe, PlusCircle, CheckCircle2, AlertCircle, TrendingUp, MapPin, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -39,7 +39,16 @@ export function RouteManager() {
         ).slice(0, 5)
         : [];
 
-    const calculateSearchProspect = (dest: any) => {
+    type ProspectMarket = {
+        origin: Airport;
+        destination: Airport;
+        distance: number;
+        demand: { economy: number; business: number; first: number };
+        estimatedDailyRevenue: FixedPoint;
+        season: Season;
+    };
+
+    const calculateSearchProspect = (dest: Airport): ProspectMarket | null => {
         if (!homeAirport) return null;
         const now = new Date();
         const prosperity = getProsperityIndex(tick);
@@ -76,9 +85,10 @@ export function RouteManager() {
             });
             toast.success('Fares updated');
             setFareEditor(null);
-        } catch (err: any) {
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Unknown error';
             toast.error('Fare update failed', {
-                description: err?.message ?? 'Unknown error',
+                description: message,
             });
         } finally {
             setIsSavingFares(false);
@@ -334,14 +344,14 @@ export function RouteManager() {
 
                                                 return (
                                                     <div className="grid grid-cols-1 gap-2">
-                                                        {offers.map((offer: any, idx: number) => {
+                                                        {offers.map((offer: FlightOffer, idx: number) => {
                                                             const comp = competitors.get(offer.airlinePubkey);
 
                                                             // Calculate estimated share for this offer vs ours
                                                             const ourFrequency = route.assignedAircraftIds.length * 7;
                                                             const ourTravelTime = Math.round((route.distanceKm / 800) * 60); // simplified model speed
 
-                                                            const ourOffer: any = {
+                                                            const ourOffer: FlightOffer = {
                                                                 airlinePubkey: pubkey || '',
                                                                 fareEconomy: route.fareEconomy,
                                                                 fareBusiness: route.fareBusiness,
@@ -395,7 +405,10 @@ export function RouteManager() {
                     )
                 ) : (
                     <div className="grid grid-cols-1 gap-4">
-                        {(searchQuery.length >= 2 ? searchResults.map(calculateSearchProspect).filter(Boolean) : prospectiveRoutes).map((market: any) => {
+                        {(searchQuery.length >= 2
+                            ? searchResults.map(calculateSearchProspect).filter((market): market is ProspectMarket => Boolean(market))
+                            : prospectiveRoutes
+                        ).map((market: ProspectMarket) => {
                             const isAlreadyOpen = activeRoutes.some(r => r.destinationIata === market.destination.iata);
                             const totalDemand = market.demand.economy + market.demand.business + market.demand.first;
 
@@ -442,9 +455,10 @@ export function RouteManager() {
                                                 onClick={async () => {
                                                     try {
                                                         await openRoute(market.origin.iata, market.destination.iata, market.distance);
-                                                    } catch (e: any) {
+                                                    } catch (error) {
+                                                        const message = error instanceof Error ? error.message : 'Unknown error';
                                                         toast.error('Route open failed', {
-                                                            description: e?.message ?? 'Unknown error',
+                                                            description: message,
                                                         });
                                                     }
                                                 }}

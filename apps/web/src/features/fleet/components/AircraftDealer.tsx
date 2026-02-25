@@ -1,25 +1,25 @@
 import { useState, useMemo } from 'react';
 import { aircraftModels, getAircraftById } from '@airtr/data';
-import type { AircraftModel, AircraftInstance, FixedPoint } from '@airtr/core';
+import type { AircraftModel } from '@airtr/core';
 import { fpFormat, fpScale, FP_ZERO, TICK_DURATION } from '@airtr/core';
 import { useAirlineStore } from '@airtr/store';
-import { loadMarketplace, type SellerFleetIndex } from '@airtr/nostr';
+import { loadMarketplace, type SellerFleetIndex, type MarketplaceListing } from '@airtr/nostr';
 import { Search, Plane, Users, ArrowRight, Coins, Check, Timer, X, MapPin, Tag, ShoppingBag, History } from 'lucide-react';
 import { toast } from 'sonner';
-import { useConfirm } from '@/shared/lib/confirm';
+import { useConfirm } from '@/shared/lib/useConfirm';
 
 export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () => void }) {
     const [mode, setMode] = useState<'factory' | 'marketplace'>('factory');
     const [search, setSearch] = useState('');
     const [selectedTier, setSelectedTier] = useState<number | 'all'>('all');
     const [selectedModel, setSelectedModel] = useState<AircraftModel | null>(null);
-    const [usedListings, setUsedListings] = useState<any[]>([]);
+    const [usedListings, setUsedListings] = useState<MarketplaceListing[]>([]);
     const [isLoadingUsed, setIsLoadingUsed] = useState(false);
     const purchaseUsed = useAirlineStore(state => state.purchaseUsedAircraft);
     const fleet = useAirlineStore(state => state.fleet);
     const confirm = useConfirm();
 
-    const handleBuyUsed = async (listing: any) => {
+    const handleBuyUsed = async (listing: MarketplaceListing) => {
         const approved = await confirm({
             title: 'Purchase used aircraft?',
             description: `Confirm purchase for ${fpFormat(listing.marketplacePrice, 0)}. Delivery starts immediately.`,
@@ -36,9 +36,10 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
             });
             fetchUsed(); // Refresh the list
             if (onPurchaseSuccess) onPurchaseSuccess();
-        } catch (e: any) {
+        } catch (e) {
+            const message = e instanceof Error ? e.message : 'Unknown error';
             toast.error('Purchase failed', {
-                description: e?.message ?? 'Unknown error',
+                description: message,
             });
         }
     };
@@ -81,13 +82,13 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
 
             const listings = await loadMarketplace(sellerFleets);
             console.log(`[AircraftDealer] fetchUsed raw count: ${listings.length}`);
-            listings.forEach(l => {
-                const model = getAircraftById(l.modelId);
-                console.log(` - Listing ${l.instanceId}: Model ${l.modelId} (${model ? 'Found' : 'NOT FOUND'})`);
+            listings.forEach((listing) => {
+                const model = getAircraftById(listing.modelId);
+                console.log(` - Listing ${listing.instanceId}: Model ${listing.modelId} (${model ? 'Found' : 'NOT FOUND'})`);
             });
             setUsedListings(listings);
-        } catch (e) {
-            console.error('[AircraftDealer] fetchUsed error:', e);
+        } catch (error) {
+            console.error('[AircraftDealer] fetchUsed error:', error);
         } finally {
             setIsLoadingUsed(false);
         }
@@ -327,7 +328,12 @@ function AircraftCard({ aircraft, onSelect }: { aircraft: AircraftModel, onSelec
 }
 
 // ...
-function UsedAircraftCard({ listing, onBuy }: { listing: AircraftInstance & { marketplacePrice: FixedPoint, sellerPubkey: string }, onBuy: () => void }) {
+type UsedListingCardProps = {
+    listing: MarketplaceListing;
+    onBuy: () => void;
+};
+
+function UsedAircraftCard({ listing, onBuy }: UsedListingCardProps) {
     const model = getAircraftById(listing.modelId);
     if (!model) return null;
 
@@ -437,9 +443,10 @@ function PurchaseModal({ aircraft, onClose, onPurchaseSuccess }: { aircraft: Air
             setIsPurchasing(false);
             onClose();
             if (onPurchaseSuccess) onPurchaseSuccess();
-        } catch (error: any) {
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
             toast.error('Purchase failed', {
-                description: error?.message ?? 'Unknown error',
+                description: message,
             });
             setIsPurchasing(false);
         }

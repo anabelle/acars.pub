@@ -5,7 +5,7 @@ import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { routeTree } from '../routeTree.gen';
 import '../index.css';
 import { ToastHost } from '@/shared/components/feedback/ToastHost';
-import { ConfirmProvider } from '@/shared/lib/confirm';
+import { ConfirmProvider } from '@/shared/lib/useConfirm';
 
 // Create a new router instance
 const router = createRouter({ routeTree });

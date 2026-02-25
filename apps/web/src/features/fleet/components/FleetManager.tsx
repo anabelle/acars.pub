@@ -6,7 +6,7 @@ import { AircraftDealer } from './AircraftDealer';
 import { Settings, Search, PlusCircle, Trash2, Timer, Tag, XCircle, Plane, X } from 'lucide-react';
 import { NARROWBODY_SVG, TURBOPROP_SVG, WIDEBODY_SVG, REGIONAL_SVG } from '@airtr/map';
 import { toast } from 'sonner';
-import { useConfirm } from '@/shared/lib/confirm';
+import { useConfirm } from '@/shared/lib/useConfirm';
 
 function AircraftSilhouette({ type, className }: { type: string; className?: string }) {
     const svg = type === 'turboprop' ? TURBOPROP_SVG :
@@ -88,9 +88,10 @@ export function FleetManager() {
                 description: `${listingTarget.name} listed for ${fpFormat(priceFp)}.`,
             });
             setListingTarget(null);
-        } catch (err: any) {
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Unknown error';
             toast.error('Listing failed', {
-                description: err?.message ?? 'Unknown error',
+                description: message,
             });
         } finally {
             setIsListing(false);
@@ -335,9 +336,10 @@ export function FleetManager() {
                                                             onChange={async (e) => {
                                                                 try {
                                                                     await assignAircraftToRoute(ac.id, e.target.value || null);
-                                                                } catch (err: any) {
+                                                                } catch (err) {
+                                                                    const message = err instanceof Error ? err.message : 'Unknown error';
                                                                     toast.error('Assignment failed', {
-                                                                        description: err?.message ?? 'Unknown error',
+                                                                        description: message,
                                                                     });
                                                                 }
                                                             }}
@@ -396,7 +398,7 @@ export function FleetManager() {
                                                             confirmLabel: isLease ? 'Return' : 'Scrap',
                                                             cancelLabel: 'Cancel',
                                                             tone: 'destructive',
-                                                        }).then((approved) => {
+                                                        }).then((approved: boolean) => {
                                                             if (approved) sellAircraft(ac.id);
                                                         });
                                                     }}
@@ -413,9 +415,10 @@ export function FleetManager() {
                                                                 try {
                                                                     await cancelListing(ac.id);
                                                                     toast.success('Listing cancelled');
-                                                                } catch (err: any) {
+                                                                } catch (err) {
+                                                                    const message = err instanceof Error ? err.message : 'Unknown error';
                                                                     toast.error('Cancellation failed', {
-                                                                        description: err?.message ?? 'Unknown error',
+                                                                        description: message,
                                                                     });
                                                                 }
                                                             }}
@@ -454,7 +457,7 @@ export function FleetManager() {
                                                                     confirmLabel: 'Buyout',
                                                                     cancelLabel: 'Cancel',
                                                                     tone: 'default',
-                                                                }).then((approved) => {
+                                                                }).then((approved: boolean) => {
                                                                     if (approved) buyoutAircraft(ac.id);
                                                                 });
                                                             }}
