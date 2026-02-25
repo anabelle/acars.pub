@@ -202,19 +202,20 @@ export function FleetManager() {
                                             )}
                                             {timer && timerStyle ? (
                                                 <span
-                                                    className={`relative inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest overflow-hidden ${timerStyle.container} ${timer.isImminent ? `animate-pulse ${timerStyle.glow}` : ''}`}
+                                                    className={`relative inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest overflow-hidden ${timerStyle.container} ${timer.isImminent ? `animate-pulse ${timerStyle.glow}` : ''} shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]`}
                                                 >
                                                     <span
-                                                        className="absolute inset-y-0 left-0"
+                                                        className="absolute inset-y-0 left-0 opacity-90"
                                                         style={{
                                                             width: `${Math.round(timer.progress * 100)}%`,
-                                                            background: 'linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02))',
+                                                            background: 'linear-gradient(90deg, rgba(255,255,255,0.3), rgba(255,255,255,0.08))',
                                                         }}
                                                     />
+                                                    <span className="absolute inset-0 rounded-full ring-1 ring-white/10" />
                                                     <span className="relative z-10 flex items-center gap-2">
                                                         <timerStyle.icon className="h-3 w-3" />
-                                                        <span>{timer.label}</span>
-                                                        <span className={`font-mono text-[10px] font-black ${timerStyle.time}`}>
+                                                        <span className="text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">{timer.label}</span>
+                                                        <span className={`font-mono text-[10px] font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)] ${timerStyle.time}`}>
                                                             {timer.time}
                                                         </span>
                                                     </span>
