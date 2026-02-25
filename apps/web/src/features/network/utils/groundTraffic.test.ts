@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fp } from '@airtr/core';
 import type { AirlineEntity, AircraftInstance } from '@airtr/core';
-import { buildGroundTraffic, isGrounded } from './groundTraffic';
+import { buildGroundPresenceByAirport, buildGroundTraffic, isGrounded } from './groundTraffic';
 
 const makeAirline = (overrides: Partial<AirlineEntity> = {}): AirlineEntity => ({
     id: 'airline-1',
@@ -101,5 +101,31 @@ describe('buildGroundTraffic', () => {
             'Beta Air',
             'Alpha Air',
         ]);
+    });
+});
+
+describe('buildGroundPresenceByAirport', () => {
+    it('aggregates per-airport segments with player first', () => {
+        const airline = makeAirline({ ceoPubkey: 'player', name: 'Skyline Air', livery: { primary: '#00ff00', secondary: '#222222', accent: '#333333' } });
+        const competitors = new Map([
+            ['comp-1', makeAirline({ ceoPubkey: 'comp-1', name: 'NorthWind', livery: { primary: '#ff0000', secondary: '#222222', accent: '#333333' } })],
+        ]);
+
+        const fleet = [
+            makeAircraft({ id: 'p1', ownerPubkey: 'player', baseAirportIata: 'JFK', status: 'idle' }),
+            makeAircraft({ id: 'p2', ownerPubkey: 'player', baseAirportIata: 'JFK', status: 'turnaround' }),
+        ];
+
+        const globalFleet = [
+            makeAircraft({ id: 'c1', ownerPubkey: 'comp-1', baseAirportIata: 'JFK', status: 'maintenance' }),
+        ];
+
+        const result = buildGroundPresenceByAirport(fleet, globalFleet, airline, competitors);
+        expect(result.totals.JFK).toBe(3);
+        expect(result.presence.JFK).toHaveLength(2);
+        expect(result.presence.JFK[0].color).toBe('#00ff00');
+        expect(result.presence.JFK[0].count).toBe(2);
+        expect(result.presence.JFK[1].color).toBe('#ff0000');
+        expect(result.presence.JFK[1].count).toBe(1);
     });
 });

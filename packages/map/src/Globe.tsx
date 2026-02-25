@@ -18,6 +18,7 @@ export interface GlobeProps {
     onAirportSelect: (airport: Airport | null) => void;
     onMapClick?: () => void;
     fleetBaseCounts?: Record<string, number>;
+    groundPresence?: Record<string, { color: string; count: number; isPlayer?: boolean }[]>;
     fleet?: AircraftInstance[];
     globalFleet?: AircraftInstance[];
     globalRoutes?: Route[];
@@ -165,6 +166,35 @@ function arcCacheKey(originIata: string, destIata: string, segments: number): st
     return `${originIata}-${destIata}-${segments}`;
 }
 
+function buildPresenceBadge(segments: { color: string; count: number }[], size: number): ImageData {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return new ImageData(size, size);
+
+    const total = segments.reduce((sum, segment) => sum + segment.count, 0);
+    if (total <= 0) return new ImageData(size, size);
+
+    const center = size / 2;
+    const radius = size / 2 - 2;
+    let startAngle = -Math.PI / 2;
+
+    ctx.lineWidth = Math.max(2, size * 0.18);
+
+    for (const segment of segments) {
+        if (segment.count <= 0) continue;
+        const slice = (segment.count / total) * Math.PI * 2;
+        ctx.strokeStyle = segment.color;
+        ctx.beginPath();
+        ctx.arc(center, center, radius, startAngle, startAngle + slice, false);
+        ctx.stroke();
+        startAngle += slice;
+    }
+
+    return ctx.getImageData(0, 0, size, size);
+}
+
 // =============================================================================
 // --- Globe Component ---
 // =============================================================================
@@ -174,6 +204,7 @@ export function Globe({
     selectedAirport,
     onAirportSelect,
     fleetBaseCounts,
+    groundPresence,
     fleet = [],
     globalFleet = [],
     globalRoutes = [],
@@ -250,6 +281,7 @@ export function Globe({
     const latestPlayerHubs = useRef(playerHubs);
     const latestCompetitorHubColors = useRef(competitorHubColors);
     const latestPlayerRouteDestinations = useRef(playerRouteDestinations);
+    const latestGroundPresence = useRef(groundPresence);
 
     // Keep refs in sync with props (avoid stale closures in RAF loop)
     useEffect(() => { latestTick.current = tick; }, [tick]);
@@ -261,6 +293,7 @@ export function Globe({
     useEffect(() => { latestPlayerHubs.current = playerHubs; }, [playerHubs]);
     useEffect(() => { latestCompetitorHubColors.current = competitorHubColors; }, [competitorHubColors]);
     useEffect(() => { latestPlayerRouteDestinations.current = playerRouteDestinations; }, [playerRouteDestinations]);
+    useEffect(() => { latestGroundPresence.current = groundPresence; }, [groundPresence]);
 
     // =========================================================================
     // Map Initialization (runs once)
@@ -479,6 +512,24 @@ export function Globe({
                         'major', '#dde7f3',
                         '#6f88a8',
                     ],
+                },
+            });
+
+            // Layer: Ground Presence (multi-airline ring)
+            map.addLayer({
+                id: 'ground-presence-layer',
+                type: 'symbol',
+                source: 'airports',
+                filter: ['>', ['get', 'groundPresenceCount'], 0],
+                minzoom: 3,
+                layout: {
+                    'icon-image': ['get', 'groundPresenceIcon'],
+                    'icon-size': ['interpolate', ['linear'], ['zoom'], 3, 0.45, 8, 0.8, 12, 1.15],
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true,
+                },
+                paint: {
+                    'icon-opacity': ['interpolate', ['linear'], ['zoom'], 3, 0.35, 6, 0.7, 10, 0.95],
                 },
             });
 
@@ -716,16 +767,29 @@ export function Globe({
         };
 
         // --- Airport GeoJSON (classified) ---
+        const presence = latestGroundPresence.current;
         const airportGeojson: GeoJSON.FeatureCollection = {
             type: 'FeatureCollection',
             features: airports.map((a) => {
                 const classification = classifyAirport(a);
+                const presenceSegments = presence?.[a.iata] ?? [];
+                const presenceKey = presenceSegments.length
+                    ? `presence-${a.iata}-${presenceSegments.map(segment => `${segment.color}-${segment.count}`).join('-')}`
+                    : null;
+
+                if (presenceKey && !map.hasImage(presenceKey)) {
+                    const canvas = buildPresenceBadge(presenceSegments, 64);
+                    map.addImage(presenceKey, canvas, { pixelRatio: 2 });
+                }
+
                 return {
                     type: 'Feature',
                     geometry: { type: 'Point', coordinates: [a.longitude, a.latitude] },
                     properties: {
                         ...a,
                         fleetCount: fleetBaseCounts?.[a.iata] || 0,
+                        groundPresenceCount: presenceSegments.reduce((sum, segment) => sum + segment.count, 0),
+                        groundPresenceIcon: presenceKey,
                         ...classification,
                     },
                 };

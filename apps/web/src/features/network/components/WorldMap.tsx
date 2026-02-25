@@ -4,7 +4,7 @@ import { airports as AIRPORTS } from '@airtr/data';
 import { useMemo, useState } from 'react';
 import type { Airport } from '@airtr/core';
 import { AirportInfoPanel } from '@/features/network/components/AirportInfoPanel';
-import { isGrounded } from '@/features/network/utils/groundTraffic';
+import { buildGroundPresenceByAirport } from '@/features/network/utils/groundTraffic';
 
 export function WorldMap() {
     const homeAirport = useEngineStore(s => s.homeAirport);
@@ -61,15 +61,9 @@ export function WorldMap() {
         setFocusedAirport(airport);
     };
 
-    const fleetBaseCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
-        fleet.forEach((ac) => {
-            if (ac.baseAirportIata && isGrounded(ac)) {
-                counts[ac.baseAirportIata] = (counts[ac.baseAirportIata] || 0) + 1;
-            }
-        });
-        return counts;
-    }, [fleet]);
+    const { totals: fleetBaseCounts, presence: groundPresence } = useMemo(() => (
+        buildGroundPresenceByAirport(fleet, globalFleet, airline ?? null, competitors)
+    ), [fleet, globalFleet, airline, competitors]);
 
     if (!homeAirport) return null;
 
@@ -86,6 +80,7 @@ export function WorldMap() {
                     setFocusedAirport(null);
                 }}
                 fleetBaseCounts={fleetBaseCounts}
+                groundPresence={groundPresence}
                 fleet={fleet}
                 globalFleet={globalFleet}
                 globalRoutes={globalRoutes}

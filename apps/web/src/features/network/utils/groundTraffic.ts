@@ -9,6 +9,12 @@ export type GroundTrafficEntry = {
     isPlayer: boolean;
 };
 
+export type GroundPresenceSegment = {
+    color: string;
+    count: number;
+    isPlayer?: boolean;
+};
+
 export const GROUNDED_STATUSES = new Set<AircraftInstance['status']>(['idle', 'turnaround', 'maintenance']);
 
 export function isGrounded(aircraft: AircraftInstance): boolean {
@@ -81,4 +87,59 @@ export function buildGroundTraffic(
     });
 
     return { totalCount, entries: sorted };
+}
+
+export function buildGroundPresenceByAirport(
+    fleet: AircraftInstance[],
+    globalFleet: AircraftInstance[],
+    airline: AirlineEntity | null,
+    competitors: Map<string, AirlineEntity>
+): { totals: Record<string, number>; presence: Record<string, GroundPresenceSegment[]> } {
+    const totals: Record<string, number> = {};
+    const presenceByAirport = new Map<string, Map<string, GroundPresenceSegment>>();
+
+    const addPresence = (airportIata: string, key: string, color: string, isPlayer: boolean) => {
+        const airportMap = presenceByAirport.get(airportIata) ?? new Map();
+        const existing = airportMap.get(key);
+        if (existing) {
+            existing.count += 1;
+        } else {
+            airportMap.set(key, { color, count: 1, isPlayer });
+        }
+        presenceByAirport.set(airportIata, airportMap);
+        totals[airportIata] = (totals[airportIata] || 0) + 1;
+    };
+
+    for (const aircraft of fleet) {
+        if (!aircraft.baseAirportIata || !isGrounded(aircraft)) continue;
+        addPresence(
+            aircraft.baseAirportIata,
+            airline?.ceoPubkey ?? 'player',
+            airline?.livery?.primary ?? '#94a3b8',
+            true,
+        );
+    }
+
+    for (const aircraft of globalFleet) {
+        if (!aircraft.baseAirportIata || !isGrounded(aircraft)) continue;
+        const competitor = competitors.get(aircraft.ownerPubkey);
+        addPresence(
+            aircraft.baseAirportIata,
+            aircraft.ownerPubkey,
+            competitor?.livery?.primary ?? '#94a3b8',
+            false,
+        );
+    }
+
+    const presence: Record<string, GroundPresenceSegment[]> = {};
+    presenceByAirport.forEach((segments, airportIata) => {
+        const sorted = Array.from(segments.values()).sort((a, b) => {
+            if (a.isPlayer !== b.isPlayer) return a.isPlayer ? -1 : 1;
+            if (a.count !== b.count) return b.count - a.count;
+            return a.color.localeCompare(b.color);
+        });
+        presence[airportIata] = sorted;
+    });
+
+    return { totals, presence };
 }
