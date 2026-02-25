@@ -57,7 +57,9 @@ export type AirlineConfig = Pick<AirlineEntity, 'name' | 'icaoCode' | 'callsign'
 };
 
 const AIRLINE_KIND = 30078;
-const AIRLINE_D_TAG = 'airtr:airline';
+const WORLD_ID = 'dev-v1';
+const AIRTR_SCHEMA_VERSION = 1;
+const AIRLINE_D_TAG = `airtr:world:${WORLD_ID}:airline`;
 const AIRLINE_PUBLISH_DEBOUNCE_MS = 300;
 
 let airlinePublishTimer: ReturnType<typeof setTimeout> | null = null;
@@ -136,9 +138,10 @@ async function publishAirlineNow(airline: AirlineConfig): Promise<NDKEvent> {
 
     const event = new NDKEvent(ndk);
     event.kind = AIRLINE_KIND;
-    event.tags = [['d', AIRLINE_D_TAG]];
+    event.tags = [['d', AIRLINE_D_TAG], ['world', WORLD_ID]];
 
     event.content = JSON.stringify({
+        schemaVersion: AIRTR_SCHEMA_VERSION,
         name: airline.name,
         icaoCode: airline.icaoCode,
         callsign: airline.callsign,
@@ -159,7 +162,7 @@ async function publishAirlineNow(airline: AirlineConfig): Promise<NDKEvent> {
  * Kind for used aircraft listings.
  */
 export const MARKETPLACE_KIND = 30079;
-export const MARKETPLACE_D_PREFIX = 'airtr:marketplace:';
+export const MARKETPLACE_D_PREFIX = `airtr:world:${WORLD_ID}:marketplace:`;
 
 /**
  * Publishes an airline creation or update event to Nostr.
@@ -216,6 +219,7 @@ export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEnt
         authors: [pubkey],
         kinds: [AIRLINE_KIND],
         '#d': [AIRLINE_D_TAG],
+        '#world': [WORLD_ID],
         limit: 1,
     };
 
@@ -302,10 +306,12 @@ export async function publishUsedAircraft(aircraft: import('@airtr/core').Aircra
         ['model', aircraft.modelId],
         ['owner', aircraft.ownerPubkey || 'unknown'],
         ['price', price.toString()],
+        ['world', WORLD_ID],
     ];
 
     const payload = {
         ...aircraft,
+        schemaVersion: AIRTR_SCHEMA_VERSION,
         marketplacePrice: price,
         listedAt: Date.now(),
     };
@@ -420,6 +426,7 @@ export async function loadMarketplace(sellerFleets?: SellerFleetIndex): Promise<
 
     const filter: NDKFilter = {
         kinds: [MARKETPLACE_KIND as any],
+        '#world': [WORLD_ID],
         limit: 100,
     };
 
@@ -518,6 +525,7 @@ export async function loadGlobalAirlines(): Promise<{ airline: AirlineEntity, fl
     const filter: NDKFilter = {
         kinds: [AIRLINE_KIND],
         '#d': [AIRLINE_D_TAG],
+        '#world': [WORLD_ID],
         limit: 500, // Reasonable cap for global discovery
     };
 
