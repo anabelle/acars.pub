@@ -12,7 +12,8 @@ import {
     TrendingDown,
     Clock,
     Users,
-    UserMinus
+    UserMinus,
+    MapPin
 } from 'lucide-react';
 import { fpFormat, TimelineEvent, TICK_DURATION, TICKS_PER_HOUR } from '@airtr/core';
 
@@ -32,6 +33,8 @@ const EventIcon = ({ type }: { type: TimelineEvent['type'] }) => {
             return <Hammer className="w-4 h-4 text-purple-400" />;
         case 'delivery':
             return <Package className="w-4 h-4 text-blue-400" />;
+        case 'hub_change':
+            return <MapPin className="w-4 h-4 text-cyan-400" />;
         default:
             return <Package className="w-4 h-4 text-gray-400" />;
     }

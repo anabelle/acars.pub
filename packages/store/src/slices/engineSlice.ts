@@ -2,7 +2,8 @@ import type { StateCreator } from 'zustand';
 import type { AirlineState } from '../types';
 import { processFlightEngine } from '../FlightEngine';
 import { publishAirline } from '@airtr/nostr';
-import { fpToNumber } from '@airtr/core';
+import { fpToNumber, fpSub, fp, TICKS_PER_HOUR, GENESIS_TIME, TICK_DURATION } from '@airtr/core';
+import { getHubPricingForIata } from '@airtr/data';
 
 export interface EngineSlice {
     processTick: (tick: number) => Promise<void>;
@@ -57,8 +58,12 @@ export const createEngineSlice: StateCreator<
             let currentFleet = [...fleet];
             let currentBalance = airline.corporateBalance;
             let currentBrandScore = airline.brandScore || 0.5;
+            let currentHubs = airline.hubs || [];
             let currentTimeline = [...get().timeline];
             let anyChanges = false;
+
+            const ticksPerDay = 24 * TICKS_PER_HOUR;
+            const ticksPerMonth = ticksPerDay * 30;
 
             for (let t = lastTick + 1; t <= targetTick; t++) {
                 const result = processFlightEngine(
@@ -87,6 +92,30 @@ export const createEngineSlice: StateCreator<
                 }
 
                 if (result.hasChanges) anyChanges = true;
+
+                // Monthly hub OPEX
+                if (t % ticksPerMonth === 0 && currentHubs.length > 0) {
+                    let opexTotal = 0;
+                    for (const hubIata of currentHubs) {
+                        opexTotal += getHubPricingForIata(hubIata).monthlyOpex;
+                    }
+                    if (opexTotal > 0) {
+                        const opexCost = fp(opexTotal);
+                        currentBalance = fpSub(currentBalance, opexCost);
+                        const currentTick = t;
+                        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
+                        const newEvent = {
+                            id: `evt-hub-opex-${currentTick}`,
+                            tick: currentTick,
+                            timestamp: simulatedTimestamp,
+                            type: 'hub_change' as const,
+                            description: `Monthly hub operations cost charged for ${currentHubs.length} hub(s).`,
+                            cost: opexCost,
+                        };
+                        currentTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+                        anyChanges = true;
+                    }
+                }
             }
 
             // 3. Update state - We move lastTick to targetTick (which might be less than global tick)

@@ -1,7 +1,8 @@
 import type { StateCreator } from 'zustand';
 import type { AirlineState } from '../types';
 import type { AircraftInstance, Route, TimelineEvent, AirlineEntity } from '@airtr/core';
-import { fp, GENESIS_TIME } from '@airtr/core';
+import { fp, fpSub, GENESIS_TIME } from '@airtr/core';
+import { getHubPricingForIata } from '@airtr/data';
 import {
     waitForNip07,
     getPubkey,
@@ -111,9 +112,14 @@ export const createIdentitySlice: StateCreator<
             attachSigner();
             ensureConnected();
 
+            const initialHub = params.hubs[0];
+            if (!initialHub) throw new Error('Primary hub is required');
+            const hubCost = fp(getHubPricingForIata(initialHub).openFee);
+            const postHubBalance = fpSub(fp(100000000), hubCost);
+
             const event = await publishAirline({
                 ...params,
-                corporateBalance: fp(100000000),
+                corporateBalance: postHubBalance,
                 lastTick: useEngineStore.getState().tick,
             });
 
@@ -134,7 +140,7 @@ export const createIdentitySlice: StateCreator<
                 shareholders: { [pubkey]: 10000000 },
                 brandScore: 0.5,
                 tier: 1,
-                corporateBalance: fp(100000000),
+                corporateBalance: postHubBalance,
                 stockPrice: fp(10),
                 fleetIds: [],
                 routeIds: [],

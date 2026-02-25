@@ -1,8 +1,8 @@
 import { Globe as CoreGlobe } from '@airtr/map';
 import { useEngineStore, useAirlineStore } from '@airtr/store';
 import { airports as AIRPORTS } from '@airtr/data';
-import type { Airport } from '@airtr/core';
 import { useMemo } from 'react';
+import type { Airport } from '@airtr/core';
 
 export function WorldMap() {
     const homeAirport = useEngineStore(s => s.homeAirport);

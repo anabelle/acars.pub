@@ -8,6 +8,19 @@ export interface HubClassification {
     baseLandingFee: number;
 }
 
+export const HUB_TIER_PRICING: Record<HubTier, { openFee: number; monthlyOpex: number }> = {
+    regional: { openFee: 250000, monthlyOpex: 50000 },
+    national: { openFee: 750000, monthlyOpex: 150000 },
+    international: { openFee: 2000000, monthlyOpex: 400000 },
+    global: { openFee: 5000000, monthlyOpex: 1000000 },
+};
+
+export const getHubPricingForIata = (iata: string): { openFee: number; monthlyOpex: number; tier: HubTier } => {
+    const tier = HUB_CLASSIFICATIONS[iata]?.tier ?? 'regional';
+    const pricing = HUB_TIER_PRICING[tier];
+    return { ...pricing, tier };
+};
+
 export const HUB_CLASSIFICATIONS: Record<string, HubClassification> = {
     ATL: { iata: 'ATL', tier: 'global', baseCapacityPerHour: 160, slotControlled: false, baseLandingFee: 300 },
     PEK: { iata: 'PEK', tier: 'global', baseCapacityPerHour: 140, slotControlled: true, baseLandingFee: 420 },

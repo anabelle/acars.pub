@@ -3,7 +3,7 @@ import type { AirlineState } from '../types';
 import type { Route, FixedPoint, TimelineEvent } from '@airtr/core';
 import { fpSub, fp, fpScale, GENESIS_TIME, TICK_DURATION, fpFormat, getSuggestedFares } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
-import { airports, HUB_CLASSIFICATIONS } from '@airtr/data';
+import { airports, getHubPricingForIata } from '@airtr/data';
 import { publishAirline } from '@airtr/nostr';
 import { useEngineStore } from '../engine';
 
@@ -39,19 +39,7 @@ export const createNetworkSlice: StateCreator<
         let description: string;
         let hubFee = fp(0);
 
-        const getHubTierCost = (iata: string) => {
-            const tier = HUB_CLASSIFICATIONS[iata]?.tier ?? 'regional';
-            switch (tier) {
-                case 'global':
-                    return fp(5000000);
-                case 'international':
-                    return fp(2000000);
-                case 'national':
-                    return fp(750000);
-                default:
-                    return fp(250000);
-            }
-        };
+        const getHubTierCost = (iata: string) => fp(getHubPricingForIata(iata).openFee);
 
         switch (action.type) {
             case 'add': {

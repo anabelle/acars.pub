@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import type { Airport } from '@airtr/core';
-import { airports as AIRPORTS } from '@airtr/data';
+import { fp, fpFormat } from '@airtr/core';
+import { airports as AIRPORTS, getHubPricingForIata } from '@airtr/data';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Search, X, MapPin } from 'lucide-react';
 
@@ -13,6 +14,7 @@ export function HubPicker({
     onSelect: (airport: Airport | null) => void;
 }) {
     const [open, setOpen] = useState(false);
+    const [selectedAirport, setSelectedAirport] = useState<Airport | null>(null);
     const [search, setSearch] = useState('');
     const [deferredSearch, setDeferredSearch] = useState('');
     const [isPending, startTransition] = useTransition();
@@ -49,6 +51,21 @@ export function HubPicker({
         });
     };
 
+    const selectedPricing = selectedAirport ? getHubPricingForIata(selectedAirport.iata) : null;
+
+    const getTierBadge = (tier: string) => {
+        switch (tier) {
+            case 'global':
+                return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
+            case 'international':
+                return 'bg-sky-500/10 text-sky-300 border-sky-500/20';
+            case 'national':
+                return 'bg-amber-500/10 text-amber-300 border-amber-500/20';
+            default:
+                return 'bg-slate-500/10 text-slate-300 border-slate-500/20';
+        }
+    };
+
     return (
         <>
             <button
@@ -72,7 +89,7 @@ export function HubPicker({
                         <div
                             role="dialog"
                             aria-modal="true"
-                            className="relative z-50 grid w-full max-w-lg gap-4 rounded-xl border bg-card text-card-foreground shadow-lg duration-200 animate-in fade-in-90 zoom-in-95 sm:max-w-[425px]"
+                            className="relative z-50 grid w-full max-w-lg gap-4 rounded-xl border bg-card text-card-foreground shadow-lg duration-200 animate-in fade-in-90 zoom-in-95 sm:max-w-[480px]"
                         >
                             <div className="flex flex-col space-y-1.5 p-6 pb-4">
                                 <div className="flex items-center justify-between">
@@ -85,6 +102,9 @@ export function HubPicker({
                                         <span className="sr-only">Close</span>
                                     </button>
                                 </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Hub fees scale by tier. Global hubs carry the highest capex and monthly OPEX.
+                                </p>
                             </div>
 
                             <div className="px-6 pb-2">
@@ -111,6 +131,10 @@ export function HubPicker({
                                     {virtualizer.getVirtualItems().map((virtualRow) => {
                                         const airport = filtered[virtualRow.index];
                                         const isActive = currentHub && airport.iata === currentHub.iata;
+                                        const pricing = getHubPricingForIata(airport.iata);
+                                        const openFee = fpFormat(fp(pricing.openFee), 0);
+                                        const monthlyOpex = fpFormat(fp(pricing.monthlyOpex), 0);
+                                        const tierLabel = pricing.tier.toUpperCase();
 
                                         return (
                                             <button
@@ -126,24 +150,26 @@ export function HubPicker({
                                                 className={`flex w-full items-center justify-between rounded-md px-4 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground ${isActive ? 'bg-primary/10 text-primary' : ''
                                                     }`}
                                                 onClick={() => {
-                                                    onSelect(airport);
-                                                    setOpen(false);
-                                                    setSearch('');
-                                                    setDeferredSearch('');
+                                                    setSelectedAirport(airport);
                                                 }}
                                             >
                                                 <div className="flex flex-col overflow-hidden">
                                                     <div className="flex items-center space-x-2">
                                                         <span className="font-bold text-foreground">{airport.iata}</span>
                                                         <span className="truncate text-muted-foreground">{airport.city}</span>
+                                                        <span className={`ml-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getTierBadge(pricing.tier)}`}>
+                                                            {tierLabel}
+                                                        </span>
                                                     </div>
                                                     <span className="truncate text-xs text-muted-foreground opacity-70">
                                                         {airport.name}
                                                     </span>
                                                 </div>
-                                                <span className="ml-4 shrink-0 text-xs font-semibold uppercase opacity-50">
-                                                    {airport.country}
-                                                </span>
+                                                <div className="ml-4 shrink-0 flex flex-col items-end text-[10px] font-semibold uppercase opacity-70">
+                                                    <span>{airport.country}</span>
+                                                    <span className="text-[9px] text-muted-foreground">Setup {openFee}</span>
+                                                    <span className="text-[9px] text-muted-foreground">OPEX {monthlyOpex}/mo</span>
+                                                </div>
                                             </button>
                                         );
                                     })}
@@ -160,6 +186,49 @@ export function HubPicker({
                                     </div>
                                 )}
                             </div>
+                            {selectedAirport && selectedPricing && (
+                                <div className="border-t border-white/5 px-6 py-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-[10px] uppercase text-muted-foreground">Selected Hub</p>
+                                            <p className="text-sm font-semibold text-foreground">{selectedAirport.iata} • {selectedAirport.city}</p>
+                                        </div>
+                                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${getTierBadge(selectedPricing.tier)}`}>
+                                            {selectedPricing.tier}
+                                        </span>
+                                    </div>
+                                    <div className="mt-3 grid grid-cols-2 gap-3">
+                                        <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                                            <p className="text-[10px] uppercase text-white/40">Setup Fee</p>
+                                            <p className="mt-1 text-sm font-mono font-black text-white">{fpFormat(fp(selectedPricing.openFee), 0)}</p>
+                                        </div>
+                                        <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                                            <p className="text-[10px] uppercase text-white/40">Monthly OPEX</p>
+                                            <p className="mt-1 text-sm font-mono font-black text-white">{fpFormat(fp(selectedPricing.monthlyOpex), 0)}</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex items-center justify-between">
+                                        <button
+                                            className="text-xs font-bold uppercase text-muted-foreground hover:text-foreground"
+                                            onClick={() => setSelectedAirport(null)}
+                                        >
+                                            Clear
+                                        </button>
+                                        <button
+                                            className="rounded-md bg-primary px-4 py-2 text-xs font-bold uppercase text-primary-foreground"
+                                            onClick={() => {
+                                                onSelect(selectedAirport);
+                                                setSelectedAirport(null);
+                                                setOpen(false);
+                                                setSearch('');
+                                                setDeferredSearch('');
+                                            }}
+                                        >
+                                            Continue
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>,
                     document.body

@@ -2,6 +2,8 @@ import { type FormEvent, useState } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
 import { HubPicker } from '../../network/components/HubPicker';
 import type { Airport } from '@airtr/core';
+import { fp, fpFormat } from '@airtr/core';
+import { getHubPricingForIata } from '@airtr/data';
 import { PlaneTakeoff, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 export function AirlineCreator() {
@@ -84,6 +86,13 @@ export function AirlineCreator() {
                                         <p className="font-medium leading-none">{homeAirport.city}</p>
                                         <p className="text-sm text-muted-foreground mt-1">{homeAirport.name}</p>
                                     </div>
+                                </div>
+                                <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                    <span className="font-bold">Tier {getHubPricingForIata(homeAirport.iata).tier}</span>
+                                    <span className="opacity-40">•</span>
+                                    <span>Setup {fpFormat(fp(getHubPricingForIata(homeAirport.iata).openFee), 0)}</span>
+                                    <span className="opacity-40">•</span>
+                                    <span>OPEX {fpFormat(fp(getHubPricingForIata(homeAirport.iata).monthlyOpex), 0)}/mo</span>
                                 </div>
                             </div>
                             <div className="text-right">
