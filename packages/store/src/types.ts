@@ -28,6 +28,7 @@ export interface AirlineState {
     performMaintenance: (aircraftId: string) => Promise<void>;
     openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;
     rebaseRoute: (routeId: string, newOriginIata: string) => Promise<void>;
+    closeRoute: (routeId: string) => Promise<void>;
     assignAircraftToRoute: (aircraftId: string, routeId: string | null) => Promise<void>;
     updateRouteFares: (routeId: string, fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint }) => Promise<void>;
     updateHub: (newHubIata: string) => Promise<void>;

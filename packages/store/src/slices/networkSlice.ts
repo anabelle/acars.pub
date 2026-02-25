@@ -19,6 +19,7 @@ export interface NetworkSlice {
     updateHub: (newHubIata: string) => Promise<void>;
     openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;
     rebaseRoute: (routeId: string, newOriginIata: string) => Promise<void>;
+    closeRoute: (routeId: string) => Promise<void>;
     assignAircraftToRoute: (aircraftId: string, routeId: string | null) => Promise<void>;
     updateRouteFares: (routeId: string, fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint }) => Promise<void>;
 }
@@ -264,6 +265,66 @@ export const createNetworkSlice: StateCreator<
         } catch (error: any) {
             set(previousState);
             console.warn('Failed to publish route rebase to Nostr:', error);
+        }
+    },
+
+    closeRoute: async (routeId: string) => {
+        const { airline, routes, fleet } = get();
+        if (!airline) return;
+
+        const targetRoute = routes.find(route => route.id === routeId);
+        if (!targetRoute) return;
+
+        const currentTick = useEngineStore.getState().tick;
+        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
+        const currentTimeline = [...get().timeline];
+
+        const updatedRoutes = routes.filter(route => route.id !== routeId);
+        const updatedFleet = fleet.map((aircraft) => {
+            if (aircraft.assignedRouteId === routeId) {
+                return { ...aircraft, assignedRouteId: null };
+            }
+            return aircraft;
+        });
+
+        const newEvent: TimelineEvent = {
+            id: `evt-route-close-${routeId}-${currentTick}`,
+            tick: currentTick,
+            timestamp: simulatedTimestamp,
+            type: 'route_change',
+            routeId,
+            originIata: targetRoute.originIata,
+            destinationIata: targetRoute.destinationIata,
+            description: `Route closed: ${targetRoute.originIata} ↔ ${targetRoute.destinationIata}.`
+        };
+
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
+        const updatedAirline = {
+            ...airline,
+            timeline: finalTimeline,
+            routeIds: updatedRoutes.map(route => route.id),
+        };
+
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+
+        set({
+            airline: updatedAirline,
+            routes: updatedRoutes,
+            fleet: updatedFleet,
+            timeline: finalTimeline,
+        });
+
+        try {
+            await publishAirline({
+                ...updatedAirline,
+                fleet: updatedFleet,
+                routes: updatedRoutes,
+                timeline: finalTimeline,
+                lastTick: currentTick,
+            });
+        } catch (error: any) {
+            set(previousState);
+            console.warn('Failed to publish route closure to Nostr:', error);
         }
     },
 

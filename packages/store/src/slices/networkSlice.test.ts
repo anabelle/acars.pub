@@ -181,3 +181,24 @@ describe('rebaseRoute', () => {
         expect(aircraft?.assignedRouteId).toBe(null);
     });
 });
+
+describe('closeRoute', () => {
+    it('removes a route and clears aircraft assignment', async () => {
+        const airline = makeAirline(['BOG']);
+        const routes = [
+            makeRoute('rt-1', 'BOG', 'CLO', 'suspended')
+        ];
+        const fleet = [makeAircraft('ac-1', 'rt-1')];
+
+        const { state } = createSliceState({ airline, routes, fleet, timeline: [] as TimelineEvent[] });
+
+        await state.closeRoute('rt-1');
+
+        const updatedRoutes = state.routes as Route[];
+        const updatedFleet = state.fleet as AircraftInstance[];
+
+        expect(updatedRoutes.find(route => route.id === 'rt-1')).toBeUndefined();
+        const aircraft = updatedFleet.find(ac => ac.id === 'ac-1');
+        expect(aircraft?.assignedRouteId).toBe(null);
+    });
+});

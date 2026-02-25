@@ -13,6 +13,7 @@ export function RouteManager() {
         openRoute,
         updateRouteFares,
         rebaseRoute,
+        closeRoute,
         globalRouteRegistry,
         competitors
     } = useAirlineStore();
@@ -198,30 +199,55 @@ export function RouteManager() {
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <select
-                                            value={rebaseTargets[route.id] ?? airline.hubs[0] ?? ''}
-                                            onChange={(e) => setRebaseTargets(prev => ({ ...prev, [route.id]: e.target.value }))}
-                                            className="h-9 rounded-lg border border-border/60 bg-background px-3 text-xs font-bold text-foreground"
-                                        >
-                                            {airline.hubs.map((hub) => (
-                                                <option key={hub} value={hub}>{hub}</option>
-                                            ))}
-                                        </select>
+                                        {airline.hubs.some(hub => hub !== route.destinationIata) ? (
+                                            <>
+                                                <select
+                                                    value={rebaseTargets[route.id] ?? airline.hubs.find(hub => hub !== route.destinationIata) ?? ''}
+                                                    onChange={(e) => setRebaseTargets(prev => ({ ...prev, [route.id]: e.target.value }))}
+                                                    className="h-9 rounded-lg border border-border/60 bg-background px-3 text-xs font-bold text-foreground"
+                                                >
+                                                    {airline.hubs
+                                                        .filter(hub => hub !== route.destinationIata)
+                                                        .map((hub) => (
+                                                            <option key={hub} value={hub}>{hub}</option>
+                                                        ))}
+                                                </select>
+                                                <button
+                                                    onClick={async () => {
+                                                        const fallbackHub = airline.hubs.find(hub => hub !== route.destinationIata);
+                                                        const targetHub = rebaseTargets[route.id] ?? fallbackHub;
+                                                        if (!targetHub) return;
+                                                        try {
+                                                            await rebaseRoute(route.id, targetHub);
+                                                            toast.success('Route rebased');
+                                                        } catch (err) {
+                                                            const message = err instanceof Error ? err.message : 'Route rebase failed';
+                                                            toast.error('Route rebase failed', { description: message });
+                                                        }
+                                                    }}
+                                                    className="h-9 rounded-lg bg-amber-500 px-3 text-xs font-bold text-amber-950 hover:bg-amber-400 transition"
+                                                >
+                                                    Rebase to Hub
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <div className="text-xs font-bold text-amber-100/70">
+                                                Open another hub to rebase.
+                                            </div>
+                                        )}
                                         <button
                                             onClick={async () => {
-                                                const targetHub = rebaseTargets[route.id] ?? airline.hubs[0];
-                                                if (!targetHub) return;
                                                 try {
-                                                    await rebaseRoute(route.id, targetHub);
-                                                    toast.success('Route rebased');
+                                                    await closeRoute(route.id);
+                                                    toast.success('Route closed');
                                                 } catch (err) {
-                                                    const message = err instanceof Error ? err.message : 'Route rebase failed';
-                                                    toast.error('Route rebase failed', { description: message });
+                                                    const message = err instanceof Error ? err.message : 'Route close failed';
+                                                    toast.error('Route close failed', { description: message });
                                                 }
                                             }}
-                                            className="h-9 rounded-lg bg-amber-500 px-3 text-xs font-bold text-amber-950 hover:bg-amber-400 transition"
+                                            className="h-9 rounded-lg border border-amber-500/30 bg-transparent px-3 text-xs font-bold text-amber-100 hover:bg-amber-500/20 transition"
                                         >
-                                            Rebase to Hub
+                                            Close Route
                                         </button>
                                     </div>
                                 </div>
