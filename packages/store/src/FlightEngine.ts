@@ -235,6 +235,12 @@ export function processFlightEngine(
                     };
                 }
 
+                const seatConfig = {
+                    economy: ac.configuration?.economy ?? model.capacity.economy,
+                    business: ac.configuration?.business ?? model.capacity.business,
+                    first: ac.configuration?.first ?? model.capacity.first,
+                };
+
                 let rev = calculateFlightRevenue({
                     passengersEconomy: 0,
                     passengersBusiness: 0,
@@ -242,7 +248,7 @@ export function processFlightEngine(
                     fareEconomy: fp(0),
                     fareBusiness: fp(0),
                     fareFirst: fp(0),
-                    seatsOffered: model.capacity.economy + model.capacity.business + model.capacity.first
+                    seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first
                 });
 
                 if (route || (isOrphan && hasFareSnapshot)) {
@@ -307,9 +313,9 @@ export function processFlightEngine(
                         || { economy: 0, business: 0, first: 0 };
 
                     // Per-flight allocation (Weekly allocation / frequency)
-                    const paxE = Math.min(model.capacity.economy, Math.floor(ourWeeklyAllocation.economy / ourFrequency));
-                    const paxB = Math.min(model.capacity.business, Math.floor(ourWeeklyAllocation.business / ourFrequency));
-                    const paxF = Math.min(model.capacity.first, Math.floor(ourWeeklyAllocation.first / ourFrequency));
+                    const paxE = Math.min(seatConfig.economy, Math.floor(ourWeeklyAllocation.economy / ourFrequency));
+                    const paxB = Math.min(seatConfig.business, Math.floor(ourWeeklyAllocation.business / ourFrequency));
+                    const paxF = Math.min(seatConfig.first, Math.floor(ourWeeklyAllocation.first / ourFrequency));
                     // --- END NEW MP ALLOCATION ---
 
                     rev = calculateFlightRevenue({
@@ -319,7 +325,7 @@ export function processFlightEngine(
                         fareEconomy,
                         fareBusiness,
                         fareFirst,
-                        seatsOffered: model.capacity.economy + model.capacity.business + model.capacity.first
+                        seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first
                     });
                 }
 

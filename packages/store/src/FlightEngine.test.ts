@@ -221,6 +221,36 @@ describe('FlightEngine — Solo/Offline scenarios', () => {
         expect(passengers?.first ?? 0).toBeGreaterThanOrEqual(0);
     });
 
+    it('uses instance configuration for seat caps', () => {
+        const aircraft = makeAircraft({
+            id: 'ac-config',
+            modelId: 'a320neo',
+            assignedRouteId: 'route-config',
+            baseAirportIata: 'JFK',
+            configuration: {
+                economy: 0,
+                business: 0,
+                first: 10,
+                cargoKg: 0,
+            },
+        });
+        const route = makeRoute({
+            id: 'route-config',
+            originIata: 'JFK',
+            destinationIata: 'LAX',
+            distanceKm: 3000,
+            assignedAircraftIds: [aircraft.id],
+        });
+
+        const { landing } = simulateSingleLanding(aircraft, route);
+        const passengers = landing.details?.passengers;
+
+        expect(passengers?.economy ?? 0).toBe(0);
+        expect(passengers?.business ?? 0).toBe(0);
+        expect(passengers?.first ?? 0).toBeGreaterThan(0);
+        expect(landing.details?.seatsOffered).toBe(10);
+    });
+
     it('oversized aircraft on thin route yields low load factor', () => {
         const aircraft = makeAircraft({
             id: 'ac-a380',
