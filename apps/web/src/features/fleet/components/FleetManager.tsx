@@ -4,15 +4,15 @@ import { getAircraftById } from '@airtr/data';
 import { calculateBookValue, fpFormat, fpScale, fp, fpToNumber, TICK_DURATION, FP_ZERO, type FixedPoint } from '@airtr/core';
 import { AircraftDealer } from './AircraftDealer';
 import { Settings, Search, PlusCircle, Trash2, Timer, Tag, XCircle, Plane, X } from 'lucide-react';
-import { NARROWBODY_SVG, TURBOPROP_SVG, WIDEBODY_SVG, REGIONAL_SVG } from '@airtr/map';
+import { NARROWBODY_BODY_SVG, TURBOPROP_BODY_SVG, WIDEBODY_BODY_SVG, REGIONAL_BODY_SVG } from '@airtr/map';
 import { toast } from 'sonner';
 import { useConfirm } from '@/shared/lib/useConfirm';
 
 function AircraftSilhouette({ type, className }: { type: string; className?: string }) {
-    const svg = type === 'turboprop' ? TURBOPROP_SVG :
-        type === 'regional' ? REGIONAL_SVG :
-            type === 'widebody' ? WIDEBODY_SVG :
-                NARROWBODY_SVG;
+    const svg = type === 'turboprop' ? TURBOPROP_BODY_SVG :
+        type === 'regional' ? REGIONAL_BODY_SVG :
+            type === 'widebody' ? WIDEBODY_BODY_SVG :
+                NARROWBODY_BODY_SVG;
 
     return (
         <div

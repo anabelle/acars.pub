@@ -187,14 +187,14 @@ export const createFleetSlice: StateCreator<
             return {
                 ...ac,
                 assignedRouteId: null,
-                status: 'enroute',
+                status: 'enroute' as const,
                 flight: {
                     originIata: originAirport.iata,
                     destinationIata: destinationAirport.iata,
                     departureTick: currentTick,
                     arrivalTick: currentTick + Math.max(1, durationTicks),
-                    direction: 'outbound',
-                    purpose: 'ferry',
+                    direction: 'outbound' as const,
+                    purpose: 'ferry' as const,
                     distanceKm
                 }
             };

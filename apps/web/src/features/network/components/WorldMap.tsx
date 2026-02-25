@@ -8,7 +8,20 @@ export function WorldMap() {
     const homeAirport = useEngineStore(s => s.homeAirport);
     const tick = useEngineStore(s => s.tick);
     const tickProgress = useEngineStore(s => s.tickProgress);
-    const { airline, modifyHubs, fleet, globalFleet, globalRoutes } = useAirlineStore();
+    const { airline, modifyHubs, fleet, globalFleet, globalRoutes, competitors } = useAirlineStore();
+
+    const competitorLiveries = useMemo(() => {
+        const map = new Map<string, { primary: string; secondary: string }>();
+        competitors.forEach((value, key) => {
+            if (value.livery?.primary && value.livery?.secondary) {
+                map.set(key, {
+                    primary: value.livery.primary,
+                    secondary: value.livery.secondary,
+                });
+            }
+        });
+        return map;
+    }, [competitors]);
 
     const handleHubChange = (airport: Airport | null) => {
         if (!airport) return;
@@ -48,6 +61,8 @@ export function WorldMap() {
                 fleet={fleet}
                 globalFleet={globalFleet}
                 globalRoutes={globalRoutes}
+                playerLivery={airline?.livery || null}
+                competitorLiveries={competitorLiveries}
                 tick={tick}
                 tickProgress={tickProgress}
             />

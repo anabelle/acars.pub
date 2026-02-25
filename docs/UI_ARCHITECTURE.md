@@ -56,6 +56,8 @@ To ensure that any AI Agent or human contributor can build predictably, we are s
 *Why:* Mapbox is proprietary and expensive. MapLibre is open-source, highly performant WebGL, and can render 100,000 pulsing route lines instantly without destroying device battery.
 
 > **Implementation Note:** The map (`packages/map/src/Globe.tsx`) uses **direct `maplibregl.Map()` calls** — not the `react-map-gl` wrapper. The map instance is managed imperatively via `useRef`/`useEffect`, with layers, sources, and animations controlled through the raw MapLibre GL JS API. This gives full control over WebGL rendering, viewport culling, and arc geometry caching for O(1) scalability.
+>
+> **Livery Rendering:** Aircraft icons use a two-layer SDF approach. Each aircraft type has a body SVG (silhouette) and an accent SVG (detail shapes) defined in `packages/map/src/icons.ts`. The body layer is tinted with the airline's `primary` color and the accent layer with the `secondary` color via MapLibre's `icon-color` paint property. Colors are resolved per-aircraft from `playerLivery` (for the player's fleet) and `competitorLiveries` (a `Map<pubkey, {primary, secondary}>` for other airlines), attached as GeoJSON feature properties, and read by data-driven style expressions at render time.
 
 ### 3.5 Virtualization: TanStack Virtual
 *Why:* DOM nodes are the enemy of performance. If a player looks at the global Fleet Market (used aircraft), there might be 5,000 items. `tanstack/react-virtual` ensures only the 15 items visible on screen actually exist in HTML.

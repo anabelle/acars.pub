@@ -31,6 +31,16 @@ Aircraft position interpolation now runs via `requestAnimationFrame` instead of 
 ### 6. Debounced Viewport Updates
 Arc re-computation on pan/zoom is debounced at 150ms to avoid thrashing during continuous map interaction.
 
+### 7. Two-Layer SDF Livery Rendering
+Aircraft icons use MapLibre's SDF (Signed Distance Field) icon rendering to display per-airline livery colors without generating unique bitmaps per airline. Each aircraft type has two SVG icons:
+- **Body layer**: the airplane silhouette, tinted with the airline's `primary` livery color via `icon-color`.
+- **Accent layer**: detail shapes (engine rings, wing stripes, tail details) overlaid at the same position/rotation, tinted with the airline's `secondary` livery color.
+
+Both layers read `primaryColor` and `secondaryColor` from GeoJSON feature properties, falling back to neutral defaults when no livery is set. This scales to unlimited airlines with zero icon atlas regeneration — only two draw calls per fleet source (player + global), regardless of how many distinct liveries are visible.
+
+### 8. React StrictMode WebGL Compatibility
+React 19 StrictMode double-mounts components in dev (Mount → Unmount → Re-mount). Map cleanup is deferred via `setTimeout(100ms)` so that StrictMode's immediate re-mount can cancel the pending `map.remove()` and reuse the still-alive WebGL context. This prevents "WebGL context was lost" crashes during development.
+
 ---
 
 ## Phase A: Custom WebGL/WebGPU Layer (Rendering Scale)
@@ -99,6 +109,8 @@ Only load and simulate other players' planes that are "nearby" or "on shared rou
 | Zoom-Adaptive LOD | Low | Rendering Speed | **Implemented** |
 | Arc Memoization | Low | CPU Reduction | **Implemented** |
 | RAF Flight Animation | Low | Visual Quality | **Implemented** |
+| Two-Layer SDF Livery | Low | Visual Identity | **Implemented** |
+| StrictMode WebGL Fix | Low | Dev Stability | **Implemented** |
 | Custom WebGL Layer | High | Rendering Speed | Proposed |
 | Web Worker Engine | Medium | UI Stability | Proposed |
 | Shader Interpolation | High | Zero CPU Cost | Proposed |

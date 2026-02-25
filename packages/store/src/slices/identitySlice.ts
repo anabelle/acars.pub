@@ -77,7 +77,7 @@ export const createIdentitySlice: StateCreator<
             const fleetIds = new Set(cleanFleet.map(ac => ac.id));
             const rawRoutes = existing && existing.routes ? existing.routes : [];
             const activeHubs = new Set((existing?.airline?.hubs || []).filter(Boolean));
-            const reconciledRoutes = rawRoutes.map(route => {
+            const reconciledRoutes: Route[] = rawRoutes.map(route => {
                 const hasActiveOrigin = activeHubs.size > 0
                     ? activeHubs.has(route.originIata)
                     : false;

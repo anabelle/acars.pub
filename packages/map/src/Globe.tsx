@@ -3,7 +3,10 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Airport, AircraftInstance, Route } from '@airtr/core';
 
-import { NARROWBODY_SVG, TURBOPROP_SVG, WIDEBODY_SVG, REGIONAL_SVG } from './icons.js';
+import {
+    NARROWBODY_SVG, TURBOPROP_SVG, WIDEBODY_SVG, REGIONAL_SVG,
+    NARROWBODY_ACCENT_SVG, TURBOPROP_ACCENT_SVG, WIDEBODY_ACCENT_SVG, REGIONAL_ACCENT_SVG,
+} from './icons.js';
 
 import { aircraftModels } from '@airtr/data';
 const aircraftModelMap = new Map(aircraftModels.map(m => [m.id, m]));
@@ -16,6 +19,8 @@ export interface GlobeProps {
     fleet?: AircraftInstance[];
     globalFleet?: AircraftInstance[];
     globalRoutes?: Route[];
+    playerLivery?: { primary: string; secondary: string } | null;
+    competitorLiveries?: Map<string, { primary: string; secondary: string }>;
     tick?: number;
     tickProgress?: number;
     className?: string;
@@ -157,6 +162,8 @@ export function Globe({
     fleet = [],
     globalFleet = [],
     globalRoutes = [],
+    playerLivery = null,
+    competitorLiveries = new Map(),
     tick = 0,
     tickProgress = 0,
     className = '',
@@ -219,18 +226,54 @@ export function Globe({
     const latestTickProgress = useRef(tickProgress);
     const latestFleet = useRef(fleet);
     const latestGlobalFleet = useRef(globalFleet);
+    const latestPlayerLivery = useRef(playerLivery);
+    const latestCompetitorLiveries = useRef(competitorLiveries);
 
     // Keep refs in sync with props (avoid stale closures in RAF loop)
     useEffect(() => { latestTick.current = tick; }, [tick]);
     useEffect(() => { latestTickProgress.current = tickProgress; }, [tickProgress]);
     useEffect(() => { latestFleet.current = fleet; }, [fleet]);
     useEffect(() => { latestGlobalFleet.current = globalFleet; }, [globalFleet]);
+    useEffect(() => { latestPlayerLivery.current = playerLivery; }, [playerLivery]);
+    useEffect(() => { latestCompetitorLiveries.current = competitorLiveries; }, [competitorLiveries]);
 
     // =========================================================================
     // Map Initialization (runs once)
+    //
+    // React 18+ StrictMode double-mounts in dev: Mount -> Unmount -> Re-mount.
+    // Calling map.remove() synchronously on unmount destroys the WebGL context
+    // before the re-mount can rescue it. We defer cleanup via setTimeout so
+    // StrictMode's immediate re-mount can cancel the pending removal.
     // =========================================================================
+    const cleanupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     useEffect(() => {
-        if (!mapContainer.current || mapRef.current) return;
+        // If a deferred cleanup is pending from a previous unmount, cancel it —
+        // StrictMode is re-mounting us and the map is still alive.
+        if (cleanupTimer.current) {
+            clearTimeout(cleanupTimer.current);
+            cleanupTimer.current = null;
+        }
+
+        // If the map already exists (StrictMode re-mount), just re-sync state.
+        if (mapRef.current) {
+            // The map is still attached to our container div (React reuses the
+            // same DOM node for the re-mount), so we just need to ensure our
+            // React state reflects that the map is ready.
+            if (mapRef.current.loaded()) {
+                setMapLoaded(true);
+            } else {
+                mapRef.current.once('load', () => setMapLoaded(true));
+            }
+            return () => {
+                cleanupTimer.current = setTimeout(() => {
+                    mapRef.current?.remove();
+                    mapRef.current = null;
+                }, 100);
+            };
+        }
+
+        if (!mapContainer.current) return;
 
         // Load saved view state
         const savedView = localStorage.getItem('airtr_map_view');
@@ -289,6 +332,10 @@ export function Globe({
             addIcon('airplane-turboprop', TURBOPROP_SVG);
             addIcon('airplane-regional', REGIONAL_SVG);
             addIcon('airplane-widebody', WIDEBODY_SVG);
+            addIcon('airplane-icon-accent', NARROWBODY_ACCENT_SVG);
+            addIcon('airplane-turboprop-accent', TURBOPROP_ACCENT_SVG);
+            addIcon('airplane-regional-accent', REGIONAL_ACCENT_SVG);
+            addIcon('airplane-widebody-accent', WIDEBODY_ACCENT_SVG);
 
             // Sources
             map.addSource('airports', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -362,7 +409,7 @@ export function Globe({
                 },
             });
 
-            // Layer: Global Flights
+            // Layer: Global Flights (body — primary color)
             map.addLayer({
                 id: 'global-flights-layer',
                 type: 'symbol',
@@ -391,12 +438,46 @@ export function Globe({
                     'icon-anchor': 'center',
                 },
                 paint: {
-                    'icon-color': '#64748b',
+                    'icon-color': ['coalesce', ['get', 'primaryColor'], '#64748b'],
                     'icon-opacity': 0.8,
                 },
             });
 
-            // Layer: Active Flights (Player)
+            // Layer: Global Flights (accent — secondary color)
+            map.addLayer({
+                id: 'global-flights-accent-layer',
+                type: 'symbol',
+                source: 'global-flights',
+                layout: {
+                    'icon-image': [
+                        'match',
+                        ['get', 'type'],
+                        'turboprop', 'airplane-turboprop-accent',
+                        'regional', 'airplane-regional-accent',
+                        'widebody', 'airplane-widebody-accent',
+                        'airplane-icon-accent',
+                    ],
+                    'icon-size': [
+                        'match',
+                        ['get', 'type'],
+                        'turboprop', 0.65,
+                        'regional', 0.75,
+                        'widebody', 1.1,
+                        0.8,
+                    ],
+                    'icon-rotate': ['get', 'bearing'],
+                    'icon-rotation-alignment': 'map',
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true,
+                    'icon-anchor': 'center',
+                },
+                paint: {
+                    'icon-color': ['coalesce', ['get', 'secondaryColor'], '#94a3b8'],
+                    'icon-opacity': 0.8,
+                },
+            });
+
+            // Layer: Active Flights — body (primary color)
             map.addLayer({
                 id: 'flights-layer',
                 type: 'symbol',
@@ -425,7 +506,40 @@ export function Globe({
                     'icon-anchor': 'center',
                 },
                 paint: {
-                    'icon-color': '#ffffff',
+                    'icon-color': ['coalesce', ['get', 'primaryColor'], '#ffffff'],
+                },
+            });
+
+            // Layer: Active Flights — accent (secondary color)
+            map.addLayer({
+                id: 'flights-accent-layer',
+                type: 'symbol',
+                source: 'flights',
+                layout: {
+                    'icon-image': [
+                        'match',
+                        ['get', 'type'],
+                        'turboprop', 'airplane-turboprop-accent',
+                        'regional', 'airplane-regional-accent',
+                        'widebody', 'airplane-widebody-accent',
+                        'airplane-icon-accent',
+                    ],
+                    'icon-size': [
+                        'match',
+                        ['get', 'type'],
+                        'turboprop', 0.9,
+                        'regional', 1.0,
+                        'widebody', 1.4,
+                        1.1,
+                    ],
+                    'icon-rotate': ['get', 'bearing'],
+                    'icon-rotation-alignment': 'map',
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true,
+                    'icon-anchor': 'center',
+                },
+                paint: {
+                    'icon-color': ['coalesce', ['get', 'secondaryColor'], '#cbd5e1'],
                 },
             });
 
@@ -453,7 +567,12 @@ export function Globe({
         });
 
         mapRef.current = map;
-        return () => { map.remove(); mapRef.current = null; };
+        return () => {
+            cleanupTimer.current = setTimeout(() => {
+                mapRef.current?.remove();
+                mapRef.current = null;
+            }, 100);
+        };
     }, []);
 
     // =========================================================================
@@ -641,6 +760,7 @@ export function Globe({
             currentTick: number,
             currentProgress: number,
             bounds: maplibregl.LngLatBounds,
+            resolveColor: (ac: AircraftInstance) => { primary?: string; secondary?: string } | undefined,
         ): GeoJSON.Feature[] => {
             const features: GeoJSON.Feature[] = [];
             for (const ac of targetFleet) {
@@ -673,11 +793,18 @@ export function Globe({
                 const bearing = getBearing(coords, nextCoords);
                 const model = aircraftModelMap.get(ac.modelId);
                 const type = model?.type || 'narrowbody';
+                const colors = resolveColor(ac);
 
                 features.push({
                     type: 'Feature',
                     geometry: { type: 'Point', coordinates: coords },
-                    properties: { id: ac.id, bearing, type },
+                    properties: {
+                        id: ac.id,
+                        bearing,
+                        type,
+                        ...(colors?.primary ? { primaryColor: colors.primary } : {}),
+                        ...(colors?.secondary ? { secondaryColor: colors.secondary } : {}),
+                    },
                 });
             }
             return features;
@@ -693,10 +820,12 @@ export function Globe({
             const currentProgress = latestTickProgress.current;
 
             const flightFeatures = processFleet(
-                latestFleet.current, currentTick, currentProgress, bounds
+                latestFleet.current, currentTick, currentProgress, bounds,
+                () => latestPlayerLivery.current || undefined,
             );
             const globalFlightFeatures = processFleet(
-                latestGlobalFleet.current, currentTick, currentProgress, bounds
+                latestGlobalFleet.current, currentTick, currentProgress, bounds,
+                (ac) => latestCompetitorLiveries.current.get(ac.ownerPubkey),
             );
 
             (map.getSource('flights') as maplibregl.GeoJSONSource)?.setData({

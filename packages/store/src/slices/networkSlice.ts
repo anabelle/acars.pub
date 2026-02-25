@@ -88,7 +88,7 @@ export const createNetworkSlice: StateCreator<
             ? new Set([action.iata])
             : new Set<string>();
 
-        const updatedRoutes = removedHubs.size > 0
+        const updatedRoutes: Route[] = removedHubs.size > 0
             ? routes.map((route) => {
                 if (route.status !== 'active') return route;
                 if (!removedHubs.has(route.originIata)) return route;
@@ -211,7 +211,7 @@ export const createNetworkSlice: StateCreator<
         const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
         const currentTimeline = [...get().timeline];
 
-        const updatedRoutes = routes.map((route) => {
+        const updatedRoutes: Route[] = routes.map((route) => {
             if (route.id !== routeId) return route;
             return {
                 ...route,
@@ -279,7 +279,7 @@ export const createNetworkSlice: StateCreator<
         const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
         const currentTimeline = [...get().timeline];
 
-        const updatedRoutes = routes.filter(route => route.id !== routeId);
+        const updatedRoutes: Route[] = routes.filter(route => route.id !== routeId);
         const updatedFleet = fleet.map((aircraft) => {
             if (aircraft.assignedRouteId === routeId) {
                 return { ...aircraft, assignedRouteId: null };

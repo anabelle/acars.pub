@@ -300,6 +300,7 @@ export type TimelineEventType =
     | 'maintenance'
     | 'delivery'
     | 'hub_change'
+    | 'route_change'
     | 'ferry'
     | 'price_war';
 
