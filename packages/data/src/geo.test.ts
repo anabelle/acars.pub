@@ -33,4 +33,13 @@ describe('findPreferredHub', () => {
         const result = findPreferredHub(-10.2, -10.1, airports as any);
         expect(result.country).toBe('BB');
     });
+
+    it('returns nearest when country is unknown', () => {
+        const unknownAirports = [
+            { iata: 'UNK1', country: 'XX', latitude: 1, longitude: 1, population: 100 },
+            { iata: 'UNK2', country: 'XX', latitude: 2, longitude: 2, population: 200 },
+        ] as const;
+        const result = findPreferredHub(1.1, 1.1, unknownAirports as any);
+        expect(result.iata).toBe('UNK1');
+    });
 });

@@ -27,8 +27,18 @@ export function HubPicker({
 
     const filtered = useMemo(() => {
         const base = AIRPORTS.filter(a => a.iata && a.city && a.name);
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const prioritized = base.filter(a => a.timezone === tz);
+        const prioritizedSorted = prioritized
+            .filter(a => (a.population || 0) > 0)
+            .sort((a, b) => (b.population || 0) - (a.population || 0));
+        const prioritizedSet = new Set(prioritizedSorted.map(a => a.iata));
+        const remaining = base
+            .filter(a => !prioritizedSet.has(a.iata))
+            .sort((a, b) => (b.population || 0) - (a.population || 0));
+
         if (!deferredSearch) {
-            return [...base].sort((a, b) => (b.population || 0) - (a.population || 0));
+            return [...prioritizedSorted, ...remaining];
         }
         const q = deferredSearch.toLowerCase();
         return base

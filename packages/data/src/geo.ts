@@ -18,6 +18,9 @@ export function findPreferredHub(lat: number, lon: number, airports: Airport[] =
     }
 
     const country = nearest.country;
+    if (country === 'XX') {
+        return nearest;
+    }
     const countryAirports = airports.filter(a => a.country === country);
     const populated = countryAirports.filter(a => (a.population || 0) > 0);
 

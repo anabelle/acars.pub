@@ -17,13 +17,17 @@ function estimateLocationFromOffset(): UserLocation {
 function findAirportByTimezone(): Airport | null {
     try {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const exact = AIRPORTS.find(a => a.timezone === tz);
-        if (exact) return exact;
+        const matches = AIRPORTS.filter(a => a.timezone === tz);
+        if (matches.length > 0) {
+            return [...matches].sort((a, b) => (b.population || 0) - (a.population || 0))[0];
+        }
 
         const tzCity = tz.split('/').pop()?.replace(/_/g, ' ').toLowerCase();
         if (tzCity) {
-            const cityMatch = AIRPORTS.find(a => a.city.toLowerCase() === tzCity);
-            if (cityMatch) return cityMatch;
+            const cityMatches = AIRPORTS.filter(a => a.city.toLowerCase() === tzCity);
+            if (cityMatches.length > 0) {
+                return [...cityMatches].sort((a, b) => (b.population || 0) - (a.population || 0))[0];
+            }
         }
         return null;
     } catch {
