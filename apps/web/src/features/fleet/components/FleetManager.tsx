@@ -193,8 +193,9 @@ export function FleetManager() {
 
                                             if (!lastLanding) return null;
 
-                                            // Since we don't store "actualPassengers" in TimelineEvent yet, we use profit as a signal
                                             const isProfitable = (lastLanding.profit || FP_ZERO) > 0;
+                                            const pax = lastLanding.details?.passengers;
+                                            const lf = lastLanding.details?.loadFactor;
 
                                             return (
                                                 <div className="bg-muted/20 rounded-2xl p-4 border border-border/40">
@@ -204,7 +205,9 @@ export function FleetManager() {
                                                             {isProfitable ? 'Profitable' : 'Loss Making'}
                                                         </span>
                                                     </div>
-                                                    <div className="flex justify-between items-end">
+
+                                                    {/* Route & Profit */}
+                                                    <div className="flex justify-between items-end mb-3">
                                                         <div className="flex flex-col">
                                                             <span className="text-[10px] text-muted-foreground uppercase font-semibold">Route</span>
                                                             <span className="text-xs font-bold text-foreground">{lastLanding.originIata} &rarr; {lastLanding.destinationIata}</span>
@@ -216,6 +219,53 @@ export function FleetManager() {
                                                             </span>
                                                         </div>
                                                     </div>
+
+                                                    {/* Passenger & Occupancy Data */}
+                                                    {pax && lf !== undefined && (
+                                                        <div className="pt-3 border-t border-border/30">
+                                                            {/* Load Factor Bar */}
+                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                <span className="text-[10px] text-muted-foreground uppercase font-semibold">Load Factor</span>
+                                                                <span className={`text-[10px] font-mono font-black ${
+                                                                    lf >= 0.85 ? 'text-emerald-400' :
+                                                                    lf >= 0.6 ? 'text-yellow-400' :
+                                                                    'text-red-400'
+                                                                }`}>
+                                                                    {Math.round(lf * 100)}%
+                                                                </span>
+                                                            </div>
+                                                            <div className="h-1 w-full bg-muted/30 rounded-full overflow-hidden mb-3">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all ${
+                                                                        lf >= 0.85 ? 'bg-emerald-500' :
+                                                                        lf >= 0.6 ? 'bg-yellow-500' :
+                                                                        'bg-red-500'
+                                                                    }`}
+                                                                    style={{ width: `${Math.round(lf * 100)}%` }}
+                                                                />
+                                                            </div>
+
+                                                            {/* Class Breakdown */}
+                                                            <div className="flex items-center gap-3 text-[10px] font-mono">
+                                                                <span className="text-muted-foreground">
+                                                                    <span className="text-foreground font-bold">{pax.total}</span> pax
+                                                                </span>
+                                                                <span className="text-muted-foreground/40">|</span>
+                                                                <span className="text-muted-foreground">Y:<span className="text-foreground font-bold">{pax.economy}</span></span>
+                                                                {pax.business > 0 && (
+                                                                    <span className="text-amber-400/70">J:<span className="text-amber-400 font-bold">{pax.business}</span></span>
+                                                                )}
+                                                                {pax.first > 0 && (
+                                                                    <span className="text-violet-400/70">F:<span className="text-violet-400 font-bold">{pax.first}</span></span>
+                                                                )}
+                                                                {(lastLanding.details?.spilledPassengers ?? 0) > 0 && (
+                                                                    <span className="text-orange-400 ml-auto font-bold">
+                                                                        {lastLanding.details!.spilledPassengers} denied
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })()}

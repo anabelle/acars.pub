@@ -301,6 +301,16 @@ export interface TimelineEvent {
     cost?: FixedPoint;
     profit?: FixedPoint;
     details?: {
+        passengers?: {
+            economy: number;
+            business: number;
+            first: number;
+            total: number;
+        };
+        seatsOffered?: number;
+        loadFactor?: number;
+        spilledPassengers?: number;
+        flightDurationTicks?: number;
         revenue?: {
             tickets: FixedPoint;
             ancillary: FixedPoint;

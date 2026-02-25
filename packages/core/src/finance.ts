@@ -69,6 +69,10 @@ export function calculateFlightRevenue(params: FlightRevenueParams): {
     revenueAncillary: FixedPoint;
     revenueTotal: FixedPoint;
     actualPassengers: number;
+    actualEconomy: number;
+    actualBusiness: number;
+    actualFirst: number;
+    seatsOffered: number;
     loadFactor: number;
     spilledPassengers: number;
 } {
@@ -107,6 +111,10 @@ export function calculateFlightRevenue(params: FlightRevenueParams): {
         revenueAncillary,
         revenueTotal,
         actualPassengers,
+        actualEconomy,
+        actualBusiness,
+        actualFirst,
+        seatsOffered: params.seatsOffered,
         loadFactor,
         spilledPassengers,
     };

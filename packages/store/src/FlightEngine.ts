@@ -284,6 +284,16 @@ export function processFlightEngine(
                     profit: profit,
                     description: `${ac.name} landed at ${ac.flight?.destinationIata}. Net Profit: ${profit > 0 ? '+' : ''}${fpToNumber(profit)}`,
                     details: {
+                        passengers: {
+                            economy: rev.actualEconomy,
+                            business: rev.actualBusiness,
+                            first: rev.actualFirst,
+                            total: rev.actualPassengers,
+                        },
+                        seatsOffered: rev.seatsOffered,
+                        loadFactor: rev.loadFactor,
+                        spilledPassengers: rev.spilledPassengers,
+                        flightDurationTicks: ac.flight.arrivalTick - ac.flight.departureTick,
                         revenue: {
                             tickets: rev.revenueTicket,
                             ancillary: rev.revenueAncillary

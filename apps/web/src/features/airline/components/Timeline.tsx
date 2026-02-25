@@ -10,9 +10,11 @@ import {
     ArrowRight,
     TrendingUp,
     TrendingDown,
-    Clock
+    Clock,
+    Users,
+    UserMinus
 } from 'lucide-react';
-import { fpFormat, TimelineEvent, TICK_DURATION } from '@airtr/core';
+import { fpFormat, TimelineEvent, TICK_DURATION, TICKS_PER_HOUR } from '@airtr/core';
 
 const EventIcon = ({ type }: { type: TimelineEvent['type'] }) => {
     switch (type) {
@@ -120,6 +122,75 @@ const EventCard = ({ event }: { event: TimelineEvent }) => {
                                     {isExpanded ? 'Hide Details' : 'View Breakdown'}
                                 </button>
                             )}
+                        </div>
+                    )}
+
+                    {/* Passenger & Occupancy Summary (landing events only) */}
+                    {event.type === 'landing' && event.details?.passengers && (
+                        <div className="mt-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+                            {/* Load Factor Bar */}
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Users className="w-3.5 h-3.5 text-sky-400" />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                                        Occupancy
+                                    </span>
+                                </div>
+                                <span className={`text-xs font-mono font-black ${
+                                    (event.details.loadFactor ?? 0) >= 0.85 ? 'text-emerald-400' :
+                                    (event.details.loadFactor ?? 0) >= 0.6 ? 'text-yellow-400' :
+                                    'text-rose-400'
+                                }`}>
+                                    {Math.round((event.details.loadFactor ?? 0) * 100)}%
+                                </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-3">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-500 ${
+                                        (event.details.loadFactor ?? 0) >= 0.85 ? 'bg-emerald-500' :
+                                        (event.details.loadFactor ?? 0) >= 0.6 ? 'bg-yellow-500' :
+                                        'bg-rose-500'
+                                    }`}
+                                    style={{ width: `${Math.round((event.details.loadFactor ?? 0) * 100)}%` }}
+                                />
+                            </div>
+
+                            {/* Passenger Breakdown by Class */}
+                            <div className="grid grid-cols-3 gap-2 mb-2">
+                                <div className="flex flex-col items-center p-2 rounded-lg bg-white/[0.03]">
+                                    <span className="text-[9px] uppercase font-bold text-white/30 tracking-widest mb-1">Economy</span>
+                                    <span className="text-sm font-mono font-black text-white/80">{event.details.passengers.economy}</span>
+                                </div>
+                                <div className="flex flex-col items-center p-2 rounded-lg bg-white/[0.03]">
+                                    <span className="text-[9px] uppercase font-bold text-amber-400/60 tracking-widest mb-1">Business</span>
+                                    <span className="text-sm font-mono font-black text-amber-400">{event.details.passengers.business}</span>
+                                </div>
+                                <div className="flex flex-col items-center p-2 rounded-lg bg-white/[0.03]">
+                                    <span className="text-[9px] uppercase font-bold text-violet-400/60 tracking-widest mb-1">First</span>
+                                    <span className="text-sm font-mono font-black text-violet-400">{event.details.passengers.first}</span>
+                                </div>
+                            </div>
+
+                            {/* Summary Row: Total pax, seats, spilled, duration */}
+                            <div className="flex items-center justify-between text-[10px] text-white/40">
+                                <span className="font-mono">
+                                    <span className="text-white/70 font-bold">{event.details.passengers.total}</span>/{event.details.seatsOffered ?? '?'} seats
+                                </span>
+
+                                {(event.details.spilledPassengers ?? 0) > 0 && (
+                                    <span className="flex items-center gap-1 text-orange-400 font-bold">
+                                        <UserMinus className="w-3 h-3" />
+                                        {event.details.spilledPassengers} denied
+                                    </span>
+                                )}
+
+                                {event.details.flightDurationTicks && (
+                                    <span className="flex items-center gap-1 font-mono">
+                                        <Clock className="w-3 h-3" />
+                                        {(event.details.flightDurationTicks / TICKS_PER_HOUR).toFixed(1)}h
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
