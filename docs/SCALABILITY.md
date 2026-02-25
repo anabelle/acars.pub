@@ -41,6 +41,17 @@ Both layers read `primaryColor` and `secondaryColor` from GeoJSON feature proper
 ### 8. React StrictMode WebGL Compatibility
 React 19 StrictMode double-mounts components in dev (Mount → Unmount → Re-mount). Map cleanup is deferred via `setTimeout(100ms)` so that StrictMode's immediate re-mount can cancel the pending `map.remove()` and reuse the still-alive WebGL context. This prevents "WebGL context was lost" crashes during development.
 
+### 9. Tiered Airport Classification (Map Readability)
+Airports are classified client-side into a small set of visual tiers to improve map readability at a glance:
+- **Active hub** (player's primary hub): pulsing green glow + largest radius
+- **Player hub** (other owned hubs): green, slightly smaller
+- **Route destination** (active routes touching player hubs): amber highlight
+- **Competitor hub**: tinted with competitor airline primary livery color (fallback orange)
+- **Major airport**: based on `HUB_CLASSIFICATIONS` tier (`global`/`international`) or population >= 5M
+- **Default**: muted slate
+
+This classification is attached as `airportClass` and optional `competitorHubColor` properties in the airport GeoJSON source and rendered via data-driven MapLibre circle paint expressions. The approach keeps the airports layer lightweight while providing immediate visual hierarchy.
+
 ---
 
 ## Phase A: Custom WebGL/WebGPU Layer (Rendering Scale)
@@ -111,6 +122,7 @@ Only load and simulate other players' planes that are "nearby" or "on shared rou
 | RAF Flight Animation | Low | Visual Quality | **Implemented** |
 | Two-Layer SDF Livery | Low | Visual Identity | **Implemented** |
 | StrictMode WebGL Fix | Low | Dev Stability | **Implemented** |
+| Tiered Airport Classes | Low | Map Readability | **Implemented** |
 | Custom WebGL Layer | High | Rendering Speed | Proposed |
 | Web Worker Engine | Medium | UI Stability | Proposed |
 | Shader Interpolation | High | Zero CPU Cost | Proposed |

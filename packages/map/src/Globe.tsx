@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import type { Airport, AircraftInstance, Route } from '@airtr/core';
+import type { Airport, AircraftInstance, HubTier, Route } from '@airtr/core';
+import { HUB_CLASSIFICATIONS } from '@airtr/data';
 
 import {
     NARROWBODY_SVG, TURBOPROP_SVG, WIDEBODY_SVG, REGIONAL_SVG,
@@ -21,6 +22,9 @@ export interface GlobeProps {
     globalRoutes?: Route[];
     playerLivery?: { primary: string; secondary: string } | null;
     competitorLiveries?: Map<string, { primary: string; secondary: string }>;
+    playerHubs?: string[];
+    competitorHubColors?: Map<string, string>;
+    playerRouteDestinations?: Set<string>;
     tick?: number;
     tickProgress?: number;
     className?: string;
@@ -138,6 +142,16 @@ function pointInViewport(
         lat >= sw.lat - margin && lat <= ne.lat + margin;
 }
 
+type AirportClass = 'active-hub' | 'player-hub' | 'route-dest' | 'competitor-hub' | 'major' | 'default';
+
+const MAJOR_HUB_TIERS = new Set<HubTier>(['global', 'international']);
+
+function isMajorAirport(airport: Airport): boolean {
+    const tier = HUB_CLASSIFICATIONS[airport.iata]?.tier;
+    if (tier && MAJOR_HUB_TIERS.has(tier)) return true;
+    return airport.population >= 5_000_000;
+}
+
 // =============================================================================
 // --- Arc Geometry Cache ---
 // =============================================================================
@@ -164,6 +178,9 @@ export function Globe({
     globalRoutes = [],
     playerLivery = null,
     competitorLiveries = new Map(),
+    playerHubs = [],
+    competitorHubColors = new Map(),
+    playerRouteDestinations = new Set(),
     tick = 0,
     tickProgress = 0,
     className = '',
@@ -228,6 +245,9 @@ export function Globe({
     const latestGlobalFleet = useRef(globalFleet);
     const latestPlayerLivery = useRef(playerLivery);
     const latestCompetitorLiveries = useRef(competitorLiveries);
+    const latestPlayerHubs = useRef(playerHubs);
+    const latestCompetitorHubColors = useRef(competitorHubColors);
+    const latestPlayerRouteDestinations = useRef(playerRouteDestinations);
 
     // Keep refs in sync with props (avoid stale closures in RAF loop)
     useEffect(() => { latestTick.current = tick; }, [tick]);
@@ -236,6 +256,9 @@ export function Globe({
     useEffect(() => { latestGlobalFleet.current = globalFleet; }, [globalFleet]);
     useEffect(() => { latestPlayerLivery.current = playerLivery; }, [playerLivery]);
     useEffect(() => { latestCompetitorLiveries.current = competitorLiveries; }, [competitorLiveries]);
+    useEffect(() => { latestPlayerHubs.current = playerHubs; }, [playerHubs]);
+    useEffect(() => { latestCompetitorHubColors.current = competitorHubColors; }, [competitorHubColors]);
+    useEffect(() => { latestPlayerRouteDestinations.current = playerRouteDestinations; }, [playerRouteDestinations]);
 
     // =========================================================================
     // Map Initialization (runs once)
@@ -371,17 +394,89 @@ export function Globe({
                 },
             });
 
+            // Layer: Active Hub Glow
+            map.addLayer({
+                id: 'active-hub-glow',
+                type: 'circle',
+                source: 'airports',
+                filter: ['==', ['get', 'airportClass'], 'active-hub'],
+                paint: {
+                    'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 6, 6, 14, 10, 22],
+                    'circle-color': '#4ade80',
+                    'circle-opacity': 0.4,
+                    'circle-blur': 0.8,
+                },
+            });
+
             // Layer: Airports
             map.addLayer({
                 id: 'airports-layer',
                 type: 'circle',
                 source: 'airports',
                 paint: {
-                    'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 1, 6, 2, 10, 4],
-                    'circle-color': '#e94560',
-                    'circle-opacity': 0.6,
-                    'circle-stroke-width': 0.5,
-                    'circle-stroke-color': '#fff',
+                    'circle-radius': [
+                        'interpolate', ['linear'], ['zoom'],
+                        1, ['match', ['get', 'airportClass'],
+                            'active-hub', 3.5,
+                            'player-hub', 3,
+                            'route-dest', 2.6,
+                            'competitor-hub', 2.4,
+                            'major', 2,
+                            1.6,
+                        ],
+                        6, ['match', ['get', 'airportClass'],
+                            'active-hub', 7,
+                            'player-hub', 6,
+                            'route-dest', 5,
+                            'competitor-hub', 4.5,
+                            'major', 3.5,
+                            2.3,
+                        ],
+                        10, ['match', ['get', 'airportClass'],
+                            'active-hub', 12,
+                            'player-hub', 9,
+                            'route-dest', 7,
+                            'competitor-hub', 6,
+                            'major', 4,
+                            2.8,
+                        ],
+                    ],
+                    'circle-color': [
+                        'match', ['get', 'airportClass'],
+                        'active-hub', '#4ade80',
+                        'player-hub', '#4ade80',
+                        'route-dest', '#facc15',
+                        'competitor-hub', ['coalesce', ['get', 'competitorHubColor'], '#f97316'],
+                        'major', '#c6d6e8',
+                        '#8aa6c5',
+                    ],
+                    'circle-opacity': [
+                        'match', ['get', 'airportClass'],
+                        'active-hub', 1,
+                        'player-hub', 0.85,
+                        'route-dest', 0.75,
+                        'competitor-hub', 0.6,
+                        'major', 0.55,
+                        0.35,
+                    ],
+                    'circle-stroke-width': [
+                        'match', ['get', 'airportClass'],
+                        'active-hub', 2,
+                        'player-hub', 1.5,
+                        'route-dest', 1.2,
+                        'competitor-hub', 1,
+                        'major', 0.8,
+                        0.4,
+                    ],
+                    'circle-stroke-color': [
+                        'match', ['get', 'airportClass'],
+                        'active-hub', '#ffffff',
+                        'player-hub', '#e2e8f0',
+                        'route-dest', '#fef9c3',
+                        'competitor-hub', '#ffe0bf',
+                        'major', '#dde7f3',
+                        '#6f88a8',
+                    ],
                 },
             });
 
@@ -597,14 +692,35 @@ export function Globe({
             lastSegmentCount.current = segments;
         }
 
-        // --- Airport GeoJSON (unchanged logic, just batched) ---
+        const classifyAirport = (airport: Airport): { airportClass: AirportClass; competitorHubColor?: string } => {
+            const hubs = latestPlayerHubs.current;
+            const routeDestinations = latestPlayerRouteDestinations.current;
+            const competitorColors = latestCompetitorHubColors.current;
+
+            if (hubs[0] === airport.iata) return { airportClass: 'active-hub' };
+            if (hubs.includes(airport.iata)) return { airportClass: 'player-hub' };
+            if (routeDestinations.has(airport.iata)) return { airportClass: 'route-dest' };
+            const competitorHubColor = competitorColors.get(airport.iata);
+            if (competitorHubColor) return { airportClass: 'competitor-hub', competitorHubColor };
+            if (isMajorAirport(airport)) return { airportClass: 'major' };
+            return { airportClass: 'default' };
+        };
+
+        // --- Airport GeoJSON (classified) ---
         const airportGeojson: GeoJSON.FeatureCollection = {
             type: 'FeatureCollection',
-            features: airports.map((a) => ({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [a.longitude, a.latitude] },
-                properties: { ...a, fleetCount: fleetBaseCounts?.[a.iata] || 0 },
-            })),
+            features: airports.map((a) => {
+                const classification = classifyAirport(a);
+                return {
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [a.longitude, a.latitude] },
+                    properties: {
+                        ...a,
+                        fleetCount: fleetBaseCounts?.[a.iata] || 0,
+                        ...classification,
+                    },
+                };
+            }),
         };
 
         // --- Player flight arcs (with culling + LOD + caching) ---
@@ -655,7 +771,7 @@ export function Globe({
         (map.getSource('airports') as maplibregl.GeoJSONSource)?.setData(airportGeojson);
         (map.getSource('arcs') as maplibregl.GeoJSONSource)?.setData({ type: 'FeatureCollection', features: arcFeatures });
         (map.getSource('global-arcs') as maplibregl.GeoJSONSource)?.setData({ type: 'FeatureCollection', features: globalArcFeatures });
-    }, [airports, mapLoaded, fleetBaseCounts, fleet, globalRoutes, airportIndex, getOrComputeArc]);
+    }, [airports, mapLoaded, fleetBaseCounts, fleet, globalRoutes, airportIndex, getOrComputeArc, playerHubs, competitorHubColors, playerRouteDestinations]);
 
     // =========================================================================
     // Re-render arcs on viewport change (zoom/pan) for culling + LOD

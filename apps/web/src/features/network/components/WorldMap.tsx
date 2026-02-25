@@ -8,7 +8,7 @@ export function WorldMap() {
     const homeAirport = useEngineStore(s => s.homeAirport);
     const tick = useEngineStore(s => s.tick);
     const tickProgress = useEngineStore(s => s.tickProgress);
-    const { airline, modifyHubs, fleet, globalFleet, globalRoutes, competitors } = useAirlineStore();
+    const { airline, modifyHubs, fleet, globalFleet, globalRoutes, competitors, routes } = useAirlineStore();
 
     const competitorLiveries = useMemo(() => {
         const map = new Map<string, { primary: string; secondary: string }>();
@@ -23,9 +23,38 @@ export function WorldMap() {
         return map;
     }, [competitors]);
 
+    const playerHubs = useMemo(() => airline?.hubs ?? [], [airline?.hubs]);
+
+    const competitorHubColors = useMemo(() => {
+        const map = new Map<string, string>();
+        competitors.forEach((value) => {
+            if (!value.livery?.primary || !value.hubs?.length) return;
+            for (const hubIata of value.hubs) {
+                if (!map.has(hubIata)) {
+                    map.set(hubIata, value.livery.primary);
+                }
+            }
+        });
+        return map;
+    }, [competitors]);
+
+    const playerRouteDestinations = useMemo(() => {
+        const destinations = new Set<string>();
+        if (!playerHubs.length) return destinations;
+        for (const route of routes) {
+            if (route.status !== 'active') continue;
+            const originIsHub = playerHubs.includes(route.originIata);
+            const destIsHub = playerHubs.includes(route.destinationIata);
+            if (originIsHub && !destIsHub) destinations.add(route.destinationIata);
+            if (destIsHub && !originIsHub) destinations.add(route.originIata);
+        }
+        return destinations;
+    }, [playerHubs, routes]);
+
     const handleHubChange = (airport: Airport | null) => {
         if (!airport) return;
         if (airline) {
+            if (!airline.hubs.includes(airport.iata)) return;
             // modifyHubs atomically syncs engine homeAirport
             modifyHubs({ type: 'switch', iata: airport.iata });
         } else {
@@ -63,6 +92,9 @@ export function WorldMap() {
                 globalRoutes={globalRoutes}
                 playerLivery={airline?.livery || null}
                 competitorLiveries={competitorLiveries}
+                playerHubs={playerHubs}
+                competitorHubColors={competitorHubColors}
+                playerRouteDestinations={playerRouteDestinations}
                 tick={tick}
                 tickProgress={tickProgress}
             />

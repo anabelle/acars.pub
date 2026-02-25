@@ -442,7 +442,7 @@ export const createNetworkSlice: StateCreator<
             description: `Opened new route: ${originIata} ↔ ${destinationIata}. Slot fee: ${fpFormat(SLOT_FEE, 0)}`
         };
 
-        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
         const updatedAirline = {
             ...airline,
             corporateBalance: fpSub(airline.corporateBalance, SLOT_FEE),
@@ -521,7 +521,7 @@ export const createNetworkSlice: StateCreator<
                 : `Unassigned ${aircraftName} from all routes.`
         };
 
-        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
         const updatedAirline = {
             ...airline,
             timeline: finalTimeline
