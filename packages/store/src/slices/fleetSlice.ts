@@ -14,9 +14,11 @@ import {
     fp,
     fpFormat,
     GENESIS_TIME,
-    TICK_DURATION
+    TICK_DURATION,
+    TICKS_PER_HOUR,
+    haversineDistance
 } from '@airtr/core';
-import { getAircraftById } from '@airtr/data';
+import { getAircraftById, airports } from '@airtr/data';
 import {
     attachSigner,
     ensureConnected,
@@ -38,6 +40,7 @@ export interface FleetSlice {
     listAircraft: (aircraftId: string, price: FixedPoint) => Promise<void>;
     cancelListing: (aircraftId: string) => Promise<void>;
     performMaintenance: (aircraftId: string) => Promise<void>;
+    ferryAircraft: (aircraftId: string, destinationIata: string) => Promise<void>;
 }
 
 export const createFleetSlice: StateCreator<
@@ -135,6 +138,103 @@ export const createFleetSlice: StateCreator<
         } catch (e) {
             set(previousState);
             console.error('Failed to sync aircraft purchase to Nostr:', e);
+        }
+    },
+
+    ferryAircraft: async (aircraftId: string, destinationIata: string) => {
+        const { airline, fleet, routes } = get();
+        if (!airline) throw new Error('No active airline loaded.');
+
+        const instance = fleet.find(ac => ac.id === aircraftId);
+        if (!instance) throw new Error('Aircraft not found.');
+
+        if (instance.status !== 'idle') {
+            throw new Error('Aircraft must be idle to ferry.');
+        }
+
+        if (instance.baseAirportIata === destinationIata) {
+            throw new Error('Aircraft is already at that airport.');
+        }
+
+        const model = getAircraftById(instance.modelId);
+        if (!model) throw new Error('Aircraft model not found.');
+
+        const originAirport = airports.find(a => a.iata === instance.baseAirportIata);
+        const destinationAirport = airports.find(a => a.iata === destinationIata);
+        if (!originAirport || !destinationAirport) {
+            throw new Error('Invalid origin or destination airport.');
+        }
+
+        const distanceKm = haversineDistance(
+            originAirport.latitude,
+            originAirport.longitude,
+            destinationAirport.latitude,
+            destinationAirport.longitude
+        );
+
+        if (distanceKm > model.rangeKm) {
+            throw new Error(`Destination out of range for ${model.name}.`);
+        }
+
+        const currentTick = useEngineStore.getState().tick;
+        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
+
+        const hours = distanceKm / (model.speedKmh || 800);
+        const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
+
+        const updatedFleet = fleet.map(ac => {
+            if (ac.id !== aircraftId) return ac;
+            return {
+                ...ac,
+                assignedRouteId: null,
+                status: 'enroute',
+                flight: {
+                    originIata: originAirport.iata,
+                    destinationIata: destinationAirport.iata,
+                    departureTick: currentTick,
+                    arrivalTick: currentTick + Math.max(1, durationTicks),
+                    direction: 'outbound',
+                    purpose: 'ferry',
+                    distanceKm
+                }
+            };
+        });
+
+        const newEvent: TimelineEvent = {
+            id: `evt-ferry-${aircraftId}-${currentTick}`,
+            tick: currentTick,
+            timestamp: simulatedTimestamp,
+            type: 'ferry',
+            aircraftId: aircraftId,
+            aircraftName: instance.name,
+            originIata: originAirport.iata,
+            destinationIata: destinationAirport.iata,
+            description: `${instance.name} ferrying: ${originAirport.iata} → ${destinationAirport.iata}`
+        };
+
+        const currentTimeline = [...get().timeline];
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
+        const updatedAirline = { ...airline, timeline: finalTimeline };
+        const previousState = { airline, fleet, routes, timeline: get().timeline };
+
+        set({
+            airline: updatedAirline,
+            fleet: updatedFleet,
+            timeline: finalTimeline
+        });
+
+        try {
+            await publishAirline({
+                ...updatedAirline,
+                fleet: updatedFleet,
+                routes,
+                timeline: finalTimeline,
+                lastTick: currentTick,
+            });
+        } catch (e) {
+            set(previousState);
+            console.error('Failed to sync ferry flight to Nostr:', e);
+            throw new Error('Failed to sync ferry flight.');
         }
     },
 

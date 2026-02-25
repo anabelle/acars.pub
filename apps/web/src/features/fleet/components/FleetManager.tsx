@@ -23,7 +23,7 @@ function AircraftSilhouette({ type, className }: { type: string; className?: str
 }
 
 export function FleetManager() {
-    const { fleet, routes, timeline, sellAircraft, buyoutAircraft, assignAircraftToRoute, listAircraft, cancelListing } = useAirlineStore(state => state);
+    const { airline, fleet, routes, timeline, sellAircraft, buyoutAircraft, assignAircraftToRoute, listAircraft, cancelListing, ferryAircraft } = useAirlineStore(state => state);
     const { tick, tickProgress } = useEngineStore(state => state);
     const [view, setView] = useState<'owned' | 'dealer'>('owned');
     const [search, setSearch] = useState('');
@@ -37,6 +37,7 @@ export function FleetManager() {
     const [listingPrice, setListingPrice] = useState('');
     const [listingError, setListingError] = useState<string | null>(null);
     const [isListing, setIsListing] = useState(false);
+    const [ferryTargets, setFerryTargets] = useState<Record<string, string>>({});
     const minListingPrice = fp(1000);
 
     if (view === 'dealer') {
@@ -407,6 +408,46 @@ export function FleetManager() {
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </button>
+
+                                                {ac.status === 'idle' && !ac.assignedRouteId && airline && airline.hubs.length > 0 && (
+                                                    <div className="flex-1 flex items-center gap-2">
+                                                        <select
+                                                            value={ferryTargets[ac.id] ?? ''}
+                                                            onChange={(e) => setFerryTargets(prev => ({ ...prev, [ac.id]: e.target.value }))}
+                                                            className="h-9 rounded-lg border border-border/50 bg-background px-2 text-[10px] font-bold uppercase text-foreground"
+                                                        >
+                                                            <option value="" disabled>Select hub</option>
+                                                            {airline.hubs.filter(hub => hub !== ac.baseAirportIata).map((hub) => (
+                                                                <option key={hub} value={hub}>{hub}</option>
+                                                            ))}
+                                                        </select>
+                                                        <button
+                                                            onClick={() => {
+                                                                const targetHub = ferryTargets[ac.id];
+                                                                if (!targetHub) return;
+                                                                confirm({
+                                                                    title: 'Ferry aircraft?',
+                                                                    description: `Ferry ${ac.name} to ${targetHub}. This is a reposition flight with no passengers.`,
+                                                                    confirmLabel: 'Ferry',
+                                                                    cancelLabel: 'Cancel',
+                                                                }).then(async (approved: boolean) => {
+                                                                    if (!approved) return;
+                                                                    try {
+                                                                        await ferryAircraft(ac.id, targetHub);
+                                                                        toast.success('Ferry flight scheduled');
+                                                                    } catch (err) {
+                                                                        const message = err instanceof Error ? err.message : 'Ferry failed';
+                                                                        toast.error('Ferry failed', { description: message });
+                                                                    }
+                                                                });
+                                                            }}
+                                                            className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-sky-500/20 border border-sky-500/30 text-sky-300 hover:bg-sky-500 hover:text-white transition-all overflow-hidden"
+                                                        >
+                                                            <Plane className="h-4 w-4 shrink-0" />
+                                                            <span className="text-[10px] font-bold uppercase truncate">Ferry to Hub</span>
+                                                        </button>
+                                                    </div>
+                                                )}
 
                                                 {(!ac.purchaseType || ac.purchaseType === 'buy') ? (
                                                     ac.listingPrice ? (

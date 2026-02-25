@@ -124,6 +124,8 @@ export interface FlightState {
     departureTick: number;
     arrivalTick: number;
     direction: 'outbound' | 'inbound';
+    purpose?: 'route' | 'ferry';
+    distanceKm?: number;
 }
 
 export interface AircraftInstance {
@@ -298,6 +300,7 @@ export type TimelineEventType =
     | 'maintenance'
     | 'delivery'
     | 'hub_change'
+    | 'ferry'
     | 'price_war';
 
 export interface TimelineEvent {
