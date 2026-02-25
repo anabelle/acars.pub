@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { Building2, MapPin, PlaneTakeoff, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { airports as AIRPORTS, getHubPricingForIata, HUB_CLASSIFICATIONS } from '@airtr/data';
-import { fp, fpFormat, haversineDistance, type Airport, type Route } from '@airtr/core';
+import { fpFormat, haversineDistance, ROUTE_SLOT_FEE, type Airport, type Route } from '@airtr/core';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
 import { useConfirm } from '@/shared/lib/useConfirm';
 
@@ -17,8 +17,7 @@ const airportIndex = new Map(AIRPORTS.map((airport) => [airport.iata, airport]))
 const numberFormat = new Intl.NumberFormat('en-US');
 const compactFormat = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 const currencyFormat = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-const routeSlotFee = fp(100000);
-const routeSlotFeeLabel = fpFormat(routeSlotFee, 0);
+const routeSlotFeeLabel = fpFormat(ROUTE_SLOT_FEE, 0);
 
 function formatPopulation(value: number) {
     return value >= 1_000_000 ? `${compactFormat.format(value)}` : numberFormat.format(value);

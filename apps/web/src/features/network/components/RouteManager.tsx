@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
-import { fpFormat, fpToNumber, getSuggestedFares, calculateShares, haversineDistance, calculateDemand, getSeason, getProsperityIndex, fpScale, fp, type Airport, type Season, type FixedPoint, type FlightOffer } from '@airtr/core';
+import { fpFormat, fpToNumber, getSuggestedFares, calculateShares, haversineDistance, calculateDemand, getSeason, getProsperityIndex, fpScale, fp, ROUTE_SLOT_FEE, type Airport, type Season, type FixedPoint, type FlightOffer } from '@airtr/core';
 import { airports as ALL_AIRPORTS } from '@airtr/data';
 import { Globe, PlusCircle, CheckCircle2, AlertCircle, TrendingUp, MapPin, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -585,7 +585,7 @@ export function RouteManager() {
                                                 className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-primary/25 active:scale-95"
                                             >
                                                 <PlusCircle className="h-4 w-4" />
-                                                Open Route ($100,000)
+                                                Open Route ({fpFormat(ROUTE_SLOT_FEE, 0)})
                                             </button>
                                         )}
                                     </div>

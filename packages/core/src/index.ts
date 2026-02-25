@@ -63,7 +63,7 @@ export { calculateDemand, getProsperityIndex, getHubDemandModifier } from './dem
 export { calculateShares, allocatePassengers } from './qsi.js';
 
 // Finance
-export { calculateFlightRevenue, calculateFlightCost, calculateHubLandingFee, getSuggestedFares, detectPriceWar } from './finance.js';
+export { calculateFlightRevenue, calculateFlightCost, calculateHubLandingFee, getSuggestedFares, detectPriceWar, ROUTE_SLOT_FEE } from './finance.js';
 
 // Fleet
 export { calculateBookValue } from './fleet.js';

@@ -43,6 +43,7 @@ const PAX_FACILITY_CHARGE = fp(12);    // $12 per passenger
 
 const ASSUMED_FLIGHTS_PER_MONTH = 120; // For leasing amortization (4 flights/day)
 const ANCILLARY_PER_PAX = fp(20);
+export const ROUTE_SLOT_FEE = fp(100000);
 
 export interface FlightRevenueParams {
     passengersEconomy: number;

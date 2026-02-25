@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { AirlineState } from '../types';
 import type { Route, FixedPoint, TimelineEvent } from '@airtr/core';
-import { fpSub, fp, fpScale, GENESIS_TIME, TICK_DURATION, fpFormat, getSuggestedFares } from '@airtr/core';
+import { fp, fpSub, fpScale, GENESIS_TIME, TICK_DURATION, fpFormat, getSuggestedFares, ROUTE_SLOT_FEE } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
 import { airports, getHubPricingForIata } from '@airtr/data';
 import { publishAirline } from '@airtr/nostr';
@@ -405,9 +405,8 @@ export const createNetworkSlice: StateCreator<
         const { airline, routes, fleet, pubkey } = get();
         if (!airline || !pubkey) throw new Error("No airline loaded.");
 
-        const SLOT_FEE = fp(100000);
-        if (airline.corporateBalance < SLOT_FEE) {
-            throw new Error("Insufficient funds to open route. Cost: $100,000");
+        if (airline.corporateBalance < ROUTE_SLOT_FEE) {
+            throw new Error(`Insufficient funds to open route. Cost: ${fpFormat(ROUTE_SLOT_FEE, 0)}`);
         }
 
         const suggested = getSuggestedFares(distanceKm);
@@ -438,14 +437,14 @@ export const createNetworkSlice: StateCreator<
             routeId: newRoute.id,
             originIata: originIata,
             destinationIata: destinationIata,
-            cost: SLOT_FEE,
-            description: `Opened new route: ${originIata} ↔ ${destinationIata}. Slot fee: ${fpFormat(SLOT_FEE, 0)}`
+            cost: ROUTE_SLOT_FEE,
+            description: `Opened new route: ${originIata} ↔ ${destinationIata}. Slot fee: ${fpFormat(ROUTE_SLOT_FEE, 0)}`
         };
 
         const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
         const updatedAirline = {
             ...airline,
-            corporateBalance: fpSub(airline.corporateBalance, SLOT_FEE),
+            corporateBalance: fpSub(airline.corporateBalance, ROUTE_SLOT_FEE),
             routeIds: [...airline.routeIds, newRoute.id],
             timeline: finalTimeline
         };
