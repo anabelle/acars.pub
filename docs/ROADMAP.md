@@ -29,7 +29,7 @@
 
 ## Phase 1: Static World (Data + Display)
 **Goal**: A globe showing real airports. No game logic yet.
-**Definition of Done**: Open the app, see a MapLibre globe with 7,000+ airports as dots. Click an airport, see its info panel.
+**Definition of Done**: Open the app, see a MapLibre globe with 6,072 airports as dots. Click an airport, see its info panel.
 
 | ID | Task | Zone | Dependencies |
 |----|------|------|-------------|
@@ -37,7 +37,7 @@
 | T-021 | Define Airport, Country, AircraftType TypeScript types | core | T-013 |
 | T-022 | Import aircraft type catalog into `@airtr/data` | data | T-021 |
 | T-023 | MapLibre GL basic globe setup (dark style, 3D terrain) | map | T-007 |
-| T-024 | Airport marker layer on MapLibre (7,000 dots) | map | T-020, T-023 |
+| T-024 | Airport marker layer on MapLibre (6,072 dots) | map | T-020, T-023 |
 | T-025 | Airport info panel component (name, IATA, location, timezone) | ui | T-006, T-021 |
 | T-026 | Click-airport-to-select interaction | map | T-024, T-025 |
 | T-027 | Zustand map store (camera position, selected airport) | store | T-005, T-023 |

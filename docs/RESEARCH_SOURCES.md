@@ -71,7 +71,7 @@ design decisions back to their sources and verify/update them.
 ## 3. Real-World Data Sources
 
 ### 3.1 Airport & Aviation Data
-- **OpenFlights**: https://openflights.org/data — Airport database (7,000+ airports), airline database, route database. Open data.
+- **OpenFlights**: https://openflights.org/data — Airport database (6,072 airports), airline database, route database. Open data.
 - **OurAirports**: https://ourairports.com/data — Alternative airport database, frequently updated. Public domain.
 - **World Bank Open Data**: https://data.worldbank.org — GDP per capita, population data for demand model calibration.
 

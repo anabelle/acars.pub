@@ -9,7 +9,7 @@ This document details the architecture and implementation strategy for the **Fle
 
 To maintain the "Forever Architecture" and deterministic nature of the game:
 
-1. **No "God Mode" Balances**: Your bank balance is **never** saved directly. It is a strictly derived value: `InitialBalance - sum(Purchases) + sum(TickProfits)`.
+1. **No "God Mode" Balances** (Planned): The bank balance should be strictly derived: `InitialBalance - sum(Purchases) + sum(TickProfits)`. Current implementation persists `corporateBalance` on the airline entity for tick-to-tick continuity.
 2. **Event-Sourced Actions**: Buying an aircraft is not a REST API call or a local state mutation. It is a signed Nostr event (`kind: 30079` or similar parameterized replaceable/ephemeral event) added to your airline's timeline.
 3. **Pure Rule Validation**: The decision of "can I buy this plane?" lives entirely in `@airtr/core`, totally isolated from UI or network states.
 4. **Strict Types**: Aircraft models are static, immutable catalogs provided by `@airtr/data`.

@@ -442,7 +442,7 @@ between any two airports.
 ## Context Files (read these first)
 - docs/DESIGN_BIBLE.md — Section 2 (Engagement Architecture)
 - packages/@airtr/core/CONTRACT.md
-- packages/@airtr/data/airports.json (schema reference)
+- packages/data/src/airports.ts (schema reference)
 
 ## Constraints
 - Do NOT modify any files outside packages/@airtr/core/

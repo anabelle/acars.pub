@@ -440,7 +440,7 @@ packages/
     │   ├── en/
     │   │   ├── common.json   ← Shared UI strings
     │   │   ├── game.json     ← Game-specific terms
-    │   │   ├── airports.json ← Airport names (English)
+    │   │   ├── airports.ts   ← Airport names (English)
     │   │   ├── aircraft.json ← Aircraft type names
     │   │   └── tutorial.json ← Tutorial strings
     │   ├── es/

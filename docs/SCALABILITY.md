@@ -14,7 +14,7 @@ Enable the concurrent rendering and simulation of 10,000 to 100,000+ aircraft in
 *Eliminating the worst CPU-side bottlenecks within the existing MapLibre layer architecture.*
 
 ### 1. O(1) Airport Lookups
-Replaced `airports.find(a => a.iata === ...)` linear scans with a `Map<string, Airport>` index built via `useMemo`. At 10K routes with ~4 lookups each, this eliminates ~240M string comparisons per update cycle.
+Planned: replace `airports.find(a => a.iata === ...)` linear scans with a `Map<string, Airport>` index built via `useMemo`. At 10K routes with ~4 lookups each, this eliminates ~240M string comparisons per update cycle.
 
 ### 2. Viewport Culling
 Both arc geometry computation and aircraft position updates now skip entities outside the current map viewport. Uses AABB overlap tests with generous great-circle curvature margins. At typical zoom levels, this eliminates 70-90% of geometry computation.
