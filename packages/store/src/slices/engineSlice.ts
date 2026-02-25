@@ -87,8 +87,14 @@ export const createEngineSlice: StateCreator<
                         anyChanges = true;
                     }
 
-                    console.log(`[EngineSlice] Tick ${t}: Captured ${result.events.length} events. Total timeline now: ${currentTimeline.length + result.events.length}`);
-                    currentTimeline = [...result.events, ...currentTimeline].slice(0, 1000);
+                    // Deduplicate events by ID before merging into the timeline
+                    const existingIds = new Set(currentTimeline.map(e => e.id));
+                    const newEvents = result.events.filter(e => !existingIds.has(e.id));
+
+                    if (newEvents.length > 0) {
+                        console.log(`[EngineSlice] Tick ${t}: Captured ${newEvents.length} events. Total timeline now: ${currentTimeline.length + newEvents.length}`);
+                        currentTimeline = [...newEvents, ...currentTimeline].slice(0, 1000);
+                    }
                 }
 
                 if (result.hasChanges) anyChanges = true;

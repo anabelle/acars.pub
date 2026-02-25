@@ -25,8 +25,17 @@ export const useAirlineStore = create<AirlineState>()((...a) => ({
 
 // --- Side Effects ---
 
-// Automatically process fleet ticks when engine ticks advance
+// Automatically process fleet ticks when engine ticks advance.
+// IMPORTANT: Only fire when the tick INTEGER changes, not on tickProgress
+// sub-tick updates. The engine fires syncTick() every 1000ms but ticks only
+// change every 3000ms, so without this guard we'd re-enter processTick and
+// processGlobalTick ~3x per tick, causing duplicate event generation and
+// competitor aircraft position flicker on the map.
+let lastSubscribedTick = -1;
 useEngineStore.subscribe((state) => {
+    if (state.tick === lastSubscribedTick) return;
+    lastSubscribedTick = state.tick;
+
     const store = useAirlineStore.getState();
     store.processTick(state.tick);
     store.processGlobalTick(state.tick);
