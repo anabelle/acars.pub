@@ -190,6 +190,11 @@ export function FleetManager() {
                             const scrapVal = fpScale(marketVal, 0.7);
                             const timer = getAircraftTimer(ac, tick, tickProgress);
                             const timerStyle = timer ? timerStyleMap[timer.kind] : null;
+                            const locationLabel = ac.status === 'enroute' && ac.flight
+                                ? `Enroute: ${ac.flight.originIata} → ${ac.flight.destinationIata}`
+                                : ac.status === 'delivery'
+                                    ? `Delivery to ${ac.baseAirportIata}`
+                                    : `At ${ac.baseAirportIata}`;
 
                             return (
                                 <div key={ac.id} className="group relative flex flex-col rounded-3xl border border-border/50 bg-card overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/30 transition-all duration-300">
@@ -243,16 +248,20 @@ export function FleetManager() {
                                         </div>
                                     </div>
 
-                                    <div className="p-6 pt-4 flex flex-col space-y-4">
-                                        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                                            <div>
-                                                <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">Registry ID</p>
-                                                <p className="font-mono text-xs text-foreground font-bold">{ac.id.toUpperCase()}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">Base Hub</p>
-                                                <p className="font-mono text-xs text-accent font-bold">{ac.baseAirportIata}</p>
-                                            </div>
+                                        <div className="p-6 pt-4 flex flex-col space-y-4">
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                                <div>
+                                                    <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">Registry ID</p>
+                                                    <p className="font-mono text-xs text-foreground font-bold">{ac.id.toUpperCase()}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">Current Location</p>
+                                                    <p className="font-mono text-xs text-foreground font-bold">{locationLabel}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">Base Hub</p>
+                                                    <p className="font-mono text-xs text-accent font-bold">{ac.baseAirportIata}</p>
+                                                </div>
                                             <div>
                                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">Condition</p>
                                                 <div className="flex items-center gap-2">

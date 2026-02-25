@@ -298,3 +298,63 @@ describe('closeRoute', () => {
         expect(aircraft?.flight).toBe(null);
     });
 });
+
+describe('assignAircraftToRoute', () => {
+    it('blocks reassignment while enroute', async () => {
+        const airline = makeAirline(['BOG']);
+        const routes = [makeRoute('rt-1', 'BOG', 'CLO', 'active')];
+        const enrouteAircraft = {
+            ...makeAircraft('ac-1', null),
+            status: 'enroute' as const,
+            flight: {
+                originIata: 'BOG',
+                destinationIata: 'CLO',
+                departureTick: 90,
+                arrivalTick: 110,
+                direction: 'outbound' as const,
+            }
+        };
+
+        const { state } = createSliceState({ airline, routes, fleet: [enrouteAircraft], timeline: [] as TimelineEvent[] });
+
+        await expect(state.assignAircraftToRoute('ac-1', 'rt-1'))
+            .rejects
+            .toThrow('Cannot reassign route while enroute.');
+    });
+
+    it('blocks assignment when aircraft is not at an active hub', async () => {
+        const airline = makeAirline(['BOG']);
+        const routes = [makeRoute('rt-1', 'BOG', 'CLO', 'active')];
+        const groundedAircraft = {
+            ...makeAircraft('ac-1', null),
+            baseAirportIata: 'MDE',
+        };
+
+        const { state } = createSliceState({ airline, routes, fleet: [groundedAircraft], timeline: [] as TimelineEvent[] });
+
+        await expect(state.assignAircraftToRoute('ac-1', 'rt-1'))
+            .rejects
+            .toThrow('Aircraft must be at an active hub to be assigned to a route.');
+    });
+
+    it('assigns aircraft when idle at an active hub', async () => {
+        const airline = makeAirline(['BOG']);
+        const routes = [makeRoute('rt-1', 'BOG', 'CLO', 'active')];
+        const groundedAircraft = {
+            ...makeAircraft('ac-1', null),
+            baseAirportIata: 'BOG',
+        };
+
+        const { state } = createSliceState({ airline, routes, fleet: [groundedAircraft], timeline: [] as TimelineEvent[] });
+
+        await state.assignAircraftToRoute('ac-1', 'rt-1');
+
+        const updatedFleet = state.fleet as AircraftInstance[];
+        const updatedRoutes = state.routes as Route[];
+        const aircraft = updatedFleet.find(ac => ac.id === 'ac-1');
+        const route = updatedRoutes.find(rt => rt.id === 'rt-1');
+
+        expect(aircraft?.assignedRouteId).toBe('rt-1');
+        expect(route?.assignedAircraftIds).toContain('ac-1');
+    });
+});
