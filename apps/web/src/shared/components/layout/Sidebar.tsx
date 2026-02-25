@@ -1,10 +1,11 @@
 import { Link } from '@tanstack/react-router';
-import { Home, Plane, Building2, Globe, Map as MapIcon } from 'lucide-react';
+import { Home, Plane, Building2, Globe, Map as MapIcon, Trophy } from 'lucide-react';
 
 const navItems = [
     { icon: Home, label: 'Overview', to: '/' },
     { icon: Plane, label: 'Fleet', to: '/fleet' },
     { icon: Globe, label: 'Network', to: '/network' },
+    { icon: Trophy, label: 'Leaderboard', to: '/leaderboard' },
     { icon: MapIcon, label: 'Map', to: '/map' },
     { icon: Building2, label: 'Corporate', to: '/corporate' },
 ];
