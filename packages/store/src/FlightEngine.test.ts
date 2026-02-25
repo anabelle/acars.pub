@@ -578,4 +578,41 @@ describe('FlightEngine — Economic variation', () => {
         expect(leaseEvent).toBeTruthy();
         expect(fpToNumber(nextState.balance)).toBeLessThan(fpToNumber(state.balance));
     });
+
+    it('congestion reduces demand at saturated hubs', () => {
+        const aircraft = makeAircraft({
+            id: 'ac-congestion',
+            modelId: 'a320neo',
+            assignedRouteId: 'route-congestion',
+            baseAirportIata: 'GKA',
+        });
+        const normalRoute = makeRoute({
+            id: 'route-congestion',
+            originIata: 'GKA',
+            destinationIata: 'POM',
+            distanceKm: 800,
+            assignedAircraftIds: [aircraft.id],
+            frequencyPerWeek: 7,
+        });
+        const saturatedRoute = makeRoute({
+            id: 'route-congestion',
+            originIata: 'GKA',
+            destinationIata: 'POM',
+            distanceKm: 800,
+            assignedAircraftIds: [aircraft.id],
+            frequencyPerWeek: 200000,
+        });
+
+        const normal = simulateSingleLanding(aircraft, normalRoute);
+        const saturated = simulateSingleLanding(aircraft, saturatedRoute);
+
+        const normalDemand = normal.landing.details?.passengers?.total ?? 0;
+        const saturatedDemand = saturated.landing.details?.passengers?.total ?? 0;
+        const totalSeats = (normal.landing.details?.seatsOffered ?? 0);
+
+        const normalLoadFactor = totalSeats > 0 ? normalDemand / totalSeats : 0;
+        const saturatedLoadFactor = totalSeats > 0 ? saturatedDemand / totalSeats : 0;
+
+        expect(saturatedLoadFactor).toBeLessThan(normalLoadFactor);
+    });
 });

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import type { Airport } from '@airtr/core';
 import { fp, fpFormat } from '@airtr/core';
-import { airports as AIRPORTS, getHubPricingForIata } from '@airtr/data';
+import { airports as AIRPORTS, getHubPricingForIata, HUB_CLASSIFICATIONS } from '@airtr/data';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Search, X, MapPin } from 'lucide-react';
 
@@ -88,7 +88,7 @@ export function HubPicker({
                 className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background h-10 px-4 py-2"
                 title="Change your hub airport"
             >
-                <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
+                <MapPin className="mr-2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 {currentHub ? 'Change Hub' : 'Select Hub'}
             </button>
 
@@ -124,11 +124,13 @@ export function HubPicker({
 
                             <div className="px-6 pb-2">
                                 <div className="relative flex items-center border-b pb-2">
-                                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
                                     <input
                                         ref={inputRef}
                                         className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                                        placeholder="Search by city, IATA code, or airport name..."
+                                        placeholder="Search by city, IATA code, or airport name…"
+                                        aria-label="Search airports"
+                                        name="airport-search"
                                         value={search}
                                         onChange={(e) => handleSearchChange(e.target.value)}
                                     />
@@ -147,6 +149,9 @@ export function HubPicker({
                                         const airport = filtered[virtualRow.index];
                                         const isActive = currentHub && airport.iata === currentHub.iata;
                                         const pricing = getHubPricingForIata(airport.iata);
+                                        const hubMeta = HUB_CLASSIFICATIONS[airport.iata];
+                                        const isSlotControlled = hubMeta?.slotControlled ?? false;
+                                        const capacityPerHour = hubMeta?.baseCapacityPerHour ?? null;
                                         const openFee = fpFormat(fp(pricing.openFee), 0);
                                         const monthlyOpex = fpFormat(fp(pricing.monthlyOpex), 0);
                                         const tierLabel = pricing.tier.toUpperCase();
@@ -184,6 +189,10 @@ export function HubPicker({
                                                     <span>{airport.country}</span>
                                                     <span className="text-[9px] text-muted-foreground">Setup {openFee}</span>
                                                     <span className="text-[9px] text-muted-foreground">OPEX {monthlyOpex}/mo</span>
+                                                    <span className="text-[9px] text-muted-foreground">Capacity {capacityPerHour ?? '—'}/hr</span>
+                                                    {isSlotControlled && (
+                                                        <span className="text-[9px] text-amber-300">Slot Controlled</span>
+                                                    )}
                                                 </div>
                                             </button>
                                         );
@@ -223,6 +232,11 @@ export function HubPicker({
                                         </div>
                                     </div>
                                     <div className="mt-4 flex items-center justify-between">
+                                        <div className="text-[10px] text-muted-foreground">
+                                            {HUB_CLASSIFICATIONS[selectedAirport.iata]?.slotControlled
+                                                ? `Slot Controlled • Capacity ${HUB_CLASSIFICATIONS[selectedAirport.iata]?.baseCapacityPerHour ?? '—'}/hr`
+                                                : `Capacity ${HUB_CLASSIFICATIONS[selectedAirport.iata]?.baseCapacityPerHour ?? '—'}/hr`}
+                                        </div>
                                         <button
                                             className="text-xs font-bold uppercase text-muted-foreground hover:text-foreground"
                                             onClick={() => setSelectedAirport(null)}

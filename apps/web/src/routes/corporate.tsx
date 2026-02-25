@@ -247,6 +247,7 @@ function CorporateDashboard() {
               <button
                 onClick={() => setPendingAction(null)}
                 className="text-white/40 hover:text-white transition"
+                aria-label="Close hub contract review"
               >
                 ✕
               </button>

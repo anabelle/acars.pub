@@ -3,7 +3,7 @@ import type { AirlineState } from '../types';
 import type { Route, FixedPoint, TimelineEvent } from '@airtr/core';
 import { fp, fpSub, fpScale, GENESIS_TIME, TICK_DURATION, fpFormat, getSuggestedFares, ROUTE_SLOT_FEE } from '@airtr/core';
 import { getAircraftById } from '@airtr/data';
-import { airports, getHubPricingForIata } from '@airtr/data';
+import { airports, getHubPricingForIata, HUB_CLASSIFICATIONS } from '@airtr/data';
 import { publishAirline } from '@airtr/nostr';
 import { useEngineStore } from '../engine';
 
@@ -409,6 +409,30 @@ export const createNetworkSlice: StateCreator<
             throw new Error(`Insufficient funds to open route. Cost: ${fpFormat(ROUTE_SLOT_FEE, 0)}`);
         }
 
+        const newWeeklyFrequency = 7;
+        const newHourlyFrequency = newWeeklyFrequency / (7 * 24);
+        const getHourlyTraffic = (iata: string) => routes.reduce((total, route) => {
+            if (route.originIata !== iata && route.destinationIata !== iata) return total;
+            const weekly = route.frequencyPerWeek ?? 0;
+            return total + (weekly / (7 * 24));
+        }, 0);
+
+        const originHub = HUB_CLASSIFICATIONS[originIata];
+        if (originHub?.slotControlled) {
+            const projected = getHourlyTraffic(originIata) + newHourlyFrequency;
+            if (projected > originHub.baseCapacityPerHour) {
+                throw new Error(`Slot capacity exceeded at ${originIata}. Reduce frequency or pick another hub.`);
+            }
+        }
+
+        const destHub = HUB_CLASSIFICATIONS[destinationIata];
+        if (destHub?.slotControlled) {
+            const projected = getHourlyTraffic(destinationIata) + newHourlyFrequency;
+            if (projected > destHub.baseCapacityPerHour) {
+                throw new Error(`Slot capacity exceeded at ${destinationIata}. Reduce frequency or pick another hub.`);
+            }
+        }
+
         const suggested = getSuggestedFares(distanceKm);
 
         const newRoute: Route = {
@@ -417,6 +441,7 @@ export const createNetworkSlice: StateCreator<
             destinationIata,
             airlinePubkey: pubkey,
             distanceKm,
+            frequencyPerWeek: newWeeklyFrequency,
             assignedAircraftIds: [],
             fareEconomy: suggested.economy,
             fareBusiness: suggested.business,

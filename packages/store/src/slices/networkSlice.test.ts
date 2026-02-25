@@ -186,6 +186,15 @@ describe('openRoute', () => {
         expect(updatedRoutes).toHaveLength(1);
         expect(updatedRoutes[0].originIata).toBe('BOG');
     });
+
+    it('blocks opening a route when a slot-controlled hub exceeds capacity', async () => {
+        const airline = makeAirline(['LHR']);
+        const routes = [makeRoute('rt-1', 'LHR', 'JFK', 'active')];
+        routes[0].frequencyPerWeek = 200000;
+        const { state } = createSliceState({ airline, routes, fleet: [], timeline: [] as TimelineEvent[] });
+
+        await expect(state.openRoute('LHR', 'JFK', 5540)).rejects.toThrow('Slot capacity exceeded at LHR');
+    });
 });
 
 describe('rebaseRoute', () => {

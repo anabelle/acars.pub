@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
 import { fpFormat, fpToNumber, getSuggestedFares, calculateShares, haversineDistance, calculateDemand, getSeason, getProsperityIndex, fpScale, fp, ROUTE_SLOT_FEE, type Airport, type Season, type FixedPoint, type FlightOffer } from '@airtr/core';
-import { airports as ALL_AIRPORTS } from '@airtr/data';
+import { airports as ALL_AIRPORTS, HUB_CLASSIFICATIONS } from '@airtr/data';
 import { Globe, PlusCircle, CheckCircle2, AlertCircle, TrendingUp, MapPin, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConfirm } from '@/shared/lib/useConfirm';
@@ -143,6 +143,21 @@ export function RouteManager() {
         return Math.round(weeklyTotal / 7);
     }, [airportIndex, originActiveRoutes, planningOriginAirport, tick]);
 
+    const originHubMeta = planningOriginAirport ? HUB_CLASSIFICATIONS[planningOriginAirport.iata] : undefined;
+    const originCapacityPerHour = originHubMeta?.baseCapacityPerHour ?? 0;
+    const originSlotControlled = originHubMeta?.slotControlled ?? false;
+    const currentOriginHourlyFlights = useMemo(() => {
+        if (!planningOriginAirport) return 0;
+        return routes.reduce((total, route) => {
+            if (route.originIata !== planningOriginAirport.iata && route.destinationIata !== planningOriginAirport.iata) return total;
+            const weekly = route.frequencyPerWeek ?? 0;
+            return total + (weekly / (7 * 24));
+        }, 0);
+    }, [planningOriginAirport, routes]);
+    const nextRouteHourly = 7 / (7 * 24);
+    const projectedOriginHourly = currentOriginHourlyFlights + nextRouteHourly;
+    const canOpenFromOrigin = !originSlotControlled || projectedOriginHourly <= originCapacityPerHour;
+
     if (!airline || !homeAirport || !planningOriginAirport) return null;
 
     const handleSaveFares = async () => {
@@ -230,6 +245,16 @@ export function RouteManager() {
                     </div>
                     <p className="text-2xl font-bold text-foreground">{homeAirport.iata}</p>
                     <p className="text-xs text-muted-foreground truncate">{homeAirport.city}, {homeAirport.country}</p>
+                    {originCapacityPerHour > 0 && (
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                            Capacity {originCapacityPerHour}/hr • Projected {projectedOriginHourly.toFixed(1)}/hr
+                        </p>
+                    )}
+                    {originSlotControlled && !canOpenFromOrigin && (
+                        <p className="mt-1 text-[11px] text-amber-400">
+                            Slot Controlled • Over capacity for new routes
+                        </p>
+                    )}
                 </div>
 
                 <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
@@ -620,6 +645,9 @@ export function RouteManager() {
                         ).map((market: ProspectMarket) => {
                             const isAlreadyOpen = activeRoutes.some(r => r.originIata === market.origin.iata && r.destinationIata === market.destination.iata);
                             const totalDemand = market.demand.economy + market.demand.business + market.demand.first;
+                            const destinationMeta = HUB_CLASSIFICATIONS[market.destination.iata];
+                            const destinationCapacity = destinationMeta?.baseCapacityPerHour ?? null;
+                            const destinationSlotControlled = destinationMeta?.slotControlled ?? false;
 
                             return (
                                 <div key={market.destination.iata} className="group relative rounded-2xl bg-card border border-border overflow-hidden p-5 transition-all hover:border-primary/50">
@@ -652,6 +680,14 @@ export function RouteManager() {
                                                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Est. Daily Rev</span>
                                                 <span className="text-lg font-mono font-bold text-green-400">{fpFormat(market.estimatedDailyRevenue, 0)}</span>
                                             </div>
+                                            {destinationCapacity && (
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Destination Capacity</span>
+                                                    <span className="text-xs font-semibold text-foreground">
+                                                        {destinationCapacity}/hr{destinationSlotControlled ? ' • Slot Controlled' : ''}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {isAlreadyOpen ? (
@@ -662,6 +698,12 @@ export function RouteManager() {
                                         ) : (
                                             <button
                                                 onClick={async () => {
+                                                    const approved = await confirm({
+                                                        title: 'Open route?',
+                                                        description: `This charges ${fpFormat(ROUTE_SLOT_FEE, 0)} to open ${market.origin.iata} → ${market.destination.iata}.`,
+                                                        confirmLabel: 'Open Route',
+                                                    });
+                                                    if (!approved) return;
                                                     try {
                                                         await openRoute(market.origin.iata, market.destination.iata, market.distance);
                                                     } catch (error) {
@@ -671,13 +713,19 @@ export function RouteManager() {
                                                         });
                                                     }
                                                 }}
-                                                className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-primary/25 active:scale-95"
+                                                disabled={!canOpenFromOrigin}
+                                                className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-primary/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                                             >
                                                 <PlusCircle className="h-4 w-4" />
                                                 Open Route ({fpFormat(ROUTE_SLOT_FEE, 0)})
                                             </button>
                                         )}
                                     </div>
+                                    {!isAlreadyOpen && originSlotControlled && !canOpenFromOrigin && (
+                                        <div className="mt-3 text-xs text-amber-400">
+                                            Slot capacity reached at {market.origin.iata}. Reduce frequency or choose another hub.
+                                        </div>
+                                    )}
 
                                     {/* Small Demand Breakdown bar */}
                                     <div className="mt-4 flex h-1 w-full rounded-full bg-muted overflow-hidden">

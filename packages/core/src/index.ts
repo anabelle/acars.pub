@@ -57,7 +57,7 @@ export { haversineDistance } from './geo.js';
 export { getSeason, getSeasonalMultiplier } from './season.js';
 
 // Demand
-export { calculateDemand, getProsperityIndex, getHubDemandModifier } from './demand.js';
+export { calculateDemand, getProsperityIndex, getHubDemandModifier, getHubCongestionModifier } from './demand.js';
 
 // QSI
 export { calculateShares, allocatePassengers } from './qsi.js';

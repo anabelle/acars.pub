@@ -116,6 +116,22 @@ export function getHubDemandModifier(
     return modifier;
 }
 
+export function getHubCongestionModifier(baseCapacityPerHour: number, hourlyFlights: number): number {
+    if (baseCapacityPerHour <= 0) return 1.0;
+
+    const ratio = hourlyFlights / baseCapacityPerHour;
+    if (ratio <= 0.85) return 1.0;
+
+    if (ratio <= 1.0) {
+        const over = (ratio - 0.85) / 0.15;
+        return 1.0 - (0.25 * over);
+    }
+
+    const excess = ratio - 1.0;
+    const penalty = Math.exp(-1.5 * excess);
+    return Math.max(0.3, 0.75 * penalty);
+}
+
 /**
  * Calculate prosperity index for a given tick.
  * Oscillates between 0.85 (recession) and 1.15 (boom).

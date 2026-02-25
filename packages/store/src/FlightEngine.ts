@@ -21,6 +21,7 @@ import {
     allocatePassengers,
     detectPriceWar,
     getHubDemandModifier,
+    getHubCongestionModifier,
     fp
 } from '@airtr/core';
 import { getAircraftById, airports, HUB_CLASSIFICATIONS } from '@airtr/data';
@@ -217,13 +218,20 @@ export function processFlightEngine(
                         originState,
                         destState,
                     );
+                    const originTraffic = originIata ? (airportTraffic.get(originIata) ?? 0) : 0;
+                    const destTraffic = destinationIata ? (airportTraffic.get(destinationIata) ?? 0) : 0;
+                    const originCapacity = originHub?.baseCapacityPerHour ?? 80;
+                    const destCapacity = destHub?.baseCapacityPerHour ?? 80;
+                    const originCongestion = getHubCongestionModifier(originCapacity, originTraffic);
+                    const destCongestion = getHubCongestionModifier(destCapacity, destTraffic);
+                    const congestionModifier = (originCongestion + destCongestion) / 2;
                     const weeklyDemand = calculateDemand(origin, destination, season, prosperity, hubModifier);
                     weeklyDemandResult = {
                         origin: originIata ?? '',
                         destination: destinationIata ?? '',
-                        economy: weeklyDemand.economy,
-                        business: weeklyDemand.business,
-                        first: weeklyDemand.first,
+                        economy: Math.round(weeklyDemand.economy * congestionModifier),
+                        business: Math.round(weeklyDemand.business * congestionModifier),
+                        first: Math.round(weeklyDemand.first * congestionModifier),
                     };
                 }
 
