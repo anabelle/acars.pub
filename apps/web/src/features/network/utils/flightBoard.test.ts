@@ -1,0 +1,153 @@
+import { describe, expect, it } from 'vitest';
+import { fp } from '@airtr/core';
+import type { AirlineEntity, AircraftInstance } from '@airtr/core';
+import { buildFlightBoardRows } from './flightBoard';
+
+const makeAirline = (overrides: Partial<AirlineEntity> = {}): AirlineEntity => ({
+    id: 'airline-1',
+    foundedBy: 'founder',
+    status: 'private',
+    ceoPubkey: 'player',
+    sharesOutstanding: 10000000,
+    shareholders: { player: 10000000 },
+    name: 'Test Air',
+    icaoCode: 'TST',
+    callsign: 'TEST',
+    hubs: ['BOG'],
+    livery: { primary: '#111111', secondary: '#222222', accent: '#333333' },
+    brandScore: 0.7,
+    tier: 1,
+    corporateBalance: fp(1000000),
+    stockPrice: fp(0),
+    fleetIds: [],
+    routeIds: [],
+    ...overrides,
+});
+
+const makeAircraft = (overrides: Partial<AircraftInstance> = {}): AircraftInstance => ({
+    id: 'ac-1',
+    ownerPubkey: 'player',
+    modelId: 'atr-72-600',
+    name: 'Ship 1',
+    status: 'idle',
+    assignedRouteId: null,
+    baseAirportIata: 'BOG',
+    purchasedAtTick: 0,
+    purchasePrice: fp(100000000),
+    birthTick: 0,
+    purchaseType: 'buy',
+    configuration: { economy: 60, business: 0, first: 0, cargoKg: 0 },
+    flightHoursTotal: 0,
+    flightHoursSinceCheck: 0,
+    condition: 1,
+    flight: null,
+    ...overrides,
+});
+
+describe('buildFlightBoardRows', () => {
+    it('does not show aircraft on arrival board once they left destination', () => {
+        const airline = makeAirline();
+        const fleet = [
+            makeAircraft({
+                id: 'ac-1',
+                status: 'idle',
+                baseAirportIata: 'MDE',
+                flight: {
+                    originIata: 'BOG',
+                    destinationIata: 'MDE',
+                    departureTick: 100,
+                    arrivalTick: 200,
+                    direction: 'outbound',
+                },
+            }),
+        ];
+
+        const rows = buildFlightBoardRows({
+            airportIata: 'BOG',
+            airportTimezone: 'America/Bogota',
+            mode: 'departures',
+            fleet,
+            globalFleet: [],
+            airline,
+            competitors: new Map(),
+        });
+
+        expect(rows).toHaveLength(0);
+    });
+
+    it('keeps enroute departures at the origin airport', () => {
+        const airline = makeAirline();
+        const fleet = [
+            makeAircraft({
+                id: 'ac-2',
+                status: 'enroute',
+                baseAirportIata: 'BOG',
+                flight: {
+                    originIata: 'BOG',
+                    destinationIata: 'MDE',
+                    departureTick: 100,
+                    arrivalTick: 200,
+                    direction: 'outbound',
+                },
+            }),
+        ];
+
+        const rows = buildFlightBoardRows({
+            airportIata: 'BOG',
+            airportTimezone: 'America/Bogota',
+            mode: 'departures',
+            fleet,
+            globalFleet: [],
+            airline,
+            competitors: new Map(),
+        });
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0].status).toBe('En Route');
+        expect(rows[0].otherIata).toBe('MDE');
+    });
+
+    it('shows arrivals only when enroute or on turnaround at destination', () => {
+        const airline = makeAirline();
+        const fleet = [
+            makeAircraft({
+                id: 'ac-3',
+                status: 'turnaround',
+                baseAirportIata: 'BOG',
+                flight: {
+                    originIata: 'MDE',
+                    destinationIata: 'BOG',
+                    departureTick: 100,
+                    arrivalTick: 200,
+                    direction: 'outbound',
+                },
+            }),
+            makeAircraft({
+                id: 'ac-4',
+                status: 'idle',
+                baseAirportIata: 'BOG',
+                flight: {
+                    originIata: 'MDE',
+                    destinationIata: 'BOG',
+                    departureTick: 100,
+                    arrivalTick: 200,
+                    direction: 'outbound',
+                },
+            }),
+        ];
+
+        const rows = buildFlightBoardRows({
+            airportIata: 'BOG',
+            airportTimezone: 'America/Bogota',
+            mode: 'arrivals',
+            fleet,
+            globalFleet: [],
+            airline,
+            competitors: new Map(),
+        });
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0].status).toBe('Landed');
+        expect(rows[0].otherIata).toBe('MDE');
+    });
+});
