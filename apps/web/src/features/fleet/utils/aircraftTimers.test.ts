@@ -53,17 +53,22 @@ describe('aircraftTimers', () => {
         expect(timer?.label).toBe('Inbound LAX');
         expect(timer?.time).toBe('0:08');
         expect(timer?.isImminent).toBe(true);
+        expect(timer?.totalTicks).toBe(5);
+        expect(timer?.progress).toBeCloseTo(0.5, 2);
     });
 
     it('builds maintenance timer label', () => {
         const aircraft = makeAircraft({
             status: 'maintenance',
             turnaroundEndTick: 120,
+            maintenanceStartTick: 100,
         });
 
         const timer = getAircraftTimer(aircraft, 110, 0);
         expect(timer?.kind).toBe('maintenance');
         expect(timer?.label).toBe('Tech release');
+        expect(timer?.totalTicks).toBe(20);
+        expect(timer?.progress).toBeCloseTo(0.5, 2);
     });
 
     it('builds turnaround timer label', () => {

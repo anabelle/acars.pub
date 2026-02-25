@@ -151,6 +151,7 @@ export interface AircraftInstance {
     lastTickProcessed?: number;
     turnaroundEndTick?: number;
     arrivalTickProcessed?: number;
+    maintenanceStartTick?: number;
 
     // Acquisition
     purchaseType: 'buy' | 'lease';

@@ -202,12 +202,21 @@ export function FleetManager() {
                                             )}
                                             {timer && timerStyle ? (
                                                 <span
-                                                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${timerStyle.container} ${timer.isImminent ? `animate-pulse ${timerStyle.glow}` : ''}`}
+                                                    className={`relative inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest overflow-hidden ${timerStyle.container} ${timer.isImminent ? `animate-pulse ${timerStyle.glow}` : ''}`}
                                                 >
-                                                    <timerStyle.icon className="h-3 w-3" />
-                                                    <span>{timer.label}</span>
-                                                    <span className={`font-mono text-[10px] font-black ${timerStyle.time}`}>
-                                                        {timer.time}
+                                                    <span
+                                                        className="absolute inset-y-0 left-0"
+                                                        style={{
+                                                            width: `${Math.round(timer.progress * 100)}%`,
+                                                            background: 'linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02))',
+                                                        }}
+                                                    />
+                                                    <span className="relative z-10 flex items-center gap-2">
+                                                        <timerStyle.icon className="h-3 w-3" />
+                                                        <span>{timer.label}</span>
+                                                        <span className={`font-mono text-[10px] font-black ${timerStyle.time}`}>
+                                                            {timer.time}
+                                                        </span>
                                                     </span>
                                                 </span>
                                             ) : (

@@ -663,6 +663,7 @@ export const createFleetSlice: StateCreator<
             condition: 1.0,
             flightHoursSinceCheck: 0,
             status: 'maintenance',
+            maintenanceStartTick: useEngineStore.getState().tick,
             turnaroundEndTick: useEngineStore.getState().tick + (6 * 60) / 10 // 6 hour downtime
         };
 
