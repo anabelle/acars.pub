@@ -73,6 +73,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
 }
 
+function hasWorldTag(event: NDKEvent, worldId: string): boolean {
+    return event.tags.some(tag => tag[0] === 'world' && tag[1] === worldId);
+}
+
 function parseAirlineContent(data: unknown): {
     name: string;
     icaoCode: string | null;
@@ -219,7 +223,6 @@ export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEnt
         authors: [pubkey],
         kinds: [AIRLINE_KIND],
         '#d': [AIRLINE_D_TAG],
-        '#world': [WORLD_ID],
         limit: 1,
     };
 
@@ -234,6 +237,8 @@ export async function loadAirline(pubkey: string): Promise<{ airline: AirlineEnt
     }
 
     if (!event) return null;
+
+    if (!hasWorldTag(event, WORLD_ID)) return null;
 
     try {
         // Basic check to ensure content looks like JSON before parsing
@@ -426,7 +431,6 @@ export async function loadMarketplace(sellerFleets?: SellerFleetIndex): Promise<
 
     const filter: NDKFilter = {
         kinds: [MARKETPLACE_KIND as any],
-        '#world': [WORLD_ID],
         limit: 100,
     };
 
@@ -446,6 +450,7 @@ export async function loadMarketplace(sellerFleets?: SellerFleetIndex): Promise<
             // Only attempt to parse if it's an AirTR marketplace entry
             const dTag = event.tags.find(t => t[0] === 'd')?.[1];
             if (!dTag?.startsWith(MARKETPLACE_D_PREFIX)) return;
+            if (!hasWorldTag(event, WORLD_ID)) return;
 
             try {
                 const data = JSON.parse(event.content);
@@ -525,7 +530,6 @@ export async function loadGlobalAirlines(): Promise<{ airline: AirlineEntity, fl
     const filter: NDKFilter = {
         kinds: [AIRLINE_KIND],
         '#d': [AIRLINE_D_TAG],
-        '#world': [WORLD_ID],
         limit: 500, // Reasonable cap for global discovery
     };
 
@@ -540,6 +544,7 @@ export async function loadGlobalAirlines(): Promise<{ airline: AirlineEntity, fl
 
         sub.on('event', (event: NDKEvent) => {
             try {
+                if (!hasWorldTag(event, WORLD_ID)) return;
                 if (!event.content.trim().startsWith('{')) return;
                 const parsed = parseAirlineContent(JSON.parse(event.content));
                 if (!parsed) return;
