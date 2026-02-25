@@ -160,6 +160,34 @@ describe('modifyHubs remove behavior', () => {
     });
 });
 
+describe('modifyHubs switch behavior', () => {
+    it('reorders hubs and applies relocation cost', async () => {
+        const airline = makeAirline(['AXM', 'BOG'], 1000000000000 as FixedPoint);
+
+        const { state } = createSliceState({ airline, routes: [], fleet: [], timeline: [] as TimelineEvent[] });
+
+        await state.modifyHubs({ type: 'switch', iata: 'BOG' });
+
+        const updatedAirline = state.airline as AirlineEntity;
+        expect(updatedAirline.hubs[0]).toBe('BOG');
+        expect(updatedAirline.hubs).toEqual(['BOG', 'AXM']);
+        expect(updatedAirline.corporateBalance).toBeLessThan(airline.corporateBalance);
+    });
+});
+
+describe('openRoute', () => {
+    it('allows opening a route from any owned hub', async () => {
+        const airline = makeAirline(['AXM', 'BOG']);
+        const { state } = createSliceState({ airline, routes: [], fleet: [], timeline: [] as TimelineEvent[] });
+
+        await state.openRoute('BOG', 'MDE', 300);
+
+        const updatedRoutes = state.routes as Route[];
+        expect(updatedRoutes).toHaveLength(1);
+        expect(updatedRoutes[0].originIata).toBe('BOG');
+    });
+});
+
 describe('rebaseRoute', () => {
     it('moves a suspended route to a new hub and reactivates it', async () => {
         const airline = makeAirline(['BOG', 'MDE']);

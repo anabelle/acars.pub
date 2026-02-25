@@ -162,7 +162,7 @@ function CorporateDashboard() {
                       <span className="text-[10px] font-bold uppercase text-muted-foreground">{pricing.tier}</span>
                       {isActive && (
                         <span className="flex items-center text-[9px] font-bold uppercase text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                          <CheckCircle2 className="h-2.5 w-2.5 mr-1" /> Active Hub
+                          <CheckCircle2 className="h-2.5 w-2.5 mr-1" /> HQ Hub
                         </span>
                       )}
                       <span className="text-[10px] font-mono text-muted-foreground">

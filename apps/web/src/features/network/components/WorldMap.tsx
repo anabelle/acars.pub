@@ -11,6 +11,7 @@ export function WorldMap() {
     const tickProgress = useEngineStore(s => s.tickProgress);
     const { airline, fleet, globalFleet, globalRoutes, competitors, routes } = useAirlineStore();
     const [inspectedAirport, setInspectedAirport] = useState<Airport | null>(null);
+    const [focusedAirport, setFocusedAirport] = useState<Airport | null>(null);
 
     const competitorLiveries = useMemo(() => {
         const map = new Map<string, { primary: string; secondary: string }>();
@@ -56,6 +57,7 @@ export function WorldMap() {
     const handleAirportSelect = (airport: Airport | null) => {
         if (!airport) return;
         setInspectedAirport(airport);
+        setFocusedAirport(airport);
     };
 
     const fleetBaseCounts = useMemo(() => {
@@ -70,13 +72,18 @@ export function WorldMap() {
 
     if (!homeAirport) return null;
 
+    const selectedAirport = focusedAirport ?? homeAirport;
+
     return (
         <div className="absolute inset-0 w-full h-full z-0 overflow-hidden bg-black">
             <CoreGlobe
                 airports={AIRPORTS}
-                selectedAirport={homeAirport}
+                selectedAirport={selectedAirport}
                 onAirportSelect={handleAirportSelect}
-                onMapClick={() => setInspectedAirport(null)}
+                onMapClick={() => {
+                    setInspectedAirport(null);
+                    setFocusedAirport(null);
+                }}
                 fleetBaseCounts={fleetBaseCounts}
                 fleet={fleet}
                 globalFleet={globalFleet}
@@ -90,7 +97,17 @@ export function WorldMap() {
                 tickProgress={tickProgress}
             />
             {inspectedAirport ? (
-                <AirportInfoPanel airport={inspectedAirport} onClose={() => setInspectedAirport(null)} />
+                <AirportInfoPanel
+                    airport={inspectedAirport}
+                    onClose={() => {
+                        setInspectedAirport(null);
+                    }}
+                />
+            ) : null}
+            {focusedAirport ? (
+                <div className="pointer-events-none absolute left-4 top-4 z-20 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+                    Focus: {focusedAirport.iata}
+                </div>
             ) : null}
             {/* Map vignette overlay */}
             <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)] z-10" />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Building2, MapPin, PlaneTakeoff, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -49,8 +49,26 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
     const isActiveHub = playerHubs[0] === airport.iata;
     const lastHub = playerHubs.length <= 1;
 
+    const defaultOriginHub = useMemo(() => (
+        playerHubs.find(hub => hub !== airport.iata) ?? playerHubs[0] ?? null
+    ), [playerHubs, airport.iata]);
+    const [originHubIata, setOriginHubIata] = useState<string | null>(defaultOriginHub);
+
+    useEffect(() => {
+        setOriginHubIata(defaultOriginHub);
+    }, [defaultOriginHub]);
+
+    const originHubAirport = originHubIata ? airportIndex.get(originHubIata) : null;
     const activeHubAirport = playerHubs[0] ? airportIndex.get(playerHubs[0]) : null;
-    const distanceKm = activeHubAirport
+    const distanceKm = originHubAirport
+        ? Math.round(haversineDistance(
+            originHubAirport.latitude,
+            originHubAirport.longitude,
+            airport.latitude,
+            airport.longitude,
+        ))
+        : null;
+    const hqDistanceKm = activeHubAirport
         ? Math.round(haversineDistance(
             activeHubAirport.latitude,
             activeHubAirport.longitude,
@@ -63,12 +81,12 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
         route.originIata === airport.iata || route.destinationIata === airport.iata
     ), [routes, airport.iata]);
 
-    const activeHubRoute = useMemo(() => {
-        if (!playerHubs[0]) return null;
+    const originHubRoute = useMemo(() => {
+        if (!originHubIata) return null;
         return routes.find(route =>
-            route.originIata === playerHubs[0] && route.destinationIata === airport.iata
+            route.originIata === originHubIata && route.destinationIata === airport.iata
         ) ?? null;
-    }, [routes, airport.iata, playerHubs]);
+    }, [routes, airport.iata, originHubIata]);
 
     const stationedFleet = useMemo(() => fleet.filter(ac => ac.baseAirportIata === airport.iata), [fleet, airport.iata]);
 
@@ -83,7 +101,8 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
     const canOpenHub = airline && !isPlayerHub;
     const canSwitchHub = airline && isPlayerHub && !isActiveHub;
     const canRemoveHub = airline && isPlayerHub && !lastHub;
-    const canOpenRoute = airline && playerHubs[0] && !isActiveHub && !activeHubRoute;
+    const canOpenRoute = airline && originHubIata && originHubIata !== airport.iata && !originHubRoute;
+    const needsOriginSelection = airline && playerHubs.length > 1 && !originHubIata;
 
     const handleOpenHub = async () => {
         if (!airline) return;
@@ -103,7 +122,19 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
 
     const handleSwitchHub = async () => {
         if (!airline) return;
-        await modifyHubs({ type: 'switch', iata: airport.iata });
+        const relocationFee = fpScale(fp(hubPricing.openFee), 0.25);
+        const approved = await confirm({
+            title: `Relocate HQ to ${airport.iata}?`,
+            description: `This will cost ${fpFormat(relocationFee, 0)} as a relocation fee. Monthly hub OPEX remains active on all owned hubs.`,
+            confirmLabel: 'Relocate HQ',
+        });
+        if (!approved) return;
+        try {
+            await modifyHubs({ type: 'switch', iata: airport.iata });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            toast.error('HQ relocation failed', { description: message });
+        }
     };
 
     const handleRemoveHub = async () => {
@@ -124,15 +155,15 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
     };
 
     const handleOpenRoute = async () => {
-        if (!airline || !playerHubs[0] || !distanceKm) return;
+        if (!airline || !originHubIata || !distanceKm) return;
         const approved = await confirm({
-            title: `Open route from ${playerHubs[0]} to ${airport.iata}?`,
+            title: `Open route from ${originHubIata} to ${airport.iata}?`,
             description: `Slot fee ${routeSlotFeeLabel}. Distance ${distanceKm.toLocaleString()} km. This route will be added with default pricing and no assigned aircraft.`,
             confirmLabel: 'Open Route',
         });
         if (!approved) return;
         try {
-            await openRoute(playerHubs[0], airport.iata, distanceKm);
+            await openRoute(originHubIata, airport.iata, distanceKm);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
             toast.error('Route open failed', { description: message });
@@ -183,10 +214,10 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                         {hubInfo?.tier ?? 'regional'} hub
                     </span>
                     {isActiveHub ? (
-                        <span className="rounded-full bg-emerald-500/20 text-emerald-200 px-2.5 py-1 text-[11px] uppercase tracking-widest font-semibold">Active Hub</span>
+                        <span className="rounded-full bg-emerald-500/20 text-emerald-200 px-2.5 py-1 text-[11px] uppercase tracking-widest font-semibold">HQ Hub</span>
                     ) : null}
                     {!isActiveHub && isPlayerHub ? (
-                        <span className="rounded-full bg-emerald-500/10 text-emerald-200 px-2.5 py-1 text-[11px] uppercase tracking-widest font-semibold">Your Hub</span>
+                        <span className="rounded-full bg-emerald-500/10 text-emerald-200 px-2.5 py-1 text-[11px] uppercase tracking-widest font-semibold">Operational Hub</span>
                     ) : null}
                 </div>
 
@@ -280,7 +311,22 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                         <Building2 className="h-4 w-4" />
                         Actions
                     </div>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                        {playerHubs.length > 1 ? (
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Route Origin</label>
+                                <select
+                                    value={originHubIata ?? ''}
+                                    onChange={(event) => setOriginHubIata(event.target.value || null)}
+                                    className="h-10 rounded-xl border border-border/60 bg-background/70 px-3 text-xs font-bold text-foreground"
+                                >
+                                    {playerHubs.map((hub) => (
+                                        <option key={hub} value={hub}>{hub}</option>
+                                    ))}
+                                </select>
+                                <p className="text-[11px] text-muted-foreground">Map clicks only change focus. Choose a hub to open routes.</p>
+                            </div>
+                        ) : null}
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                         {canOpenHub ? (
                             <button
                                 type="button"
@@ -296,7 +342,7 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                                 onClick={handleSwitchHub}
                                 className="flex-1 rounded-xl border border-border/60 bg-background/70 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent touch-manipulation"
                             >
-                                Switch Active Hub
+                                Relocate HQ
                             </button>
                         ) : null}
                         {canRemoveHub ? (
@@ -326,7 +372,7 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                                 Open Route {distanceKm ? `(${distanceKm.toLocaleString()} km)` : ''} • {routeSlotFeeLabel}
                             </button>
                         ) : null}
-                        {activeHubRoute ? (
+                        {originHubRoute ? (
                             <button
                                 type="button"
                                 onClick={() => navigate({ to: '/network' })}
@@ -345,10 +391,16 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                             </button>
                         ) : null}
                     </div>
-                    {distanceKm && activeHubAirport ? (
+                    {distanceKm && originHubAirport ? (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <PlaneTakeoff className="h-4 w-4" />
-                            Distance from {activeHubAirport.iata}: {distanceKm.toLocaleString()} km
+                            Distance from {originHubAirport.iata}: {distanceKm.toLocaleString()} km
+                        </div>
+                    ) : null}
+                    {!originHubAirport && hqDistanceKm && activeHubAirport ? (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <PlaneTakeoff className="h-4 w-4" />
+                            Distance from HQ {activeHubAirport.iata}: {hqDistanceKm.toLocaleString()} km
                         </div>
                     ) : null}
                 </div>

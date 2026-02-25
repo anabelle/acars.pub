@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
 import { fpFormat, fpToNumber, getSuggestedFares, calculateShares, haversineDistance, calculateDemand, getSeason, getProsperityIndex, fpScale, fp, ROUTE_SLOT_FEE, type Airport, type Season, type FixedPoint, type FlightOffer } from '@airtr/core';
 import { airports as ALL_AIRPORTS } from '@airtr/data';
@@ -19,7 +19,7 @@ export function RouteManager() {
         competitors
     } = useAirlineStore();
     const confirm = useConfirm();
-    const { routes: prospectiveRoutes, homeAirport, tick } = useEngineStore();
+    const { homeAirport, tick } = useEngineStore();
     const [tab, setTab] = useState<'active' | 'opportunities'>('active');
     const [fareEditor, setFareEditor] = useState<{
         routeId: string;
@@ -32,10 +32,32 @@ export function RouteManager() {
     const [isSavingFares, setIsSavingFares] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [rebaseTargets, setRebaseTargets] = useState<Record<string, string>>({});
+    const [planningOriginIata, setPlanningOriginIata] = useState<string | null>(airline?.hubs?.[0] ?? null);
+
+    const airportIndex = useMemo(() => (
+        new Map(ALL_AIRPORTS.map((airport) => [airport.iata, airport]))
+    ), []);
+
+    useEffect(() => {
+        if (!airline?.hubs?.length) return;
+        if (!planningOriginIata || !airline.hubs.includes(planningOriginIata)) {
+            setPlanningOriginIata(airline.hubs[0]);
+        }
+    }, [airline?.hubs, planningOriginIata]);
+
+    const planningOriginAirport = useMemo(() => {
+        if (planningOriginIata) {
+            return airportIndex.get(planningOriginIata) ?? null;
+        }
+        if (airline?.hubs?.length) {
+            return airportIndex.get(airline.hubs[0]) ?? null;
+        }
+        return homeAirport;
+    }, [planningOriginIata, airline?.hubs, airportIndex, homeAirport]);
 
     const searchResults = searchQuery.length >= 2
         ? ALL_AIRPORTS.filter(a =>
-            a.iata !== homeAirport?.iata && (
+            a.iata !== planningOriginAirport?.iata && (
                 a.iata?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 a.icao?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 a.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -54,23 +76,56 @@ export function RouteManager() {
     };
 
     const calculateSearchProspect = (dest: Airport): ProspectMarket | null => {
-        if (!homeAirport) return null;
+        if (!planningOriginAirport) return null;
         const now = new Date();
         const prosperity = getProsperityIndex(tick);
         const season = getSeason(dest.latitude, now);
-        const distance = haversineDistance(homeAirport.latitude, homeAirport.longitude, dest.latitude, dest.longitude);
-        const demand = calculateDemand(homeAirport, dest, season, prosperity, 1.0);
+        const distance = haversineDistance(planningOriginAirport.latitude, planningOriginAirport.longitude, dest.latitude, dest.longitude);
+        const demand = calculateDemand(planningOriginAirport, dest, season, prosperity, 1.0);
         const avgFarePerKm = 0.12;
         const baseFare = Math.max(80, Math.round(distance * avgFarePerKm));
         const totalPax = demand.economy + demand.business + demand.first;
         const estimatedDailyRevenue = fpScale(fp(baseFare), totalPax / 7);
-        return { origin: homeAirport, destination: dest, distance, demand, estimatedDailyRevenue, season };
+        return { origin: planningOriginAirport, destination: dest, distance, demand, estimatedDailyRevenue, season };
     };
 
-    if (!airline || !homeAirport) return null;
+    if (!airline || !homeAirport || !planningOriginAirport) return null;
+
+    const buildProspects = (origin: Airport): ProspectMarket[] => {
+        const now = new Date();
+        const prosperity = getProsperityIndex(tick);
+        const others = ALL_AIRPORTS
+            .filter(a => a.iata !== origin.iata)
+            .map(a => ({
+                airport: a,
+                distance: haversineDistance(origin.latitude, origin.longitude, a.latitude, a.longitude),
+            }))
+            .sort((a, b) => a.distance - b.distance);
+
+        const picks: Airport[] = [];
+        if (others.length >= 2) picks.push(others[0].airport, others[1].airport);
+        const midIdx = Math.floor(others.length * 0.4);
+        const midIdx2 = Math.floor(others.length * 0.5);
+        if (others.length >= 6) picks.push(others[midIdx].airport, others[midIdx2].airport);
+        if (others.length >= 4) picks.push(others[others.length - 2].airport, others[others.length - 1].airport);
+
+        return picks.map(dest => {
+            const season = getSeason(dest.latitude, now);
+            const distance = haversineDistance(origin.latitude, origin.longitude, dest.latitude, dest.longitude);
+            const demand = calculateDemand(origin, dest, season, prosperity, 1.0);
+            const avgFarePerKm = 0.12;
+            const baseFare = Math.max(80, Math.round(distance * avgFarePerKm));
+            const totalPax = demand.economy + demand.business + demand.first;
+            const estimatedDailyRevenue = fpScale(fp(baseFare), totalPax / 7);
+            return { origin, destination: dest, distance, demand, estimatedDailyRevenue, season };
+        });
+    };
+
+    const prospectMarkets = useMemo(() => buildProspects(planningOriginAirport), [planningOriginAirport, tick]);
 
     const activeRoutes = routes.filter(route => route.status === 'active');
     const suspendedRoutes = routes.filter(route => route.status === 'suspended');
+    const originActiveRoutes = activeRoutes.filter(route => route.originIata === planningOriginAirport.iata);
 
     const handleSaveFares = async () => {
         if (!fareEditor) return;
@@ -113,22 +168,38 @@ export function RouteManager() {
                         < Globe className="h-8 w-8 text-primary" />
                         Network Manager
                     </h2>
-                    <p className="text-muted-foreground mt-1">Manage your routes and flight frequencies from {homeAirport.name}.</p>
+                    <p className="text-muted-foreground mt-1">Manage your routes and flight frequencies from {planningOriginAirport.name}.</p>
                 </div>
 
-                <div className="flex bg-muted/50 p-1 rounded-xl border border-border/50">
-                    <button
-                        onClick={() => setTab('active')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'active' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        Active Network ({activeRoutes.length})
-                    </button>
-                    <button
-                        onClick={() => setTab('opportunities')}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'opportunities' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        Market Opportunities
-                    </button>
+                <div className="flex items-center gap-3">
+                    {airline.hubs.length > 1 ? (
+                        <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-muted/30 px-3 py-2">
+                            <MapPin className="h-4 w-4 text-primary" />
+                            <select
+                                value={planningOriginIata ?? ''}
+                                onChange={(event) => setPlanningOriginIata(event.target.value || null)}
+                                className="h-9 rounded-lg border border-border/50 bg-background px-3 text-xs font-bold text-foreground"
+                            >
+                                {airline.hubs.map((hub) => (
+                                    <option key={hub} value={hub}>{hub}</option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : null}
+                    <div className="flex bg-muted/50 p-1 rounded-xl border border-border/50">
+                        <button
+                            onClick={() => setTab('active')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'active' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            Active Network ({activeRoutes.length})
+                        </button>
+                        <button
+                            onClick={() => setTab('opportunities')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'opportunities' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                            Market Opportunities
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -136,7 +207,7 @@ export function RouteManager() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
                     <div className="flex justify-between items-start mb-2">
-                        <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider">Active Hub</p>
+                        <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider">HQ Hub</p>
                         <MapPin className="h-4 w-4 text-primary" />
                     </div>
                     <p className="text-2xl font-bold text-foreground">{homeAirport.iata}</p>
@@ -149,9 +220,9 @@ export function RouteManager() {
                         <TrendingUp className="h-4 w-4 text-accent" />
                     </div>
                     <p className="text-2xl font-bold text-foreground">
-                        {activeRoutes.reduce((acc, r) => acc + (prospectiveRoutes.find(p => p.destination.iata === r.destinationIata)?.demand.economy || 0), 0).toLocaleString()} pax
+                        {originActiveRoutes.reduce((acc, r) => acc + (prospectMarkets.find(p => p.destination.iata === r.destinationIata)?.demand.economy || 0), 0).toLocaleString()} pax
                     </p>
-                    <p className="text-xs text-muted-foreground">across {activeRoutes.length} active routes</p>
+                    <p className="text-xs text-muted-foreground">across {originActiveRoutes.length} active routes</p>
                 </div>
 
                 <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm overflow-hidden relative">
@@ -182,7 +253,7 @@ export function RouteManager() {
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-200">Suspended Routes</p>
                                 <p className="text-sm text-amber-100/80 mt-2">
-                                    These routes lost their origin hub. Rebase them to an active hub to resume service.
+                                    These routes lost their origin hub. Rebase them to an operational hub to resume service.
                                 </p>
                             </div>
                             <div className="rounded-full border border-amber-300/40 bg-amber-300/10 px-3 py-1 text-xs font-bold text-amber-200">

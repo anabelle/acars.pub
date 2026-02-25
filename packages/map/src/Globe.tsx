@@ -972,7 +972,7 @@ export function Globe({
     }, [mapLoaded, airportIndex]);
 
     // =========================================================================
-    // Initial fly-to on first airport selection
+    // Initial fly-to on first airport selection or focus change
     // =========================================================================
     useEffect(() => {
         if (!mapLoaded || !mapRef.current || !selectedAirport) return;
@@ -985,7 +985,15 @@ export function Globe({
                 essential: true,
                 duration: 2000,
             });
+            return;
         }
+
+        mapRef.current.flyTo({
+            center: [selectedAirport.longitude, selectedAirport.latitude],
+            zoom: Math.max(3.2, mapRef.current.getZoom()),
+            essential: true,
+            duration: 1200,
+        });
     }, [selectedAirport, mapLoaded]);
 
     return (
