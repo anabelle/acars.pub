@@ -2,11 +2,9 @@ import type { Airport } from '@airtr/core';
 import { haversineDistance } from '@airtr/core';
 import { airports as AIRPORTS } from './airports.js';
 
-const TOP_CITY_COUNT = 5;
-
 /**
- * Find the best hub near a location: largest cities in nearest country,
- * then pick the closest among those top cities.
+ * Find the best hub near a location: largest city in nearest country,
+ * with distance as a tie-breaker.
  */
 export function findPreferredHub(lat: number, lon: number, airports: Airport[] = AIRPORTS): Airport {
     let nearest = airports[0];
@@ -24,9 +22,13 @@ export function findPreferredHub(lat: number, lon: number, airports: Airport[] =
     const populated = countryAirports.filter(a => (a.population || 0) > 0);
 
     if (populated.length > 0) {
-        const topByPopulation = [...populated]
-            .sort((a, b) => (b.population || 0) - (a.population || 0))
-            .slice(0, TOP_CITY_COUNT);
+        let maxPopulation = 0;
+        for (const airport of populated) {
+            const pop = airport.population || 0;
+            if (pop > maxPopulation) maxPopulation = pop;
+        }
+
+        const topByPopulation = populated.filter(a => (a.population || 0) === maxPopulation);
 
         let best = topByPopulation[0];
         let bestDist = Infinity;

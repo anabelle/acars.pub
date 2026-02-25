@@ -26,15 +26,20 @@ export function HubPicker({
     }, [open]);
 
     const filtered = useMemo(() => {
-        if (!deferredSearch) return AIRPORTS;
+        const base = AIRPORTS.filter(a => a.iata && a.city && a.name);
+        if (!deferredSearch) {
+            return [...base].sort((a, b) => (b.population || 0) - (a.population || 0));
+        }
         const q = deferredSearch.toLowerCase();
-        return AIRPORTS.filter(
-            (a) =>
-                a.iata.toLowerCase().includes(q) ||
-                a.city.toLowerCase().includes(q) ||
-                a.name.toLowerCase().includes(q) ||
-                a.country.toLowerCase().includes(q)
-        );
+        return base
+            .filter(
+                (a) =>
+                    a.iata.toLowerCase().includes(q) ||
+                    a.city.toLowerCase().includes(q) ||
+                    a.name.toLowerCase().includes(q) ||
+                    a.country.toLowerCase().includes(q)
+            )
+            .sort((a, b) => (b.population || 0) - (a.population || 0));
     }, [deferredSearch]);
 
     const virtualizer = useVirtualizer({
