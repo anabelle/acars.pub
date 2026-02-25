@@ -117,7 +117,7 @@ export const createFleetSlice: StateCreator<
             description: `Purchased ${model.name} for ${fpFormat(upfrontCost, 0)}.`
         };
 
-        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
 
         const previousState = { airline, fleet, routes, timeline: get().timeline };
 
@@ -296,7 +296,7 @@ export const createFleetSlice: StateCreator<
         };
 
         const previousState = { airline, fleet, routes, timeline: get().timeline };
-        const nextTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+        const nextTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
 
         set({
             airline: updatedAirline,
@@ -375,7 +375,7 @@ export const createFleetSlice: StateCreator<
             description: `Lease buyout for ${instance.name}. Paid remaining balance: ${fpFormat(cost, 0)}.`
         };
 
-        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
 
         const previousState = { airline, fleet, routes, timeline: get().timeline };
 
@@ -494,7 +494,7 @@ export const createFleetSlice: StateCreator<
             description: `Purchased used ${listing.name} from marketplace for ${fpFormat(price, 0)}.`
         };
 
-        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
 
         const previousState = { airline, fleet, routes, timeline: get().timeline };
 
@@ -686,7 +686,7 @@ export const createFleetSlice: StateCreator<
             description: `Performed heavy maintenance (D-Check) on ${instance.name}. Cost: ${fpFormat(totalCost, 0)}. Condition restored to 100%.`
         };
 
-        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 200);
+        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
 
         const previousState = { airline, fleet, routes, timeline: get().timeline };
 

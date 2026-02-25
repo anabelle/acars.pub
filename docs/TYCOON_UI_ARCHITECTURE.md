@@ -17,7 +17,7 @@ A successful simulation game UI follows a strict pyramid of information:
 We will abandon the "centered webpage" layout. The UI will hug the edges of the screen to maximize the map view.
 
 ### The Shell (`__root.tsx`)
-- **Layer 0 (Background):** `WorldMap` (react-map-gl). Always rendering.
+- **Layer 0 (Background):** `WorldMap` (MapLibre GL JS via direct `maplibregl.Map()` usage). Always rendering.
 - **Left Edge:** **Sidebar Navigation**. Icons for domains (Overview, Fleet, Network, Corporate, Bank).
 - **Top Edge:** **Status Bar**. Company Name, Tier, Brand Score, Cash Balance.
 - **Bottom Edge:** **Event Ticker**. Scrolling global Nostr events.

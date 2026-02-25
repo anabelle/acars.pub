@@ -115,7 +115,7 @@ Only load and simulate other players' planes that are "nearby" or "on shared rou
 ## Technical Feasibility Log
 | Strategy | Difficulty | Impact | Status |
 |----------|------------|--------|--------|
-| O(1) Airport Index | Low | Algorithmic Speed | **Implemented** |
+| O(1) Airport Index | Low | Algorithmic Speed | **Planned** |
 | Viewport Culling | Low | Rendering Speed | **Implemented** |
 | Zoom-Adaptive LOD | Low | Rendering Speed | **Implemented** |
 | Arc Memoization | Low | CPU Reduction | **Implemented** |
