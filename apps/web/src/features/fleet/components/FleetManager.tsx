@@ -1,12 +1,44 @@
 import { useState } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
 import { getAircraftById } from '@airtr/data';
-import { calculateBookValue, fpFormat, fpScale, fp, fpToNumber, TICK_DURATION, FP_ZERO, type FixedPoint } from '@airtr/core';
+import { calculateBookValue, fpFormat, fpScale, fp, fpToNumber, FP_ZERO, type FixedPoint } from '@airtr/core';
 import { AircraftDealer } from './AircraftDealer';
-import { Settings, Search, PlusCircle, Trash2, Timer, Tag, XCircle, Plane, X } from 'lucide-react';
+import { Settings, Search, PlusCircle, Trash2, Tag, XCircle, Plane, X, Wrench, PlaneTakeoff, PlaneLanding, RotateCcw } from 'lucide-react';
 import { NARROWBODY_BODY_SVG, TURBOPROP_BODY_SVG, WIDEBODY_BODY_SVG, REGIONAL_BODY_SVG } from '@airtr/map';
 import { toast } from 'sonner';
 import { useConfirm } from '@/shared/lib/useConfirm';
+import { getAircraftTimer } from '../utils/aircraftTimers';
+
+const timerStyleMap = {
+    enroute: {
+        container: 'border-sky-500/30 bg-sky-500/10 text-sky-200',
+        label: 'text-sky-200/70',
+        time: 'text-sky-100',
+        glow: 'shadow-[0_0_20px_rgba(56,189,248,0.35)]',
+        icon: PlaneTakeoff,
+    },
+    turnaround: {
+        container: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
+        label: 'text-amber-200/70',
+        time: 'text-amber-100',
+        glow: 'shadow-[0_0_18px_rgba(251,191,36,0.35)]',
+        icon: RotateCcw,
+    },
+    maintenance: {
+        container: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+        label: 'text-rose-200/70',
+        time: 'text-rose-100',
+        glow: 'shadow-[0_0_18px_rgba(244,63,94,0.35)]',
+        icon: Wrench,
+    },
+    delivery: {
+        container: 'border-blue-500/30 bg-blue-500/10 text-blue-200',
+        label: 'text-blue-200/70',
+        time: 'text-blue-100',
+        glow: 'shadow-[0_0_18px_rgba(59,130,246,0.35)]',
+        icon: PlaneLanding,
+    },
+} as const;
 
 function AircraftSilhouette({ type, className }: { type: string; className?: string }) {
     const svg = type === 'turboprop' ? TURBOPROP_BODY_SVG :
@@ -156,6 +188,8 @@ export function FleetManager() {
 
                             const marketVal = calculateBookValue(model, ac.flightHoursTotal, ac.condition, ac.birthTick || ac.purchasedAtTick, tick);
                             const scrapVal = fpScale(marketVal, 0.7);
+                            const timer = getAircraftTimer(ac, tick, tickProgress);
+                            const timerStyle = timer ? timerStyleMap[timer.kind] : null;
 
                             return (
                                 <div key={ac.id} className="group relative flex flex-col rounded-3xl border border-border/50 bg-card overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/30 transition-all duration-300">
@@ -188,6 +222,19 @@ export function FleetManager() {
                                     </div>
 
                                     <div className="p-6 pt-4 flex flex-col space-y-4">
+                                        {timer && timerStyle ? (
+                                            <div
+                                                className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] ${timerStyle.container} ${timer.isImminent ? `animate-pulse ${timerStyle.glow}` : ''}`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <timerStyle.icon className="h-3.5 w-3.5" />
+                                                    <span className={timerStyle.label}>{timer.label}</span>
+                                                </div>
+                                                <span className={`font-mono text-xs font-black tracking-[0.2em] ${timerStyle.time}`}>
+                                                    {timer.time}
+                                                </span>
+                                            </div>
+                                        ) : null}
                                         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                                             <div>
                                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">Registry ID</p>
@@ -373,18 +420,6 @@ export function FleetManager() {
                                             )}
 
                                             <div className="flex gap-2 mt-1 w-full">
-                                                {ac.status === 'delivery' && (
-                                                    <div className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-yellow-500/10 px-3 py-2 text-xs font-semibold text-yellow-500 border border-yellow-500/20">
-                                                        <Timer className="h-4 w-4 animate-spin-slow" />
-                                                        {(() => {
-                                                            const remainingTicks = (ac.deliveryAtTick || 0) - tick - tickProgress;
-                                                            const totalSeconds = Math.max(0, Math.floor(remainingTicks * (TICK_DURATION / 1000)));
-                                                            const mins = Math.floor(totalSeconds / 60);
-                                                            const secs = totalSeconds % 60;
-                                                            return `Delivering: ${mins}:${secs.toString().padStart(2, '0')}`;
-                                                        })()}
-                                                    </div>
-                                                )}
 
                                                 <button
                                                     onClick={() => {
