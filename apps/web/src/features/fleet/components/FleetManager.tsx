@@ -194,17 +194,29 @@ export function FleetManager() {
                             return (
                                 <div key={ac.id} className="group relative flex flex-col rounded-3xl border border-border/50 bg-card overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/30 transition-all duration-300">
                                     <div className="relative h-40 bg-zinc-900/40 p-6 perspective-1000 overflow-hidden">
-                                        <div className="absolute top-4 right-4 z-10 flex gap-2">
+                                        <div className="absolute top-4 right-4 z-10 flex gap-2 items-center">
                                             {ac.listingPrice && (
                                                 <span className="inline-flex items-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 text-[10px] font-black uppercase tracking-widest">
                                                     For Sale: {fpFormat(ac.listingPrice, 0)}
                                                 </span>
                                             )}
-                                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${ac.status === 'idle' ? (ac.assignedRouteId ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-primary/20 text-primary border border-primary/30') :
-                                                'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                                                }`}>
-                                                {ac.status === 'idle' && ac.assignedRouteId ? 'assigned' : ac.status}
-                                            </span>
+                                            {timer && timerStyle ? (
+                                                <span
+                                                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${timerStyle.container} ${timer.isImminent ? `animate-pulse ${timerStyle.glow}` : ''}`}
+                                                >
+                                                    <timerStyle.icon className="h-3 w-3" />
+                                                    <span>{timer.label}</span>
+                                                    <span className={`font-mono text-[10px] font-black ${timerStyle.time}`}>
+                                                        {timer.time}
+                                                    </span>
+                                                </span>
+                                            ) : (
+                                                <span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${ac.status === 'idle' ? (ac.assignedRouteId ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-primary/20 text-primary border border-primary/30') :
+                                                    'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                                                    }`}>
+                                                    {ac.status === 'idle' && ac.assignedRouteId ? 'assigned' : ac.status}
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="absolute -bottom-6 -right-6 text-zinc-800/20 select-none">
@@ -222,19 +234,6 @@ export function FleetManager() {
                                     </div>
 
                                     <div className="p-6 pt-4 flex flex-col space-y-4">
-                                        {timer && timerStyle ? (
-                                            <div
-                                                className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] ${timerStyle.container} ${timer.isImminent ? `animate-pulse ${timerStyle.glow}` : ''}`}
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <timerStyle.icon className="h-3.5 w-3.5" />
-                                                    <span className={timerStyle.label}>{timer.label}</span>
-                                                </div>
-                                                <span className={`font-mono text-xs font-black tracking-[0.2em] ${timerStyle.time}`}>
-                                                    {timer.time}
-                                                </span>
-                                            </div>
-                                        ) : null}
                                         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                                             <div>
                                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">Registry ID</p>

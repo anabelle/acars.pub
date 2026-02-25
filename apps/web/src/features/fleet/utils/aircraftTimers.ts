@@ -34,7 +34,7 @@ export function getAircraftTimer(
 
     if (aircraft.status === 'delivery') {
         targetTick = aircraft.deliveryAtTick;
-        label = 'Delivery ETA';
+        label = 'Inbound';
         kind = 'delivery';
     }
 
@@ -42,14 +42,14 @@ export function getAircraftTimer(
         targetTick = aircraft.flight?.arrivalTick;
         const destination = aircraft.flight?.destinationIata;
         const isFerry = aircraft.flight?.purpose === 'ferry';
-        const prefix = isFerry ? 'Ferry ETA' : 'ETA';
+        const prefix = isFerry ? 'Ferry ETA' : 'Inbound';
         label = destination ? `${prefix} ${destination}` : prefix;
         kind = 'enroute';
     }
 
     if (aircraft.status === 'turnaround') {
         targetTick = aircraft.turnaroundEndTick;
-        label = 'Turnaround';
+        label = 'Quick turn';
         kind = 'turnaround';
     }
 

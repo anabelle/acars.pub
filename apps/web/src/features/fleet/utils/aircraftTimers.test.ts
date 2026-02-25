@@ -50,7 +50,7 @@ describe('aircraftTimers', () => {
 
         const timer = getAircraftTimer(aircraft, 12, 0.5);
         expect(timer?.kind).toBe('enroute');
-        expect(timer?.label).toBe('ETA LAX');
+        expect(timer?.label).toBe('Inbound LAX');
         expect(timer?.time).toBe('0:08');
         expect(timer?.isImminent).toBe(true);
     });
@@ -64,6 +64,17 @@ describe('aircraftTimers', () => {
         const timer = getAircraftTimer(aircraft, 110, 0);
         expect(timer?.kind).toBe('maintenance');
         expect(timer?.label).toBe('Tech release');
+    });
+
+    it('builds turnaround timer label', () => {
+        const aircraft = makeAircraft({
+            status: 'turnaround',
+            turnaroundEndTick: 80,
+        });
+
+        const timer = getAircraftTimer(aircraft, 70, 0);
+        expect(timer?.kind).toBe('turnaround');
+        expect(timer?.label).toBe('Quick turn');
     });
 
     it('returns null when no timer target exists', () => {
