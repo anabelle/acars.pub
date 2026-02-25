@@ -326,31 +326,48 @@ export function RouteManager() {
                                                     </span>
                                                 </div>
 
-                                                <button
-                                                    onClick={() => {
-                                                        setFareEditor({
-                                                            routeId: route.id,
-                                                            originIata: route.originIata,
-                                                            destinationIata: route.destinationIata,
-                                                            distanceKm: route.distanceKm,
-                                                        });
-                                                        setFareInputs({
-                                                            e: fpToNumber(route.fareEconomy).toString(),
-                                                            b: fpToNumber(route.fareBusiness).toString(),
-                                                            f: fpToNumber(route.fareFirst).toString(),
-                                                        });
-                                                        setFareError(null);
-                                                    }}
-                                                    className="px-4 py-2 bg-white/5 text-white/60 border border-white/5 rounded-xl text-sm font-bold hover:bg-white/10 transition-all"
-                                                >
-                                                    Edit Fares
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setFareEditor({
+                                                                routeId: route.id,
+                                                                originIata: route.originIata,
+                                                                destinationIata: route.destinationIata,
+                                                                distanceKm: route.distanceKm,
+                                                            });
+                                                            setFareInputs({
+                                                                e: fpToNumber(route.fareEconomy).toString(),
+                                                                b: fpToNumber(route.fareBusiness).toString(),
+                                                                f: fpToNumber(route.fareFirst).toString(),
+                                                            });
+                                                            setFareError(null);
+                                                        }}
+                                                        className="px-4 py-2 bg-white/5 text-white/60 border border-white/5 rounded-xl text-sm font-bold hover:bg-white/10 transition-all"
+                                                    >
+                                                        Edit Fares
+                                                    </button>
 
-                                                <button
-                                                    className="px-4 py-2 bg-accent/20 text-accent-foreground border border-accent/20 rounded-xl text-sm font-bold hover:bg-accent/30 transition-all font-mono"
-                                                >
-                                                    {assignedCount} Planes
-                                                </button>
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                await closeRoute(route.id);
+                                                                toast.success('Route closed');
+                                                            } catch (err) {
+                                                                const message = err instanceof Error ? err.message : 'Route close failed';
+                                                                toast.error('Route close failed', { description: message });
+                                                            }
+                                                        }}
+                                                        className="px-3 py-2 rounded-xl border border-red-500/30 text-red-200/80 text-sm font-bold hover:bg-red-500/15 transition-all"
+                                                    >
+                                                        Close Route
+                                                    </button>
+
+                                                    <button
+                                                        className="px-4 py-2 bg-accent/20 text-accent-foreground border border-accent/20 rounded-xl text-sm font-bold hover:bg-accent/30 transition-all font-mono"
+                                                    >
+                                                        {assignedCount} Planes
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
 
