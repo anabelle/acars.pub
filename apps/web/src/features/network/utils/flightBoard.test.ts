@@ -269,4 +269,32 @@ describe('buildFlightBoardRows', () => {
         expect(departuresLate[0].status).toBe('Boarding');
         expect(departuresLate[0].otherIata).toBe('MDE');
     });
+
+    it('deduplicates player aircraft that appear in global fleet', () => {
+        const airline = makeAirline({ ceoPubkey: 'player' });
+        const aircraft = makeAircraft({
+            id: 'ac-dup',
+            status: 'enroute',
+            flight: {
+                originIata: 'BOG',
+                destinationIata: 'MDE',
+                departureTick: 100,
+                arrivalTick: 200,
+                direction: 'outbound',
+            },
+        });
+
+        const rows = buildFlightBoardRows({
+            airportIata: 'BOG',
+            airportTimezone: 'America/Bogota',
+            mode: 'departures',
+            fleet: [aircraft],
+            globalFleet: [{ ...aircraft }],
+            airline,
+            competitors: new Map(),
+            tick: 150,
+        });
+
+        expect(rows).toHaveLength(1);
+    });
 });

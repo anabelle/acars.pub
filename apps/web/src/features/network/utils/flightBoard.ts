@@ -189,7 +189,21 @@ export function buildFlightBoardRows({
     competitors,
     tick,
 }: FlightBoardParams): FlightRow[] {
-    const combined = [...fleet, ...globalFleet];
+    const combinedById = new Map<string, AircraftInstance>();
+    const playerPubkey = airline?.ceoPubkey ?? null;
+
+    for (const aircraft of fleet) {
+        combinedById.set(aircraft.id, aircraft);
+    }
+
+    for (const aircraft of globalFleet) {
+        if (playerPubkey && aircraft.ownerPubkey === playerPubkey) continue;
+        if (!combinedById.has(aircraft.id)) {
+            combinedById.set(aircraft.id, aircraft);
+        }
+    }
+
+    const combined = Array.from(combinedById.values());
     const rows: FlightRow[] = [];
 
     for (const aircraft of combined) {
