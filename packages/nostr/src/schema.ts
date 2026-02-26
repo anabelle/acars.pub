@@ -1,8 +1,7 @@
-import { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
+import { createLogger, type FixedPoint, FP_ZERO, fpRaw } from "@airtr/core";
 import type { NDKKind } from "@nostr-dev-kit/ndk";
-import { getNDK, ensureConnected } from "./ndk.js";
-import { createLogger } from "@airtr/core";
-import { type AirlineEntity, type FixedPoint, fp, fpRaw, FP_ZERO } from "@airtr/core";
+import { NDKEvent, type NDKFilter } from "@nostr-dev-kit/ndk";
+import { ensureConnected, getNDK } from "./ndk.js";
 
 const logger = createLogger("Nostr");
 
@@ -53,128 +52,82 @@ export interface MarketplaceListing {
   };
 }
 
-export type AirlineConfig = Pick<
-  AirlineEntity,
-  "name" | "icaoCode" | "callsign" | "hubs" | "livery" | "lastTick"
-> & {
-  corporateBalance?: import("@airtr/core").FixedPoint;
-  fleet?: import("@airtr/core").AircraftInstance[];
-  routes?: import("@airtr/core").Route[];
-  timeline?: import("@airtr/core").TimelineEvent[];
-};
+export type ActionEnvelope = import("@airtr/core").GameActionEnvelope;
 
-const AIRLINE_KIND = 30078;
-const WORLD_ID = "dev-v1";
+const ACTION_KIND = 30078;
+const WORLD_ID = "dev-v2";
 const AIRTR_SCHEMA_VERSION = 1;
-const AIRLINE_D_TAG = `airtr:world:${WORLD_ID}:airline`;
-const AIRLINE_PUBLISH_DEBOUNCE_MS = 300;
+const ACTION_D_PREFIX = `airtr:world:${WORLD_ID}:action:`;
 
-let airlinePublishTimer: ReturnType<typeof setTimeout> | null = null;
-let airlinePublishPromise: Promise<NDKEvent> | null = null;
-let airlinePublishResolve: ((event: NDKEvent) => void) | null = null;
-let airlinePublishReject: ((error: unknown) => void) | null = null;
-let latestAirlineSnapshot: AirlineConfig | null = null;
-let publishChain = Promise.resolve();
+const MAX_FUTURE_SKEW_SEC = 5 * 60;
+const MAX_EVENT_AGE_SEC = 365 * 24 * 60 * 60;
+
+const ACTION_SCHEMA_VERSION = 2;
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function clampInt(value: unknown, min: number, max: number): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const rounded = Math.floor(value);
+  if (rounded < min) return min;
+  if (rounded > max) return max;
+  return rounded;
+}
+
+function isValidEventTimestamp(createdAt: number): boolean {
+  if (!Number.isFinite(createdAt) || createdAt <= 0) return false;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (createdAt > nowSec + MAX_FUTURE_SKEW_SEC) return false;
+  if (nowSec - createdAt > MAX_EVENT_AGE_SEC) return false;
+  return true;
 }
 
 function hasWorldTag(event: NDKEvent, worldId: string): boolean {
   return event.tags.some((tag) => tag[0] === "world" && tag[1] === worldId);
 }
 
-function parseAirlineContent(data: unknown): {
-  name: string;
-  icaoCode: string | null;
-  callsign: string | null;
-  hubs: string[];
-  livery: AirlineEntity["livery"];
-  corporateBalance: import("@airtr/core").FixedPoint | null;
-  fleet: import("@airtr/core").AircraftInstance[];
-  routes: import("@airtr/core").Route[];
-  timeline: import("@airtr/core").TimelineEvent[];
-  lastTick: number | null;
-} | null {
+function isActionKind(event: NDKEvent): boolean {
+  if (event.kind !== ACTION_KIND) return false;
+  const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
+  return Boolean(dTag && dTag.startsWith(ACTION_D_PREFIX));
+}
+
+function parseActionContent(data: unknown): ActionEnvelope | null {
   if (!isRecord(data)) return null;
-
-  const name = typeof data.name === "string" ? data.name : null;
-  const icaoCode =
-    typeof data.icaoCode === "string"
-      ? data.icaoCode
-      : typeof data.icao === "string"
-        ? data.icao
-        : null;
-  const callsign = typeof data.callsign === "string" ? data.callsign : null;
-
-  const hubs = Array.isArray(data.hubs)
-    ? data.hubs.filter((hub): hub is string => typeof hub === "string")
-    : typeof data.hubIata === "string"
-      ? [data.hubIata]
-      : [];
-
-  const liverySource = isRecord(data.livery) ? data.livery : null;
-  const livery = {
-    primary: typeof liverySource?.primary === "string" ? liverySource.primary : "#1f2937",
-    secondary: typeof liverySource?.secondary === "string" ? liverySource.secondary : "#3b82f6",
-    accent: typeof liverySource?.accent === "string" ? liverySource.accent : "#f59e0b",
-  };
-
-  const corporateBalance =
-    typeof data.corporateBalance === "number" && Number.isFinite(data.corporateBalance)
-      ? fpRaw(data.corporateBalance)
-      : null;
-
-  const lastTick =
-    typeof data.lastTick === "number" && Number.isFinite(data.lastTick) ? data.lastTick : null;
-
-  if (!name) return null;
-
+  const schemaVersion = clampInt(data.schemaVersion, 1, 10);
+  const action = typeof data.action === "string" ? data.action : null;
+  if (!schemaVersion || !action) return null;
+  if (!isRecord(data.payload)) return null;
   return {
-    name,
-    icaoCode,
-    callsign,
-    hubs,
-    livery,
-    corporateBalance,
-    fleet: Array.isArray(data.fleet) ? data.fleet : [],
-    routes: Array.isArray(data.routes) ? data.routes : [],
-    timeline: Array.isArray(data.timeline) ? data.timeline : [],
-    lastTick,
+    schemaVersion,
+    action: action as ActionEnvelope["action"],
+    payload: data.payload,
   };
 }
 
-async function publishAirlineNow(airline: AirlineConfig): Promise<NDKEvent> {
-  await ensureConnected();
-  const ndk = getNDK();
-
-  if (!ndk.signer) {
-    throw new Error("No signer available. Call attachSigner() first.");
+export function buildActionDTag(action: ActionEnvelope): string {
+  const base = `${ACTION_D_PREFIX}${action.action.toLowerCase()}`;
+  if (action.action === "AIRLINE_CREATE" || action.action === "TICK_UPDATE") {
+    return base;
   }
 
-  const event = new NDKEvent(ndk);
-  event.kind = AIRLINE_KIND;
-  event.tags = [
-    ["d", AIRLINE_D_TAG],
-    ["world", WORLD_ID],
-  ];
+  const payload = isRecord(action.payload) ? action.payload : {};
+  const idCandidates = [payload.instanceId, payload.routeId, payload.aircraftId, payload.iata];
+  const rawId = idCandidates.find((value) => typeof value === "string" && value.trim());
+  const id = typeof rawId === "string" ? rawId.trim() : null;
+  const tick = isFiniteNumber(payload.tick) ? Math.floor(payload.tick) : null;
 
-  event.content = JSON.stringify({
-    schemaVersion: AIRTR_SCHEMA_VERSION,
-    name: airline.name,
-    icaoCode: airline.icaoCode,
-    callsign: airline.callsign,
-    hubs: airline.hubs,
-    livery: airline.livery,
-    corporateBalance: airline.corporateBalance,
-    fleet: airline.fleet,
-    routes: airline.routes,
-    timeline: airline.timeline,
-    lastTick: airline.lastTick,
-  });
+  const suffixParts: string[] = [];
+  if (id) suffixParts.push(id);
+  if (tick !== null) suffixParts.push(String(tick));
 
-  await event.publish();
-  return event;
+  return suffixParts.length > 0 ? `${base}:${suffixParts.join(":")}` : base;
 }
 
 /**
@@ -186,116 +139,139 @@ export const MARKETPLACE_D_PREFIX = `airtr:world:${WORLD_ID}:marketplace:`;
 /**
  * Publishes an airline creation or update event to Nostr.
  */
-export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> {
-  latestAirlineSnapshot = airline;
+export async function publishAirline(): Promise<never> {
+  throw new Error("Snapshot publishing is disabled for action-log worlds.");
+}
 
-  if (airlinePublishPromise) return airlinePublishPromise;
+/**
+ * Publishes a single game action event to Nostr.
+ */
+export async function publishAction(action: ActionEnvelope): Promise<NDKEvent> {
+  await ensureConnected();
+  const ndk = getNDK();
 
-  airlinePublishPromise = new Promise<NDKEvent>((resolve, reject) => {
-    airlinePublishResolve = resolve;
-    airlinePublishReject = reject;
-  });
-
-  if (!airlinePublishTimer) {
-    airlinePublishTimer = setTimeout(() => {
-      const snapshot = latestAirlineSnapshot;
-      latestAirlineSnapshot = null;
-      airlinePublishTimer = null;
-
-      const resolve = airlinePublishResolve;
-      const reject = airlinePublishReject;
-      airlinePublishResolve = null;
-      airlinePublishReject = null;
-      airlinePublishPromise = null;
-
-      if (!snapshot) {
-        reject?.(new Error("No airline snapshot to publish."));
-        return;
-      }
-
-      publishChain = publishChain
-        .then(async () => {
-          const event = await publishAirlineNow(snapshot);
-          resolve?.(event);
-        })
-        .catch((error) => {
-          reject?.(error);
-        });
-    }, AIRLINE_PUBLISH_DEBOUNCE_MS);
+  if (!ndk.signer) {
+    throw new Error("No signer available. Call attachSigner() first.");
   }
 
-  return airlinePublishPromise;
+  const event = new NDKEvent(ndk);
+  event.kind = ACTION_KIND;
+  event.tags = [
+    ["d", buildActionDTag(action)],
+    ["world", WORLD_ID],
+  ];
+
+  event.content = JSON.stringify({
+    schemaVersion: ACTION_SCHEMA_VERSION,
+    action: action.action,
+    payload: action.payload,
+  });
+
+  await event.publish();
+  return event;
+}
+
+/**
+ * Loads recent game actions for the current world.
+ */
+export async function loadActionLog(options?: {
+  authors?: string[];
+  limit?: number;
+  maxPages?: number;
+}): Promise<
+  {
+    event: NDKEvent;
+    action: ActionEnvelope;
+  }[]
+> {
+  await ensureConnected();
+  const ndk = getNDK();
+  const { authors, limit, maxPages } = options ?? {};
+  const pageLimit = limit ?? 1000;
+  const pageCap = maxPages ?? 10;
+  const resultsById = new Map<string, { event: NDKEvent; action: ActionEnvelope }>();
+
+  let page = 0;
+  let until: number | undefined;
+
+  while (page < pageCap) {
+    const filter: NDKFilter = {
+      kinds: [ACTION_KIND],
+      limit: pageLimit,
+      ...(authors && authors.length > 0 ? { authors } : {}),
+      ...(until ? { until } : {}),
+    };
+
+    const pageResults: { event: NDKEvent; action: ActionEnvelope }[] = [];
+
+    await new Promise<void>((resolve) => {
+      const sub = ndk.subscribe(filter, { closeOnEose: true });
+      const timeout = setTimeout(() => {
+        sub.stop();
+        resolve();
+      }, 8000);
+
+      sub.on("event", (event: NDKEvent) => {
+        if (!hasWorldTag(event, WORLD_ID)) return;
+        if (!isValidEventTimestamp(event.created_at ?? 0)) return;
+        if (!isActionKind(event)) return;
+        if (!event.content.trim().startsWith("{")) return;
+
+        try {
+          const parsed = parseActionContent(JSON.parse(event.content));
+          if (!parsed) return;
+          pageResults.push({ event, action: parsed });
+        } catch {
+          // Ignore malformed action payloads
+        }
+      });
+
+      sub.on("eose", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+
+    for (const entry of pageResults) {
+      if (!resultsById.has(entry.event.id)) {
+        resultsById.set(entry.event.id, entry);
+      }
+    }
+
+    if (pageResults.length < pageLimit) break;
+
+    const minCreatedAt = pageResults.reduce(
+      (min, entry) => {
+        const createdAt = entry.event.created_at ?? 0;
+        if (createdAt <= 0) return min;
+        return min === null ? createdAt : Math.min(min, createdAt);
+      },
+      null as number | null,
+    );
+
+    if (!minCreatedAt || minCreatedAt <= 0) break;
+
+    until = minCreatedAt - 1;
+    page += 1;
+  }
+
+  const results = Array.from(resultsById.values());
+
+  results.sort((a, b) => {
+    const aTime = a.event.created_at ?? 0;
+    const bTime = b.event.created_at ?? 0;
+    if (aTime !== bTime) return aTime - bTime;
+    return a.event.id.localeCompare(b.event.id);
+  });
+
+  return results;
 }
 
 /**
  * Tries to fetch an existing airline configuration for the given pubkey.
  */
-export async function loadAirline(pubkey: string): Promise<{
-  airline: AirlineEntity;
-  fleet: import("@airtr/core").AircraftInstance[];
-  routes: import("@airtr/core").Route[];
-} | null> {
-  await ensureConnected();
-  const ndk = getNDK();
-
-  const filter: NDKFilter = {
-    authors: [pubkey],
-    kinds: [AIRLINE_KIND],
-    "#d": [AIRLINE_D_TAG],
-    limit: 1,
-  };
-
-  let event: NDKEvent | null = null;
-  try {
-    event = await Promise.race([
-      ndk.fetchEvent(filter),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
-    ]);
-  } catch {
-    return null;
-  }
-
-  if (!event) return null;
-
-  if (!hasWorldTag(event, WORLD_ID)) return null;
-
-  try {
-    // Basic check to ensure content looks like JSON before parsing
-    if (!event.content.trim().startsWith("{")) {
-      return null;
-    }
-
-    const parsed = parseAirlineContent(JSON.parse(event.content));
-    if (!parsed) return null;
-
-    // Map event payload to AirlineEntity
-    const loaded: AirlineEntity = {
-      id: event.id,
-      foundedBy: event.author.pubkey,
-      status: "private",
-      ceoPubkey: event.author.pubkey,
-      sharesOutstanding: 10000000,
-      shareholders: { [event.author.pubkey]: 10000000 },
-      name: parsed.name,
-      icaoCode: parsed.icaoCode || "",
-      callsign: parsed.callsign || "",
-      hubs: parsed.hubs,
-      livery: parsed.livery,
-      brandScore: 0.5,
-      tier: 1,
-      // Defaults for derived metrics
-      corporateBalance: parsed.corporateBalance ?? fp(100000000),
-      stockPrice: fp(10), // $10/share
-      fleetIds: parsed.fleet.map((fleetItem) => fleetItem.id),
-      routeIds: parsed.routes.map((routeItem) => routeItem.id),
-      timeline: parsed.timeline,
-      lastTick: parsed.lastTick ?? 0,
-    };
-    return { airline: loaded, fleet: parsed.fleet, routes: parsed.routes };
-  } catch (error) {
-    console.error("Failed parsing airline Nostr event", error);
-    return null;
-  }
+export async function loadAirline(): Promise<never> {
+  throw new Error("Snapshot loading is disabled for action-log worlds.");
 }
 
 /**
@@ -493,6 +469,7 @@ export async function loadMarketplace(
       const dTag = event.tags.find((t) => t[0] === "d")?.[1];
       if (!dTag?.startsWith(MARKETPLACE_D_PREFIX)) return;
       if (!hasWorldTag(event, WORLD_ID)) return;
+      if (!isValidEventTimestamp(event.created_at ?? 0)) return;
 
       try {
         const data = JSON.parse(event.content);
@@ -573,90 +550,6 @@ export async function loadMarketplace(
 /**
  * Loads all active airlines from the global network.
  */
-export async function loadGlobalAirlines(): Promise<
-  {
-    airline: AirlineEntity;
-    fleet: import("@airtr/core").AircraftInstance[];
-    routes: import("@airtr/core").Route[];
-  }[]
-> {
-  await ensureConnected();
-  const ndk = getNDK();
-
-  const filter: NDKFilter = {
-    kinds: [AIRLINE_KIND],
-    "#d": [AIRLINE_D_TAG],
-    limit: 500, // Reasonable cap for global discovery
-  };
-
-  const airlinesMap = new Map<
-    string,
-    {
-      airline: AirlineEntity;
-      fleet: import("@airtr/core").AircraftInstance[];
-      routes: import("@airtr/core").Route[];
-      created_at?: number;
-    }
-  >();
-
-  await new Promise<void>((resolve) => {
-    const sub = ndk.subscribe(filter, { closeOnEose: true });
-    const timeout = setTimeout(() => {
-      sub.stop();
-      resolve();
-    }, 8000);
-
-    sub.on("event", (event: NDKEvent) => {
-      try {
-        if (!hasWorldTag(event, WORLD_ID)) return;
-        if (!event.content.trim().startsWith("{")) return;
-        const parsed = parseAirlineContent(JSON.parse(event.content));
-        if (!parsed) return;
-
-        const airline: AirlineEntity = {
-          id: event.id,
-          foundedBy: event.author.pubkey,
-          status: "private",
-          ceoPubkey: event.author.pubkey,
-          sharesOutstanding: 10000000,
-          shareholders: { [event.author.pubkey]: 10000000 },
-          name: parsed.name,
-          icaoCode: parsed.icaoCode || "",
-          callsign: parsed.callsign || "",
-          hubs: parsed.hubs,
-          livery: parsed.livery,
-          brandScore: 0.5,
-          tier: 1,
-          corporateBalance: parsed.corporateBalance ?? fp(100000000),
-          stockPrice: fp(10),
-          fleetIds: parsed.fleet.map((fleetItem) => fleetItem.id),
-          routeIds: parsed.routes.map((routeItem) => routeItem.id),
-          timeline: parsed.timeline,
-          lastTick: parsed.lastTick ?? 0,
-        };
-
-        const entry = { airline, fleet: parsed.fleet, routes: parsed.routes };
-
-        // Only keep latest event from each author
-        const existing = airlinesMap.get(event.author.pubkey);
-        const existingCreatedAt = existing?.created_at ?? 0;
-        if (!existing || (event.created_at ?? 0) > existingCreatedAt) {
-          airlinesMap.set(event.author.pubkey, { ...entry, created_at: event.created_at });
-        }
-      } catch {
-        // Ignore malformed
-      }
-    });
-
-    sub.on("eose", () => {
-      clearTimeout(timeout);
-      resolve();
-    });
-  });
-
-  return Array.from(airlinesMap.values()).map(({ airline, fleet, routes }) => ({
-    airline,
-    fleet,
-    routes,
-  }));
+export async function loadGlobalAirlines(): Promise<never> {
+  throw new Error("Snapshot loading is disabled for action-log worlds.");
 }
