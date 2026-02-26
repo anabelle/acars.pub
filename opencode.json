@@ -4,6 +4,7 @@
     "ops": {
       "description": "Operations agent - handles server management, deployments, Docker, monitoring, DevOps",
       "mode": "primary",
+      "prompt": "You are the Operations agent. Always run tests and build commands before committing changes. Ensure all tests pass and the build succeeds before committing.",
       "tools": {
         "bash": true,
         "read": true,
