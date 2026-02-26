@@ -76,6 +76,7 @@ export interface EngineState {
     routes: RouteData[];
     locationMethod: string;
     isEngineRunning: boolean;
+    catchupProgress: { current: number; target: number; phase: 'player' | 'competitor' } | null;
 
     syncTick: () => void;
     setHub: (airport: Airport, loc: UserLocation, method: string) => void;
@@ -93,6 +94,7 @@ export const useEngineStore = create<EngineState>((set, get) => ({
     routes: [],
     locationMethod: '',
     isEngineRunning: false,
+    catchupProgress: null,
 
     syncTick: () => {
         const now = Date.now();

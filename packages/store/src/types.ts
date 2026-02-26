@@ -38,7 +38,9 @@ export interface AirlineState {
     competitors: Map<string, AirlineEntity>;
     globalRouteRegistry: Map<string, FlightOffer[]>;
     globalFleet: AircraftInstance[];
+    globalFleetByOwner: Map<string, AircraftInstance[]>;
     globalRoutes: Route[];
+    globalRoutesByOwner: Map<string, Route[]>;
     syncWorld: () => Promise<void>;
-    processGlobalTick: (tick: number) => void;
+    processGlobalTick: (tick: number) => Promise<void>;
 }

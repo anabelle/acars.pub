@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AirlineState } from '../types';
-import type { AirlineEntity, AircraftInstance, FixedPoint } from '@airtr/core';
+import type { AirlineEntity, AircraftInstance, FixedPoint, Route } from '@airtr/core';
 import { createWorldSlice } from './worldSlice';
 
 const mockProcessFlightEngine = vi.fn();
@@ -20,6 +20,7 @@ vi.mock('@airtr/nostr', () => ({
 
 vi.mock('../engine', () => ({
     useEngineStore: {
+        setState: vi.fn(),
         getState: () => ({
             tick: 100,
         })
@@ -57,7 +58,9 @@ const createSliceState = (overrides: Partial<AirlineState>) => {
         competitors: new Map(),
         globalRouteRegistry: new Map(),
         globalFleet: [],
+        globalFleetByOwner: new Map(),
         globalRoutes: [],
+        globalRoutesByOwner: new Map(),
         syncWorld: vi.fn(),
         processGlobalTick: vi.fn(),
     } as AirlineState;
@@ -72,6 +75,19 @@ const createSliceState = (overrides: Partial<AirlineState>) => {
     Object.assign(state, slice);
     Object.assign(state, overrides);
     return { state, set };
+};
+
+const buildFleetIndex = (fleet: AircraftInstance[]) => {
+    const byOwner = new Map<string, AircraftInstance[]>();
+    for (const aircraft of fleet) {
+        const bucket = byOwner.get(aircraft.ownerPubkey);
+        if (bucket) {
+            bucket.push(aircraft);
+        } else {
+            byOwner.set(aircraft.ownerPubkey, [aircraft]);
+        }
+    }
+    return byOwner;
 };
 
 const makeAirline = (pubkey: string, lastTick: number): AirlineEntity => ({
@@ -115,6 +131,19 @@ const makeAircraft = (id: string, ownerPubkey: string): AircraftInstance => ({
     condition: 1,
 });
 
+const buildRoutesIndex = (routes: Route[]) => {
+    const byOwner = new Map<string, Route[]>();
+    for (const route of routes) {
+        const bucket = byOwner.get(route.airlinePubkey);
+        if (bucket) {
+            bucket.push(route);
+        } else {
+            byOwner.set(route.airlinePubkey, [route]);
+        }
+    }
+    return byOwner;
+};
+
 describe('processGlobalTick', () => {
     beforeEach(() => {
         mockProcessFlightEngine.mockReset();
@@ -131,7 +160,7 @@ describe('processGlobalTick', () => {
         }));
     });
 
-    it('keeps up-to-date competitor fleet while others catch up', () => {
+    it('keeps up-to-date competitor fleet while others catch up', async () => {
         const tick = 200;
         const behindPubkey = 'comp-behind';
         const currentPubkey = 'comp-current';
@@ -149,10 +178,12 @@ describe('processGlobalTick', () => {
         const { state } = createSliceState({
             competitors,
             globalFleet,
+            globalFleetByOwner: buildFleetIndex(globalFleet),
             globalRoutes: [],
+            globalRoutesByOwner: buildRoutesIndex([]),
         });
 
-        state.processGlobalTick(tick);
+        await state.processGlobalTick(tick);
 
         const ids = state.globalFleet.map(ac => ac.id);
         expect(ids).toContain('ac-behind');
@@ -176,7 +207,9 @@ describe('processGlobalTick', () => {
         const { state } = createSliceState({
             competitors: new Map([[pubkey, newerAirline]]),
             globalFleet: newerFleet,
+            globalFleetByOwner: buildFleetIndex(newerFleet),
             globalRoutes: [],
+            globalRoutesByOwner: buildRoutesIndex([]),
         });
 
         await state.syncWorld();
@@ -212,7 +245,9 @@ describe('processGlobalTick', () => {
         const { state } = createSliceState({
             competitors: new Map(),
             globalFleet: [],
+            globalFleetByOwner: buildFleetIndex([]),
             globalRoutes: [],
+            globalRoutesByOwner: buildRoutesIndex([]),
         });
 
         await state.syncWorld();

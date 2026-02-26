@@ -37,8 +37,8 @@ useEngineStore.subscribe((state) => {
     lastSubscribedTick = state.tick;
 
     const store = useAirlineStore.getState();
-    store.processTick(state.tick);
-    store.processGlobalTick(state.tick);
+    void store.processTick(state.tick);
+    void store.processGlobalTick(state.tick);
 
     // Sync world state every 60 ticks (~3 mins)
     if (state.tick % 60 === 0) {

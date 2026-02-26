@@ -2,8 +2,9 @@ import type { StateCreator } from 'zustand';
 import type { AirlineState } from '../types';
 import { processFlightEngine } from '../FlightEngine';
 import { publishAirline } from '@airtr/nostr';
-import { fpToNumber, fpSub, fp, TICKS_PER_HOUR, GENESIS_TIME, TICK_DURATION } from '@airtr/core';
-import { getHubPricingForIata } from '@airtr/data';
+import { fpAdd, fpScale, fpToNumber, fpSub, fp, TICKS_PER_HOUR, GENESIS_TIME, TICK_DURATION } from '@airtr/core';
+import { getHubPricingForIata, getAircraftById } from '@airtr/data';
+import { useEngineStore } from '../engine';
 
 export interface EngineSlice {
     processTick: (tick: number) => Promise<void>;
@@ -49,11 +50,13 @@ export const createEngineSlice: StateCreator<
         isProcessing = true;
         try {
             // 2. Catch up simulation
-            // Safety cap: Never simulate more than 50,000 ticks (~40 hours) in one frame 
-            // to avoid freezing the browser. If the jump is larger, we will catch up 
+            // Safety cap: Never simulate more than 50,000 ticks (~40 hours) in one frame
+            // to avoid freezing the browser. If the jump is larger, we will catch up
             // incrementally in subsequent frames until synchronized.
             const MAX_CATCHUP = 50000;
+            const CATCHUP_CHUNK = 2000;
             const targetTick = Math.min(tick, lastTick + MAX_CATCHUP);
+            useEngineStore.setState({ catchupProgress: { current: lastTick, target: targetTick, phase: 'player' } });
 
             let currentFleet = [...fleet];
             let currentBalance = airline.corporateBalance;
@@ -64,6 +67,80 @@ export const createEngineSlice: StateCreator<
 
             const ticksPerDay = 24 * TICKS_PER_HOUR;
             const ticksPerMonth = ticksPerDay * 30;
+
+            const hasActiveRoutes = routes.some(route => route.status === 'active');
+            const hasAssignedRoutes = currentFleet.some(ac => !!ac.assignedRouteId);
+            const hasNonIdleAircraft = currentFleet.some(ac => ac.status !== 'idle');
+            const canFastPath = !hasActiveRoutes && !hasAssignedRoutes && !hasNonIdleAircraft;
+
+            if (canFastPath) {
+                const cyclesPrevious = Math.floor(lastTick / ticksPerMonth);
+                const cyclesCurrent = Math.floor(targetTick / ticksPerMonth);
+                if (cyclesCurrent > cyclesPrevious) {
+                    const numCycles = cyclesCurrent - cyclesPrevious;
+                    let opexTotal = 0;
+                    for (const hubIata of currentHubs) {
+                        opexTotal += getHubPricingForIata(hubIata).monthlyOpex;
+                    }
+
+                    let leaseCost = fp(0);
+                    for (const ac of currentFleet) {
+                        if (ac.purchaseType !== 'lease') continue;
+                        const model = getAircraftById(ac.modelId);
+                        if (model) {
+                            leaseCost = fpAdd(leaseCost, model.monthlyLease);
+                        }
+                    }
+
+                    if (leaseCost !== 0 || opexTotal > 0) {
+                        const totalLeaseCost = fpScale(leaseCost, numCycles);
+                        const totalOpexCost = fpScale(fp(opexTotal), numCycles);
+                        const totalCost = fpAdd(totalLeaseCost, totalOpexCost);
+                        currentBalance = fpSub(currentBalance, totalCost);
+
+                        const simulatedTimestamp = GENESIS_TIME + (targetTick * TICK_DURATION);
+                        const newEvent = {
+                            id: `evt-idle-catchup-${targetTick}`,
+                            tick: targetTick,
+                            timestamp: simulatedTimestamp,
+                            type: 'hub_change' as const,
+                            description: `Idle catchup applied ${numCycles} monthly cycle(s) of lease and hub OPEX.`,
+                            cost: totalCost,
+                        };
+                        currentTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
+                        anyChanges = true;
+                    }
+                }
+
+                const updatedAirline = {
+                    ...airline,
+                    corporateBalance: currentBalance,
+                    brandScore: currentBrandScore,
+                    lastTick: targetTick,
+                    timeline: currentTimeline
+                };
+                set({ fleet: currentFleet, airline: updatedAirline, timeline: currentTimeline });
+                if (anyChanges) {
+                    const freshState = get();
+                    const freshAirline = freshState.airline;
+                    if (freshAirline) {
+                        publishAirline({
+                            name: freshAirline.name,
+                            icaoCode: freshAirline.icaoCode,
+                            callsign: freshAirline.callsign,
+                            hubs: freshAirline.hubs,
+                            livery: freshAirline.livery,
+                            corporateBalance: currentBalance,
+                            lastTick: targetTick,
+                            timeline: currentTimeline,
+                            fleet: currentFleet,
+                            routes: freshState.routes,
+                        }).catch(e => console.error('Auto-sync tick failed', e));
+                    }
+                }
+                useEngineStore.setState({ catchupProgress: null });
+                return;
+            }
 
             for (let t = lastTick + 1; t <= targetTick; t++) {
                 const result = processFlightEngine(
@@ -122,6 +199,11 @@ export const createEngineSlice: StateCreator<
                         anyChanges = true;
                     }
                 }
+
+                if (CATCHUP_CHUNK > 0 && (t - lastTick) % CATCHUP_CHUNK === 0 && t < targetTick) {
+                    useEngineStore.setState({ catchupProgress: { current: t, target: targetTick, phase: 'player' } });
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
             }
 
             // 3. Update state - We move lastTick to targetTick (which might be less than global tick)
@@ -156,8 +238,10 @@ export const createEngineSlice: StateCreator<
                     }).catch(e => console.error("Auto-sync tick failed", e));
                 }
             }
+            useEngineStore.setState({ catchupProgress: null });
         } finally {
             isProcessing = false;
+            useEngineStore.setState({ catchupProgress: null });
         }
     },
 });

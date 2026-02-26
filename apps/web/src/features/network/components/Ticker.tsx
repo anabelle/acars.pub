@@ -7,6 +7,7 @@ export function Ticker() {
     const tick = useEngineStore((s) => s.tick);
     const homeAirport = useEngineStore((s) => s.homeAirport);
     const progress = useEngineStore((s) => s.tickProgress);
+    const catchup = useEngineStore((s) => s.catchupProgress);
 
     const {
         competitors,
@@ -77,7 +78,13 @@ export function Ticker() {
             </div>
             <div className="flex items-center space-x-2">
                 <span>Status</span>
-                <span className="text-green-500">Normal Operations</span>
+                {catchup ? (
+                    <span className="text-amber-400">
+                        Catching up ({catchup.phase === 'player' ? 'Your Airline' : 'World'} {Math.min(100, Math.round((catchup.current / Math.max(catchup.target, 1)) * 100))}%)
+                    </span>
+                ) : (
+                    <span className="text-green-500">Normal Operations</span>
+                )}
             </div>
         </div>
     );

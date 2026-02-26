@@ -108,12 +108,27 @@ export const createIdentitySlice: StateCreator<
                     : null
             }));
 
+            const engineTick = useEngineStore.getState().tick;
+            let loadedAirline = existing ? existing.airline : null;
+            if (loadedAirline && (loadedAirline.lastTick == null || loadedAirline.lastTick === 0) && (reconciledFleet.length > 0 || reconciledRoutes.length > 0)) {
+                const fallbackLastTick = Math.max(0, engineTick - 50000);
+                console.warn('[IdentitySlice] lastTick missing, clamping to recent history to avoid excessive catchup', {
+                    pubkey,
+                    engineTick,
+                    fallbackLastTick
+                });
+                loadedAirline = {
+                    ...loadedAirline,
+                    lastTick: fallbackLastTick,
+                };
+            }
+
             set({
                 pubkey,
-                airline: existing ? existing.airline : null,
+                airline: loadedAirline,
                 fleet: reconciledFleet,
                 routes: reconciledRoutes,
-                timeline: existing?.airline?.timeline || [],
+                timeline: loadedAirline?.timeline || [],
                 identityStatus: 'ready',
                 isLoading: false,
             });

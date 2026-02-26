@@ -11,14 +11,45 @@ export interface WorldSlice {
     competitors: Map<string, AirlineEntity>;
     globalRouteRegistry: Map<string, FlightOffer[]>;
     globalFleet: AircraftInstance[];
+    globalFleetByOwner: Map<string, AircraftInstance[]>;
     globalRoutes: Route[];
+    globalRoutesByOwner: Map<string, Route[]>;
     syncWorld: () => Promise<void>;
-    processGlobalTick: (tick: number) => void;
+    processGlobalTick: (tick: number) => Promise<void>;
 }
 
 
 
 let isProcessingGlobal = false;
+const GLOBAL_CATCHUP_CHUNK = 200;
+const MAX_COMPETITOR_CATCHUP = 1000;
+const MAX_TOTAL_COMPETITOR_TICKS = 5000;
+
+const buildFleetIndex = (fleet: AircraftInstance[]) => {
+    const byOwner = new Map<string, AircraftInstance[]>();
+    for (const aircraft of fleet) {
+        const bucket = byOwner.get(aircraft.ownerPubkey);
+        if (bucket) {
+            bucket.push(aircraft);
+        } else {
+            byOwner.set(aircraft.ownerPubkey, [aircraft]);
+        }
+    }
+    return byOwner;
+};
+
+const buildRoutesIndex = (routes: Route[]) => {
+    const byOwner = new Map<string, Route[]>();
+    for (const route of routes) {
+        const bucket = byOwner.get(route.airlinePubkey);
+        if (bucket) {
+            bucket.push(route);
+        } else {
+            byOwner.set(route.airlinePubkey, [route]);
+        }
+    }
+    return byOwner;
+};
 
 export const createWorldSlice: StateCreator<
     AirlineState,
@@ -29,15 +60,17 @@ export const createWorldSlice: StateCreator<
     competitors: new Map(),
     globalRouteRegistry: new Map(),
     globalFleet: [],
+    globalFleetByOwner: new Map(),
     globalRoutes: [],
+    globalRoutesByOwner: new Map(),
 
-    processGlobalTick: (tick: number) => {
+    processGlobalTick: async (tick: number) => {
         if (isProcessingGlobal) return;
 
         const {
             competitors,
-            globalFleet,
-            globalRoutes,
+            globalFleetByOwner,
+            globalRoutesByOwner,
             globalRouteRegistry,
             routes,
             fleet,
@@ -48,10 +81,10 @@ export const createWorldSlice: StateCreator<
 
         isProcessingGlobal = true;
         try {
-            const MAX_CATCHUP = 1000;
             const updatedGlobalFleet: AircraftInstance[] = [];
             const updatedCompetitors = new Map(competitors);
             let anyChanges = false;
+            useEngineStore.setState({ catchupProgress: { current: 0, target: 0, phase: 'competitor' } });
 
             const playerRouteRegistry = new Map<string, FlightOffer[]>();
             const playerBrandScore = playerAirline?.brandScore || 0.5;
@@ -95,11 +128,20 @@ export const createWorldSlice: StateCreator<
 
             const globalRegistryEntries = [...globalRouteRegistry.entries()];
 
-            for (const [competitorPubkey, airline] of competitors) {
-                const airlineLastTick = airline.lastTick ?? (tick - 1);
+            let totalTicksProcessed = 0;
+            const competitorList = [...competitors.entries()];
+            competitorList.sort(([, aAirline], [, bAirline]) => {
+                const aLast = aAirline.lastTick ?? (tick - 1);
+                const bLast = bAirline.lastTick ?? (tick - 1);
+                return (tick - bLast) - (tick - aLast);
+            });
 
-                const compFleet = globalFleet.filter(ac => ac.ownerPubkey === competitorPubkey);
-                const compRoutes = globalRoutes.filter(r => r.airlinePubkey === competitorPubkey);
+            for (const [competitorPubkey, airline] of competitorList) {
+                if (totalTicksProcessed >= MAX_TOTAL_COMPETITOR_TICKS) break;
+
+                const airlineLastTick = airline.lastTick ?? (tick - 1);
+                const compFleet = globalFleetByOwner.get(competitorPubkey) || [];
+                const compRoutes = globalRoutesByOwner.get(competitorPubkey) || [];
 
                 if (compFleet.length === 0) continue;
 
@@ -111,7 +153,9 @@ export const createWorldSlice: StateCreator<
                 let currentFleet = [...compFleet];
                 let currentBalance = airline.corporateBalance;
 
-                const targetTick = Math.min(tick, airlineLastTick + MAX_CATCHUP);
+                const remainingBudget = MAX_TOTAL_COMPETITOR_TICKS - totalTicksProcessed;
+                const allowedCatchup = Math.min(MAX_COMPETITOR_CATCHUP, remainingBudget);
+                const targetTick = Math.min(tick, airlineLastTick + allowedCatchup);
                 const startTick = airlineLastTick + 1;
 
                 const competitorRegistry = new Map<string, FlightOffer[]>();
@@ -137,8 +181,16 @@ export const createWorldSlice: StateCreator<
                     );
                     currentFleet = result.updatedFleet;
                     currentBalance = result.corporateBalance;
+
+                    if (GLOBAL_CATCHUP_CHUNK > 0 && (t - startTick + 1) % GLOBAL_CATCHUP_CHUNK === 0 && t < targetTick) {
+                        useEngineStore.setState({ catchupProgress: { current: totalTicksProcessed + (t - startTick + 1), target: MAX_TOTAL_COMPETITOR_TICKS, phase: 'competitor' } });
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                    }
                 }
 
+                const ticksProcessed = Math.max(0, targetTick - airlineLastTick);
+                totalTicksProcessed += ticksProcessed;
+            
                 updatedGlobalFleet.push(...currentFleet);
                 updatedCompetitors.set(competitorPubkey, {
                     ...airline,
@@ -148,18 +200,25 @@ export const createWorldSlice: StateCreator<
                 anyChanges = true;
             }
 
-            if (!anyChanges) return;
+            if (!anyChanges) {
+                useEngineStore.setState({ catchupProgress: null });
+                return;
+            }
 
             const updatedPubkeys = new Set(updatedCompetitors.keys());
-            const finalFleet = [
-                ...globalFleet.filter(ac => !updatedPubkeys.has(ac.ownerPubkey)),
-                ...updatedGlobalFleet
-            ];
+                const finalFleet = [
+                    ...updatedGlobalFleet,
+                    ...Array.from(globalFleetByOwner.entries())
+                        .filter(([pubkey]) => !updatedPubkeys.has(pubkey))
+                        .flatMap(([, aircraft]) => aircraft)
+                ];
 
             set({
                 globalFleet: finalFleet,
+                globalFleetByOwner: buildFleetIndex(finalFleet),
                 competitors: updatedCompetitors
             });
+            useEngineStore.setState({ catchupProgress: null });
         } finally {
             isProcessingGlobal = false;
         }
@@ -187,10 +246,10 @@ export const createWorldSlice: StateCreator<
                     ? existingCompetitor
                     : airline;
                 const resolvedFleet = existingCompetitor && existingLastTick > parsedLastTick
-                    ? existingState.globalFleet.filter(ac => ac.ownerPubkey === airline.ceoPubkey)
+                    ? (existingState.globalFleetByOwner.get(airline.ceoPubkey) || [])
                     : fleet;
                 const resolvedRoutes = existingCompetitor && existingLastTick > parsedLastTick
-                    ? existingState.globalRoutes.filter(route => route.airlinePubkey === airline.ceoPubkey)
+                    ? (existingState.globalRoutesByOwner.get(airline.ceoPubkey) || [])
                     : routes;
 
                 // Just store as-is; processGlobalTick will catch up incrementally
@@ -290,10 +349,23 @@ export const createWorldSlice: StateCreator<
                 const updatedGlobalFleet: AircraftInstance[] = [];
                 const updatedCompetitors = new Map(competitors);
 
-                for (const [competitorPubkey, airline] of competitors) {
+                let totalTicksProcessed = 0;
+                useEngineStore.setState({ catchupProgress: { current: 0, target: MAX_TOTAL_COMPETITOR_TICKS, phase: 'competitor' } });
+                const competitorList = [...competitors.entries()];
+                competitorList.sort(([, aAirline], [, bAirline]) => {
+                    const aLast = aAirline.lastTick ?? (initialTick - 1);
+                    const bLast = bAirline.lastTick ?? (initialTick - 1);
+                    return (initialTick - bLast) - (initialTick - aLast);
+                });
+
+                const allFleetByOwner = buildFleetIndex(allGlobalFleet);
+                const allRoutesByOwner = buildRoutesIndex(allGlobalRoutes);
+
+                for (const [competitorPubkey, airline] of competitorList) {
+                    if (totalTicksProcessed >= MAX_TOTAL_COMPETITOR_TICKS) break;
                     const airlineLastTick = airline.lastTick ?? (initialTick - 1);
-                    const compFleet = allGlobalFleet.filter(ac => ac.ownerPubkey === competitorPubkey);
-                    const compRoutes = allGlobalRoutes.filter(route => route.airlinePubkey === competitorPubkey);
+                    const compFleet = allFleetByOwner.get(competitorPubkey) || [];
+                    const compRoutes = allRoutesByOwner.get(competitorPubkey) || [];
 
                     if (compFleet.length === 0) continue;
 
@@ -302,7 +374,9 @@ export const createWorldSlice: StateCreator<
                         continue;
                     }
 
-                    const targetTick = Math.min(initialTick, airlineLastTick + MAX_INITIAL_CATCHUP);
+                    const remainingBudget = MAX_TOTAL_COMPETITOR_TICKS - totalTicksProcessed;
+                    const allowedCatchup = Math.min(MAX_INITIAL_CATCHUP, remainingBudget);
+                    const targetTick = Math.min(initialTick, airlineLastTick + allowedCatchup);
                     const competitorRegistry = new Map<string, FlightOffer[]>();
                     for (const [routeKey, offers] of globalRegistryEntries) {
                         const filtered = offers.filter(o => o.airlinePubkey !== competitorPubkey);
@@ -330,7 +404,15 @@ export const createWorldSlice: StateCreator<
                         );
                         currentFleet = result.updatedFleet;
                         currentBalance = result.corporateBalance;
+
+                        if (GLOBAL_CATCHUP_CHUNK > 0 && (t - startTick + 1) % GLOBAL_CATCHUP_CHUNK === 0 && t < targetTick) {
+                            useEngineStore.setState({ catchupProgress: { current: totalTicksProcessed + (t - startTick + 1), target: MAX_TOTAL_COMPETITOR_TICKS, phase: 'competitor' } });
+                            await new Promise(resolve => setTimeout(resolve, 0));
+                        }
                     }
+
+                    const ticksProcessed = Math.max(0, targetTick - airlineLastTick);
+                    totalTicksProcessed += ticksProcessed;
 
                     updatedGlobalFleet.push(...currentFleet);
                     updatedCompetitors.set(competitorPubkey, {
@@ -349,9 +431,12 @@ export const createWorldSlice: StateCreator<
                 set({
                     competitors: updatedCompetitors,
                     globalFleet: finalFleet,
+                    globalFleetByOwner: buildFleetIndex(finalFleet),
                     globalRoutes: allGlobalRoutes,
+                    globalRoutesByOwner: buildRoutesIndex(allGlobalRoutes),
                     globalRouteRegistry: registry
                 });
+                useEngineStore.setState({ catchupProgress: null });
 
                 await settleMarketplaceSales(get, set, finalFleet);
                 return;
@@ -361,8 +446,11 @@ export const createWorldSlice: StateCreator<
                 competitors,
                 globalRouteRegistry: registry,
                 globalFleet: allGlobalFleet,
-                globalRoutes: allGlobalRoutes
+                globalFleetByOwner: buildFleetIndex(allGlobalFleet),
+                globalRoutes: allGlobalRoutes,
+                globalRoutesByOwner: buildRoutesIndex(allGlobalRoutes)
             });
+            useEngineStore.setState({ catchupProgress: null });
 
             // --- Seller-side settlement ---
             // Detect aircraft we listed for sale that now appear in a competitor's fleet.
@@ -373,6 +461,7 @@ export const createWorldSlice: StateCreator<
 
         } catch (error) {
             console.error('[WorldSlice] Failed to sync world:', error);
+            useEngineStore.setState({ catchupProgress: null });
         }
     }
 });
