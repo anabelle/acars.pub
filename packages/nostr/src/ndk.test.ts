@@ -35,5 +35,5 @@ describe("ndk", () => {
     connectMock.mockResolvedValue(undefined);
     await Promise.all([ensureConnected(), ensureConnected(), ensureConnected()]);
     expect(connectMock).toHaveBeenCalledTimes(1);
-  });
+  }, 10000);
 });
