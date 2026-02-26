@@ -1077,3 +1077,158 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
     expect(phaseA).not.toBe(phaseB);
   });
 });
+
+describe("reconcileFleetToTick — delivery aircraft", () => {
+  it("delivered aircraft with assigned route is placed at correct cycle phase", () => {
+    const model = getAircraftById("a320neo")!;
+    const route = makeRoute({
+      id: "route-del1",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-del1"],
+    });
+    const durationTicks = Math.ceil((3000 / model.speedKmh) * TICKS_PER_HOUR);
+    const turnaroundTicks = Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR);
+    const roundTrip = durationTicks * 2 + turnaroundTicks * 2;
+
+    // Aircraft was delivered at tick 1000, route assigned at tick 1200,
+    // but status is still "delivery" (from replay without checkpoint)
+    const aircraft = makeAircraft({
+      id: "ac-del1",
+      assignedRouteId: "route-del1",
+      status: "delivery",
+      deliveryAtTick: 1000,
+      routeAssignedAtTick: 1200,
+      flight: null,
+    });
+
+    const targetTick = 50000;
+    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+
+    // Should NOT remain in delivery — should be placed at some phase
+    expect(result[0].status).not.toBe("delivery");
+    expect(result[0].flight).not.toBeNull();
+
+    // Verify the phase matches cycle computation from routeAssignedAtTick
+    const elapsed = targetTick - 1200;
+    const positionInCycle = ((elapsed % roundTrip) + roundTrip) % roundTrip;
+
+    if (positionInCycle < durationTicks) {
+      expect(result[0].status).toBe("enroute");
+      expect(result[0].flight?.direction).toBe("outbound");
+    } else if (positionInCycle < durationTicks + turnaroundTicks) {
+      expect(result[0].status).toBe("turnaround");
+      expect(result[0].baseAirportIata).toBe("LAX");
+    } else if (positionInCycle < durationTicks * 2 + turnaroundTicks) {
+      expect(result[0].status).toBe("enroute");
+      expect(result[0].flight?.direction).toBe("inbound");
+    } else {
+      expect(result[0].status).toBe("turnaround");
+      expect(result[0].baseAirportIata).toBe("JFK");
+    }
+  });
+
+  it("delivered aircraft without assigned route becomes idle", () => {
+    const aircraft = makeAircraft({
+      id: "ac-del2",
+      assignedRouteId: null,
+      status: "delivery",
+      deliveryAtTick: 1000,
+      flight: null,
+    });
+
+    const result = reconcileFleetToTick([aircraft], [], 50000);
+    expect(result[0].status).toBe("idle");
+    expect(result[0].flight).toBeNull();
+  });
+
+  it("aircraft still in delivery period stays in delivery", () => {
+    const route = makeRoute({
+      id: "route-del3",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-del3"],
+    });
+
+    const aircraft = makeAircraft({
+      id: "ac-del3",
+      assignedRouteId: "route-del3",
+      status: "delivery",
+      deliveryAtTick: 100000, // far in the future
+      flight: null,
+    });
+
+    const result = reconcileFleetToTick([aircraft], [route], 50000);
+    expect(result[0].status).toBe("delivery");
+  });
+
+  it("delivered aircraft uses deliveryAtTick as fallback when routeAssignedAtTick is missing", () => {
+    const model = getAircraftById("a320neo")!;
+    const route = makeRoute({
+      id: "route-del4",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-del4"],
+    });
+    const durationTicks = Math.ceil((3000 / model.speedKmh) * TICKS_PER_HOUR);
+    const turnaroundTicks = Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR);
+    const roundTrip = durationTicks * 2 + turnaroundTicks * 2;
+
+    // No routeAssignedAtTick — should use deliveryAtTick as cycle anchor
+    const aircraft = makeAircraft({
+      id: "ac-del4",
+      assignedRouteId: "route-del4",
+      status: "delivery",
+      deliveryAtTick: 2000,
+      flight: null,
+    });
+
+    const targetTick = 50000;
+    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+
+    expect(result[0].status).not.toBe("delivery");
+
+    // Verify cycle uses deliveryAtTick=2000 as anchor
+    const elapsed = targetTick - 2000;
+    const positionInCycle = ((elapsed % roundTrip) + roundTrip) % roundTrip;
+
+    if (positionInCycle < durationTicks) {
+      expect(result[0].status).toBe("enroute");
+      expect(result[0].flight?.direction).toBe("outbound");
+    } else if (positionInCycle < durationTicks + turnaroundTicks) {
+      expect(result[0].status).toBe("turnaround");
+    } else if (positionInCycle < durationTicks * 2 + turnaroundTicks) {
+      expect(result[0].status).toBe("enroute");
+      expect(result[0].flight?.direction).toBe("inbound");
+    } else {
+      expect(result[0].status).toBe("turnaround");
+    }
+  });
+
+  it("delivered aircraft with route assigned at same tick as delivery is reconciled correctly", () => {
+    const route = makeRoute({
+      id: "route-del5",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-del5"],
+    });
+
+    // Edge case: targetTick equals cycleStartTick — should return idle
+    const aircraft = makeAircraft({
+      id: "ac-del5",
+      assignedRouteId: "route-del5",
+      status: "delivery",
+      deliveryAtTick: 5000,
+      routeAssignedAtTick: 5000,
+      flight: null,
+    });
+
+    // targetTick == cycleStartTick, code does `if (targetTick <= cycleStartTick) return idle`
+    const result = reconcileFleetToTick([aircraft], [route], 5000);
+    expect(result[0].status).toBe("idle");
+  });
+});

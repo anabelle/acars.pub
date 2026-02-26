@@ -572,6 +572,78 @@ export function processFlightEngine(
 }
 
 /**
+ * Given a position within a round-trip cycle, apply the correct flight state
+ * to the aircraft clone.  This is the shared four-phase placement logic used
+ * by all reconciliation paths (idle, delivery, enroute/turnaround fast-forward).
+ */
+function applyCyclePhase(
+  updated: AircraftInstance,
+  route: Route,
+  targetTick: number,
+  positionInCycle: number,
+  durationTicks: number,
+  turnaroundTicks: number,
+): void {
+  if (positionInCycle < durationTicks) {
+    // Phase: outbound enroute
+    const departureTick = targetTick - positionInCycle;
+    updated.status = "enroute";
+    updated.flight = {
+      originIata: route.originIata,
+      destinationIata: route.destinationIata,
+      departureTick,
+      arrivalTick: departureTick + durationTicks,
+      direction: "outbound",
+    };
+    updated.turnaroundEndTick = undefined;
+    updated.arrivalTickProcessed = undefined;
+  } else if (positionInCycle < durationTicks + turnaroundTicks) {
+    // Phase: turnaround after outbound
+    const arrivalTick = targetTick - (positionInCycle - durationTicks);
+    updated.status = "turnaround";
+    updated.baseAirportIata = route.destinationIata;
+    updated.flight = {
+      originIata: route.originIata,
+      destinationIata: route.destinationIata,
+      departureTick: arrivalTick - durationTicks,
+      arrivalTick,
+      direction: "outbound",
+    };
+    updated.turnaroundEndTick = arrivalTick + turnaroundTicks;
+    updated.arrivalTickProcessed = arrivalTick;
+  } else if (positionInCycle < durationTicks * 2 + turnaroundTicks) {
+    // Phase: inbound enroute
+    const inboundStart = durationTicks + turnaroundTicks;
+    const departureTick = targetTick - (positionInCycle - inboundStart);
+    updated.status = "enroute";
+    updated.flight = {
+      originIata: route.destinationIata,
+      destinationIata: route.originIata,
+      departureTick,
+      arrivalTick: departureTick + durationTicks,
+      direction: "inbound",
+    };
+    updated.turnaroundEndTick = undefined;
+    updated.arrivalTickProcessed = undefined;
+  } else {
+    // Phase: turnaround after inbound (back at origin)
+    const inboundArrival = durationTicks * 2 + turnaroundTicks;
+    const arrivalTick = targetTick - (positionInCycle - inboundArrival);
+    updated.status = "turnaround";
+    updated.baseAirportIata = route.originIata;
+    updated.flight = {
+      originIata: route.destinationIata,
+      destinationIata: route.originIata,
+      departureTick: arrivalTick - durationTicks,
+      arrivalTick,
+      direction: "inbound",
+    };
+    updated.turnaroundEndTick = arrivalTick + turnaroundTicks;
+    updated.arrivalTickProcessed = arrivalTick;
+  }
+}
+
+/**
  * Fast-forward an aircraft's flight-cycle position to `targetTick` without
  * running the full engine.  Used when `lastTick` has been clamped forward
  * (e.g. after a long absence) and the fleet snapshot from the checkpoint is
@@ -589,6 +661,16 @@ export function reconcileFleetToTick(
   targetTick: number,
 ): AircraftInstance[] {
   return fleet.map((ac) => {
+    // Handle delivery aircraft that have been delivered but have no route —
+    // they just need to transition to idle.  This must happen before the
+    // route guard below, which would otherwise return them unchanged.
+    if (ac.status === "delivery" && !ac.assignedRouteId) {
+      if (ac.deliveryAtTick != null && ac.deliveryAtTick <= targetTick) {
+        return { ...ac, status: "idle" as const };
+      }
+      return ac;
+    }
+
     // Only reconcile aircraft that are on active routes and have a stale
     // flight state (arrivalTick or turnaroundEndTick in the past).
     const route = ac.assignedRouteId ? routes.find((r) => r.id === ac.assignedRouteId) : null;
@@ -647,68 +729,40 @@ export function reconcileFleetToTick(
       const positionInCycle = ((elapsed % roundTripTicks) + roundTripTicks) % roundTripTicks;
 
       const updated = { ...ac };
-
-      if (positionInCycle < durationTicks) {
-        // Phase: outbound enroute
-        const departureTick = targetTick - positionInCycle;
-        updated.status = "enroute";
-        updated.flight = {
-          originIata: route.originIata,
-          destinationIata: route.destinationIata,
-          departureTick,
-          arrivalTick: departureTick + durationTicks,
-          direction: "outbound",
-        };
-        updated.turnaroundEndTick = undefined;
-        updated.arrivalTickProcessed = undefined;
-      } else if (positionInCycle < durationTicks + turnaroundTicks) {
-        // Phase: turnaround after outbound
-        const arrivalTick = targetTick - (positionInCycle - durationTicks);
-        updated.status = "turnaround";
-        updated.baseAirportIata = route.destinationIata;
-        updated.flight = {
-          originIata: route.originIata,
-          destinationIata: route.destinationIata,
-          departureTick: arrivalTick - durationTicks,
-          arrivalTick,
-          direction: "outbound",
-        };
-        updated.turnaroundEndTick = arrivalTick + turnaroundTicks;
-        updated.arrivalTickProcessed = arrivalTick;
-      } else if (positionInCycle < durationTicks * 2 + turnaroundTicks) {
-        // Phase: inbound enroute
-        const inboundStart = durationTicks + turnaroundTicks;
-        const departureTick = targetTick - (positionInCycle - inboundStart);
-        updated.status = "enroute";
-        updated.flight = {
-          originIata: route.destinationIata,
-          destinationIata: route.originIata,
-          departureTick,
-          arrivalTick: departureTick + durationTicks,
-          direction: "inbound",
-        };
-        updated.turnaroundEndTick = undefined;
-        updated.arrivalTickProcessed = undefined;
-      } else {
-        // Phase: turnaround after inbound (back at origin)
-        const inboundArrival = durationTicks * 2 + turnaroundTicks;
-        const arrivalTick = targetTick - (positionInCycle - inboundArrival);
-        updated.status = "turnaround";
-        updated.baseAirportIata = route.originIata;
-        updated.flight = {
-          originIata: route.destinationIata,
-          destinationIata: route.originIata,
-          departureTick: arrivalTick - durationTicks,
-          arrivalTick,
-          direction: "inbound",
-        };
-        updated.turnaroundEndTick = arrivalTick + turnaroundTicks;
-        updated.arrivalTickProcessed = arrivalTick;
-      }
-
+      applyCyclePhase(updated, route, targetTick, positionInCycle, durationTicks, turnaroundTicks);
       return updated;
+    } else if (ac.status === "delivery") {
+      // Delivery aircraft whose deliveryAtTick is in the past should be
+      // transitioned.  This happens when replaying from scratch (no
+      // checkpoint) — AIRCRAFT_PURCHASE sets status to "delivery" and
+      // reconcileFleetToTick needs to place them correctly.
+      if (ac.deliveryAtTick != null && ac.deliveryAtTick <= targetTick) {
+        // Note: delivery aircraft without an assigned route are already
+        // handled before the route guard at the top of this function.
+        // At this point we know the aircraft has a route.
+        // Compute cycle position from routeAssignedAtTick (or deliveryAtTick as fallback)
+        const cycleStartTick = ac.routeAssignedAtTick ?? ac.deliveryAtTick;
+        if (targetTick <= cycleStartTick) {
+          return { ...ac, status: "idle" };
+        }
+
+        const elapsed = targetTick - cycleStartTick;
+        const positionInCycle = ((elapsed % roundTripTicks) + roundTripTicks) % roundTripTicks;
+        const updated = { ...ac };
+        applyCyclePhase(
+          updated,
+          route,
+          targetTick,
+          positionInCycle,
+          durationTicks,
+          turnaroundTicks,
+        );
+        return updated;
+      }
+      // Still in delivery period — skip
+      return ac;
     } else {
-      // delivery, maintenance — skip
+      // maintenance — skip
       return ac;
     }
 
@@ -728,64 +782,7 @@ export function reconcileFleetToTick(
     const positionInCycle = ((elapsed % roundTripTicks) + roundTripTicks) % roundTripTicks;
 
     const updated = { ...ac };
-
-    if (positionInCycle < durationTicks) {
-      // Phase: outbound enroute
-      const departureTick = targetTick - positionInCycle;
-      updated.status = "enroute";
-      updated.flight = {
-        originIata: route.originIata,
-        destinationIata: route.destinationIata,
-        departureTick,
-        arrivalTick: departureTick + durationTicks,
-        direction: "outbound",
-      };
-      updated.turnaroundEndTick = undefined;
-      updated.arrivalTickProcessed = undefined;
-    } else if (positionInCycle < durationTicks + turnaroundTicks) {
-      // Phase: turnaround after outbound
-      const arrivalTick = targetTick - (positionInCycle - durationTicks);
-      updated.status = "turnaround";
-      updated.baseAirportIata = route.destinationIata;
-      updated.flight = {
-        originIata: route.originIata,
-        destinationIata: route.destinationIata,
-        departureTick: arrivalTick - durationTicks,
-        arrivalTick,
-        direction: "outbound",
-      };
-      updated.turnaroundEndTick = arrivalTick + turnaroundTicks;
-      updated.arrivalTickProcessed = arrivalTick;
-    } else if (positionInCycle < durationTicks * 2 + turnaroundTicks) {
-      // Phase: inbound enroute
-      const inboundStart = durationTicks + turnaroundTicks;
-      const departureTick = targetTick - (positionInCycle - inboundStart);
-      updated.status = "enroute";
-      updated.flight = {
-        originIata: route.destinationIata,
-        destinationIata: route.originIata,
-        departureTick,
-        arrivalTick: departureTick + durationTicks,
-        direction: "inbound",
-      };
-      updated.turnaroundEndTick = undefined;
-      updated.arrivalTickProcessed = undefined;
-    } else {
-      // Phase: turnaround after inbound (back at origin)
-      const inboundArrival = durationTicks * 2 + turnaroundTicks;
-      const arrivalTick = targetTick - (positionInCycle - inboundArrival);
-      updated.status = "turnaround";
-      updated.baseAirportIata = route.originIata;
-      updated.flight = {
-        originIata: route.destinationIata,
-        destinationIata: route.originIata,
-        departureTick: arrivalTick - durationTicks,
-        arrivalTick,
-        direction: "inbound",
-      };
-      updated.turnaroundEndTick = arrivalTick + turnaroundTicks;
-      updated.arrivalTickProcessed = arrivalTick;
-    }
+    applyCyclePhase(updated, route, targetTick, positionInCycle, durationTicks, turnaroundTicks);
 
     return updated;
   });

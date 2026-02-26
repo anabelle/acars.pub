@@ -31,28 +31,63 @@ export function getNDK(): NDK {
 }
 
 /**
+ * Returns the number of currently connected relays.
+ */
+export function connectedRelayCount(): number {
+  const ndk = getNDK();
+  try {
+    return ndk.pool?.connectedRelays()?.length ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Ensures we are connected to at least one relay.
- * Returns a promise that resolves once the connection process is initiated
- * and at least one relay has acknowledged.
+ *
+ * The initial ndk.connect() call is made once; subsequent calls reuse the
+ * same promise.  However, if the initial connect resolved before any relay
+ * actually connected (timeout), later callers would get a resolved promise
+ * while NDK is still connecting in the background.  To handle this, after
+ * the initial connect we poll briefly for a connected relay so that the
+ * first loadActionLog / loadCheckpoint call has a relay available.
  */
 export async function ensureConnected(): Promise<void> {
   const ndk = getNDK();
 
-  if (connectionPromise) return connectionPromise;
+  if (!connectionPromise) {
+    connectionPromise = (async () => {
+      logger.info("Connecting to relays:", DEFAULT_RELAYS.length);
+      try {
+        await ndk.connect(3000);
+        logger.info("Initial connection attempt complete.");
+      } catch {
+        logger.warn(
+          "Connection attempt timed out or failed, but NDK will keep trying in background.",
+        );
+      }
+    })();
+  }
 
-  connectionPromise = (async () => {
-    logger.info("Connecting to relays:", DEFAULT_RELAYS.length);
-    // ndk.connect() attempts to connect to all explicit relays.
-    // It returns a promise that resolves when the first relay connects.
-    try {
-      await ndk.connect(3000);
-      logger.info("Initial connection attempt complete.");
-    } catch {
+  await connectionPromise;
+
+  // If no relay is connected yet, wait up to 5s for at least one.
+  // NDK continues connecting in the background after connect() resolves,
+  // so we poll rather than re-calling connect().
+  if (connectedRelayCount() === 0) {
+    const start = Date.now();
+    const MAX_WAIT = 5000;
+    const POLL_INTERVAL = 250;
+    while (connectedRelayCount() === 0 && Date.now() - start < MAX_WAIT) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+    }
+    const count = connectedRelayCount();
+    if (count > 0) {
+      logger.info(`Relay connected after ${Date.now() - start}ms (${count} relay(s)).`);
+    } else {
       logger.warn(
-        "Connection attempt timed out or failed, but NDK will keep trying in background.",
+        "No relays connected after extended wait. Subscriptions may return empty results.",
       );
     }
-  })();
-
-  return connectionPromise;
+  }
 }
