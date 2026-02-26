@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useAirlineStore, useEngineStore } from '@airtr/store';
 import { fpFormat, fpToNumber, getSuggestedFares, calculateShares, haversineDistance, calculateDemand, getSeason, getProsperityIndex, fpScale, fp, ROUTE_SLOT_FEE, type Airport, type Season, type FixedPoint, type FlightOffer } from '@airtr/core';
 import { airports as ALL_AIRPORTS, HUB_CLASSIFICATIONS } from '@airtr/data';
@@ -89,7 +89,7 @@ export function RouteManager() {
         return { origin: planningOriginAirport, destination: dest, distance, demand, estimatedDailyRevenue, season };
     };
 
-    const buildProspects = (origin: Airport | null): ProspectMarket[] => {
+    const buildProspects = useCallback((origin: Airport | null): ProspectMarket[] => {
         if (!origin) return [];
         const now = new Date();
         const prosperity = getProsperityIndex(tick);
@@ -118,9 +118,9 @@ export function RouteManager() {
             const estimatedDailyRevenue = fpScale(fp(baseFare), totalPax / 7);
             return { origin, destination: dest, distance, demand, estimatedDailyRevenue, season };
         });
-    };
+    }, [tick]);
 
-    const prospectMarkets = useMemo(() => buildProspects(planningOriginAirport), [planningOriginAirport, tick]);
+    const prospectMarkets = useMemo(() => buildProspects(planningOriginAirport), [buildProspects, planningOriginAirport]);
 
     const activeRoutes = useMemo(() => routes.filter(route => route.status === 'active'), [routes]);
     const suspendedRoutes = useMemo(() => routes.filter(route => route.status === 'suspended'), [routes]);

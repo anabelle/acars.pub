@@ -52,7 +52,7 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
     const hubInfo = HUB_CLASSIFICATIONS[airport.iata];
     const hubPricing = getHubPricingForIata(airport.iata);
 
-    const playerHubs = airline?.hubs ?? [];
+    const playerHubs = useMemo(() => airline?.hubs ?? [], [airline?.hubs]);
     const isPlayerHub = playerHubs.includes(airport.iata);
     const isActiveHub = playerHubs[0] === airport.iata;
     const lastHub = playerHubs.length <= 1;
