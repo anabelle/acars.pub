@@ -8,7 +8,7 @@ import { Topbar } from "@/shared/components/layout/Topbar";
 import { AppInitializer } from "../app/AppInitializer";
 
 type RootSearch = {
-  airportTab?: "info" | "departures" | "arrivals";
+  airportTab?: "info" | "flights";
   tab?: "active" | "opportunities";
 };
 
@@ -25,9 +25,7 @@ export const Route = createRootRoute({
   validateSearch: (search: Record<string, unknown>): RootSearch => {
     return {
       airportTab:
-        search.airportTab === "info" ||
-        search.airportTab === "departures" ||
-        search.airportTab === "arrivals"
+        search.airportTab === "info" || search.airportTab === "flights"
           ? search.airportTab
           : undefined,
       tab: search.tab === "active" || search.tab === "opportunities" ? search.tab : undefined,

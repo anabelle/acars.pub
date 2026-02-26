@@ -54,12 +54,9 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
   const setHub = useEngineStore((s) => s.setHub);
 
   // Default to 'info' if no valid tab is in search params
-  const activeTab =
-    search.airportTab === "departures" || search.airportTab === "arrivals"
-      ? search.airportTab
-      : "info";
+  const activeTab = search.airportTab === "flights" ? "flights" : "info";
 
-  const setActiveTab = (newTab: "info" | "departures" | "arrivals") => {
+  const setActiveTab = (newTab: "info" | "flights") => {
     navigate({
       to: window.location.pathname,
       search: (prev: any) => ({
@@ -273,8 +270,7 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
           {(
             [
               { key: "info", label: "Info" },
-              { key: "departures", label: "Departures" },
-              { key: "arrivals", label: "Arrivals" },
+              { key: "flights", label: "Flights" },
             ] as const
           ).map((tab) => (
             <button
@@ -578,11 +574,7 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
             </div>
           </>
         ) : (
-          <FlightBoard
-            airportIata={airport.iata}
-            airportTimezone={airport.timezone}
-            mode={activeTab}
-          />
+          <FlightBoard airportIata={airport.iata} airportTimezone={airport.timezone} />
         )}
       </div>
     </aside>
