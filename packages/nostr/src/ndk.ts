@@ -2,13 +2,13 @@ import NDK from '@nostr-dev-kit/ndk';
 
 const DEFAULT_RELAYS = [
     'wss://relay.damus.io',
-    'wss://relay.snort.social',
     'wss://relay.primal.net',
     'wss://nos.lol',
-    'wss://purplepag.es',
-    'wss://atlas.nostr.land',
+    'wss://relay.snort.social',
     'wss://offchain.pub',
-    'wss://relay.nostr.band', // Moved to end since it was failing in logs
+    'wss://relay.nostr.net',
+    'wss://relay.nos.social',
+    'wss://nostr.land',
 ];
 
 let ndkInstance: NDK | null = null;
