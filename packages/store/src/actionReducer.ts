@@ -146,6 +146,7 @@ export async function replayActionLog(params: {
   const routesById = new Map<string, Route>();
   const timeline: TimelineEvent[] = checkpoint?.timeline ? [...checkpoint.timeline] : [];
   const timelineEventIds = new Set(timeline.map((event) => event.id));
+  const allowActionTimeline = timeline.length === 0;
   let actionChainHash = checkpoint?.actionChainHash ?? "";
 
   if (checkpoint?.fleet) {
@@ -173,6 +174,7 @@ export async function replayActionLog(params: {
       : GENESIS_TIME + tick * TICK_DURATION;
 
   const pushTimelineEvent = (event: TimelineEvent) => {
+    if (!allowActionTimeline && event.id.startsWith("evt-action-")) return;
     if (timelineEventIds.has(event.id)) return;
     timeline.unshift(event);
     timelineEventIds.add(event.id);
