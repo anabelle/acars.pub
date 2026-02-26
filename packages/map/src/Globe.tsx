@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { Airport, AircraftInstance, HubTier, Route } from "@airtr/core";
+import type {
+  Airport,
+  AircraftInstance,
+  HubTier,
+  NightOverlayFeatureCollection,
+  Route,
+} from "@airtr/core";
+import { computeNightOverlay } from "@airtr/core";
 import { HUB_CLASSIFICATIONS } from "@airtr/data";
 
 import { FAMILY_ICONS } from "./icons.js";
@@ -28,6 +35,11 @@ export interface GlobeProps {
   className?: string;
   style?: React.CSSProperties;
 }
+
+const NIGHT_OVERLAY_SOURCE = "night-overlay";
+const NIGHT_CORE_LAYER = "night-core-layer";
+const NIGHT_ASTRO_LAYER = "night-astro-layer";
+const NIGHT_CIVIL_LAYER = "night-civil-layer";
 
 // =============================================================================
 // --- Navigation Helpers (Great Circle Math) ---
@@ -289,6 +301,7 @@ export function Globe({
   // Refs for requestAnimationFrame-based flight animation
   // -------------------------------------------------------------------------
   const rafId = useRef<number>(0);
+  const nightOverlayTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const latestTick = useRef(tick);
   const latestTickProgress = useRef(tickProgress);
   const latestFleet = useRef(fleet);
@@ -440,6 +453,10 @@ export function Globe({
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
+      map.addSource(NIGHT_OVERLAY_SOURCE, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] } as NightOverlayFeatureCollection,
+      });
       map.addSource("flights", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -452,6 +469,37 @@ export function Globe({
       map.addSource("global-arcs", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
+      });
+
+      map.addLayer({
+        id: NIGHT_CIVIL_LAYER,
+        type: "fill",
+        source: NIGHT_OVERLAY_SOURCE,
+        filter: ["==", ["get", "band"], "civil"],
+        paint: {
+          "fill-color": "#0a0a2e",
+          "fill-opacity": 0.12,
+        },
+      });
+      map.addLayer({
+        id: NIGHT_ASTRO_LAYER,
+        type: "fill",
+        source: NIGHT_OVERLAY_SOURCE,
+        filter: ["==", ["get", "band"], "astro"],
+        paint: {
+          "fill-color": "#0a0a2e",
+          "fill-opacity": 0.25,
+        },
+      });
+      map.addLayer({
+        id: NIGHT_CORE_LAYER,
+        type: "fill",
+        source: NIGHT_OVERLAY_SOURCE,
+        filter: ["==", ["get", "band"], "core"],
+        paint: {
+          "fill-color": "#0a0a2e",
+          "fill-opacity": 0.35,
+        },
       });
 
       // Layer: Global Arcs
@@ -1184,6 +1232,16 @@ export function Globe({
     if (!mapLoaded || !mapRef.current) return;
     const map = mapRef.current;
 
+    const updateNightOverlay = () => {
+      const overlay = computeNightOverlay(new Date(), 1);
+      (map.getSource(NIGHT_OVERLAY_SOURCE) as maplibregl.GeoJSONSource | undefined)?.setData(
+        overlay,
+      );
+    };
+
+    updateNightOverlay();
+    nightOverlayTimer.current = setInterval(updateNightOverlay, 60000);
+
     const processFleet = (
       targetFleet: AircraftInstance[],
       currentTick: number,
@@ -1294,6 +1352,10 @@ export function Globe({
 
     return () => {
       isAnimating = false;
+      if (nightOverlayTimer.current) {
+        clearInterval(nightOverlayTimer.current);
+        nightOverlayTimer.current = null;
+      }
       cancelAnimationFrame(rafId.current);
     };
   }, [mapLoaded, airportIndex]);

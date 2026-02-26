@@ -23,6 +23,10 @@ type AirportInfoPanelProps = {
   onClose: () => void;
 };
 
+type AirportSearchParams = {
+  airportTab?: "info" | "flights";
+};
+
 const airportIndex = new Map(AIRPORTS.map((airport) => [airport.iata, airport]));
 
 const numberFormat = new Intl.NumberFormat("en-US");
@@ -59,7 +63,7 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
   const setActiveTab = (newTab: "info" | "flights") => {
     navigate({
       to: window.location.pathname,
-      search: (prev: any) => ({
+      search: (prev: AirportSearchParams) => ({
         ...prev,
         airportTab: newTab === "info" ? undefined : newTab, // omit info to keep url clean
       }),

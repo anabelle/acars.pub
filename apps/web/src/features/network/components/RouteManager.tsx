@@ -154,17 +154,18 @@ export function RouteManager() {
     return homeAirport;
   }, [planningOriginIata, airline?.hubs, airportIndex, homeAirport]);
 
-  const searchResults =
-    searchQuery.length >= 2
-      ? ALL_AIRPORTS.filter(
-          (a) =>
-            a.iata !== planningOriginAirport?.iata &&
-            (a.iata?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              a.icao?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              a.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              a.name?.toLowerCase().includes(searchQuery.toLowerCase())),
-        ).slice(0, 5)
-      : [];
+  const searchResults = useMemo(() => {
+    if (searchQuery.length < 2) return [];
+    const query = searchQuery.toLowerCase();
+    return ALL_AIRPORTS.filter(
+      (airport) =>
+        airport.iata !== planningOriginAirport?.iata &&
+        (airport.iata?.toLowerCase().includes(query) ||
+          airport.icao?.toLowerCase().includes(query) ||
+          airport.city?.toLowerCase().includes(query) ||
+          airport.name?.toLowerCase().includes(query)),
+    ).slice(0, 5);
+  }, [searchQuery, planningOriginAirport?.iata]);
 
   type ProspectMarket = {
     origin: Airport;
@@ -309,7 +310,154 @@ export function RouteManager() {
   const projectedOriginHourly = currentOriginHourlyFlights + nextRouteHourly;
   const canOpenFromOrigin = !originSlotControlled || projectedOriginHourly <= originCapacityPerHour;
 
-  if (!airline || !homeAirport || !planningOriginAirport) return null;
+  const fareData = useMemo(() => {
+    if (!fareEditor) {
+      return {
+        suggestedFares: null,
+        activeFareRoute: null,
+        fareDemandSnapshot: null,
+        fareInputValues: {
+          economy: parseFareInput(fareInputs.e),
+          business: parseFareInput(fareInputs.b),
+          first: parseFareInput(fareInputs.f),
+        },
+        resolvedFareInputs: {
+          economy: 0,
+          business: 0,
+          first: 0,
+        },
+        fareElasticity: null,
+        fareProjection: null,
+      };
+    }
+
+    const suggestedFares = getSuggestedFares(fareEditor.distanceKm);
+    const activeFareRoute = routes.find((route) => route.id === fareEditor.routeId) ?? null;
+    const fareDemandSnapshot = activeFareRoute
+      ? getRouteDemandSnapshot(activeFareRoute, tick, fleet)
+      : null;
+    const fareInputValues = {
+      economy: parseFareInput(fareInputs.e),
+      business: parseFareInput(fareInputs.b),
+      first: parseFareInput(fareInputs.f),
+    };
+    const resolvedFareInputs = {
+      economy:
+        fareInputValues.economy ?? (activeFareRoute ? fpToNumber(activeFareRoute.fareEconomy) : 0),
+      business:
+        fareInputValues.business ??
+        (activeFareRoute ? fpToNumber(activeFareRoute.fareBusiness) : 0),
+      first: fareInputValues.first ?? (activeFareRoute ? fpToNumber(activeFareRoute.fareFirst) : 0),
+    };
+    const fareElasticity = {
+      economy: calculateElasticityDisplay(
+        fp(resolvedFareInputs.economy),
+        suggestedFares.economy,
+        PRICE_ELASTICITY_ECONOMY,
+      ),
+      business: calculateElasticityDisplay(
+        fp(resolvedFareInputs.business),
+        suggestedFares.business,
+        PRICE_ELASTICITY_BUSINESS,
+      ),
+      first: calculateElasticityDisplay(
+        fp(resolvedFareInputs.first),
+        suggestedFares.first,
+        PRICE_ELASTICITY_FIRST,
+      ),
+    };
+
+    let fareProjection: {
+      currentRevenue: FixedPoint;
+      suggestedRevenue: FixedPoint;
+      currentPassengers: number;
+      suggestedPassengers: number;
+      deltaRevenue: number;
+      deltaPassengers: number;
+    } | null = null;
+
+    if (suggestedFares && fareDemandSnapshot && activeFareRoute) {
+      const assignedFleet = activeFareRoute.assignedAircraftIds
+        .map((id) => fleet.find((item) => item.id === id))
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+      if (assignedFleet.length > 0) {
+        const weeklyDemand = fareDemandSnapshot.addressableDemand;
+        const frequency = activeFareRoute.assignedAircraftIds.length * 7;
+        if (frequency > 0) {
+          const pressureMultiplier = fareDemandSnapshot.pressureMultiplier;
+          const currentEconomy = resolvedFareInputs.economy;
+          const currentBusiness = resolvedFareInputs.business;
+          const currentFirst = resolvedFareInputs.first;
+
+          const currentElasticity = {
+            economy: fareElasticity.economy.multiplier,
+            business: fareElasticity.business.multiplier,
+            first: fareElasticity.first.multiplier,
+          };
+
+          const currentPassengers = {
+            economy: Math.floor(
+              (weeklyDemand.economy / frequency) * pressureMultiplier * currentElasticity.economy,
+            ),
+            business: Math.floor(
+              (weeklyDemand.business / frequency) * pressureMultiplier * currentElasticity.business,
+            ),
+            first: Math.floor(
+              (weeklyDemand.first / frequency) * pressureMultiplier * currentElasticity.first,
+            ),
+          };
+
+          const suggestedPassengers = {
+            economy: Math.floor((weeklyDemand.economy / frequency) * pressureMultiplier),
+            business: Math.floor((weeklyDemand.business / frequency) * pressureMultiplier),
+            first: Math.floor((weeklyDemand.first / frequency) * pressureMultiplier),
+          };
+
+          const currentRevenue = fpAdd(
+            fpAdd(
+              fpScale(fp(currentEconomy), currentPassengers.economy),
+              fpScale(fp(currentBusiness), currentPassengers.business),
+            ),
+            fpScale(fp(currentFirst), currentPassengers.first),
+          );
+
+          const suggestedRevenue = fpAdd(
+            fpAdd(
+              fpScale(suggestedFares.economy, suggestedPassengers.economy),
+              fpScale(suggestedFares.business, suggestedPassengers.business),
+            ),
+            fpScale(suggestedFares.first, suggestedPassengers.first),
+          );
+
+          const currentTotalPassengers =
+            currentPassengers.economy + currentPassengers.business + currentPassengers.first;
+          const suggestedTotalPassengers =
+            suggestedPassengers.economy + suggestedPassengers.business + suggestedPassengers.first;
+
+          fareProjection = {
+            currentRevenue,
+            suggestedRevenue,
+            currentPassengers: currentTotalPassengers,
+            suggestedPassengers: suggestedTotalPassengers,
+            deltaRevenue: fpToNumber(currentRevenue) - fpToNumber(suggestedRevenue),
+            deltaPassengers: currentTotalPassengers - suggestedTotalPassengers,
+          };
+        }
+      }
+    }
+
+    return {
+      suggestedFares,
+      activeFareRoute,
+      fareDemandSnapshot,
+      fareInputValues,
+      resolvedFareInputs,
+      fareElasticity,
+      fareProjection,
+    };
+  }, [fareEditor, fareInputs, routes, tick, fleet]);
+
+  const { suggestedFares, fareElasticity, fareProjection } = fareData;
 
   const handleSaveFares = async () => {
     if (!fareEditor) return;
@@ -341,126 +489,7 @@ export function RouteManager() {
     }
   };
 
-  const suggestedFares = fareEditor ? getSuggestedFares(fareEditor.distanceKm) : null;
-  const activeFareRoute = fareEditor
-    ? (routes.find((route) => route.id === fareEditor.routeId) ?? null)
-    : null;
-  const fareDemandSnapshot = useMemo(() => {
-    if (!activeFareRoute) return null;
-    return getRouteDemandSnapshot(activeFareRoute, tick, fleet);
-  }, [activeFareRoute, tick, fleet]);
-  const fareInputValues = {
-    economy: parseFareInput(fareInputs.e),
-    business: parseFareInput(fareInputs.b),
-    first: parseFareInput(fareInputs.f),
-  };
-  const resolvedFareInputs = {
-    economy:
-      fareInputValues.economy ?? (activeFareRoute ? fpToNumber(activeFareRoute.fareEconomy) : 0),
-    business:
-      fareInputValues.business ?? (activeFareRoute ? fpToNumber(activeFareRoute.fareBusiness) : 0),
-    first: fareInputValues.first ?? (activeFareRoute ? fpToNumber(activeFareRoute.fareFirst) : 0),
-  };
-  const fareElasticity = suggestedFares
-    ? {
-        economy: calculateElasticityDisplay(
-          fp(resolvedFareInputs.economy),
-          suggestedFares.economy,
-          PRICE_ELASTICITY_ECONOMY,
-        ),
-        business: calculateElasticityDisplay(
-          fp(resolvedFareInputs.business),
-          suggestedFares.business,
-          PRICE_ELASTICITY_BUSINESS,
-        ),
-        first: calculateElasticityDisplay(
-          fp(resolvedFareInputs.first),
-          suggestedFares.first,
-          PRICE_ELASTICITY_FIRST,
-        ),
-      }
-    : null;
-  const fareProjection = useMemo(() => {
-    if (!suggestedFares || !fareDemandSnapshot || !activeFareRoute) return null;
-    const assignedFleet = activeFareRoute.assignedAircraftIds
-      .map((id) => fleet.find((item) => item.id === id))
-      .filter((item): item is NonNullable<typeof item> => Boolean(item));
-    if (assignedFleet.length === 0) return null;
-
-    const weeklyDemand = fareDemandSnapshot.addressableDemand;
-    const frequency = activeFareRoute.assignedAircraftIds.length * 7;
-    if (frequency <= 0) return null;
-
-    const pressureMultiplier = fareDemandSnapshot.pressureMultiplier;
-    const currentEconomy = resolvedFareInputs.economy;
-    const currentBusiness = resolvedFareInputs.business;
-    const currentFirst = resolvedFareInputs.first;
-
-    const currentElasticity = fareElasticity
-      ? {
-          economy: fareElasticity.economy.multiplier,
-          business: fareElasticity.business.multiplier,
-          first: fareElasticity.first.multiplier,
-        }
-      : { economy: 1, business: 1, first: 1 };
-
-    const currentPassengers = {
-      economy: Math.floor(
-        (weeklyDemand.economy / frequency) * pressureMultiplier * currentElasticity.economy,
-      ),
-      business: Math.floor(
-        (weeklyDemand.business / frequency) * pressureMultiplier * currentElasticity.business,
-      ),
-      first: Math.floor(
-        (weeklyDemand.first / frequency) * pressureMultiplier * currentElasticity.first,
-      ),
-    };
-
-    const suggestedPassengers = {
-      economy: Math.floor((weeklyDemand.economy / frequency) * pressureMultiplier),
-      business: Math.floor((weeklyDemand.business / frequency) * pressureMultiplier),
-      first: Math.floor((weeklyDemand.first / frequency) * pressureMultiplier),
-    };
-
-    const currentRevenue = fpAdd(
-      fpAdd(
-        fpScale(fp(currentEconomy), currentPassengers.economy),
-        fpScale(fp(currentBusiness), currentPassengers.business),
-      ),
-      fpScale(fp(currentFirst), currentPassengers.first),
-    );
-
-    const suggestedRevenue = fpAdd(
-      fpAdd(
-        fpScale(suggestedFares.economy, suggestedPassengers.economy),
-        fpScale(suggestedFares.business, suggestedPassengers.business),
-      ),
-      fpScale(suggestedFares.first, suggestedPassengers.first),
-    );
-
-    const currentTotalPassengers =
-      currentPassengers.economy + currentPassengers.business + currentPassengers.first;
-    const suggestedTotalPassengers =
-      suggestedPassengers.economy + suggestedPassengers.business + suggestedPassengers.first;
-
-    return {
-      currentRevenue,
-      suggestedRevenue,
-      currentPassengers: currentTotalPassengers,
-      suggestedPassengers: suggestedTotalPassengers,
-      deltaRevenue: fpToNumber(currentRevenue) - fpToNumber(suggestedRevenue),
-      deltaPassengers: currentTotalPassengers - suggestedTotalPassengers,
-    };
-  }, [
-    suggestedFares,
-    fareDemandSnapshot,
-    activeFareRoute,
-    fleet,
-    fareElasticity,
-    resolvedFareInputs.economy,
-    resolvedFareInputs.business,
-    resolvedFareInputs.first,
-  ]);
+  if (!airline || !homeAirport || !planningOriginAirport) return null;
 
   return (
     <div className="flex h-full w-full flex-col p-6 overflow-hidden">

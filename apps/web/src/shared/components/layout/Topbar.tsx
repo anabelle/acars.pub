@@ -5,16 +5,15 @@ import { useMemo } from "react";
 export function Topbar() {
   const { airline } = useAirlineStore();
   const timeline = useAirlineStore((state) => state.timeline);
-  const safeTimeline = Array.isArray(timeline) ? timeline : [];
-
   const avgLoadFactor = useMemo(() => {
+    const safeTimeline = Array.isArray(timeline) ? timeline : [];
     const landings = safeTimeline
       .filter((event) => event.type === "landing" && event.details?.loadFactor !== undefined)
       .slice(0, 20);
     if (landings.length === 0) return 0;
     const sum = landings.reduce((total, event) => total + (event.details?.loadFactor ?? 0), 0);
     return sum / landings.length;
-  }, [safeTimeline]);
+  }, [timeline]);
 
   if (!airline) return null;
 
