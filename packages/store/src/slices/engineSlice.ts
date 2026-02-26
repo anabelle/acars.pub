@@ -280,6 +280,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
 
       const simulatedTimestamp = GENESIS_TIME + targetTick * TICK_DURATION;
       const deliveryEvents: typeof currentTimeline = [];
+      const recoveryEvents: typeof currentTimeline = [];
       for (const ac of currentFleet) {
         if (ac.status !== "delivery") continue;
         if (ac.deliveryAtTick == null || ac.deliveryAtTick > targetTick) continue;
@@ -298,6 +299,124 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
 
       if (deliveryEvents.length > 0) {
         const newEvents = deliveryEvents.filter((e) => !timelineEventIds.has(e.id));
+        if (newEvents.length > 0) {
+          currentTimeline = [...newEvents, ...currentTimeline].slice(0, 1000);
+          timelineEventIds.clear();
+          for (const event of currentTimeline) timelineEventIds.add(event.id);
+        }
+      }
+
+      for (const ac of currentFleet) {
+        if (ac.status === "idle" && ac.assignedRouteId) {
+          const route = routes.find((r) => r.id === ac.assignedRouteId);
+          const model = getAircraftById(ac.modelId);
+          if (!route || route.status !== "active" || !model) continue;
+          const isGrounded = ac.condition < 0.2 || ac.flightHoursSinceCheck > 600;
+          if (isGrounded) continue;
+          if (route.distanceKm > (model.rangeKm || 0)) continue;
+
+          const hours = route.distanceKm / (model.speedKmh || 800);
+          const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
+
+          ac.status = "enroute";
+          ac.flight = {
+            originIata: route.originIata,
+            destinationIata: route.destinationIata,
+            departureTick: targetTick,
+            arrivalTick: targetTick + Math.max(1, durationTicks),
+            direction: "outbound",
+          };
+          ac.arrivalTickProcessed = undefined;
+          ac.turnaroundEndTick = undefined;
+          anyChanges = true;
+          recoveryEvents.push({
+            id: `evt-recovery-takeoff-${ac.id}-${targetTick}`,
+            tick: targetTick,
+            timestamp: simulatedTimestamp,
+            type: "takeoff",
+            aircraftId: ac.id,
+            aircraftName: ac.name,
+            routeId: route.id,
+            originIata: route.originIata,
+            destinationIata: route.destinationIata,
+            description: `${ac.name} recovery takeoff: ${route.originIata} → ${route.destinationIata}`,
+          });
+        }
+
+        if (ac.status === "enroute" && ac.flight && ac.flight.arrivalTick <= targetTick) {
+          const model = getAircraftById(ac.modelId);
+          if (!model) continue;
+          const turnaroundTicks = Math.max(
+            1,
+            Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR),
+          );
+          ac.status = "turnaround";
+          ac.baseAirportIata = ac.flight.destinationIata;
+          ac.arrivalTickProcessed = ac.flight.arrivalTick;
+          ac.turnaroundEndTick = targetTick + turnaroundTicks;
+          anyChanges = true;
+          recoveryEvents.push({
+            id: `evt-recovery-landing-${ac.id}-${targetTick}`,
+            tick: targetTick,
+            timestamp: simulatedTimestamp,
+            type: "landing",
+            aircraftId: ac.id,
+            aircraftName: ac.name,
+            originIata: ac.flight.originIata,
+            destinationIata: ac.flight.destinationIata,
+            description: `${ac.name} recovery landing at ${ac.flight.destinationIata}.`,
+          });
+        }
+
+        if (ac.status === "turnaround" && (ac.turnaroundEndTick || 0) <= targetTick) {
+          const route = routes.find((r) => r.id === ac.assignedRouteId);
+          const model = getAircraftById(ac.modelId);
+          if (route && ac.flight && model) {
+            const hours = route.distanceKm / (model.speedKmh || 800);
+            const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
+            const isReturning = ac.flight.direction === "outbound";
+
+            ac.status = "enroute";
+            ac.arrivalTickProcessed = undefined;
+            ac.flight = {
+              originIata: isReturning ? route.destinationIata : route.originIata,
+              destinationIata: isReturning ? route.originIata : route.destinationIata,
+              departureTick: targetTick,
+              arrivalTick: targetTick + Math.max(1, durationTicks),
+              direction: isReturning ? "inbound" : "outbound",
+            };
+            anyChanges = true;
+            recoveryEvents.push({
+              id: `evt-recovery-takeoff-rtn-${ac.id}-${targetTick}`,
+              tick: targetTick,
+              timestamp: simulatedTimestamp,
+              type: "takeoff",
+              aircraftId: ac.id,
+              aircraftName: ac.name,
+              routeId: route.id,
+              originIata: ac.flight.originIata,
+              destinationIata: ac.flight.destinationIata,
+              description: `${ac.name} recovery return: ${ac.flight.originIata} → ${ac.flight.destinationIata}`,
+            });
+          } else {
+            ac.status = "idle";
+            ac.flight = null;
+            anyChanges = true;
+            recoveryEvents.push({
+              id: `evt-recovery-idle-${ac.id}-${targetTick}`,
+              tick: targetTick,
+              timestamp: simulatedTimestamp,
+              type: "maintenance",
+              aircraftId: ac.id,
+              aircraftName: ac.name,
+              description: `${ac.name} recovery transition to idle (route missing).`,
+            });
+          }
+        }
+      }
+
+      if (recoveryEvents.length > 0) {
+        const newEvents = recoveryEvents.filter((e) => !timelineEventIds.has(e.id));
         if (newEvents.length > 0) {
           currentTimeline = [...newEvents, ...currentTimeline].slice(0, 1000);
           timelineEventIds.clear();
