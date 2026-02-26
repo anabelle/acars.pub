@@ -189,6 +189,39 @@ describe('buildFlightBoardRows', () => {
         expect(rows[0].otherIata).toBe('MDE');
     });
 
+    it('uses the active arrival tick for enroute arrivals', () => {
+        const airline = makeAirline();
+        const fleet = [
+            makeAircraft({
+                id: 'ac-7',
+                status: 'enroute',
+                baseAirportIata: 'MDE',
+                flight: {
+                    originIata: 'MDE',
+                    destinationIata: 'BOG',
+                    departureTick: 300,
+                    arrivalTick: 480,
+                    direction: 'outbound',
+                },
+                arrivalTickProcessed: 200,
+            }),
+        ];
+
+        const rows = buildFlightBoardRows({
+            airportIata: 'BOG',
+            airportTimezone: 'America/Bogota',
+            mode: 'arrivals',
+            fleet,
+            globalFleet: [],
+            airline,
+            competitors: new Map(),
+            tick: 320,
+        });
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0].timeSort).toBe(480);
+    });
+
     it('moves turnaround flights to departures after midpoint', () => {
         const airline = makeAirline();
         const fleet = [
@@ -234,5 +267,6 @@ describe('buildFlightBoardRows', () => {
 
         expect(departuresLate).toHaveLength(1);
         expect(departuresLate[0].status).toBe('Boarding');
+        expect(departuresLate[0].otherIata).toBe('MDE');
     });
 });

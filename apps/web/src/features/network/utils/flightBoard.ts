@@ -80,23 +80,47 @@ function getStatusTone(status: string): FlightRow['statusTone'] {
 function getTimeLabel(
     aircraft: AircraftInstance,
     mode: FlightBoardMode,
-    airportTimezone: string
+    airportTimezone: string,
+    tick: number
 ) {
     const flight = aircraft.flight;
-    if (flight) {
+    if (!flight) return '--:--';
+
+    if (aircraft.status === 'turnaround' && mode === 'departures') {
+        const departureTick = aircraft.turnaroundEndTick ?? flight.departureTick ?? tick;
+        return formatTickTime(departureTick, airportTimezone);
+    }
+
+    if (aircraft.status === 'enroute') {
         const targetTick = mode === 'arrivals' ? flight.arrivalTick : flight.departureTick;
         return formatTickTime(targetTick, airportTimezone);
     }
-    return '--:--';
+
+    const targetTick = mode === 'arrivals'
+        ? (aircraft.arrivalTickProcessed ?? flight.arrivalTick)
+        : flight.departureTick;
+    return formatTickTime(targetTick, airportTimezone);
 }
 
 function getTimeSort(
     aircraft: AircraftInstance,
-    mode: FlightBoardMode
+    mode: FlightBoardMode,
+    tick: number
 ) {
     const flight = aircraft.flight;
-    if (flight) return mode === 'arrivals' ? flight.arrivalTick : flight.departureTick;
-    return Number.MAX_SAFE_INTEGER;
+    if (!flight) return Number.MAX_SAFE_INTEGER;
+
+    if (aircraft.status === 'turnaround' && mode === 'departures') {
+        return aircraft.turnaroundEndTick ?? flight.departureTick ?? tick;
+    }
+
+    if (aircraft.status === 'enroute') {
+        return mode === 'arrivals' ? flight.arrivalTick : flight.departureTick;
+    }
+
+    return mode === 'arrivals'
+        ? (aircraft.arrivalTickProcessed ?? flight.arrivalTick)
+        : flight.departureTick;
 }
 
 function getOtherIata(
@@ -105,7 +129,16 @@ function getOtherIata(
 ) {
     const flight = aircraft.flight;
     if (!flight) return '--';
-    return mode === 'arrivals' ? flight.originIata : flight.destinationIata;
+
+    if (aircraft.status === 'turnaround') {
+        return flight.originIata;
+    }
+
+    if (aircraft.status === 'enroute') {
+        return mode === 'arrivals' ? flight.originIata : flight.destinationIata;
+    }
+
+    return mode === 'arrivals' ? flight.originIata : (flight.destinationIata ?? '--');
 }
 
 function getFlightSeed(aircraft: AircraftInstance) {
@@ -179,8 +212,8 @@ export function buildFlightBoardRows({
             airlineColor,
             otherIata: getOtherIata(aircraft, mode),
             aircraft: aircraftLabel,
-            timeLabel: getTimeLabel(aircraft, mode, airportTimezone),
-            timeSort: getTimeSort(aircraft, mode),
+            timeLabel: getTimeLabel(aircraft, mode, airportTimezone, tick),
+            timeSort: getTimeSort(aircraft, mode, tick),
         });
     }
 

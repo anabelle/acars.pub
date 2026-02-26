@@ -433,6 +433,7 @@ export function processFlightEngine(
                 const isReturning = ac.flight.direction === 'outbound';
 
                 ac.status = 'enroute';
+                ac.arrivalTickProcessed = undefined;
                 ac.flight = {
                     originIata: isReturning ? route.destinationIata : route.originIata,
                     destinationIata: isReturning ? route.originIata : route.destinationIata,
