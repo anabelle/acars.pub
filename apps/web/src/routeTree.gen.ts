@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as NetworkRouteImport } from './routes/network'
-import { Route as MapRouteImport } from './routes/map'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as CorporateRouteImport } from './routes/corporate'
@@ -19,11 +18,6 @@ import { Route as IndexRouteImport } from './routes/index'
 const NetworkRoute = NetworkRouteImport.update({
   id: '/network',
   path: '/network',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MapRoute = MapRouteImport.update({
-  id: '/map',
-  path: '/map',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LeaderboardRoute = LeaderboardRouteImport.update({
@@ -52,7 +46,6 @@ export interface FileRoutesByFullPath {
   '/corporate': typeof CorporateRoute
   '/fleet': typeof FleetRoute
   '/leaderboard': typeof LeaderboardRoute
-  '/map': typeof MapRoute
   '/network': typeof NetworkRoute
 }
 export interface FileRoutesByTo {
@@ -60,7 +53,6 @@ export interface FileRoutesByTo {
   '/corporate': typeof CorporateRoute
   '/fleet': typeof FleetRoute
   '/leaderboard': typeof LeaderboardRoute
-  '/map': typeof MapRoute
   '/network': typeof NetworkRoute
 }
 export interface FileRoutesById {
@@ -69,28 +61,14 @@ export interface FileRoutesById {
   '/corporate': typeof CorporateRoute
   '/fleet': typeof FleetRoute
   '/leaderboard': typeof LeaderboardRoute
-  '/map': typeof MapRoute
   '/network': typeof NetworkRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/corporate'
-    | '/fleet'
-    | '/leaderboard'
-    | '/map'
-    | '/network'
+  fullPaths: '/' | '/corporate' | '/fleet' | '/leaderboard' | '/network'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/corporate' | '/fleet' | '/leaderboard' | '/map' | '/network'
-  id:
-    | '__root__'
-    | '/'
-    | '/corporate'
-    | '/fleet'
-    | '/leaderboard'
-    | '/map'
-    | '/network'
+  to: '/' | '/corporate' | '/fleet' | '/leaderboard' | '/network'
+  id: '__root__' | '/' | '/corporate' | '/fleet' | '/leaderboard' | '/network'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -98,7 +76,6 @@ export interface RootRouteChildren {
   CorporateRoute: typeof CorporateRoute
   FleetRoute: typeof FleetRoute
   LeaderboardRoute: typeof LeaderboardRoute
-  MapRoute: typeof MapRoute
   NetworkRoute: typeof NetworkRoute
 }
 
@@ -109,13 +86,6 @@ declare module '@tanstack/react-router' {
       path: '/network'
       fullPath: '/network'
       preLoaderRoute: typeof NetworkRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/map': {
-      id: '/map'
-      path: '/map'
-      fullPath: '/map'
-      preLoaderRoute: typeof MapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/leaderboard': {
@@ -154,7 +124,6 @@ const rootRouteChildren: RootRouteChildren = {
   CorporateRoute: CorporateRoute,
   FleetRoute: FleetRoute,
   LeaderboardRoute: LeaderboardRoute,
-  MapRoute: MapRoute,
   NetworkRoute: NetworkRoute,
 }
 export const routeTree = rootRouteImport

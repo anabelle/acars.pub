@@ -1,22 +1,22 @@
-import React from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { fpFormat, TICK_DURATION, TICKS_PER_HOUR, type TimelineEvent } from "@airtr/core";
 import { useAirlineStore, useEngineStore } from "@airtr/store";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
-  PlaneTakeoff,
-  PlaneLanding,
-  ShoppingBag,
+  ArrowRight,
+  Clock,
   DollarSign,
   Hammer,
-  Package,
-  ArrowRight,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  Users,
-  UserMinus,
   MapPin,
+  Package,
+  PlaneLanding,
+  PlaneTakeoff,
+  ShoppingBag,
+  TrendingDown,
+  TrendingUp,
+  UserMinus,
+  Users,
 } from "lucide-react";
-import { fpFormat, TimelineEvent, TICK_DURATION, TICKS_PER_HOUR } from "@airtr/core";
+import React from "react";
 
 const EventIcon = ({ type }: { type: TimelineEvent["type"] }) => {
   switch (type) {
@@ -63,7 +63,7 @@ const EventCard = ({ event }: { event: TimelineEvent }) => {
   };
 
   return (
-    <div className="relative flex flex-col p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group">
+    <div className="relative flex flex-col p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] hover:border-white/[0.1] transition-colors group">
       <div className="flex items-start gap-4">
         {/* Icon Node */}
         <div className="relative z-10 flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-black border border-white/10 group-hover:scale-110 transition-transform">
@@ -117,8 +117,9 @@ const EventCard = ({ event }: { event: TimelineEvent }) => {
 
               {hasDetails && (
                 <button
+                  type="button"
                   onClick={() => setIsExpanded(!isExpanded)}
-                  className="ml-auto text-[10px] font-bold uppercase tracking-widest text-primary hover:text-primary-light transition-colors"
+                  className="ml-auto text-[10px] font-bold uppercase tracking-widest text-primary hover:text-primary-light transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                 >
                   {isExpanded ? "Hide Details" : "View Breakdown"}
                 </button>
@@ -151,7 +152,7 @@ const EventCard = ({ event }: { event: TimelineEvent }) => {
               </div>
               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-3">
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${
+                  className={`h-full rounded-full transition-[width] duration-500 ${
                     (event.details.loadFactor ?? 0) >= 0.85
                       ? "bg-emerald-500"
                       : (event.details.loadFactor ?? 0) >= 0.6

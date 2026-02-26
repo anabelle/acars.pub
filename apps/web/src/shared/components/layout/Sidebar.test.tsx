@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "./Sidebar";
 
 vi.mock("@tanstack/react-router", () => {
@@ -12,11 +12,10 @@ vi.mock("@tanstack/react-router", () => {
 describe("Sidebar", () => {
   it("renders navigation items", () => {
     render(<Sidebar />);
-    expect(screen.getByText("Overview")).toBeInTheDocument();
+    expect(screen.getByText("Map")).toBeInTheDocument();
     expect(screen.getByText("Fleet")).toBeInTheDocument();
     expect(screen.getByText("Network")).toBeInTheDocument();
     expect(screen.getByText("Leaderboard")).toBeInTheDocument();
-    expect(screen.getByText("Map")).toBeInTheDocument();
     expect(screen.getByText("Corporate")).toBeInTheDocument();
   });
 });

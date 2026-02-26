@@ -1,5 +1,5 @@
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
 import { PanelLayout } from "./PanelLayout";
 
 const mockNavigate = vi.fn();
@@ -22,6 +22,6 @@ describe("PanelLayout", () => {
 
     const button = screen.getByTitle("Close Panel (View Map)");
     fireEvent.click(button);
-    expect(mockNavigate).toHaveBeenCalledWith({ to: "/map" });
+    expect(mockNavigate).toHaveBeenCalledWith({ to: "/" });
   });
 });
