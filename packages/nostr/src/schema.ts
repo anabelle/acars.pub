@@ -1,4 +1,5 @@
 import { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
+import type { NDKKind } from "@nostr-dev-kit/ndk";
 import { getNDK, ensureConnected } from "./ndk.js";
 import { createLogger } from "@airtr/core";
 import { type AirlineEntity, type FixedPoint, fp, fpRaw, FP_ZERO } from "@airtr/core";
@@ -179,7 +180,7 @@ async function publishAirlineNow(airline: AirlineConfig): Promise<NDKEvent> {
 /**
  * Kind for used aircraft listings.
  */
-export const MARKETPLACE_KIND = 30079;
+export const MARKETPLACE_KIND: NDKKind = 30079 as NDKKind;
 export const MARKETPLACE_D_PREFIX = `airtr:world:${WORLD_ID}:marketplace:`;
 
 /**
@@ -229,9 +230,7 @@ export async function publishAirline(airline: AirlineConfig): Promise<NDKEvent> 
 /**
  * Tries to fetch an existing airline configuration for the given pubkey.
  */
-export async function loadAirline(
-  pubkey: string,
-): Promise<{
+export async function loadAirline(pubkey: string): Promise<{
   airline: AirlineEntity;
   fleet: import("@airtr/core").AircraftInstance[];
   routes: import("@airtr/core").Route[];

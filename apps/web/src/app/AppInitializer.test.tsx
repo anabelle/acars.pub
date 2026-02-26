@@ -73,6 +73,8 @@ describe("AppInitializer", () => {
 
     (navigator as unknown as { geolocation?: Geolocation }).geolocation = {
       getCurrentPosition: vi.fn(),
+      clearWatch: vi.fn(),
+      watchPosition: vi.fn(),
     } as Geolocation;
 
     render(

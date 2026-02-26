@@ -14,7 +14,6 @@ export interface GlobeProps {
   selectedAirport: Airport | null;
   onAirportSelect: (airport: Airport | null) => void;
   onMapClick?: () => void;
-  fleetBaseCounts?: Record<string, number>;
   groundPresence?: Record<string, { color: string; count: number; isPlayer?: boolean }[]>;
   fleet?: AircraftInstance[];
   globalFleet?: AircraftInstance[];
@@ -223,7 +222,6 @@ export function Globe({
   airports,
   selectedAirport,
   onAirportSelect,
-  fleetBaseCounts,
   groundPresence,
   fleet = [],
   globalFleet = [],
@@ -637,30 +635,6 @@ export function Globe({
         },
       });
 
-      // Layer: Fleet Parked
-      map.addLayer({
-        id: "fleet-layer",
-        type: "symbol",
-        source: "airports",
-        filter: [">", ["get", "fleetCount"], 0],
-        layout: {
-          "icon-image": "airplane-icon",
-          "icon-size": 0.7,
-          "icon-allow-overlap": true,
-          "text-field": "{fleetCount}",
-          "text-size": 11,
-          "text-anchor": "top",
-          "text-offset": [0, 0.4],
-          "text-allow-overlap": true,
-        },
-        paint: {
-          "icon-color": "#4ade80",
-          "text-halo-color": "#000000",
-          "text-halo-width": 2,
-          "text-color": "#4ade80",
-        },
-      });
-
       // Layer: Global Flights (body — primary color)
       map.addLayer({
         id: "global-flights-layer",
@@ -696,7 +670,19 @@ export function Globe({
             "airplane-b747",
             "airplane-a320",
           ],
-          "icon-size": ["get", "sizeScale"],
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            2,
+            ["*", ["get", "sizeScale"], 0.15],
+            5,
+            ["*", ["get", "sizeScale"], 0.4],
+            8,
+            ["*", ["get", "sizeScale"], 0.7],
+            12,
+            ["*", ["get", "sizeScale"], 1.0],
+          ],
           "icon-rotate": ["get", "bearing"],
           "icon-rotation-alignment": "map",
           "icon-allow-overlap": true,
@@ -744,7 +730,19 @@ export function Globe({
             "airplane-b747-accent",
             "airplane-a320-accent",
           ],
-          "icon-size": ["get", "sizeScale"],
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            2,
+            ["*", ["get", "sizeScale"], 0.15],
+            5,
+            ["*", ["get", "sizeScale"], 0.4],
+            8,
+            ["*", ["get", "sizeScale"], 0.7],
+            12,
+            ["*", ["get", "sizeScale"], 1.0],
+          ],
           "icon-rotate": ["get", "bearing"],
           "icon-rotation-alignment": "map",
           "icon-allow-overlap": true,
@@ -792,7 +790,19 @@ export function Globe({
             "airplane-b747",
             "airplane-a320",
           ],
-          "icon-size": ["get", "sizeScale"],
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            2,
+            ["*", ["get", "sizeScale"], 0.15],
+            5,
+            ["*", ["get", "sizeScale"], 0.4],
+            8,
+            ["*", ["get", "sizeScale"], 0.7],
+            12,
+            ["*", ["get", "sizeScale"], 1.0],
+          ],
           "icon-rotate": ["get", "bearing"],
           "icon-rotation-alignment": "map",
           "icon-allow-overlap": true,
@@ -839,7 +849,19 @@ export function Globe({
             "airplane-b747-accent",
             "airplane-a320-accent",
           ],
-          "icon-size": ["get", "sizeScale"],
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            2,
+            ["*", ["get", "sizeScale"], 0.15],
+            5,
+            ["*", ["get", "sizeScale"], 0.4],
+            8,
+            ["*", ["get", "sizeScale"], 0.7],
+            12,
+            ["*", ["get", "sizeScale"], 1.0],
+          ],
           "icon-rotate": ["get", "bearing"],
           "icon-rotation-alignment": "map",
           "icon-allow-overlap": true,
@@ -962,7 +984,6 @@ export function Globe({
           geometry: { type: "Point", coordinates: [a.longitude, a.latitude] },
           properties: {
             ...a,
-            fleetCount: fleetBaseCounts?.[a.iata] || 0,
             groundPresenceCount: presenceSegments.reduce((sum, segment) => sum + segment.count, 0),
             groundPresenceIcon: presenceKey,
             ...classification,
@@ -1044,7 +1065,6 @@ export function Globe({
   }, [
     airports,
     mapLoaded,
-    fleetBaseCounts,
     fleet,
     globalRoutes,
     airportIndex,
