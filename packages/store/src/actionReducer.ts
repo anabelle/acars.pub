@@ -344,6 +344,15 @@ export async function replayActionLog(params: {
         const aircraft = fleetById.get(aircraftId);
         const route = routesById.get(routeId);
         if (!aircraft || !route) break;
+        // Remove from previous route's assignedAircraftIds
+        if (aircraft.assignedRouteId && aircraft.assignedRouteId !== routeId) {
+          const prevRoute = routesById.get(aircraft.assignedRouteId);
+          if (prevRoute) {
+            prevRoute.assignedAircraftIds = prevRoute.assignedAircraftIds.filter(
+              (id) => id !== aircraftId,
+            );
+          }
+        }
         aircraft.assignedRouteId = routeId;
         aircraft.routeAssignedAtTick = actionTick;
         if (!route.assignedAircraftIds.includes(aircraftId)) {
