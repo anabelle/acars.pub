@@ -651,6 +651,39 @@ function applyCyclePhase(
   }
 }
 
+function countLandingsBetween(
+  cycleStartTick: number,
+  fromTick: number,
+  toTick: number,
+  durationTicks: number,
+  turnaroundTicks: number,
+): number {
+  if (toTick <= fromTick) return 0;
+  const roundTripTicks = durationTicks * 2 + turnaroundTicks * 2;
+  const landingOffsets = [durationTicks, durationTicks * 2 + turnaroundTicks];
+  let count = 0;
+
+  for (const offset of landingOffsets) {
+    const firstLandingTick = cycleStartTick + offset;
+    if (toTick < firstLandingTick) continue;
+    const countTo = Math.floor((toTick - firstLandingTick) / roundTripTicks) + 1;
+    const countFrom =
+      fromTick >= firstLandingTick
+        ? Math.floor((fromTick - firstLandingTick) / roundTripTicks) + 1
+        : 0;
+    count += countTo - countFrom;
+  }
+
+  return Math.max(0, count);
+}
+
+function applyFlightHours(updated: AircraftInstance, hoursToAdd: number): void {
+  if (hoursToAdd <= 0) return;
+  updated.flightHoursTotal += hoursToAdd;
+  updated.flightHoursSinceCheck += hoursToAdd;
+  updated.condition = Math.max(0, updated.condition - 0.00005 * hoursToAdd);
+}
+
 /**
  * Fast-forward an aircraft's flight-cycle position to `targetTick` without
  * running the full engine.  Used when `lastTick` has been clamped forward
@@ -738,6 +771,17 @@ export function reconcileFleetToTick(
 
       const updated = { ...ac };
       applyCyclePhase(updated, route, targetTick, positionInCycle, durationTicks, turnaroundTicks);
+      const referenceTick =
+        typeof ac.lastTickProcessed === "number" ? ac.lastTickProcessed : targetTick;
+      const landings = countLandingsBetween(
+        cycleStartTick,
+        referenceTick,
+        targetTick,
+        durationTicks,
+        turnaroundTicks,
+      );
+      const hoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
+      applyFlightHours(updated, landings * hoursPerLeg);
       return updated;
     } else if (ac.status === "delivery") {
       // Delivery aircraft whose deliveryAtTick is in the past should be
@@ -791,6 +835,17 @@ export function reconcileFleetToTick(
 
     const updated = { ...ac };
     applyCyclePhase(updated, route, targetTick, positionInCycle, durationTicks, turnaroundTicks);
+    const referenceTick =
+      typeof ac.lastTickProcessed === "number" ? ac.lastTickProcessed : targetTick;
+    const landings = countLandingsBetween(
+      cycleStartTick,
+      referenceTick,
+      targetTick,
+      durationTicks,
+      turnaroundTicks,
+    );
+    const hoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
+    applyFlightHours(updated, landings * hoursPerLeg);
 
     return updated;
   });

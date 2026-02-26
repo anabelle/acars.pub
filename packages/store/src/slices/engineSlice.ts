@@ -357,6 +357,13 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             1,
             Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR),
           );
+          const durationTicks = ac.flight.arrivalTick - ac.flight.departureTick;
+          const flightHoursData = Math.min(24, durationTicks / TICKS_PER_HOUR);
+          if (flightHoursData > 0) {
+            ac.flightHoursTotal += flightHoursData;
+            ac.flightHoursSinceCheck += flightHoursData;
+            ac.condition = Math.max(0, ac.condition - 0.00005 * flightHoursData);
+          }
           ac.status = "turnaround";
           ac.baseAirportIata = ac.flight.destinationIata;
           ac.arrivalTickProcessed = ac.flight.arrivalTick;
