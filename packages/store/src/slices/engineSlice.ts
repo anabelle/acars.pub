@@ -152,13 +152,15 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             timeline: currentTimeline,
           })
             .then(async (stateHash) => {
+              const { timeline: _omitTimeline, ...airlineWithoutTimeline } = updatedAirline;
+              void _omitTimeline;
               const checkpoint = {
                 schemaVersion: 1,
                 tick: targetTick,
                 createdAt: Date.now(),
                 actionChainHash,
                 stateHash,
-                airline: updatedAirline,
+                airline: airlineWithoutTimeline,
                 fleet: currentFleet,
                 routes,
                 timeline: currentTimeline.slice(0, 200),
@@ -314,17 +316,22 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           const isGrounded = ac.condition < 0.2 || ac.flightHoursSinceCheck > 600;
           if (isGrounded) continue;
           if (route.distanceKm > (model.rangeKm || 0)) continue;
+          const isAtOrigin = ac.baseAirportIata === route.originIata;
+          const isAtDestination = ac.baseAirportIata === route.destinationIata;
+          if (!isAtOrigin && !isAtDestination) continue;
 
           const hours = route.distanceKm / (model.speedKmh || 800);
           const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
+          const originIata = isAtOrigin ? route.originIata : route.destinationIata;
+          const destinationIata = isAtOrigin ? route.destinationIata : route.originIata;
 
           ac.status = "enroute";
           ac.flight = {
-            originIata: route.originIata,
-            destinationIata: route.destinationIata,
+            originIata,
+            destinationIata,
             departureTick: targetTick,
             arrivalTick: targetTick + Math.max(1, durationTicks),
-            direction: "outbound",
+            direction: isAtOrigin ? "outbound" : "inbound",
           };
           ac.arrivalTickProcessed = undefined;
           ac.turnaroundEndTick = undefined;
@@ -337,9 +344,9 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             aircraftId: ac.id,
             aircraftName: ac.name,
             routeId: route.id,
-            originIata: route.originIata,
-            destinationIata: route.destinationIata,
-            description: `${ac.name} recovery takeoff: ${route.originIata} → ${route.destinationIata}`,
+            originIata,
+            destinationIata,
+            description: `${ac.name} recovery takeoff: ${originIata} → ${destinationIata}`,
           });
         }
 
@@ -445,13 +452,15 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           timeline: currentTimeline,
         })
           .then(async (stateHash) => {
+            const { timeline: _omitTimeline, ...airlineWithoutTimeline } = updatedAirline;
+            void _omitTimeline;
             const checkpoint = {
               schemaVersion: 1,
               tick: targetTick,
               createdAt: Date.now(),
               actionChainHash,
               stateHash,
-              airline: updatedAirline,
+              airline: airlineWithoutTimeline,
               fleet: currentFleet,
               routes,
               timeline: currentTimeline.slice(0, 200),
