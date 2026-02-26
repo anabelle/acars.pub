@@ -571,6 +571,16 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     }
 
     if (aircraft && route) {
+      const isAtOrigin = aircraft.baseAirportIata === route.originIata;
+      const isAtDestination = aircraft.baseAirportIata === route.destinationIata;
+      if (!isAtOrigin && !isAtDestination) {
+        throw new Error(
+          `${aircraft.name} must be at ${route.originIata} or ${route.destinationIata} to assign this route.`,
+        );
+      }
+    }
+
+    if (aircraft && route) {
       const model = getAircraftById(aircraft.modelId);
       if (model && route.distanceKm > (model.rangeKm || 0)) {
         throw new Error(`${aircraft.name} does not have enough range for this route.`);

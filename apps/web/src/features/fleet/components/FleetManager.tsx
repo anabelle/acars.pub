@@ -537,32 +537,36 @@ export function FleetManager() {
                               }}
                             >
                               <option value="">Unassigned (Idle)</option>
-                              {routes.map((r) => {
-                                const isOutOfRange = r.distanceKm > model.rangeKm;
-                                const routeDemand = routeDemandIndex.get(r.id);
-                                const effectiveLoadFactor =
-                                  routeDemand?.effectiveLoadFactor ??
-                                  routeDemand?.pressureMultiplier ??
-                                  0;
-                                const loadFactor = Math.round(effectiveLoadFactor * 100);
-                                const healthLabel =
-                                  loadFactor >= 80
-                                    ? "Healthy"
-                                    : loadFactor >= 60
-                                      ? "Caution"
-                                      : "Oversupplied";
-                                return (
-                                  <option
-                                    key={r.id}
-                                    value={r.id}
-                                    className={isOutOfRange ? "text-muted-foreground" : ""}
-                                  >
-                                    {r.originIata} &rarr; {r.destinationIata} ({r.distanceKm}km) —{" "}
-                                    {loadFactor}% {healthLabel}{" "}
-                                    {isOutOfRange ? " — [OUT OF RANGE]" : ""}
-                                  </option>
-                                );
-                              })}
+                              {routes
+                                .filter((r) =>
+                                  [r.originIata, r.destinationIata].includes(ac.baseAirportIata),
+                                )
+                                .map((r) => {
+                                  const isOutOfRange = r.distanceKm > model.rangeKm;
+                                  const routeDemand = routeDemandIndex.get(r.id);
+                                  const effectiveLoadFactor =
+                                    routeDemand?.effectiveLoadFactor ??
+                                    routeDemand?.pressureMultiplier ??
+                                    0;
+                                  const loadFactor = Math.round(effectiveLoadFactor * 100);
+                                  const healthLabel =
+                                    loadFactor >= 80
+                                      ? "Healthy"
+                                      : loadFactor >= 60
+                                        ? "Caution"
+                                        : "Oversupplied";
+                                  return (
+                                    <option
+                                      key={r.id}
+                                      value={r.id}
+                                      className={isOutOfRange ? "text-muted-foreground" : ""}
+                                    >
+                                      {r.originIata} &rarr; {r.destinationIata} ({r.distanceKm}km) —{" "}
+                                      {loadFactor}% {healthLabel}{" "}
+                                      {isOutOfRange ? " — [OUT OF RANGE]" : ""}
+                                    </option>
+                                  );
+                                })}
                             </select>
                             {ac.assignedRouteId && (
                               <button

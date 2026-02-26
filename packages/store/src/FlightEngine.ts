@@ -156,16 +156,24 @@ export function processFlightEngine(
         }
 
         // Real-world duration calculation
+        const isAtOrigin = ac.baseAirportIata === route.originIata;
+        const isAtDestination = ac.baseAirportIata === route.destinationIata;
+        if (!isAtOrigin && !isAtDestination) {
+          continue;
+        }
+
         const hours = route.distanceKm / (model.speedKmh || 800);
         const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
+        const originIata = isAtOrigin ? route.originIata : route.destinationIata;
+        const destinationIata = isAtOrigin ? route.destinationIata : route.originIata;
 
         ac.status = "enroute";
         ac.flight = {
-          originIata: route.originIata,
-          destinationIata: route.destinationIata,
+          originIata,
+          destinationIata,
           departureTick: tick,
           arrivalTick: tick + Math.max(1, durationTicks),
-          direction: "outbound",
+          direction: isAtOrigin ? "outbound" : "inbound",
         };
         hasChanges = true;
 
@@ -177,9 +185,9 @@ export function processFlightEngine(
           aircraftId: ac.id,
           aircraftName: ac.name,
           routeId: route.id,
-          originIata: route.originIata,
-          destinationIata: route.destinationIata,
-          description: `${ac.name} taking off: ${route.originIata} → ${route.destinationIata}`,
+          originIata,
+          destinationIata,
+          description: `${ac.name} taking off: ${originIata} → ${destinationIata}`,
         });
       }
     }
