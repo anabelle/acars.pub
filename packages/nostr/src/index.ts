@@ -1,5 +1,14 @@
-export { NDKEvent } from '@nostr-dev-kit/ndk';
-export type { NDKFilter } from '@nostr-dev-kit/ndk';
-export { getNDK, ensureConnected } from './ndk.js';
-export { hasNip07, waitForNip07, getPubkey, attachSigner } from './identity.js';
-export { publishAirline, loadAirline, loadGlobalAirlines, publishUsedAircraft, loadMarketplace, type AirlineConfig, type MarketplaceListing, type SellerFleetIndex, MARKETPLACE_KIND } from './schema.js';
+export type { NDKFilter } from "@nostr-dev-kit/ndk";
+export { NDKEvent } from "@nostr-dev-kit/ndk";
+export { attachSigner, getPubkey, hasNip07, waitForNip07 } from "./identity.js";
+export { ensureConnected, getNDK } from "./ndk.js";
+export {
+  type ActionEnvelope,
+  loadActionLog,
+  loadMarketplace,
+  MARKETPLACE_KIND,
+  type MarketplaceListing,
+  publishAction,
+  publishUsedAircraft,
+  type SellerFleetIndex,
+} from "./schema.js";

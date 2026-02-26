@@ -691,6 +691,7 @@ function LiveryStrip({ primary, secondary }: { primary: string; secondary: strin
 export default function CorporateDashboard() {
   const { airline, modifyHubs } = useAirlineStore();
   const timeline = useAirlineStore((s) => s.timeline);
+  const routes = useAirlineStore((s) => s.routes);
   const homeAirport = useEngineStore((s) => s.homeAirport);
 
   const [pendingAction, setPendingAction] = useState<{
@@ -701,6 +702,51 @@ export default function CorporateDashboard() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const pulse = useFinancialPulse(timeline);
+
+  const routePerformance = useMemo(() => {
+    const landings = timeline.filter(
+      (event) =>
+        event.type === "landing" &&
+        event.details?.routeId &&
+        event.profit !== undefined &&
+        event.details?.loadFactor !== undefined,
+    );
+
+    const grouped = new Map<string, TimelineEvent[]>();
+    for (const landing of landings) {
+      const routeId = landing.details?.routeId;
+      if (!routeId) continue;
+      const bucket = grouped.get(routeId) ?? [];
+      bucket.push(landing);
+      grouped.set(routeId, bucket);
+    }
+
+    return Array.from(grouped.entries()).map(([routeId, events]) => {
+      const latest = events[0];
+      const totalProfit = fpSum(events.map((event) => event.profit ?? FP_ZERO));
+      const avgLoadFactor =
+        events.reduce((sum, event) => sum + (event.details?.loadFactor ?? 0), 0) / events.length;
+      const newestTick = events[0]?.tick ?? 0;
+      const oldestTick = events[events.length - 1]?.tick ?? newestTick;
+      const spanTicks = Math.max(newestTick - oldestTick, 1);
+      const spanHours = spanTicks / TICKS_PER_HOUR;
+      const profitPerHour = fp(fpToNumber(totalProfit) / Math.max(spanHours, 0.01));
+
+      const route = routes.find((item) => item.id === routeId);
+      const fleetCount = route?.assignedAircraftIds.length ?? 0;
+      const label = route
+        ? `${route.originIata} → ${route.destinationIata}`
+        : `${latest?.originIata ?? ""} → ${latest?.destinationIata ?? ""}`.trim();
+
+      return {
+        routeId,
+        label,
+        fleetCount,
+        avgLoadFactor,
+        profitPerHour,
+      };
+    });
+  }, [routes, timeline]);
 
   const currentMonthlyOpex = useMemo(
     () => airline?.hubs.reduce((sum, hub) => sum + getHubPricingForIata(hub).monthlyOpex, 0) ?? 0,
@@ -769,6 +815,48 @@ export default function CorporateDashboard() {
           pulse={pulse}
           hubOpex={currentMonthlyOpex}
         />
+
+        {routePerformance.length > 0 && (
+          <section className="rounded-xl border border-border/50 bg-background/50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Route Performance
+              </p>
+              <span className="text-[10px] text-muted-foreground">
+                Last {RECENT_FLIGHT_COUNT} flights
+              </span>
+            </div>
+            <div className="space-y-2">
+              {routePerformance
+                .sort((a, b) => fpToNumber(b.profitPerHour) - fpToNumber(a.profitPerHour))
+                .slice(0, 6)
+                .map((route) => {
+                  const lf = Math.round(route.avgLoadFactor * 100);
+                  const lfTone =
+                    lf >= 80 ? "text-emerald-400" : lf >= 60 ? "text-amber-400" : "text-rose-400";
+                  const profitTone =
+                    route.profitPerHour >= 0 ? "text-emerald-400" : "text-rose-400";
+                  return (
+                    <div
+                      key={route.routeId}
+                      className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/20 px-3 py-2"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-foreground">{route.label}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {route.fleetCount} aircraft
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-[10px] font-mono">
+                        <span className={lfTone}>{lf}% LF</span>
+                        <span className={profitTone}>{fpFormat(route.profitPerHour, 0)}/hr</span>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </section>
+        )}
 
         {/* 2. Company Profile — identity + tier/brand/status */}
         <CompanyProfile

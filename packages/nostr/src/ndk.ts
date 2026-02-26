@@ -1,5 +1,5 @@
-import NDK from "@nostr-dev-kit/ndk";
 import { createLogger } from "@airtr/core";
+import NDK from "@nostr-dev-kit/ndk";
 
 const DEFAULT_RELAYS = [
   "wss://relay.damus.io",
@@ -23,6 +23,8 @@ export function getNDK(): NDK {
   if (!ndkInstance) {
     ndkInstance = new NDK({
       explicitRelayUrls: DEFAULT_RELAYS,
+      initialValidationRatio: 1.0,
+      lowestValidationRatio: 1.0,
     });
   }
   return ndkInstance;

@@ -1,6 +1,7 @@
 import {
   type Airport,
   calculateDemand,
+  calculateSupplyPressure,
   calculateShares,
   type FixedPoint,
   type FlightOffer,
@@ -8,11 +9,13 @@ import {
   fpFormat,
   fpScale,
   fpToNumber,
+  NATURAL_LF_CEILING,
   getProsperityIndex,
   getSeason,
   getSuggestedFares,
   haversineDistance,
   ROUTE_SLOT_FEE,
+  scaleToAddressableMarket,
   type Season,
 } from "@airtr/core";
 import { airports as ALL_AIRPORTS, HUB_CLASSIFICATIONS } from "@airtr/data";
@@ -45,6 +48,7 @@ export function RouteManager() {
   } = useAirlineStore();
   const confirm = useConfirm();
   const { homeAirport, tick } = useEngineStore();
+  const fleet = useAirlineStore((state) => state.fleet);
   const { tab } = useSearch({ from: "/network" });
   const navigate = useNavigate({ from: "/network" });
   const setTab = (newTab: "active" | "opportunities") => {
@@ -206,6 +210,17 @@ export function RouteManager() {
     return Math.round(weeklyTotal / 7);
   }, [airportIndex, originActiveRoutes, planningOriginAirport, tick]);
 
+  const calculateWeeklySeats = useCallback(
+    (route: { assignedAircraftIds: string[] }) =>
+      route.assignedAircraftIds.reduce((total, aircraftId) => {
+        const aircraft = fleet.find((item) => item.id === aircraftId);
+        if (!aircraft) return total;
+        const cabin = aircraft.configuration ?? { economy: 0, business: 0, first: 0, cargoKg: 0 };
+        return total + (cabin.economy + cabin.business + cabin.first) * 7;
+      }, 0),
+    [fleet],
+  );
+
   const originHubMeta = planningOriginAirport
     ? HUB_CLASSIFICATIONS[planningOriginAirport.iata]
     : undefined;
@@ -248,7 +263,6 @@ export function RouteManager() {
         business: Number.isNaN(bVal) ? undefined : fp(bVal),
         first: Number.isNaN(fVal) ? undefined : fp(fVal),
       });
-      toast.success("Fares updated");
       setFareEditor(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -442,7 +456,6 @@ export function RouteManager() {
                             if (!targetHub) return;
                             try {
                               await rebaseRoute(route.id, targetHub);
-                              toast.success("Route rebased");
                             } catch (err) {
                               const message =
                                 err instanceof Error ? err.message : "Route rebase failed";
@@ -470,7 +483,6 @@ export function RouteManager() {
                         if (!approved) return;
                         try {
                           await closeRoute(route.id);
-                          toast.success("Route closed");
                         } catch (err) {
                           const message = err instanceof Error ? err.message : "Route close failed";
                           toast.error("Route close failed", { description: message });
@@ -525,7 +537,62 @@ export function RouteManager() {
                 const market = prospectMarkets.find(
                   (p) => p.destination.iata === route.destinationIata,
                 );
+                const now = new Date();
+                const prosperity = getProsperityIndex(tick);
+                const originAirport = airportIndex.get(route.originIata);
+                const destinationAirport = airportIndex.get(route.destinationIata);
+                const fallbackDemand =
+                  originAirport && destinationAirport
+                    ? calculateDemand(
+                        originAirport,
+                        destinationAirport,
+                        getSeason(destinationAirport.latitude, now),
+                        prosperity,
+                        1.0,
+                      )
+                    : null;
                 const assignedCount = route.assignedAircraftIds.length;
+                const demandSource = market?.demand ?? fallbackDemand;
+                const marketDemand = demandSource
+                  ? demandSource.economy + demandSource.business + demandSource.first
+                  : 0;
+                const addressableDemand = demandSource
+                  ? scaleToAddressableMarket({
+                      origin: route.originIata,
+                      destination: route.destinationIata,
+                      economy: demandSource.economy,
+                      business: demandSource.business,
+                      first: demandSource.first,
+                    })
+                  : null;
+                const addressableTotal = addressableDemand
+                  ? addressableDemand.economy + addressableDemand.business + addressableDemand.first
+                  : 0;
+                const totalWeeklySeats = calculateWeeklySeats(route);
+                const pressureMultiplier = calculateSupplyPressure(
+                  totalWeeklySeats,
+                  addressableTotal,
+                );
+                const loadFactor = Math.round(pressureMultiplier * 100);
+                const supplyRatio = addressableTotal > 0 ? totalWeeklySeats / addressableTotal : 0;
+                const lfTone =
+                  loadFactor >= 80
+                    ? "text-emerald-400"
+                    : loadFactor >= 60
+                      ? "text-amber-400"
+                      : "text-rose-400";
+                const lfFill =
+                  loadFactor >= 80
+                    ? "bg-emerald-500"
+                    : loadFactor >= 60
+                      ? "bg-amber-500"
+                      : "bg-rose-500";
+                const supplyLabel =
+                  supplyRatio > 1.05
+                    ? "Over-Supplied"
+                    : supplyRatio < 0.7
+                      ? "Underserved"
+                      : "Balanced";
 
                 return (
                   <div
@@ -609,7 +676,6 @@ export function RouteManager() {
                               if (!approved) return;
                               try {
                                 await closeRoute(route.id);
-                                toast.success("Route closed");
                               } catch (err) {
                                 const message =
                                   err instanceof Error ? err.message : "Route close failed";
@@ -628,54 +694,64 @@ export function RouteManager() {
                       </div>
                     </div>
 
-                    {/* Supply/Demand Saturation Bar */}
-                    {market && (
-                      <div className="mt-4 bg-muted/20 rounded-xl p-3 border border-border/30">
-                        <div className="flex justify-between items-center mb-1.5">
+                    {/* Market Supply / Demand */}
+                    {addressableDemand && (
+                      <div className="mt-4 rounded-2xl border border-border/40 bg-muted/20 p-4">
+                        <div className="flex items-center justify-between mb-3">
                           <span className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
-                            <TrendingUp className="h-3 w-3" /> Supply / Demand Saturation
+                            <TrendingUp className="h-3 w-3" /> Market Supply
                           </span>
-                          <span className="text-[10px] font-bold text-foreground">
-                            {Math.round(
-                              ((assignedCount * 1200) /
-                                (market.demand.economy +
-                                  market.demand.business +
-                                  market.demand.first)) *
-                                100,
-                            )}
-                            % Saturation
+                          <span className={`text-[10px] font-bold uppercase ${lfTone}`}>
+                            {supplyLabel}
                           </span>
                         </div>
-                        <div className="h-1.5 w-full bg-background rounded-full overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-500 ${((assignedCount * 1200) / (market.demand.economy + market.demand.business + market.demand.first)) > 0.9 ? "bg-rose-500" : "bg-primary"}`}
-                            style={{
-                              width: `${Math.min(100, ((assignedCount * 1200) / (market.demand.economy + market.demand.business + market.demand.first)) * 100)}%`,
-                            }}
-                          />
-                        </div>
-                        <div className="flex justify-between mt-1">
-                          <p className="text-[9px] text-muted-foreground">
-                            Weekly Demand:{" "}
-                            <span className="text-foreground font-mono">
-                              {(
-                                market.demand.economy +
-                                market.demand.business +
-                                market.demand.first
-                              ).toLocaleString()}
+
+                        <div className="grid grid-cols-3 gap-3 text-[10px] font-mono">
+                          <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
+                            <span className="text-[9px] uppercase text-muted-foreground font-semibold">
+                              Total Market
                             </span>
-                          </p>
-                          <p
-                            className={`text-[9px] font-bold uppercase ${((assignedCount * 1200) / (market.demand.economy + market.demand.business + market.demand.first)) > 1 ? "text-rose-400" : "text-emerald-400"}`}
-                          >
-                            {(assignedCount * 1200) /
-                              (market.demand.economy +
-                                market.demand.business +
-                                market.demand.first) >
-                            1
-                              ? "Over-Supplied"
-                              : "Healthy Load Factor"}
-                          </p>
+                            <span className="text-foreground font-bold">
+                              {marketDemand.toLocaleString()} / wk
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
+                            <span className="text-[9px] uppercase text-muted-foreground font-semibold">
+                              Addressable
+                            </span>
+                            <span className="text-foreground font-bold">
+                              {addressableTotal.toLocaleString()} / wk
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
+                            <span className="text-[9px] uppercase text-muted-foreground font-semibold">
+                              Your Seats
+                            </span>
+                            <span className="text-foreground font-bold">
+                              {totalWeeklySeats.toLocaleString()} / wk
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-3">
+                          <div className="flex justify-between text-[10px] font-semibold">
+                            <span className="text-muted-foreground uppercase">Supply Pressure</span>
+                            <span className={lfTone}>{loadFactor}% LF</span>
+                          </div>
+                          <div className="mt-1 h-2 w-full rounded-full bg-background/70 overflow-hidden">
+                            <div
+                              className={`h-full ${lfFill} transition-all duration-500`}
+                              style={{ width: `${Math.min(100, loadFactor)}%` }}
+                            />
+                          </div>
+                          <div className="mt-2 flex justify-between text-[9px] text-muted-foreground">
+                            <span>Target {Math.round(NATURAL_LF_CEILING * 100)}%</span>
+                            <span>
+                              {supplyRatio > 1.05
+                                ? `Oversupply ${(supplyRatio).toFixed(2)}x`
+                                : `Coverage ${(supplyRatio).toFixed(2)}x`}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -842,6 +918,15 @@ export function RouteManager() {
               );
               const totalDemand =
                 market.demand.economy + market.demand.business + market.demand.first;
+              const addressableDemand = scaleToAddressableMarket({
+                origin: market.origin.iata,
+                destination: market.destination.iata,
+                economy: market.demand.economy,
+                business: market.demand.business,
+                first: market.demand.first,
+              });
+              const addressableTotal =
+                addressableDemand.economy + addressableDemand.business + addressableDemand.first;
               const destinationMeta = HUB_CLASSIFICATIONS[market.destination.iata];
               const destinationCapacity = destinationMeta?.baseCapacityPerHour ?? null;
               const destinationSlotControlled = destinationMeta?.slotControlled ?? false;
@@ -873,10 +958,19 @@ export function RouteManager() {
 
                       <div className="flex flex-col">
                         <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                          Weekly Demand
+                          Total Market
                         </span>
                         <span className="text-lg font-mono font-bold">
                           {totalDemand.toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                          Addressable
+                        </span>
+                        <span className="text-lg font-mono font-bold text-foreground">
+                          {addressableTotal.toLocaleString()}
                         </span>
                       </div>
 

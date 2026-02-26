@@ -2,86 +2,92 @@
 // @airtr/core — Public API
 // ============================================================
 
+// Demand
+export {
+  calculateDemand,
+  calculatePriceElasticity,
+  calculateSupplyPressure,
+  getHubCongestionModifier,
+  getHubDemandModifier,
+  getProsperityIndex,
+  MAX_PRICE_ELASTICITY_MULTIPLIER,
+  MIN_ADDRESSABLE_WEEKLY,
+  MIN_PRICE_ELASTICITY_MULTIPLIER,
+  NATURAL_LF_CEILING,
+  PLAYER_MARKET_CEILING,
+  PRICE_ELASTICITY_BUSINESS,
+  PRICE_ELASTICITY_ECONOMY,
+  PRICE_ELASTICITY_FIRST,
+  scaleToAddressableMarket,
+} from "./demand.js";
+// Finance
+export {
+  calculateFlightCost,
+  calculateFlightRevenue,
+  calculateHubLandingFee,
+  detectPriceWar,
+  getSuggestedFares,
+  ROUTE_SLOT_FEE,
+} from "./finance.js";
+
+// Fixed-point arithmetic
+export {
+  FP_SCALE,
+  FP_ZERO,
+  fp,
+  fpAdd,
+  fpDiv,
+  fpFormat,
+  fpMul,
+  fpNeg,
+  fpRaw,
+  fpScale,
+  fpSub,
+  fpSum,
+  fpToNumber,
+} from "./fixed-point.js";
+// Fleet
+export { calculateBookValue } from "./fleet.js";
+
+// Geography
+export { haversineDistance } from "./geo.js";
+// Hubs
+export { buildHubState } from "./hub.js";
+// Logging
+export { createLogger } from "./logger.js";
+// PRNG
+export { createPRNG, createTickPRNG } from "./prng.js";
+// QSI
+export { allocatePassengers, calculateShares } from "./qsi.js";
+// Season
+export { getSeason, getSeasonalMultiplier } from "./season.js";
+export type {
+  AircraftInstance,
+  AircraftModel,
+  AirlineEntity,
+  AirlineTickResult,
+  Airport,
+  AirportTag,
+  DemandResult,
+  FixedPoint,
+  FlightOffer,
+  FlightState,
+  GameActionEnvelope,
+  GameActionPayload,
+  GameActionType,
+  HubState,
+  HubTier,
+  PassengerClass,
+  Route,
+  RouteTickResult,
+  Season,
+  TickResult,
+  TimelineEvent,
+  TimelineEventType,
+} from "./types.js";
 // Types
 export {
   GENESIS_TIME,
   TICK_DURATION,
   TICKS_PER_HOUR,
 } from "./types.js";
-
-export type {
-  FixedPoint,
-  Airport,
-  AirportTag,
-  Season,
-  HubTier,
-  HubState,
-  DemandResult,
-  AircraftModel,
-  AircraftInstance,
-  AirlineEntity,
-  Route,
-  FlightOffer,
-  PassengerClass,
-  TickResult,
-  AirlineTickResult,
-  RouteTickResult,
-  TimelineEvent,
-  TimelineEventType,
-} from "./types.js";
-
-// Fixed-point arithmetic
-export {
-  fp,
-  fpRaw,
-  fpToNumber,
-  fpAdd,
-  fpSub,
-  fpMul,
-  fpDiv,
-  fpScale,
-  fpNeg,
-  fpFormat,
-  fpSum,
-  FP_ZERO,
-  FP_SCALE,
-} from "./fixed-point.js";
-
-// PRNG
-export { createPRNG, createTickPRNG } from "./prng.js";
-
-// Geography
-export { haversineDistance } from "./geo.js";
-
-// Season
-export { getSeason, getSeasonalMultiplier } from "./season.js";
-
-// Demand
-export {
-  calculateDemand,
-  getProsperityIndex,
-  getHubDemandModifier,
-  getHubCongestionModifier,
-} from "./demand.js";
-
-// QSI
-export { calculateShares, allocatePassengers } from "./qsi.js";
-
-// Finance
-export {
-  calculateFlightRevenue,
-  calculateFlightCost,
-  calculateHubLandingFee,
-  getSuggestedFares,
-  detectPriceWar,
-  ROUTE_SLOT_FEE,
-} from "./finance.js";
-
-// Fleet
-export { calculateBookValue } from "./fleet.js";
-
-// Hubs
-export { buildHubState } from "./hub.js";
-
-// Logging
-export { createLogger } from "./logger.js";

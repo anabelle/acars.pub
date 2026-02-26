@@ -21,6 +21,7 @@ export type FlightRow = {
   aircraft: string;
   timeLabel: string;
   timeSort: number;
+  loadFactor?: number;
 };
 
 type FlightBoardParams = {
@@ -228,6 +229,7 @@ export function buildFlightBoardRows({
       aircraft: aircraftLabel,
       timeLabel: getTimeLabel(aircraft, mode, airportTimezone, tick),
       timeSort: getTimeSort(aircraft, mode, tick),
+      loadFactor: aircraft.lastKnownLoadFactor,
     });
   }
 

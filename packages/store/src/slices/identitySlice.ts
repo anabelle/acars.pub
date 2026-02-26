@@ -1,192 +1,240 @@
-import type { StateCreator } from 'zustand';
-import type { AirlineState } from '../types';
-import type { AircraftInstance, Route, TimelineEvent, AirlineEntity } from '@airtr/core';
-import { fp, fpSub, GENESIS_TIME } from '@airtr/core';
-import { getHubPricingForIata } from '@airtr/data';
+import type { AircraftInstance, AirlineEntity, Route, TimelineEvent } from "@airtr/core";
+import { fp, fpSub, GENESIS_TIME } from "@airtr/core";
+import { getHubPricingForIata } from "@airtr/data";
 import {
-    waitForNip07,
-    getPubkey,
-    attachSigner,
-    ensureConnected,
-    loadAirline,
-    publishAirline,
-    type AirlineConfig
-} from '@airtr/nostr';
-import { useEngineStore } from '../engine';
+  attachSigner,
+  ensureConnected,
+  getPubkey,
+  loadActionLog,
+  publishAction,
+  waitForNip07,
+} from "@airtr/nostr";
+import type { StateCreator } from "zustand";
+import { replayActionLog } from "../actionReducer";
+import { useEngineStore } from "../engine";
+import type { AirlineState } from "../types";
 
 export interface IdentitySlice {
-    pubkey: string | null;
-    identityStatus: 'checking' | 'no-extension' | 'ready';
-    isLoading: boolean;
-    error: string | null;
-    airline: AirlineEntity | null;
-    fleet: AircraftInstance[];
-    routes: Route[];
-    timeline: TimelineEvent[];
-    initializeIdentity: () => Promise<void>;
-    createAirline: (params: AirlineConfig) => Promise<void>;
+  pubkey: string | null;
+  identityStatus: "checking" | "no-extension" | "ready";
+  isLoading: boolean;
+  error: string | null;
+  airline: AirlineEntity | null;
+  fleet: AircraftInstance[];
+  routes: Route[];
+  timeline: TimelineEvent[];
+  initializeIdentity: () => Promise<void>;
+  createAirline: (params: CreateAirlineParams) => Promise<void>;
 }
 
-export const createIdentitySlice: StateCreator<
-    AirlineState,
-    [],
-    [],
-    IdentitySlice
-> = (set) => ({
-    pubkey: null,
-    identityStatus: 'checking',
-    isLoading: false,
-    error: null,
-    airline: null,
-    fleet: [],
-    routes: [],
-    timeline: [],
+export type CreateAirlineParams = Pick<
+  AirlineEntity,
+  "name" | "icaoCode" | "callsign" | "hubs" | "livery"
+>;
 
-    initializeIdentity: async () => {
-        set({ isLoading: true, error: null, airline: null, pubkey: null });
+export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySlice> = (set) => ({
+  pubkey: null,
+  identityStatus: "checking",
+  isLoading: false,
+  error: null,
+  airline: null,
+  fleet: [],
+  routes: [],
+  timeline: [],
 
-        const extensionReady = await waitForNip07();
-        if (!extensionReady) {
-            set({ identityStatus: 'no-extension', isLoading: false });
-            return;
+  initializeIdentity: async () => {
+    set({ isLoading: true, error: null, airline: null, pubkey: null });
+
+    const extensionReady = await waitForNip07();
+    if (!extensionReady) {
+      set({ identityStatus: "no-extension", isLoading: false });
+      return;
+    }
+
+    try {
+      const pubkey = await getPubkey();
+
+      if (!pubkey) {
+        set({
+          identityStatus: "no-extension",
+          isLoading: false,
+          error: "Extension did not return a pubkey",
+        });
+        return;
+      }
+
+      attachSigner();
+      ensureConnected();
+
+      const actions = await loadActionLog({ authors: [pubkey], limit: 500, maxPages: 20 });
+      const replayed = replayActionLog({
+        pubkey,
+        actions: actions.map((entry) => ({
+          action: entry.action,
+          eventId: entry.event.id,
+          authorPubkey: entry.event.author.pubkey,
+          createdAt: entry.event.created_at,
+        })),
+      });
+
+      const existing = replayed.airline ? replayed : null;
+
+      if (!existing) {
+        set({
+          pubkey,
+          airline: null,
+          fleet: [],
+          routes: [],
+          timeline: [],
+          identityStatus: "ready",
+          isLoading: false,
+        });
+        return;
+      }
+
+      const maxPossibleHours = (Date.now() - GENESIS_TIME) / 3600000 + 48;
+
+      const cleanFleet =
+        existing && existing.fleet
+          ? existing.fleet.map((ac) => ({
+              ...ac,
+              flightHoursTotal: Math.min(ac.flightHoursTotal, maxPossibleHours),
+              flightHoursSinceCheck: Math.min(ac.flightHoursSinceCheck, maxPossibleHours),
+            }))
+          : [];
+
+      // Step 6: Bidirectional Route/Fleet Reconciliation
+      // 6a. Ensure routes only list planes that actually exist
+      const fleetIds = new Set(cleanFleet.map((ac) => ac.id));
+      const rawRoutes = existing && existing.routes ? existing.routes : [];
+      const activeHubs = new Set((existing?.airline?.hubs || []).filter(Boolean));
+      const reconciledRoutes: Route[] = rawRoutes.map((route) => {
+        const hasActiveOrigin = activeHubs.size > 0 ? activeHubs.has(route.originIata) : false;
+
+        if (!hasActiveOrigin && route.status === "active") {
+          return {
+            ...route,
+            status: "suspended",
+            assignedAircraftIds: [],
+          };
         }
 
-        try {
-            const pubkey = await getPubkey();
+        return {
+          ...route,
+          assignedAircraftIds: route.assignedAircraftIds.filter((id) => fleetIds.has(id)),
+        };
+      });
 
-            if (!pubkey) {
-                set({ identityStatus: 'no-extension', isLoading: false, error: 'Extension did not return a pubkey' });
-                return;
-            }
+      // 6b. Ensure planes only point to routes that actually exist
+      const routeIds = new Set(reconciledRoutes.map((r) => r.id));
+      const suspendedRouteIds = new Set(
+        reconciledRoutes.filter((route) => route.status === "suspended").map((route) => route.id),
+      );
+      const reconciledFleet = cleanFleet.map((ac) => ({
+        ...ac,
+        assignedRouteId:
+          ac.assignedRouteId &&
+          routeIds.has(ac.assignedRouteId) &&
+          !suspendedRouteIds.has(ac.assignedRouteId)
+            ? ac.assignedRouteId
+            : null,
+      }));
 
-            attachSigner();
-            ensureConnected();
+      const engineTick = useEngineStore.getState().tick;
+      let loadedAirline = existing ? existing.airline : null;
+      if (
+        loadedAirline &&
+        (loadedAirline.lastTick == null || loadedAirline.lastTick === 0) &&
+        (reconciledFleet.length > 0 || reconciledRoutes.length > 0)
+      ) {
+        const fallbackLastTick = Math.max(0, engineTick - 50000);
+        console.warn(
+          "[IdentitySlice] lastTick missing, clamping to recent history to avoid excessive catchup",
+          {
+            pubkey,
+            engineTick,
+            fallbackLastTick,
+          },
+        );
+        loadedAirline = {
+          ...loadedAirline,
+          lastTick: fallbackLastTick,
+        };
+      }
 
-            const existing = await loadAirline(pubkey);
+      set({
+        pubkey,
+        airline: loadedAirline,
+        fleet: reconciledFleet,
+        routes: reconciledRoutes,
+        timeline: loadedAirline?.timeline || [],
+        identityStatus: "ready",
+        isLoading: false,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to initialize identity.";
+      set({
+        error: message,
+        identityStatus: "ready",
+        isLoading: false,
+      });
+    }
+  },
 
-            const maxPossibleHours = (Date.now() - GENESIS_TIME) / 3600000 + 48;
+  createAirline: async (params: CreateAirlineParams) => {
+    set({ isLoading: true, error: null });
+    try {
+      attachSigner();
+      ensureConnected();
 
-            const cleanFleet = existing && existing.fleet ? existing.fleet.map(ac => ({
-                ...ac,
-                flightHoursTotal: Math.min(ac.flightHoursTotal, maxPossibleHours),
-                flightHoursSinceCheck: Math.min(ac.flightHoursSinceCheck, maxPossibleHours)
-            })) : [];
+      const initialHub = params.hubs[0];
+      if (!initialHub) throw new Error("Primary hub is required");
+      const hubCost = fp(getHubPricingForIata(initialHub).openFee);
+      const postHubBalance = fpSub(fp(100000000), hubCost);
 
-            // Step 6: Bidirectional Route/Fleet Reconciliation
-            // 6a. Ensure routes only list planes that actually exist
-            const fleetIds = new Set(cleanFleet.map(ac => ac.id));
-            const rawRoutes = existing && existing.routes ? existing.routes : [];
-            const activeHubs = new Set((existing?.airline?.hubs || []).filter(Boolean));
-            const reconciledRoutes: Route[] = rawRoutes.map(route => {
-                const hasActiveOrigin = activeHubs.size > 0
-                    ? activeHubs.has(route.originIata)
-                    : false;
+      const currentTick = useEngineStore.getState().tick;
+      await publishAction({
+        schemaVersion: 2,
+        action: "AIRLINE_CREATE",
+        payload: {
+          name: params.name,
+          icaoCode: params.icaoCode,
+          callsign: params.callsign,
+          hubs: params.hubs,
+          livery: params.livery,
+          corporateBalance: postHubBalance,
+          tick: currentTick,
+        },
+      });
 
-                if (!hasActiveOrigin && route.status === 'active') {
-                    return {
-                        ...route,
-                        status: 'suspended',
-                        assignedAircraftIds: []
-                    };
-                }
+      const pubkey = await getPubkey();
+      if (!pubkey) throw new Error("No pubkey after extension ready");
 
-                return {
-                    ...route,
-                    assignedAircraftIds: route.assignedAircraftIds.filter(id => fleetIds.has(id))
-                };
-            });
+      const airline: AirlineEntity = {
+        id: `action:${pubkey}:${currentTick}`,
+        foundedBy: pubkey,
+        ceoPubkey: pubkey,
+        name: params.name,
+        icaoCode: params.icaoCode,
+        callsign: params.callsign,
+        hubs: params.hubs,
+        livery: params.livery,
+        status: "private",
+        sharesOutstanding: 10000000,
+        shareholders: { [pubkey]: 10000000 },
+        brandScore: 0.5,
+        tier: 1,
+        corporateBalance: postHubBalance,
+        stockPrice: fp(10),
+        fleetIds: [],
+        routeIds: [],
+        lastTick: useEngineStore.getState().tick,
+      };
 
-            // 6b. Ensure planes only point to routes that actually exist
-            const routeIds = new Set(reconciledRoutes.map(r => r.id));
-            const suspendedRouteIds = new Set(
-                reconciledRoutes.filter(route => route.status === 'suspended').map(route => route.id)
-            );
-            const reconciledFleet = cleanFleet.map(ac => ({
-                ...ac,
-                assignedRouteId: ac.assignedRouteId && routeIds.has(ac.assignedRouteId) && !suspendedRouteIds.has(ac.assignedRouteId)
-                    ? ac.assignedRouteId
-                    : null
-            }));
-
-            const engineTick = useEngineStore.getState().tick;
-            let loadedAirline = existing ? existing.airline : null;
-            if (loadedAirline && (loadedAirline.lastTick == null || loadedAirline.lastTick === 0) && (reconciledFleet.length > 0 || reconciledRoutes.length > 0)) {
-                const fallbackLastTick = Math.max(0, engineTick - 50000);
-                console.warn('[IdentitySlice] lastTick missing, clamping to recent history to avoid excessive catchup', {
-                    pubkey,
-                    engineTick,
-                    fallbackLastTick
-                });
-                loadedAirline = {
-                    ...loadedAirline,
-                    lastTick: fallbackLastTick,
-                };
-            }
-
-            set({
-                pubkey,
-                airline: loadedAirline,
-                fleet: reconciledFleet,
-                routes: reconciledRoutes,
-                timeline: loadedAirline?.timeline || [],
-                identityStatus: 'ready',
-                isLoading: false,
-            });
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unable to initialize identity.';
-            set({
-                error: message,
-                identityStatus: 'ready',
-                isLoading: false,
-            });
-        }
-    },
-
-    createAirline: async (params: AirlineConfig) => {
-        set({ isLoading: true, error: null });
-        try {
-            attachSigner();
-            ensureConnected();
-
-            const initialHub = params.hubs[0];
-            if (!initialHub) throw new Error('Primary hub is required');
-            const hubCost = fp(getHubPricingForIata(initialHub).openFee);
-            const postHubBalance = fpSub(fp(100000000), hubCost);
-
-            const event = await publishAirline({
-                ...params,
-                corporateBalance: postHubBalance,
-                lastTick: useEngineStore.getState().tick,
-            });
-
-            const pubkey = await getPubkey();
-            if (!pubkey) throw new Error("No pubkey after extension ready");
-
-            const airline: AirlineEntity = {
-                id: event.id,
-                foundedBy: pubkey,
-                ceoPubkey: pubkey,
-                name: params.name,
-                icaoCode: params.icaoCode,
-                callsign: params.callsign,
-                hubs: params.hubs,
-                livery: params.livery,
-                status: 'private',
-                sharesOutstanding: 10000000,
-                shareholders: { [pubkey]: 10000000 },
-                brandScore: 0.5,
-                tier: 1,
-                corporateBalance: postHubBalance,
-                stockPrice: fp(10),
-                fleetIds: [],
-                routeIds: [],
-                lastTick: useEngineStore.getState().tick,
-            };
-
-            set({ airline, isLoading: false, fleet: [], routes: [], timeline: [] });
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unable to create airline.';
-            set({ error: message, isLoading: false });
-        }
-    },
+      set({ airline, isLoading: false, fleet: [], routes: [], timeline: [] });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to create airline.";
+      set({ error: message, isLoading: false });
+    }
+  },
 });

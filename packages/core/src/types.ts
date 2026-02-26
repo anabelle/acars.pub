@@ -173,6 +173,9 @@ export interface AircraftInstance {
   flightHoursTotal: number;
   flightHoursSinceCheck: number;
   condition: number; // 0.0 to 1.0 (1.0 = brand new)
+
+  // Derived metrics (latest flight outcomes)
+  lastKnownLoadFactor?: number; // 0.0 - 1.0
 }
 
 export interface AirlineEntity {
@@ -337,6 +340,7 @@ export interface TimelineEvent {
     seatsOffered?: number;
     loadFactor?: number;
     spilledPassengers?: number;
+    routeId?: string;
     flightDurationTicks?: number;
     revenue?: {
       tickets: FixedPoint;
@@ -355,4 +359,35 @@ export interface TimelineEvent {
       overhead: FixedPoint;
     };
   };
+}
+
+// --- Game Actions ---
+
+export type GameActionType =
+  | "AIRLINE_CREATE"
+  | "TICK_UPDATE"
+  | "HUB_ADD"
+  | "HUB_REMOVE"
+  | "HUB_SWITCH"
+  | "ROUTE_OPEN"
+  | "ROUTE_CLOSE"
+  | "ROUTE_REBASE"
+  | "ROUTE_ASSIGN_AIRCRAFT"
+  | "ROUTE_UNASSIGN_AIRCRAFT"
+  | "ROUTE_UPDATE_FARES"
+  | "AIRCRAFT_PURCHASE"
+  | "AIRCRAFT_SELL"
+  | "AIRCRAFT_BUYOUT"
+  | "AIRCRAFT_LIST"
+  | "AIRCRAFT_CANCEL_LIST"
+  | "AIRCRAFT_BUY_USED"
+  | "AIRCRAFT_MAINTENANCE"
+  | "AIRCRAFT_FERRY";
+
+export type GameActionPayload = Record<string, unknown>;
+
+export interface GameActionEnvelope {
+  schemaVersion: number;
+  action: GameActionType;
+  payload: GameActionPayload;
 }

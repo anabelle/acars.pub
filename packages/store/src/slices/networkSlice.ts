@@ -1,624 +1,674 @@
-import type { StateCreator } from 'zustand';
-import type { AirlineState } from '../types';
-import type { Route, FixedPoint, TimelineEvent } from '@airtr/core';
-import { fp, fpSub, fpScale, GENESIS_TIME, TICK_DURATION, fpFormat, getSuggestedFares, ROUTE_SLOT_FEE } from '@airtr/core';
-import { getAircraftById } from '@airtr/data';
-import { airports, getHubPricingForIata, HUB_CLASSIFICATIONS } from '@airtr/data';
-import { publishAirline } from '@airtr/nostr';
-import { useEngineStore } from '../engine';
+import type { FixedPoint, Route, TimelineEvent } from "@airtr/core";
+import {
+  fp,
+  fpFormat,
+  fpScale,
+  fpSub,
+  GENESIS_TIME,
+  getSuggestedFares,
+  ROUTE_SLOT_FEE,
+  TICK_DURATION,
+} from "@airtr/core";
+import { airports, getAircraftById, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@airtr/data";
+import { publishAction } from "@airtr/nostr";
+import type { StateCreator } from "zustand";
+import { useEngineStore } from "../engine";
+import type { AirlineState } from "../types";
 
 export type HubAction =
-    | { type: 'add'; iata: string }
-    | { type: 'switch'; iata: string }
-    | { type: 'remove'; iata: string };
+  | { type: "add"; iata: string }
+  | { type: "switch"; iata: string }
+  | { type: "remove"; iata: string };
 
 export interface NetworkSlice {
-    routes: Route[];
-    modifyHubs: (action: HubAction) => Promise<void>;
-    /** @deprecated Use modifyHubs instead */
-    updateHub: (newHubIata: string) => Promise<void>;
-    openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;
-    rebaseRoute: (routeId: string, newOriginIata: string) => Promise<void>;
-    closeRoute: (routeId: string) => Promise<void>;
-    assignAircraftToRoute: (aircraftId: string, routeId: string | null) => Promise<void>;
-    updateRouteFares: (routeId: string, fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint }) => Promise<void>;
+  routes: Route[];
+  modifyHubs: (action: HubAction) => Promise<void>;
+  /** @deprecated Use modifyHubs instead */
+  updateHub: (newHubIata: string) => Promise<void>;
+  openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;
+  rebaseRoute: (routeId: string, newOriginIata: string) => Promise<void>;
+  closeRoute: (routeId: string) => Promise<void>;
+  assignAircraftToRoute: (aircraftId: string, routeId: string | null) => Promise<void>;
+  updateRouteFares: (
+    routeId: string,
+    fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint },
+  ) => Promise<void>;
 }
 
-export const createNetworkSlice: StateCreator<
-    AirlineState,
-    [],
-    [],
-    NetworkSlice
-> = (set, get) => ({
-    routes: [],
+export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice> = (set, get) => ({
+  routes: [],
 
-    modifyHubs: async (action: HubAction) => {
-        const { airline, fleet, routes } = get();
-        if (!airline) return;
+  modifyHubs: async (action: HubAction) => {
+    const { airline, fleet, routes } = get();
+    if (!airline) return;
 
-        const currentHubs = airline.hubs || [];
-        let newHubs: string[];
-        let description: string;
-        let hubFee = fp(0);
+    const currentHubs = airline.hubs || [];
+    let newHubs: string[];
+    let description: string;
+    let hubFee = fp(0);
 
-        const getHubTierCost = (iata: string) => fp(getHubPricingForIata(iata).openFee);
+    const getHubTierCost = (iata: string) => fp(getHubPricingForIata(iata).openFee);
 
-        switch (action.type) {
-            case 'add': {
-                if (currentHubs.includes(action.iata)) return;
-                newHubs = [...currentHubs, action.iata];
-                hubFee = getHubTierCost(action.iata);
-                description = `Opened new operations hub at ${action.iata}. Hub development fee: ${fpFormat(hubFee, 0)}.`;
-                break;
-            }
-            case 'switch': {
-                if (currentHubs[0] === action.iata) return; // Already active
-                newHubs = [action.iata, ...currentHubs.filter(h => h !== action.iata)];
-                hubFee = fpScale(getHubTierCost(action.iata), 0.25);
-                description = `Transferred main operations hub to ${action.iata}. Relocation fee: ${fpFormat(hubFee, 0)}.`;
-                break;
-            }
-            case 'remove': {
-                if (!currentHubs.includes(action.iata)) return;
-                if (currentHubs.length <= 1) return; // Can't remove last hub
-                newHubs = currentHubs.filter(h => h !== action.iata);
-                description = `Closed operations hub at ${action.iata}.`;
-                break;
-            }
-        }
+    switch (action.type) {
+      case "add": {
+        if (currentHubs.includes(action.iata)) return;
+        newHubs = [...currentHubs, action.iata];
+        hubFee = getHubTierCost(action.iata);
+        description = `Opened new operations hub at ${action.iata}. Hub development fee: ${fpFormat(hubFee, 0)}.`;
+        break;
+      }
+      case "switch": {
+        if (currentHubs[0] === action.iata) return; // Already active
+        newHubs = [action.iata, ...currentHubs.filter((h) => h !== action.iata)];
+        hubFee = fpScale(getHubTierCost(action.iata), 0.25);
+        description = `Transferred main operations hub to ${action.iata}. Relocation fee: ${fpFormat(hubFee, 0)}.`;
+        break;
+      }
+      case "remove": {
+        if (!currentHubs.includes(action.iata)) return;
+        if (currentHubs.length <= 1) return; // Can't remove last hub
+        newHubs = currentHubs.filter((h) => h !== action.iata);
+        description = `Closed operations hub at ${action.iata}.`;
+        break;
+      }
+    }
 
-        if (hubFee > airline.corporateBalance) {
-            throw new Error(`Insufficient funds to modify hub. Required: ${fpFormat(hubFee, 0)}`);
-        }
+    if (hubFee > airline.corporateBalance) {
+      throw new Error(`Insufficient funds to modify hub. Required: ${fpFormat(hubFee, 0)}`);
+    }
 
-        const currentTimeline = [...get().timeline];
-        const currentTick = useEngineStore.getState().tick;
-        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
+    const currentTimeline = [...get().timeline];
+    const currentTick = useEngineStore.getState().tick;
+    const simulatedTimestamp = GENESIS_TIME + currentTick * TICK_DURATION;
 
-        const newEvent: TimelineEvent = {
-            id: `evt-hub-${action.type}-${action.iata}-${currentTick}`,
-            tick: currentTick,
-            timestamp: simulatedTimestamp,
-            type: 'hub_change',
-            description,
-            cost: hubFee,
-        };
+    const newEvent: TimelineEvent = {
+      id: `evt-hub-${action.type}-${action.iata}-${currentTick}`,
+      tick: currentTick,
+      timestamp: simulatedTimestamp,
+      type: "hub_change",
+      description,
+      cost: hubFee,
+    };
 
-        const removedHubs = action.type === 'remove'
-            ? new Set([action.iata])
-            : new Set<string>();
+    const removedHubs = action.type === "remove" ? new Set([action.iata]) : new Set<string>();
 
-        const updatedRoutes: Route[] = removedHubs.size > 0
-            ? routes.map((route) => {
-                if (route.status !== 'active') return route;
-                if (!removedHubs.has(route.originIata)) return route;
-                return {
-                    ...route,
-                    status: 'suspended',
-                    assignedAircraftIds: []
-                };
-            })
-            : routes;
-
-        const routeEvents: TimelineEvent[] = [];
-        if (removedHubs.size > 0) {
-            for (const route of routes) {
-                if (route.status !== 'active') continue;
-                if (!removedHubs.has(route.originIata)) continue;
-                routeEvents.push({
-                    id: `evt-route-suspend-${route.id}-${currentTick}`,
-                    tick: currentTick,
-                    timestamp: simulatedTimestamp,
-                    type: 'route_change',
-                    routeId: route.id,
-                    originIata: route.originIata,
-                    destinationIata: route.destinationIata,
-                    description: `Route ${route.originIata} ↔ ${route.destinationIata} suspended after hub closure at ${action.iata}.`
-                });
-            }
-        }
-
-        const finalTimeline = [newEvent, ...routeEvents, ...currentTimeline].slice(0, 1000);
-
-        const suspendedRouteIds = new Set<string>();
-        for (const route of updatedRoutes) {
-            if (route.status === 'suspended') suspendedRouteIds.add(route.id);
-        }
-
-        const routeById = new Map<string, Route>();
-        for (const route of routes) {
-            routeById.set(route.id, route);
-        }
-
-        const updatedFleet = removedHubs.size > 0
-            ? fleet.map((aircraft) => {
-                if (!aircraft.assignedRouteId || !suspendedRouteIds.has(aircraft.assignedRouteId)) {
-                    return aircraft;
-                }
-
-                const assignedRoute = routeById.get(aircraft.assignedRouteId);
-
-                if (aircraft.status === 'enroute') {
-                    return {
-                        ...aircraft,
-                        assignedRouteId: null,
-                        flight: aircraft.flight && assignedRoute
-                            ? {
-                                ...aircraft.flight,
-                                fareEconomy: assignedRoute.fareEconomy,
-                                fareBusiness: assignedRoute.fareBusiness,
-                                fareFirst: assignedRoute.fareFirst,
-                                distanceKm: assignedRoute.distanceKm,
-                                frequencyPerWeek: assignedRoute.frequencyPerWeek ?? 7,
-                            }
-                            : aircraft.flight,
-                    };
-                }
-
-                if (aircraft.status === 'turnaround') {
-                    return { ...aircraft, assignedRouteId: null, status: 'idle' as const, flight: null };
-                }
-
-                return { ...aircraft, assignedRouteId: null };
-            })
-            : fleet;
-
-        const updatedAirline = {
-            ...airline,
-            hubs: newHubs,
-            corporateBalance: fpSub(airline.corporateBalance, hubFee),
-            timeline: finalTimeline,
-            routeIds: updatedRoutes.map(route => route.id)
-        };
-
-        const previousState = { airline, fleet, routes, timeline: get().timeline };
-
-        set({
-            airline: updatedAirline,
-            routes: updatedRoutes,
-            fleet: updatedFleet,
-            timeline: finalTimeline,
-        });
-
-        // Atomically sync engine homeAirport to hubs[0]
-        const activeIata = newHubs[0];
-        const activeAirport = airports.find(a => a.iata === activeIata);
-        if (activeAirport) {
-            useEngineStore.getState().setHub(
-                activeAirport,
-                { latitude: activeAirport.latitude, longitude: activeAirport.longitude, source: 'manual' },
-                `hub ${action.type}`
-            );
-        }
-
-        try {
-            await publishAirline({
-                ...updatedAirline,
-                fleet: updatedFleet,
-                routes: updatedRoutes,
-                timeline: finalTimeline,
-                lastTick: currentTick,
-            });
-        } catch (error: any) {
-            set(previousState);
-            // Roll back engine hub too
-            const rollbackIata = previousState.airline.hubs[0];
-            const rollbackAirport = airports.find(a => a.iata === rollbackIata);
-            if (rollbackAirport) {
-                useEngineStore.getState().setHub(
-                    rollbackAirport,
-                    { latitude: rollbackAirport.latitude, longitude: rollbackAirport.longitude, source: 'manual' },
-                    'hub rollback'
-                );
-            }
-            console.warn('Failed to publish hub change to Nostr:', error);
-        }
-    },
-
-    // Thin wrapper for backward compat — delegates to modifyHubs
-    updateHub: async (targetHubIata: string) => {
-        await get().modifyHubs({ type: 'switch', iata: targetHubIata });
-    },
-
-    rebaseRoute: async (routeId: string, newOriginIata: string) => {
-        const { airline, routes, fleet } = get();
-        if (!airline) return;
-        if (!airline.hubs.includes(newOriginIata)) {
-            throw new Error('Selected hub is not in your active hub list.');
-        }
-
-        const targetRoute = routes.find(route => route.id === routeId);
-        if (!targetRoute) return;
-        if (targetRoute.destinationIata === newOriginIata) {
-            throw new Error('Route origin and destination cannot be the same.');
-        }
-        if (targetRoute.status !== 'suspended') {
-            throw new Error('Only suspended routes can be rebased.');
-        }
-
-        const currentTick = useEngineStore.getState().tick;
-        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
-        const currentTimeline = [...get().timeline];
-
-        const updatedRoutes: Route[] = routes.map((route) => {
-            if (route.id !== routeId) return route;
+    const updatedRoutes: Route[] =
+      removedHubs.size > 0
+        ? routes.map((route) => {
+            if (route.status !== "active") return route;
+            if (!removedHubs.has(route.originIata)) return route;
             return {
-                ...route,
-                originIata: newOriginIata,
-                status: 'active',
-                assignedAircraftIds: []
+              ...route,
+              status: "suspended",
+              assignedAircraftIds: [],
             };
+          })
+        : routes;
+
+    const routeEvents: TimelineEvent[] = [];
+    if (removedHubs.size > 0) {
+      for (const route of routes) {
+        if (route.status !== "active") continue;
+        if (!removedHubs.has(route.originIata)) continue;
+        routeEvents.push({
+          id: `evt-route-suspend-${route.id}-${currentTick}`,
+          tick: currentTick,
+          timestamp: simulatedTimestamp,
+          type: "route_change",
+          routeId: route.id,
+          originIata: route.originIata,
+          destinationIata: route.destinationIata,
+          description: `Route ${route.originIata} ↔ ${route.destinationIata} suspended after hub closure at ${action.iata}.`,
         });
+      }
+    }
 
-        const updatedFleet = fleet.map((aircraft) => {
-            if (aircraft.assignedRouteId !== routeId) {
-                return aircraft;
+    const finalTimeline = [newEvent, ...routeEvents, ...currentTimeline].slice(0, 1000);
+
+    const suspendedRouteIds = new Set<string>();
+    for (const route of updatedRoutes) {
+      if (route.status === "suspended") suspendedRouteIds.add(route.id);
+    }
+
+    const routeById = new Map<string, Route>();
+    for (const route of routes) {
+      routeById.set(route.id, route);
+    }
+
+    const updatedFleet =
+      removedHubs.size > 0
+        ? fleet.map((aircraft) => {
+            if (!aircraft.assignedRouteId || !suspendedRouteIds.has(aircraft.assignedRouteId)) {
+              return aircraft;
             }
 
-            if (aircraft.status === 'enroute') {
-                return {
-                    ...aircraft,
-                    assignedRouteId: null,
-                    flight: aircraft.flight
-                        ? {
-                            ...aircraft.flight,
-                            fareEconomy: targetRoute.fareEconomy,
-                            fareBusiness: targetRoute.fareBusiness,
-                            fareFirst: targetRoute.fareFirst,
-                            distanceKm: targetRoute.distanceKm,
-                            frequencyPerWeek: targetRoute.frequencyPerWeek ?? 7,
-                        }
-                        : aircraft.flight,
-                };
+            const assignedRoute = routeById.get(aircraft.assignedRouteId);
+
+            if (aircraft.status === "enroute") {
+              return {
+                ...aircraft,
+                assignedRouteId: null,
+                flight:
+                  aircraft.flight && assignedRoute
+                    ? {
+                        ...aircraft.flight,
+                        fareEconomy: assignedRoute.fareEconomy,
+                        fareBusiness: assignedRoute.fareBusiness,
+                        fareFirst: assignedRoute.fareFirst,
+                        distanceKm: assignedRoute.distanceKm,
+                        frequencyPerWeek: assignedRoute.frequencyPerWeek ?? 7,
+                      }
+                    : aircraft.flight,
+              };
             }
 
-            if (aircraft.status === 'turnaround') {
-                return { ...aircraft, assignedRouteId: null, status: 'idle' as const, flight: null };
+            if (aircraft.status === "turnaround") {
+              return { ...aircraft, assignedRouteId: null, status: "idle" as const, flight: null };
             }
 
             return { ...aircraft, assignedRouteId: null };
-        });
+          })
+        : fleet;
 
-        const newEvent: TimelineEvent = {
-            id: `evt-route-rebase-${routeId}-${currentTick}`,
-            tick: currentTick,
-            timestamp: simulatedTimestamp,
-            type: 'route_change',
-            routeId,
-            originIata: newOriginIata,
-            destinationIata: targetRoute.destinationIata,
-            description: `Route rebased to ${newOriginIata} ↔ ${targetRoute.destinationIata}.`
+    const updatedAirline = {
+      ...airline,
+      hubs: newHubs,
+      corporateBalance: fpSub(airline.corporateBalance, hubFee),
+      timeline: finalTimeline,
+      routeIds: updatedRoutes.map((route) => route.id),
+    };
+
+    const previousState = { airline, fleet, routes, timeline: get().timeline };
+
+    set({
+      airline: updatedAirline,
+      routes: updatedRoutes,
+      fleet: updatedFleet,
+      timeline: finalTimeline,
+    });
+
+    // Atomically sync engine homeAirport to hubs[0]
+    const activeIata = newHubs[0];
+    const activeAirport = airports.find((a) => a.iata === activeIata);
+    if (activeAirport) {
+      useEngineStore.getState().setHub(
+        activeAirport,
+        {
+          latitude: activeAirport.latitude,
+          longitude: activeAirport.longitude,
+          source: "manual",
+        },
+        `hub ${action.type}`,
+      );
+    }
+
+    try {
+      await publishAction({
+        schemaVersion: 2,
+        action:
+          action.type === "add"
+            ? "HUB_ADD"
+            : action.type === "remove"
+              ? "HUB_REMOVE"
+              : "HUB_SWITCH",
+        payload: {
+          iata: action.iata,
+          fee: hubFee,
+          tick: currentTick,
+        },
+      });
+    } catch (error: any) {
+      set(previousState);
+      // Roll back engine hub too
+      const rollbackIata = previousState.airline.hubs[0];
+      const rollbackAirport = airports.find((a) => a.iata === rollbackIata);
+      if (rollbackAirport) {
+        useEngineStore.getState().setHub(
+          rollbackAirport,
+          {
+            latitude: rollbackAirport.latitude,
+            longitude: rollbackAirport.longitude,
+            source: "manual",
+          },
+          "hub rollback",
+        );
+      }
+      console.warn("Failed to publish hub change to Nostr:", error);
+    }
+  },
+
+  // Thin wrapper for backward compat — delegates to modifyHubs
+  updateHub: async (targetHubIata: string) => {
+    await get().modifyHubs({ type: "switch", iata: targetHubIata });
+  },
+
+  rebaseRoute: async (routeId: string, newOriginIata: string) => {
+    const { airline, routes, fleet } = get();
+    if (!airline) return;
+    if (!airline.hubs.includes(newOriginIata)) {
+      throw new Error("Selected hub is not in your active hub list.");
+    }
+
+    const targetRoute = routes.find((route) => route.id === routeId);
+    if (!targetRoute) return;
+    if (targetRoute.destinationIata === newOriginIata) {
+      throw new Error("Route origin and destination cannot be the same.");
+    }
+    if (targetRoute.status !== "suspended") {
+      throw new Error("Only suspended routes can be rebased.");
+    }
+
+    const currentTick = useEngineStore.getState().tick;
+    const simulatedTimestamp = GENESIS_TIME + currentTick * TICK_DURATION;
+    const currentTimeline = [...get().timeline];
+
+    const updatedRoutes: Route[] = routes.map((route) => {
+      if (route.id !== routeId) return route;
+      return {
+        ...route,
+        originIata: newOriginIata,
+        status: "active",
+        assignedAircraftIds: [],
+      };
+    });
+
+    const updatedFleet = fleet.map((aircraft) => {
+      if (aircraft.assignedRouteId !== routeId) {
+        return aircraft;
+      }
+
+      if (aircraft.status === "enroute") {
+        return {
+          ...aircraft,
+          assignedRouteId: null,
+          flight: aircraft.flight
+            ? {
+                ...aircraft.flight,
+                fareEconomy: targetRoute.fareEconomy,
+                fareBusiness: targetRoute.fareBusiness,
+                fareFirst: targetRoute.fareFirst,
+                distanceKm: targetRoute.distanceKm,
+                frequencyPerWeek: targetRoute.frequencyPerWeek ?? 7,
+              }
+            : aircraft.flight,
         };
+      }
 
-        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
-        const updatedAirline = {
-            ...airline,
-            timeline: finalTimeline,
+      if (aircraft.status === "turnaround") {
+        return { ...aircraft, assignedRouteId: null, status: "idle" as const, flight: null };
+      }
+
+      return { ...aircraft, assignedRouteId: null };
+    });
+
+    const newEvent: TimelineEvent = {
+      id: `evt-route-rebase-${routeId}-${currentTick}`,
+      tick: currentTick,
+      timestamp: simulatedTimestamp,
+      type: "route_change",
+      routeId,
+      originIata: newOriginIata,
+      destinationIata: targetRoute.destinationIata,
+      description: `Route rebased to ${newOriginIata} ↔ ${targetRoute.destinationIata}.`,
+    };
+
+    const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
+    const updatedAirline = {
+      ...airline,
+      timeline: finalTimeline,
+    };
+
+    const previousState = { airline, fleet, routes, timeline: get().timeline };
+
+    set({
+      airline: updatedAirline,
+      routes: updatedRoutes,
+      fleet: updatedFleet,
+      timeline: finalTimeline,
+    });
+
+    try {
+      await publishAction({
+        schemaVersion: 2,
+        action: "ROUTE_REBASE",
+        payload: {
+          routeId,
+          originIata: newOriginIata,
+          destinationIata: targetRoute.destinationIata,
+          tick: currentTick,
+        },
+      });
+    } catch (error: any) {
+      set(previousState);
+      console.warn("Failed to publish route rebase to Nostr:", error);
+    }
+  },
+
+  closeRoute: async (routeId: string) => {
+    const { airline, routes, fleet } = get();
+    if (!airline) return;
+
+    const targetRoute = routes.find((route) => route.id === routeId);
+    if (!targetRoute) return;
+
+    const currentTick = useEngineStore.getState().tick;
+    const simulatedTimestamp = GENESIS_TIME + currentTick * TICK_DURATION;
+    const currentTimeline = [...get().timeline];
+
+    const updatedRoutes: Route[] = routes.filter((route) => route.id !== routeId);
+    const updatedFleet = fleet.map((aircraft) => {
+      if (aircraft.assignedRouteId !== routeId) {
+        return aircraft;
+      }
+
+      if (aircraft.status === "enroute") {
+        return {
+          ...aircraft,
+          assignedRouteId: null,
+          flight: aircraft.flight
+            ? {
+                ...aircraft.flight,
+                fareEconomy: targetRoute.fareEconomy,
+                fareBusiness: targetRoute.fareBusiness,
+                fareFirst: targetRoute.fareFirst,
+                distanceKm: targetRoute.distanceKm,
+                frequencyPerWeek: targetRoute.frequencyPerWeek ?? 7,
+              }
+            : aircraft.flight,
         };
+      }
 
-        const previousState = { airline, fleet, routes, timeline: get().timeline };
+      if (aircraft.status === "turnaround") {
+        return { ...aircraft, assignedRouteId: null, status: "idle" as const, flight: null };
+      }
 
-        set({
-            airline: updatedAirline,
-            routes: updatedRoutes,
-            fleet: updatedFleet,
-            timeline: finalTimeline,
-        });
+      return { ...aircraft, assignedRouteId: null };
+    });
 
-        try {
-            await publishAirline({
-                ...updatedAirline,
-                fleet: updatedFleet,
-                routes: updatedRoutes,
-                timeline: finalTimeline,
-                lastTick: currentTick,
-            });
-        } catch (error: any) {
-            set(previousState);
-            console.warn('Failed to publish route rebase to Nostr:', error);
-        }
-    },
+    const newEvent: TimelineEvent = {
+      id: `evt-route-close-${routeId}-${currentTick}`,
+      tick: currentTick,
+      timestamp: simulatedTimestamp,
+      type: "route_change",
+      routeId,
+      originIata: targetRoute.originIata,
+      destinationIata: targetRoute.destinationIata,
+      description: `Route closed: ${targetRoute.originIata} ↔ ${targetRoute.destinationIata}.`,
+    };
 
-    closeRoute: async (routeId: string) => {
-        const { airline, routes, fleet } = get();
-        if (!airline) return;
+    const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
+    const updatedAirline = {
+      ...airline,
+      timeline: finalTimeline,
+      routeIds: updatedRoutes.map((route) => route.id),
+    };
 
-        const targetRoute = routes.find(route => route.id === routeId);
-        if (!targetRoute) return;
+    const previousState = { airline, fleet, routes, timeline: get().timeline };
 
-        const currentTick = useEngineStore.getState().tick;
-        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
-        const currentTimeline = [...get().timeline];
+    set({
+      airline: updatedAirline,
+      routes: updatedRoutes,
+      fleet: updatedFleet,
+      timeline: finalTimeline,
+    });
 
-        const updatedRoutes: Route[] = routes.filter(route => route.id !== routeId);
-        const updatedFleet = fleet.map((aircraft) => {
-            if (aircraft.assignedRouteId !== routeId) {
-                return aircraft;
-            }
+    try {
+      await publishAction({
+        schemaVersion: 2,
+        action: "ROUTE_CLOSE",
+        payload: {
+          routeId,
+          originIata: targetRoute.originIata,
+          destinationIata: targetRoute.destinationIata,
+          tick: currentTick,
+        },
+      });
+    } catch (error: any) {
+      set(previousState);
+      console.warn("Failed to publish route closure to Nostr:", error);
+    }
+  },
 
-            if (aircraft.status === 'enroute') {
-                return {
-                    ...aircraft,
-                    assignedRouteId: null,
-                    flight: aircraft.flight
-                        ? {
-                            ...aircraft.flight,
-                            fareEconomy: targetRoute.fareEconomy,
-                            fareBusiness: targetRoute.fareBusiness,
-                            fareFirst: targetRoute.fareFirst,
-                            distanceKm: targetRoute.distanceKm,
-                            frequencyPerWeek: targetRoute.frequencyPerWeek ?? 7,
-                        }
-                        : aircraft.flight,
-                };
-            }
+  openRoute: async (originIata: string, destinationIata: string, distanceKm: number) => {
+    const { airline, routes, fleet, pubkey } = get();
+    if (!airline || !pubkey) throw new Error("No airline loaded.");
 
-            if (aircraft.status === 'turnaround') {
-                return { ...aircraft, assignedRouteId: null, status: 'idle' as const, flight: null };
-            }
+    if (airline.corporateBalance < ROUTE_SLOT_FEE) {
+      throw new Error(`Insufficient funds to open route. Cost: ${fpFormat(ROUTE_SLOT_FEE, 0)}`);
+    }
 
-            return { ...aircraft, assignedRouteId: null };
-        });
+    const newWeeklyFrequency = 7;
+    const newHourlyFrequency = newWeeklyFrequency / (7 * 24);
+    const getHourlyTraffic = (iata: string) =>
+      routes.reduce((total, route) => {
+        if (route.originIata !== iata && route.destinationIata !== iata) return total;
+        const weekly = route.frequencyPerWeek ?? 0;
+        return total + weekly / (7 * 24);
+      }, 0);
 
-        const newEvent: TimelineEvent = {
-            id: `evt-route-close-${routeId}-${currentTick}`,
-            tick: currentTick,
-            timestamp: simulatedTimestamp,
-            type: 'route_change',
-            routeId,
-            originIata: targetRoute.originIata,
-            destinationIata: targetRoute.destinationIata,
-            description: `Route closed: ${targetRoute.originIata} ↔ ${targetRoute.destinationIata}.`
+    const originHub = HUB_CLASSIFICATIONS[originIata];
+    if (originHub?.slotControlled) {
+      const projected = getHourlyTraffic(originIata) + newHourlyFrequency;
+      if (projected > originHub.baseCapacityPerHour) {
+        throw new Error(
+          `Slot capacity exceeded at ${originIata}. Reduce frequency or pick another hub.`,
+        );
+      }
+    }
+
+    const destHub = HUB_CLASSIFICATIONS[destinationIata];
+    if (destHub?.slotControlled) {
+      const projected = getHourlyTraffic(destinationIata) + newHourlyFrequency;
+      if (projected > destHub.baseCapacityPerHour) {
+        throw new Error(
+          `Slot capacity exceeded at ${destinationIata}. Reduce frequency or pick another hub.`,
+        );
+      }
+    }
+
+    const suggested = getSuggestedFares(distanceKm);
+
+    const newRoute: Route = {
+      id: `rt-${Date.now().toString(36)}`,
+      originIata,
+      destinationIata,
+      airlinePubkey: pubkey,
+      distanceKm,
+      frequencyPerWeek: newWeeklyFrequency,
+      assignedAircraftIds: [],
+      fareEconomy: suggested.economy,
+      fareBusiness: suggested.business,
+      fareFirst: suggested.first,
+      status: "active",
+    };
+
+    const updatedRoutes = [...routes, newRoute];
+    const currentTimeline = [...get().timeline];
+    const currentTick = useEngineStore.getState().tick;
+    const simulatedTimestamp = GENESIS_TIME + currentTick * TICK_DURATION;
+
+    const newEvent: TimelineEvent = {
+      id: `evt-route-open-${newRoute.id}`,
+      tick: currentTick,
+      timestamp: simulatedTimestamp,
+      type: "purchase",
+      routeId: newRoute.id,
+      originIata: originIata,
+      destinationIata: destinationIata,
+      cost: ROUTE_SLOT_FEE,
+      description: `Opened new route: ${originIata} ↔ ${destinationIata}. Slot fee: ${fpFormat(ROUTE_SLOT_FEE, 0)}`,
+    };
+
+    const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
+    const updatedAirline = {
+      ...airline,
+      corporateBalance: fpSub(airline.corporateBalance, ROUTE_SLOT_FEE),
+      routeIds: [...airline.routeIds, newRoute.id],
+      timeline: finalTimeline,
+    };
+
+    const previousState = { airline, fleet, routes, timeline: get().timeline };
+
+    set({
+      airline: updatedAirline,
+      routes: updatedRoutes,
+      timeline: finalTimeline,
+    });
+
+    try {
+      await publishAction({
+        schemaVersion: 2,
+        action: "ROUTE_OPEN",
+        payload: {
+          routeId: newRoute.id,
+          originIata,
+          destinationIata,
+          distanceKm,
+          fares: {
+            economy: suggested.economy,
+            business: suggested.business,
+            first: suggested.first,
+          },
+          frequencyPerWeek: newWeeklyFrequency,
+          tick: currentTick,
+        },
+      });
+    } catch (e) {
+      set(previousState);
+      console.error("Failed to sync route to Nostr:", e);
+    }
+  },
+
+  assignAircraftToRoute: async (aircraftId: string, routeId: string | null) => {
+    const { fleet, routes, airline } = get();
+    if (!airline) return;
+
+    const aircraft = fleet.find((ac) => ac.id === aircraftId);
+    const route = routes.find((r) => r.id === routeId);
+
+    if (aircraft && aircraft.status === "enroute" && routeId !== aircraft.assignedRouteId) {
+      throw new Error("Cannot change assignment while enroute.");
+    }
+
+    if (aircraft && routeId && !airline.hubs.includes(aircraft.baseAirportIata)) {
+      throw new Error("Aircraft must be at an active hub to be assigned to a route.");
+    }
+
+    if (aircraft && route) {
+      const model = getAircraftById(aircraft.modelId);
+      if (model && route.distanceKm > (model.rangeKm || 0)) {
+        throw new Error(`${aircraft.name} does not have enough range for this route.`);
+      }
+    }
+
+    const updatedFleet = fleet.map((ac) => {
+      if (ac.id === aircraftId) {
+        return { ...ac, assignedRouteId: routeId };
+      }
+      return ac;
+    });
+
+    const updatedRoutes = routes.map((rt) => {
+      const assigned = rt.assignedAircraftIds.filter((id) => id !== aircraftId);
+      if (rt.id === routeId) {
+        assigned.push(aircraftId);
+      }
+      return { ...rt, assignedAircraftIds: assigned };
+    });
+
+    const currentTimeline = [...get().timeline];
+    const currentTick = useEngineStore.getState().tick;
+    const simulatedTimestamp = GENESIS_TIME + currentTick * TICK_DURATION;
+
+    const aircraftName = aircraft?.name || "Aircraft";
+    const routeName = route ? `${route.originIata}-${route.destinationIata}` : "None";
+
+    const newEvent: TimelineEvent = {
+      id: `evt-assign-${aircraftId}-${currentTick}`,
+      tick: currentTick,
+      timestamp: simulatedTimestamp,
+      type: "maintenance",
+      aircraftId,
+      aircraftName,
+      routeId: routeId || undefined,
+      description: routeId
+        ? `Assigned ${aircraftName} to route ${routeName}.`
+        : `Unassigned ${aircraftName} from all routes.`,
+    };
+
+    const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
+    const updatedAirline = {
+      ...airline,
+      timeline: finalTimeline,
+    };
+
+    const previousState = { airline, fleet, routes, timeline: get().timeline };
+
+    set({
+      airline: updatedAirline,
+      fleet: updatedFleet,
+      routes: updatedRoutes,
+      timeline: finalTimeline,
+    });
+
+    try {
+      await publishAction({
+        schemaVersion: 2,
+        action: routeId ? "ROUTE_ASSIGN_AIRCRAFT" : "ROUTE_UNASSIGN_AIRCRAFT",
+        payload: {
+          aircraftId,
+          routeId,
+          tick: currentTick,
+        },
+      });
+    } catch (e) {
+      set(previousState);
+      console.error("Failed to sync assignment to Nostr:", e);
+    }
+  },
+
+  updateRouteFares: async (
+    routeId: string,
+    fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint },
+  ) => {
+    const { routes, airline, fleet } = get();
+    if (!airline) return;
+
+    const updatedRoutes = routes.map((rt) => {
+      if (rt.id === routeId) {
+        return {
+          ...rt,
+          fareEconomy: fares.economy !== undefined ? fares.economy : rt.fareEconomy,
+          fareBusiness: fares.business !== undefined ? fares.business : rt.fareBusiness,
+          fareFirst: fares.first !== undefined ? fares.first : rt.fareFirst,
         };
+      }
+      return rt;
+    });
 
-        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
-        const updatedAirline = {
-            ...airline,
-            timeline: finalTimeline,
-            routeIds: updatedRoutes.map(route => route.id),
-        };
+    const currentTimeline = get().timeline;
+    const updatedAirline = {
+      ...airline,
+      timeline: currentTimeline,
+    };
 
-        const previousState = { airline, fleet, routes, timeline: get().timeline };
+    const previousState = { airline, fleet, routes, timeline: get().timeline };
 
-        set({
-            airline: updatedAirline,
-            routes: updatedRoutes,
-            fleet: updatedFleet,
-            timeline: finalTimeline,
-        });
+    set({ routes: updatedRoutes, airline: updatedAirline });
 
-        try {
-            await publishAirline({
-                ...updatedAirline,
-                fleet: updatedFleet,
-                routes: updatedRoutes,
-                timeline: finalTimeline,
-                lastTick: currentTick,
-            });
-        } catch (error: any) {
-            set(previousState);
-            console.warn('Failed to publish route closure to Nostr:', error);
-        }
-    },
-
-    openRoute: async (originIata: string, destinationIata: string, distanceKm: number) => {
-        const { airline, routes, fleet, pubkey } = get();
-        if (!airline || !pubkey) throw new Error("No airline loaded.");
-
-        if (airline.corporateBalance < ROUTE_SLOT_FEE) {
-            throw new Error(`Insufficient funds to open route. Cost: ${fpFormat(ROUTE_SLOT_FEE, 0)}`);
-        }
-
-        const newWeeklyFrequency = 7;
-        const newHourlyFrequency = newWeeklyFrequency / (7 * 24);
-        const getHourlyTraffic = (iata: string) => routes.reduce((total, route) => {
-            if (route.originIata !== iata && route.destinationIata !== iata) return total;
-            const weekly = route.frequencyPerWeek ?? 0;
-            return total + (weekly / (7 * 24));
-        }, 0);
-
-        const originHub = HUB_CLASSIFICATIONS[originIata];
-        if (originHub?.slotControlled) {
-            const projected = getHourlyTraffic(originIata) + newHourlyFrequency;
-            if (projected > originHub.baseCapacityPerHour) {
-                throw new Error(`Slot capacity exceeded at ${originIata}. Reduce frequency or pick another hub.`);
-            }
-        }
-
-        const destHub = HUB_CLASSIFICATIONS[destinationIata];
-        if (destHub?.slotControlled) {
-            const projected = getHourlyTraffic(destinationIata) + newHourlyFrequency;
-            if (projected > destHub.baseCapacityPerHour) {
-                throw new Error(`Slot capacity exceeded at ${destinationIata}. Reduce frequency or pick another hub.`);
-            }
-        }
-
-        const suggested = getSuggestedFares(distanceKm);
-
-        const newRoute: Route = {
-            id: `rt-${Date.now().toString(36)}`,
-            originIata,
-            destinationIata,
-            airlinePubkey: pubkey,
-            distanceKm,
-            frequencyPerWeek: newWeeklyFrequency,
-            assignedAircraftIds: [],
-            fareEconomy: suggested.economy,
-            fareBusiness: suggested.business,
-            fareFirst: suggested.first,
-            status: 'active',
-        };
-
-        const updatedRoutes = [...routes, newRoute];
-        const currentTimeline = [...get().timeline];
-        const currentTick = useEngineStore.getState().tick;
-        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
-
-        const newEvent: TimelineEvent = {
-            id: `evt-route-open-${newRoute.id}`,
-            tick: currentTick,
-            timestamp: simulatedTimestamp,
-            type: 'purchase',
-            routeId: newRoute.id,
-            originIata: originIata,
-            destinationIata: destinationIata,
-            cost: ROUTE_SLOT_FEE,
-            description: `Opened new route: ${originIata} ↔ ${destinationIata}. Slot fee: ${fpFormat(ROUTE_SLOT_FEE, 0)}`
-        };
-
-        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
-        const updatedAirline = {
-            ...airline,
-            corporateBalance: fpSub(airline.corporateBalance, ROUTE_SLOT_FEE),
-            routeIds: [...airline.routeIds, newRoute.id],
-            timeline: finalTimeline
-        };
-
-        const previousState = { airline, fleet, routes, timeline: get().timeline };
-
-        set({
-            airline: updatedAirline,
-            routes: updatedRoutes,
-            timeline: finalTimeline
-        });
-
-        try {
-            await publishAirline({
-                ...updatedAirline,
-                fleet,
-                routes: updatedRoutes,
-                timeline: finalTimeline,
-                lastTick: currentTick,
-            });
-        } catch (e) {
-            set(previousState);
-            console.error("Failed to sync route to Nostr:", e);
-        }
-    },
-
-    assignAircraftToRoute: async (aircraftId: string, routeId: string | null) => {
-        const { fleet, routes, airline } = get();
-        if (!airline) return;
-
-        const aircraft = fleet.find(ac => ac.id === aircraftId);
-        const route = routes.find(r => r.id === routeId);
-
-        if (aircraft && aircraft.status === 'enroute' && routeId !== aircraft.assignedRouteId) {
-            throw new Error('Cannot change assignment while enroute.');
-        }
-
-        if (aircraft && routeId && !airline.hubs.includes(aircraft.baseAirportIata)) {
-            throw new Error('Aircraft must be at an active hub to be assigned to a route.');
-        }
-
-        if (aircraft && route) {
-            const model = getAircraftById(aircraft.modelId);
-            if (model && route.distanceKm > (model.rangeKm || 0)) {
-                throw new Error(`${aircraft.name} does not have enough range for this route.`);
-            }
-        }
-
-        const updatedFleet = fleet.map(ac => {
-            if (ac.id === aircraftId) {
-                return { ...ac, assignedRouteId: routeId };
-            }
-            return ac;
-        });
-
-        const updatedRoutes = routes.map(rt => {
-            const assigned = rt.assignedAircraftIds.filter(id => id !== aircraftId);
-            if (rt.id === routeId) {
-                assigned.push(aircraftId);
-            }
-            return { ...rt, assignedAircraftIds: assigned };
-        });
-
-        const currentTimeline = [...get().timeline];
-        const currentTick = useEngineStore.getState().tick;
-        const simulatedTimestamp = GENESIS_TIME + (currentTick * TICK_DURATION);
-
-        const aircraftName = aircraft?.name || 'Aircraft';
-        const routeName = route ? `${route.originIata}-${route.destinationIata}` : 'None';
-
-        const newEvent: TimelineEvent = {
-            id: `evt-assign-${aircraftId}-${currentTick}`,
-            tick: currentTick,
-            timestamp: simulatedTimestamp,
-            type: 'maintenance',
-            aircraftId,
-            aircraftName,
-            routeId: routeId || undefined,
-            description: routeId
-                ? `Assigned ${aircraftName} to route ${routeName}.`
-                : `Unassigned ${aircraftName} from all routes.`
-        };
-
-        const finalTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
-        const updatedAirline = {
-            ...airline,
-            timeline: finalTimeline
-        };
-
-        const previousState = { airline, fleet, routes, timeline: get().timeline };
-
-        set({
-            airline: updatedAirline,
-            fleet: updatedFleet,
-            routes: updatedRoutes,
-            timeline: finalTimeline
-        });
-
-        try {
-            await publishAirline({
-                ...updatedAirline,
-                fleet: updatedFleet,
-                routes: updatedRoutes,
-                timeline: finalTimeline,
-                lastTick: currentTick
-            });
-        } catch (e) {
-            set(previousState);
-            console.error("Failed to sync assignment to Nostr:", e);
-        }
-    },
-
-    updateRouteFares: async (routeId: string, fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint }) => {
-        const { routes, airline, fleet } = get();
-        if (!airline) return;
-
-        const updatedRoutes = routes.map(rt => {
-            if (rt.id === routeId) {
-                return {
-                    ...rt,
-                    fareEconomy: fares.economy !== undefined ? fares.economy : rt.fareEconomy,
-                    fareBusiness: fares.business !== undefined ? fares.business : rt.fareBusiness,
-                    fareFirst: fares.first !== undefined ? fares.first : rt.fareFirst,
-                };
-            }
-            return rt;
-        });
-
-        const currentTimeline = get().timeline;
-        const updatedAirline = {
-            ...airline,
-            timeline: currentTimeline
-        };
-
-        const previousState = { airline, fleet, routes, timeline: get().timeline };
-
-        set({ routes: updatedRoutes, airline: updatedAirline });
-
-        try {
-            await publishAirline({
-                ...updatedAirline,
-                fleet,
-                routes: updatedRoutes,
-                timeline: currentTimeline,
-                lastTick: useEngineStore.getState().tick
-            });
-        } catch (e) {
-            set(previousState);
-            console.error("Failed to sync fares to Nostr:", e);
-        }
-    },
+    try {
+      await publishAction({
+        schemaVersion: 2,
+        action: "ROUTE_UPDATE_FARES",
+        payload: {
+          routeId,
+          fares,
+          tick: useEngineStore.getState().tick,
+        },
+      });
+    } catch (e) {
+      set(previousState);
+      console.error("Failed to sync fares to Nostr:", e);
+    }
+  },
 });

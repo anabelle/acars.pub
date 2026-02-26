@@ -1,31 +1,31 @@
-import type { StateCreator } from "zustand";
-import type { AirlineState } from "../types";
 import type { AircraftInstance, AircraftModel, FixedPoint, TimelineEvent } from "@airtr/core";
 import {
-  fpSub,
-  fpAdd,
   calculateBookValue,
-  fpScale,
+  createLogger,
   fp,
+  fpAdd,
   fpFormat,
+  fpScale,
+  fpSub,
   GENESIS_TIME,
+  haversineDistance,
   TICK_DURATION,
   TICKS_PER_HOUR,
-  haversineDistance,
-  createLogger,
 } from "@airtr/core";
-import { getAircraftById, airports } from "@airtr/data";
+import { airports, getAircraftById } from "@airtr/data";
 import {
   attachSigner,
   ensureConnected,
-  publishAirline,
-  publishUsedAircraft,
   getNDK,
-  NDKEvent,
   MARKETPLACE_KIND,
   type MarketplaceListing,
+  NDKEvent,
+  publishAction,
+  publishUsedAircraft,
 } from "@airtr/nostr";
+import type { StateCreator } from "zustand";
 import { useEngineStore } from "../engine";
+import type { AirlineState } from "../types";
 
 export interface FleetSlice {
   fleet: AircraftInstance[];
@@ -108,11 +108,12 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     };
 
     const currentTimeline = [...get().timeline];
-    const simulatedTimestamp = GENESIS_TIME + engineStore.tick * TICK_DURATION;
+    const currentTick = engineStore.tick;
+    const simulatedTimestamp = GENESIS_TIME + currentTick * TICK_DURATION;
 
     const newEvent: TimelineEvent = {
       id: `evt-purchase-${newInstanceId}`,
-      tick: engineStore.tick,
+      tick: currentTick,
       timestamp: simulatedTimestamp,
       type: "purchase",
       aircraftId: newInstanceId,
@@ -132,12 +133,19 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     });
 
     try {
-      await publishAirline({
-        ...updatedAirline,
-        fleet: updatedFleet,
-        routes: routes,
-        timeline: finalTimeline,
-        lastTick: engineStore.tick,
+      await publishAction({
+        schemaVersion: 2,
+        action: "AIRCRAFT_PURCHASE",
+        payload: {
+          instanceId: newInstanceId,
+          modelId: model.id,
+          purchaseType,
+          deliveryHubIata: targetHubIata,
+          configuration: newInstance.configuration,
+          price: upfrontCost,
+          name: newInstance.name,
+          tick: currentTick,
+        },
       });
     } catch (e) {
       set(previousState);
@@ -228,12 +236,16 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     });
 
     try {
-      await publishAirline({
-        ...updatedAirline,
-        fleet: updatedFleet,
-        routes,
-        timeline: finalTimeline,
-        lastTick: currentTick,
+      await publishAction({
+        schemaVersion: 2,
+        action: "AIRCRAFT_FERRY",
+        payload: {
+          instanceId: aircraftId,
+          originIata: originAirport.iata,
+          destinationIata: destinationAirport.iata,
+          distanceKm,
+          tick: currentTick,
+        },
       });
     } catch (e) {
       set(previousState);
@@ -316,12 +328,14 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
       attachSigner();
       ensureConnected();
 
-      await publishAirline({
-        ...updatedAirline,
-        fleet: updatedFleet,
-        routes: updatedRoutes,
-        timeline: nextTimeline,
-        lastTick: currentTick,
+      await publishAction({
+        schemaVersion: 2,
+        action: "AIRCRAFT_SELL",
+        payload: {
+          instanceId: aircraftId,
+          price: resaleValue,
+          tick: currentTick,
+        },
       });
 
       // If it was listed, we should delete the listing too
@@ -403,12 +417,14 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     });
 
     try {
-      await publishAirline({
-        ...updatedAirline,
-        fleet: updatedFleet,
-        routes: routes,
-        timeline: finalTimeline,
-        lastTick: engineStore.tick,
+      await publishAction({
+        schemaVersion: 2,
+        action: "AIRCRAFT_BUYOUT",
+        payload: {
+          instanceId: aircraftId,
+          price: cost,
+          tick: currentTick,
+        },
       });
     } catch (e) {
       set(previousState);
@@ -502,11 +518,12 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     };
 
     const currentTimeline = [...get().timeline];
-    const simulatedTimestamp = GENESIS_TIME + engineStore.tick * TICK_DURATION;
+    const currentTick = engineStore.tick;
+    const simulatedTimestamp = GENESIS_TIME + currentTick * TICK_DURATION;
 
     const newEvent: TimelineEvent = {
       id: `evt-purchase-used-${listing.instanceId}-${engineStore.tick}`,
-      tick: engineStore.tick,
+      tick: currentTick,
       timestamp: simulatedTimestamp,
       type: "purchase",
       aircraftId: listing.instanceId,
@@ -529,12 +546,23 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
       attachSigner();
       ensureConnected();
 
-      await publishAirline({
-        ...updatedAirline,
-        fleet: updatedFleet,
-        routes: routes,
-        timeline: finalTimeline,
-        lastTick: engineStore.tick,
+      await publishAction({
+        schemaVersion: 2,
+        action: "AIRCRAFT_BUY_USED",
+        payload: {
+          instanceId: listing.instanceId,
+          listingId: listing.id,
+          modelId: listing.modelId,
+          name: listing.name,
+          condition: listing.condition,
+          flightHoursTotal: listing.flightHoursTotal,
+          flightHoursSinceCheck: listing.flightHoursSinceCheck,
+          configuration: listing.configuration,
+          baseAirportIata: targetHubIata,
+          birthTick: listing.birthTick,
+          price,
+          tick: currentTick,
+        },
       });
 
       // NOTE: We intentionally do NOT publish a kind-5 deletion event here.
@@ -598,17 +626,17 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
       attachSigner();
       ensureConnected();
 
-      // 3. Update Airline State
-      await publishAirline({
-        ...updatedAirline,
-        fleet: updatedFleet,
-        routes,
-        timeline: get().timeline,
-        lastTick: useEngineStore.getState().tick,
-      });
-
       // 2. Publish to Marketplace
       await publishUsedAircraft({ ...instance, listingPrice: price }, price);
+      await publishAction({
+        schemaVersion: 2,
+        action: "AIRCRAFT_LIST",
+        payload: {
+          instanceId: aircraftId,
+          price,
+          tick: useEngineStore.getState().tick,
+        },
+      });
     } catch (e) {
       set(previousState);
       console.error("Listing failed:", e);
@@ -635,15 +663,6 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
       attachSigner();
       ensureConnected();
 
-      // 1. Update Airline State
-      await publishAirline({
-        ...airline,
-        fleet: updatedFleet,
-        routes,
-        timeline: get().timeline,
-        lastTick: useEngineStore.getState().tick,
-      });
-
       // 2. Delete Marketplace Entry
       const ndk = getNDK();
       const deletionEvent = new NDKEvent(ndk);
@@ -652,6 +671,14 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         ["a", `${MARKETPLACE_KIND}:${airline.ceoPubkey}:airtr:marketplace:${aircraftId}`],
       ];
       await deletionEvent.publish();
+      await publishAction({
+        schemaVersion: 2,
+        action: "AIRCRAFT_CANCEL_LIST",
+        payload: {
+          instanceId: aircraftId,
+          tick: useEngineStore.getState().tick,
+        },
+      });
     } catch (e) {
       set(previousState);
       console.error("Cancellation failed:", e);
@@ -724,12 +751,14 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     });
 
     try {
-      await publishAirline({
-        ...updatedAirline,
-        fleet: updatedFleet,
-        routes,
-        timeline: finalTimeline,
-        lastTick: currentTick,
+      await publishAction({
+        schemaVersion: 2,
+        action: "AIRCRAFT_MAINTENANCE",
+        payload: {
+          instanceId: aircraftId,
+          cost: totalCost,
+          tick: currentTick,
+        },
       });
     } catch (e) {
       set(previousState);

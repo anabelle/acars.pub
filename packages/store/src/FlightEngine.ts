@@ -5,6 +5,8 @@ import {
   calculateFlightCost,
   calculateFlightRevenue,
   calculateHubLandingFee,
+  calculatePriceElasticity,
+  calculateSupplyPressure,
   detectPriceWar,
   fp,
   fpAdd,
@@ -15,6 +17,11 @@ import {
   getHubDemandModifier,
   getProsperityIndex,
   getSeason,
+  getSuggestedFares,
+  PRICE_ELASTICITY_BUSINESS,
+  PRICE_ELASTICITY_ECONOMY,
+  PRICE_ELASTICITY_FIRST,
+  scaleToAddressableMarket,
   TICK_DURATION,
   TICKS_PER_HOUR,
 } from "@airtr/core";
@@ -319,24 +326,56 @@ export function processFlightEngine(
             }
           }
 
-          const allocations = allocatePassengers(allOffers, weeklyDemandResult);
+          const addressableDemand = scaleToAddressableMarket(weeklyDemandResult);
+          const allocations = allocatePassengers(allOffers, addressableDemand);
           const ourWeeklyAllocation = allocations.get(playerPubkey) ||
             (route
               ? { economy: 0, business: 0, first: 0 }
               : allocations.get(ourOffer.airlinePubkey)) || { economy: 0, business: 0, first: 0 };
 
-          // Per-flight allocation (Weekly allocation / frequency)
+          const totalWeeklySeats =
+            ourFrequency * (seatConfig.economy + seatConfig.business + seatConfig.first);
+          const totalWeeklyDemand =
+            ourWeeklyAllocation.economy + ourWeeklyAllocation.business + ourWeeklyAllocation.first;
+          const pressureMultiplier = calculateSupplyPressure(totalWeeklySeats, totalWeeklyDemand);
+
+          const referenceFares = getSuggestedFares(distanceForOffer);
+          const elasticityEconomy = calculatePriceElasticity(
+            fareEconomy,
+            referenceFares.economy,
+            PRICE_ELASTICITY_ECONOMY,
+          );
+          const elasticityBusiness = calculatePriceElasticity(
+            fareBusiness,
+            referenceFares.business,
+            PRICE_ELASTICITY_BUSINESS,
+          );
+          const elasticityFirst = calculatePriceElasticity(
+            fareFirst,
+            referenceFares.first,
+            PRICE_ELASTICITY_FIRST,
+          );
+
+          // Per-flight allocation (Weekly allocation / frequency), adjusted by supply pressure
           const paxE = Math.min(
             seatConfig.economy,
-            Math.floor(ourWeeklyAllocation.economy / ourFrequency),
+            Math.floor(
+              (ourWeeklyAllocation.economy / ourFrequency) * pressureMultiplier * elasticityEconomy,
+            ),
           );
           const paxB = Math.min(
             seatConfig.business,
-            Math.floor(ourWeeklyAllocation.business / ourFrequency),
+            Math.floor(
+              (ourWeeklyAllocation.business / ourFrequency) *
+                pressureMultiplier *
+                elasticityBusiness,
+            ),
           );
           const paxF = Math.min(
             seatConfig.first,
-            Math.floor(ourWeeklyAllocation.first / ourFrequency),
+            Math.floor(
+              (ourWeeklyAllocation.first / ourFrequency) * pressureMultiplier * elasticityFirst,
+            ),
           );
           // --- END NEW MP ALLOCATION ---
 
@@ -349,6 +388,8 @@ export function processFlightEngine(
             fareFirst,
             seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first,
           });
+
+          ac.lastKnownLoadFactor = rev.loadFactor;
         }
 
         const originHub = originIata ? HUB_CLASSIFICATIONS[originIata] : undefined;
@@ -419,6 +460,7 @@ export function processFlightEngine(
                 seatsOffered: rev.seatsOffered,
                 loadFactor: rev.loadFactor,
                 spilledPassengers: rev.spilledPassengers,
+                routeId: route?.id,
                 flightDurationTicks: ac.flight.arrivalTick - ac.flight.departureTick,
                 revenue: {
                   tickets: rev.revenueTicket,

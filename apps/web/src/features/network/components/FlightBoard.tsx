@@ -16,8 +16,9 @@ const STATUS_CLASS: Record<FlightRow["statusTone"], string> = {
 };
 
 function FidsRow({ flight }: { flight: FlightRow }) {
+  const loadFactor = flight.loadFactor !== undefined ? Math.round(flight.loadFactor * 100) : null;
   return (
-    <div className="grid grid-cols-[72px_1fr_52px_52px_56px] items-center gap-1.5 border-b border-slate-700/60 px-3 py-1.5 text-[11px] font-mono hover:bg-white/[0.03] transition-colors">
+    <div className="grid grid-cols-[72px_1fr_52px_52px_56px_42px] items-center gap-1.5 border-b border-slate-700/60 px-3 py-1.5 text-[11px] font-mono hover:bg-white/[0.03] transition-colors">
       <span
         className={`font-bold uppercase tracking-wide text-[10px] leading-tight ${STATUS_CLASS[flight.statusTone]}`}
       >
@@ -35,6 +36,9 @@ function FidsRow({ flight }: { flight: FlightRow }) {
       <span className="text-slate-400 text-[10px]">{flight.aircraft}</span>
       <span className="text-slate-100 font-semibold text-right tabular-nums">
         {flight.timeLabel}
+      </span>
+      <span className="text-slate-200 text-right tabular-nums text-[10px]">
+        {loadFactor !== null ? `${loadFactor}%` : "--"}
       </span>
     </div>
   );
@@ -64,12 +68,13 @@ function FidsSection({
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-[72px_1fr_52px_52px_56px] gap-1.5 border-b border-slate-600 bg-slate-800/80 px-3 py-1 text-[9px] uppercase tracking-[0.15em] text-slate-400 font-mono font-semibold">
+      <div className="grid grid-cols-[72px_1fr_52px_52px_56px_42px] gap-1.5 border-b border-slate-600 bg-slate-800/80 px-3 py-1 text-[9px] uppercase tracking-[0.15em] text-slate-400 font-mono font-semibold">
         <span>Status</span>
         <span>Flight</span>
         <span>{columns.to}</span>
         <span>A/C</span>
         <span className="text-right">{columns.time}</span>
+        <span className="text-right">LF</span>
       </div>
 
       {/* Rows */}

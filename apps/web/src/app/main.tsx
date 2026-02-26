@@ -1,32 +1,34 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { RouterProvider, createRouter } from '@tanstack/react-router';
+import { createRouter, RouterProvider } from "@tanstack/react-router";
+import React from "react";
+import ReactDOM from "react-dom/client";
 // Import the generated route tree
-import { routeTree } from '../routeTree.gen';
-import '../index.css';
-import { ToastHost } from '@/shared/components/feedback/ToastHost';
-import { ConfirmProvider } from '@/shared/lib/useConfirm';
+import { routeTree } from "../routeTree.gen";
+import "../index.css";
+import { TimelineToastBridge } from "@/shared/components/feedback/TimelineToastBridge";
+import { ToastHost } from "@/shared/components/feedback/ToastHost";
+import { ConfirmProvider } from "@/shared/lib/useConfirm";
 
 // Create a new router instance
 const router = createRouter({ routeTree });
 
 // Register the router instance for type safety
-declare module '@tanstack/react-router' {
-    interface Register {
-        router: typeof router;
-    }
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
+  }
 }
 
 // Render the app
-const rootElement = document.getElementById('root')!;
+const rootElement = document.getElementById("root")!;
 if (!rootElement.innerHTML) {
-    const root = ReactDOM.createRoot(rootElement);
-    root.render(
-        <React.StrictMode>
-            <ConfirmProvider>
-                <RouterProvider router={router} />
-                <ToastHost />
-            </ConfirmProvider>
-        </React.StrictMode>,
-    );
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(
+    <React.StrictMode>
+      <ConfirmProvider>
+        <RouterProvider router={router} />
+        <ToastHost />
+        <TimelineToastBridge />
+      </ConfirmProvider>
+    </React.StrictMode>,
+  );
 }

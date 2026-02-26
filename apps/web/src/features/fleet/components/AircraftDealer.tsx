@@ -1,23 +1,23 @@
-import { useState, useMemo } from "react";
-import { aircraftModels, getAircraftById } from "@airtr/data";
 import type { AircraftModel } from "@airtr/core";
-import { createLogger, fpFormat, fpScale, FP_ZERO, TICK_DURATION } from "@airtr/core";
+import { createLogger, FP_ZERO, fpFormat, fpScale, TICK_DURATION } from "@airtr/core";
+import { aircraftModels, getAircraftById } from "@airtr/data";
+import { loadMarketplace, type MarketplaceListing, type SellerFleetIndex } from "@airtr/nostr";
 import { useAirlineStore } from "@airtr/store";
-import { loadMarketplace, type SellerFleetIndex, type MarketplaceListing } from "@airtr/nostr";
 import {
-  Search,
-  Plane,
-  Users,
   ArrowRight,
-  Coins,
   Check,
-  Timer,
-  X,
-  MapPin,
-  Tag,
-  ShoppingBag,
+  Coins,
   History,
+  MapPin,
+  Plane,
+  Search,
+  ShoppingBag,
+  Tag,
+  Timer,
+  Users,
+  X,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "@/shared/lib/useConfirm";
 
@@ -45,9 +45,6 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
 
     try {
       await purchaseUsed(listing);
-      toast.success("Purchase complete", {
-        description: "Aircraft is being delivered to your hub.",
-      });
       fetchUsed(); // Refresh the list
       if (onPurchaseSuccess) onPurchaseSuccess();
     } catch (e) {

@@ -646,6 +646,8 @@ Current State = reduce(allEvents, initialState)
 5. **Debugging** — reproduce any bug by replaying the event sequence
 6. **Forking** — create alternate "what-if" scenarios by branching the event stream
 
+**Implementation note:** the current public world id is `dev-v2`, and clients load action logs only (snapshot APIs are disabled for this world).
+
 ### 8.4 Modular Package Boundaries
 
 Each package has a clear contract and can evolve independently:

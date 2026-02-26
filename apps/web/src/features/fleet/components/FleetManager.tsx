@@ -1,35 +1,36 @@
-import { useState } from "react";
-import { useAirlineStore, useEngineStore } from "@airtr/store";
-import { getAircraftById } from "@airtr/data";
 import {
   calculateBookValue,
+  type FixedPoint,
+  FP_ZERO,
+  fp,
   fpFormat,
   fpScale,
-  fp,
   fpToNumber,
-  FP_ZERO,
-  type FixedPoint,
 } from "@airtr/core";
-import { AircraftDealer } from "./AircraftDealer";
-import {
-  Settings,
-  Search,
-  PlusCircle,
-  Trash2,
-  Tag,
-  XCircle,
-  Plane,
-  X,
-  Wrench,
-  PlaneTakeoff,
-  PlaneLanding,
-  RotateCcw,
-} from "lucide-react";
+import { getAircraftById } from "@airtr/data";
 import { FAMILY_ICONS } from "@airtr/map";
+import { useAirlineStore, useEngineStore } from "@airtr/store";
+import {
+  Plane,
+  PlaneLanding,
+  PlaneTakeoff,
+  PlusCircle,
+  RotateCcw,
+  Search,
+  Settings,
+  Tag,
+  Trash2,
+  Wrench,
+  X,
+  XCircle,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "@/shared/lib/useConfirm";
-import { getAircraftTimer } from "../utils/aircraftTimers";
+import { getRouteDemandSnapshot } from "@/features/network/hooks/useRouteDemand";
 import { getAircraftBaseHub } from "../utils/aircraftBaseHub";
+import { getAircraftTimer } from "../utils/aircraftTimers";
+import { AircraftDealer } from "./AircraftDealer";
 
 const timerStyleMap = {
   enroute: {
@@ -90,6 +91,10 @@ export function FleetManager() {
   const [view, setView] = useState<"owned" | "dealer">("owned");
   const [search, setSearch] = useState("");
   const confirm = useConfirm();
+  const routeDemandIndex = useMemo(
+    () => new Map(routes.map((route) => [route.id, getRouteDemandSnapshot(route, tick, fleet)])),
+    [routes, tick, fleet],
+  );
   const [listingTarget, setListingTarget] = useState<{
     aircraftId: string;
     name: string;
@@ -148,9 +153,6 @@ export function FleetManager() {
     setIsListing(true);
     try {
       await listAircraft(listingTarget.aircraftId, priceFp);
-      toast.success("Listing published", {
-        description: `${listingTarget.name} listed for ${fpFormat(priceFp)}.`,
-      });
       setListingTarget(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -534,13 +536,24 @@ export function FleetManager() {
                               <option value="">Unassigned (Idle)</option>
                               {routes.map((r) => {
                                 const isOutOfRange = r.distanceKm > model.rangeKm;
+                                const routeDemand = routeDemandIndex.get(r.id);
+                                const loadFactor = Math.round(
+                                  (routeDemand?.pressureMultiplier ?? 0) * 100,
+                                );
+                                const healthLabel =
+                                  loadFactor >= 80
+                                    ? "Healthy"
+                                    : loadFactor >= 60
+                                      ? "Caution"
+                                      : "Oversupplied";
                                 return (
                                   <option
                                     key={r.id}
                                     value={r.id}
                                     className={isOutOfRange ? "text-muted-foreground" : ""}
                                   >
-                                    {r.originIata} &rarr; {r.destinationIata} ({r.distanceKm}km){" "}
+                                    {r.originIata} &rarr; {r.destinationIata} ({r.distanceKm}km) —{" "}
+                                    {loadFactor}% {healthLabel}{" "}
                                     {isOutOfRange ? " — [OUT OF RANGE]" : ""}
                                   </option>
                                 );
@@ -630,7 +643,6 @@ export function FleetManager() {
                                     if (!approved) return;
                                     try {
                                       await ferryAircraft(ac.id, targetHub);
-                                      toast.success("Ferry flight scheduled");
                                     } catch (err) {
                                       const message =
                                         err instanceof Error ? err.message : "Ferry failed";
@@ -654,7 +666,6 @@ export function FleetManager() {
                               onClick={async () => {
                                 try {
                                   await cancelListing(ac.id);
-                                  toast.success("Listing cancelled");
                                 } catch (err) {
                                   const message =
                                     err instanceof Error ? err.message : "Unknown error";
