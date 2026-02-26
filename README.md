@@ -104,7 +104,6 @@ airtr/
 │   │       ├── routes/      # TanStack Router file-based routes
 │   │       ├── shared/      # Reusable UI (buttons, cards, layout)
 │   │       └── features/    # Feature modules (fleet, network, etc.)
-│   └── web-legacy/          # Previous prototype (archived)
 ├── packages/
 │   ├── core/                # Pure game engine (zero dependencies)
 │   │   └── src/
