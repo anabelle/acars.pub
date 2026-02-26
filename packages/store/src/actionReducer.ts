@@ -851,6 +851,9 @@ export async function replayActionLog(params: {
         routes,
         simulatedBalance,
         lastTick,
+        new Map(),
+        pubkey,
+        0.5,
       );
       simulatedFleet = updatedFleet;
       simulatedBalance = corporateBalance;

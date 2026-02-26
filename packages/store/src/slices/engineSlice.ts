@@ -288,10 +288,11 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         if (ac.deliveryAtTick == null || ac.deliveryAtTick > targetTick) continue;
         ac.status = "idle";
         anyChanges = true;
+        const deliveryTick = ac.deliveryAtTick;
         deliveryEvents.push({
-          id: `evt-delivery-${ac.id}-${targetTick}`,
-          tick: targetTick,
-          timestamp: simulatedTimestamp,
+          id: `evt-delivery-${ac.id}-${deliveryTick}`,
+          tick: deliveryTick,
+          timestamp: GENESIS_TIME + deliveryTick * TICK_DURATION,
           type: "delivery",
           aircraftId: ac.id,
           aircraftName: ac.name,

@@ -105,10 +105,11 @@ export function processFlightEngine(
       if (ac.deliveryAtTick !== undefined && tick >= ac.deliveryAtTick) {
         ac.status = "idle";
         hasChanges = true;
+        const deliveryTick = ac.deliveryAtTick;
         events.push({
-          id: `evt-delivery-${ac.id}-${tick}`,
-          tick,
-          timestamp: simulatedTimestamp,
+          id: `evt-delivery-${ac.id}-${deliveryTick}`,
+          tick: deliveryTick,
+          timestamp: GENESIS_TIME + deliveryTick * TICK_DURATION,
           type: "delivery",
           aircraftId: ac.id,
           aircraftName: ac.name,
