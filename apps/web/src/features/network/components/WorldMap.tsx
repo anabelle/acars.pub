@@ -61,9 +61,18 @@ export function WorldMap() {
     setFocusedAirport(airport);
   };
 
+  const filteredGlobalFleet = useMemo(() => {
+    if (!airline) return globalFleet;
+    const playerPubkey = airline.ceoPubkey;
+    const playerIds = new Set(fleet.map((ac) => ac.id));
+    return globalFleet.filter(
+      (aircraft) => aircraft.ownerPubkey !== playerPubkey && !playerIds.has(aircraft.id),
+    );
+  }, [airline, fleet, globalFleet]);
+
   const { presence: groundPresence } = useMemo(
-    () => buildGroundPresenceByAirport(fleet, globalFleet, airline ?? null, competitors),
-    [fleet, globalFleet, airline, competitors],
+    () => buildGroundPresenceByAirport(fleet, filteredGlobalFleet, airline ?? null, competitors),
+    [fleet, filteredGlobalFleet, airline, competitors],
   );
 
   if (!homeAirport) return null;
@@ -82,7 +91,7 @@ export function WorldMap() {
         }}
         groundPresence={groundPresence}
         fleet={fleet}
-        globalFleet={globalFleet}
+        globalFleet={filteredGlobalFleet}
         globalRoutes={globalRoutes}
         playerLivery={airline?.livery || null}
         competitorLiveries={competitorLiveries}

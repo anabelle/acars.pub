@@ -147,9 +147,19 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
     [fleet, airport.iata],
   );
 
+  const filteredGlobalFleet = useMemo(() => {
+    if (!airline) return globalFleet;
+    const playerPubkey = airline.ceoPubkey;
+    const playerIds = new Set(fleet.map((ac) => ac.id));
+    return globalFleet.filter(
+      (aircraft) => aircraft.ownerPubkey !== playerPubkey && !playerIds.has(aircraft.id),
+    );
+  }, [airline, fleet, globalFleet]);
+
   const groundTraffic = useMemo(
-    () => buildGroundTraffic(airport.iata, fleet, globalFleet, airline ?? null, competitors),
-    [airport.iata, fleet, globalFleet, airline, competitors],
+    () =>
+      buildGroundTraffic(airport.iata, fleet, filteredGlobalFleet, airline ?? null, competitors),
+    [airport.iata, fleet, filteredGlobalFleet, airline, competitors],
   );
 
   const competitorHubNames = useMemo(

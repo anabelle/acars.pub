@@ -91,18 +91,27 @@ export function FlightBoard({ airportIata, airportTimezone }: FlightBoardProps) 
   const { airline, fleet, globalFleet, competitors } = useAirlineStore();
   const tick = useEngineStore((s) => s.tick);
 
+  const filteredGlobalFleet = useMemo(() => {
+    if (!airline) return globalFleet;
+    const playerPubkey = airline.ceoPubkey;
+    const playerIds = new Set(fleet.map((ac) => ac.id));
+    return globalFleet.filter(
+      (aircraft) => aircraft.ownerPubkey !== playerPubkey && !playerIds.has(aircraft.id),
+    );
+  }, [airline, fleet, globalFleet]);
+
   const departures = useMemo(() => {
     return buildFlightBoardRows({
       airportIata,
       airportTimezone,
       mode: "departures",
       fleet,
-      globalFleet,
+      globalFleet: filteredGlobalFleet,
       airline,
       competitors,
       tick,
     });
-  }, [fleet, globalFleet, airline, competitors, airportIata, airportTimezone, tick]);
+  }, [fleet, filteredGlobalFleet, airline, competitors, airportIata, airportTimezone, tick]);
 
   const arrivals = useMemo(() => {
     return buildFlightBoardRows({
@@ -110,12 +119,12 @@ export function FlightBoard({ airportIata, airportTimezone }: FlightBoardProps) 
       airportTimezone,
       mode: "arrivals",
       fleet,
-      globalFleet,
+      globalFleet: filteredGlobalFleet,
       airline,
       competitors,
       tick,
     });
-  }, [fleet, globalFleet, airline, competitors, airportIata, airportTimezone, tick]);
+  }, [fleet, filteredGlobalFleet, airline, competitors, airportIata, airportTimezone, tick]);
 
   return (
     <div className="rounded-lg overflow-hidden border border-slate-700/80 bg-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
