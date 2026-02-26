@@ -1,0 +1,9 @@
+* @anomalyco
+/.github/ @anomalyco
+/apps/web/ @anomalyco
+/packages/core/ @anomalyco
+/packages/data/ @anomalyco
+/packages/nostr/ @anomalyco
+/packages/store/ @anomalyco
+/packages/map/ @anomalyco
+/docs/ @anomalyco

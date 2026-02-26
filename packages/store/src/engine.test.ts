@@ -1,0 +1,52 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GENESIS_TIME, TICK_DURATION } from "@airtr/core";
+import { airports as AIRPORTS } from "@airtr/data";
+import { useEngineStore } from "./engine.js";
+
+describe("engine store", () => {
+  const initialState = useEngineStore.getState();
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    useEngineStore.setState(initialState, true);
+    vi.useRealTimers();
+  });
+
+  it("syncTick updates tick and progress from system time", () => {
+    vi.setSystemTime(GENESIS_TIME + 2.5 * TICK_DURATION);
+    useEngineStore.getState().syncTick();
+    const { tick, tickProgress } = useEngineStore.getState();
+    expect(tick).toBe(2);
+    expect(tickProgress).toBeCloseTo(0.5, 5);
+  });
+
+  it("setHub assigns home airport and generates routes", () => {
+    vi.setSystemTime(GENESIS_TIME + 10 * TICK_DURATION);
+    const hub = AIRPORTS[0];
+    useEngineStore.getState().setHub(
+      hub,
+      {
+        latitude: hub.latitude,
+        longitude: hub.longitude,
+        source: "manual",
+      },
+      "manual",
+    );
+
+    const { homeAirport, routes } = useEngineStore.getState();
+    expect(homeAirport?.iata).toBe(hub.iata);
+    expect(routes.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("startEngine and stopEngine toggle running state", () => {
+    const store = useEngineStore.getState();
+    store.startEngine();
+    expect(useEngineStore.getState().isEngineRunning).toBe(true);
+
+    store.stopEngine();
+    expect(useEngineStore.getState().isEngineRunning).toBe(false);
+  });
+});

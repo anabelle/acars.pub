@@ -1,21 +1,21 @@
 {
-    "name": "@airtr/data",
-    "version": "0.1.0",
-    "type": "module",
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "scripts": {
-        "build": "tsc",
-        "test": "vitest run --passWithNoTests",
-        "typecheck": "tsc --noEmit",
-        "lint": "eslint src --ext ts"
-    },
-    "dependencies": {
-        "@airtr/core": "workspace:*"
-    },
-    "devDependencies": {
-        "typescript": "^5.9.3",
-        "vitest": "^3.2.4",
-        "adm-zip": "^0.5.10"
-    }
+  "name": "@airtr/data",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext ts"
+  },
+  "dependencies": {
+    "@airtr/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
+    "adm-zip": "^0.5.10"
+  }
 }

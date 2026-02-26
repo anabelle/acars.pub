@@ -1,30 +1,37 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react-swc';
-import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
-import path from 'path';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react-swc";
+import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
+import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    TanStackRouterVite(),
-    react()
-  ],
+  plugins: [TanStackRouterVite(), react()],
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       onwarn(warning, warn) {
-        if (warning.code === 'EVAL') return;
+        if (warning.code === "EVAL") return;
         warn(warning);
       },
     },
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
   test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    environment: "jsdom",
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    setupFiles: ["src/test/setup.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary", "html"],
+      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx", "dist/**", "src/routeTree.gen.ts"],
+      lines: 60,
+      functions: 60,
+      branches: 55,
+      statements: 60,
+    },
   },
 });

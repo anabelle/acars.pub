@@ -1,0 +1,66 @@
+import { describe, expect, it, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { Leaderboard } from "./Leaderboard";
+
+type Selector<T> = (state: T) => unknown;
+type AirlineStoreState = {
+  competitors: Map<string, unknown>;
+  airline: { id: string } | null;
+  fleet: unknown[];
+  routes: unknown[];
+  globalFleet: unknown[];
+  globalRoutes: unknown[];
+};
+type EngineStoreState = { tick: number };
+
+const mockUseAirlineStore = vi.fn();
+const mockUseEngineStore = vi.fn();
+
+vi.mock("@airtr/store", () => {
+  return {
+    useAirlineStore: (selector: Selector<AirlineStoreState>) =>
+      selector(mockUseAirlineStore() as AirlineStoreState),
+    useEngineStore: (selector: Selector<EngineStoreState>) =>
+      selector(mockUseEngineStore() as EngineStoreState),
+  };
+});
+
+vi.mock("@/features/competition/leaderboardMetrics", () => {
+  return {
+    buildLeaderboardRows: () => [
+      {
+        id: "airline-1",
+        name: "Test Air",
+        icaoCode: "TST",
+        ceoPubkey: "pubkey",
+        balance: 0,
+        fleet: 1,
+        routes: 2,
+        brand: 0.5,
+        fleetValue: 0,
+        networkDistance: 1000,
+      },
+    ],
+    sortLeaderboardRows: <T,>(rows: T) => rows,
+  };
+});
+
+describe("Leaderboard", () => {
+  it("renders rows and toggles metrics", () => {
+    mockUseAirlineStore.mockReturnValue({
+      competitors: new Map(),
+      airline: { id: "airline-1" },
+      fleet: [],
+      routes: [],
+      globalFleet: [],
+      globalRoutes: [],
+    });
+    mockUseEngineStore.mockReturnValue({ tick: 0 });
+
+    render(<Leaderboard />);
+    expect(screen.getByText("Test Air")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Fleet Size/ }));
+    expect(screen.getAllByText("Fleet Size").length).toBeGreaterThan(0);
+  });
+});

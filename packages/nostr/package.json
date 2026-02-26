@@ -4,13 +4,14 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "test": "vitest --passWithNoTests",
+    "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit",
-    "build": "tsc"
+    "build": "tsc",
+    "lint": "eslint src --ext ts"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@airtr/core": "workspace:^",
     "@nostr-dev-kit/ndk": "^2.10.1"

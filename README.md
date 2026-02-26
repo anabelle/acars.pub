@@ -192,6 +192,16 @@ Every feature must answer: *"If 10,000 players fire this event simultaneously, w
 | [MONETIZATION_MODEL.md](docs/MONETIZATION_MODEL.md) | Bitcoin/Lightning revenue streams |
 | [ROADMAP.md](docs/ROADMAP.md) | Development phases and milestones |
 
+## Community & Support
+
+- Issues: use GitHub Issues for bugs and feature requests
+- Security: see `SECURITY.md`
+- Code of Conduct: see `CODE_OF_CONDUCT.md`
+
+## Visuals
+
+Screenshots and short clips will be added as the UI stabilizes. If you'd like to contribute media, please open a PR with assets in `docs/media`.
+
 ## License
 
 MIT

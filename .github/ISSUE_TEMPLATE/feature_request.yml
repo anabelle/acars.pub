@@ -1,0 +1,46 @@
+name: Feature request
+description: Suggest an idea or enhancement
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve AirTR. Please include as much detail as possible.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: A short description of the feature.
+      placeholder: "Add profitability heatmap for routes"
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this valuable? What problem does it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe how you think this could work.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - apps/web
+        - packages/core
+        - packages/data
+        - packages/nostr
+        - packages/store
+        - packages/map
+        - docs
+        - other
+    validations:
+      required: true

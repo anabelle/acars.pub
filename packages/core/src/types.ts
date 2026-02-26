@@ -11,341 +11,345 @@ export const TICKS_PER_HOUR = 3600 / (TICK_DURATION / 1000); // 1200 ticks per h
  * 4 decimal places: $1.00 = 10000.
  * See ADR-002 for rationale.
  */
-export type FixedPoint = number & { readonly __brand: 'FixedPoint' };
+export type FixedPoint = number & { readonly __brand: "FixedPoint" };
 
 // --- Geography ---
 
 export interface Airport {
-    /** OpenFlights numeric ID */
-    id: string;
-    /** Airport name (English) */
-    name: string;
-    /** 3-letter IATA code (e.g. "JFK") */
-    iata: string;
-    /** 4-letter ICAO code (e.g. "KJFK") */
-    icao: string;
-    /** Decimal degrees latitude */
-    latitude: number;
-    /** Decimal degrees longitude */
-    longitude: number;
-    /** Feet above sea level */
-    altitude: number;
-    /** IANA timezone (e.g. "America/New_York") */
-    timezone: string;
-    /** ISO 3166-1 alpha-2 country code */
-    country: string;
-    /** City name */
-    city: string;
-    /** Metro area population (estimate) */
-    population: number;
-    /** Country GDP per capita (USD) */
-    gdpPerCapita: number;
-    /** Route classification tags */
-    tags: AirportTag[];
+  /** OpenFlights numeric ID */
+  id: string;
+  /** Airport name (English) */
+  name: string;
+  /** 3-letter IATA code (e.g. "JFK") */
+  iata: string;
+  /** 4-letter ICAO code (e.g. "KJFK") */
+  icao: string;
+  /** Decimal degrees latitude */
+  latitude: number;
+  /** Decimal degrees longitude */
+  longitude: number;
+  /** Feet above sea level */
+  altitude: number;
+  /** IANA timezone (e.g. "America/New_York") */
+  timezone: string;
+  /** ISO 3166-1 alpha-2 country code */
+  country: string;
+  /** City name */
+  city: string;
+  /** Metro area population (estimate) */
+  population: number;
+  /** Country GDP per capita (USD) */
+  gdpPerCapita: number;
+  /** Route classification tags */
+  tags: AirportTag[];
 }
 
-export type AirportTag = 'beach' | 'ski' | 'business' | 'general';
+export type AirportTag = "beach" | "ski" | "business" | "general";
 
 // --- Hubs ---
 
-export type HubTier = 'regional' | 'national' | 'international' | 'global';
+export type HubTier = "regional" | "national" | "international" | "global";
 
 export interface HubState {
-    hubIata: string;
-    spokeCount: number;
-    weeklyFrequency: number;
-    avgFrequency: number;
+  hubIata: string;
+  spokeCount: number;
+  weeklyFrequency: number;
+  avgFrequency: number;
 }
 
 // --- Season ---
 
-export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
+export type Season = "spring" | "summer" | "autumn" | "winter";
 
 // --- Demand ---
 
 export interface DemandResult {
-    /** Origin IATA code */
-    origin: string;
-    /** Destination IATA code */
-    destination: string;
-    /** Weekly economy passenger demand */
-    economy: number;
-    /** Weekly business passenger demand */
-    business: number;
-    /** Weekly first class passenger demand */
-    first: number;
+  /** Origin IATA code */
+  origin: string;
+  /** Destination IATA code */
+  destination: string;
+  /** Weekly economy passenger demand */
+  economy: number;
+  /** Weekly business passenger demand */
+  business: number;
+  /** Weekly first class passenger demand */
+  first: number;
 }
 
 export interface AircraftModel {
-    id: string;               // e.g., "b737-800"
-    manufacturer: string;     // e.g., "Boeing"
-    name: string;             // e.g., "737-800"
-    type: 'turboprop' | 'regional' | 'narrowbody' | 'widebody';
-    generation: 'legacy' | 'modern' | 'nextgen';
+  id: string; // e.g., "b737-800"
+  manufacturer: string; // e.g., "Boeing"
+  name: string; // e.g., "737-800"
+  type: "turboprop" | "regional" | "narrowbody" | "widebody";
+  generation: "legacy" | "modern" | "nextgen";
 
-    // Specifications
-    rangeKm: number;
-    speedKmh: number;
-    maxTakeoffWeight: number; // kg
-    capacity: {
-        economy: number;
-        business: number;
-        first: number;
-        cargoKg: number;
-    };
+  // Physical Dimensions
+  wingspanM: number; // Wingspan in meters (real-world spec)
+  engineCount: 2 | 4; // Number of engines
 
-    // Operational Economics
-    fuelBurnKgPerHour: number;
-    fuelBurnKgPerKm: number;
-    blockHoursPerDay: number;
-    turnaroundTimeMinutes: number;
+  // Specifications
+  rangeKm: number;
+  speedKmh: number;
+  maxTakeoffWeight: number; // kg
+  capacity: {
+    economy: number;
+    business: number;
+    first: number;
+    cargoKg: number;
+  };
 
-    // Cost Structure
-    price: FixedPoint;
-    monthlyLease: FixedPoint;
-    casm: FixedPoint;
-    maintCostPerHour: FixedPoint;
-    crewRequired: {
-        cockpit: number;
-        cabin: number;
-    };
+  // Operational Economics
+  fuelBurnKgPerHour: number;
+  fuelBurnKgPerKm: number;
+  blockHoursPerDay: number;
+  turnaroundTimeMinutes: number;
 
-    // Lifecycle & Progression
-    economicLifeYears: number;
-    residualValuePercent: number;
-    unlockTier: number;
-    familyId: string;
-    deliveryTimeTicks: number;
+  // Cost Structure
+  price: FixedPoint;
+  monthlyLease: FixedPoint;
+  casm: FixedPoint;
+  maintCostPerHour: FixedPoint;
+  crewRequired: {
+    cockpit: number;
+    cabin: number;
+  };
+
+  // Lifecycle & Progression
+  economicLifeYears: number;
+  residualValuePercent: number;
+  unlockTier: number;
+  familyId: string;
+  deliveryTimeTicks: number;
 }
 
 export interface FlightState {
-    originIata: string;
-    destinationIata: string;
-    departureTick: number;
-    arrivalTick: number;
-    direction: 'outbound' | 'inbound';
-    purpose?: 'route' | 'ferry';
-    distanceKm?: number;
-    fareEconomy?: FixedPoint;
-    fareBusiness?: FixedPoint;
-    fareFirst?: FixedPoint;
-    frequencyPerWeek?: number;
+  originIata: string;
+  destinationIata: string;
+  departureTick: number;
+  arrivalTick: number;
+  direction: "outbound" | "inbound";
+  purpose?: "route" | "ferry";
+  distanceKm?: number;
+  fareEconomy?: FixedPoint;
+  fareBusiness?: FixedPoint;
+  fareFirst?: FixedPoint;
+  frequencyPerWeek?: number;
 }
 
 export interface AircraftInstance {
-    id: string;               // Unique universally
-    ownerPubkey: string;      // The airline's Nostr pubkey
-    modelId: string;          // Reference to AircraftModel.id
-    name: string;             // User-assigned name
-    status: 'idle' | 'enroute' | 'turnaround' | 'maintenance' | 'delivery';
-    assignedRouteId: string | null;
-    baseAirportIata: string;  // Where the aircraft is physically parked (Last or current)
-    purchasedAtTick: number;  // When the CURRENT owner bought it
-    purchasePrice: FixedPoint; // What the CURRENT owner paid (Cost Basis)
-    birthTick: number;        // When the aircraft was originally manufactured (for depreciation)
-    deliveryAtTick?: number;  // When it arrives at truth
-    listingPrice?: FixedPoint | null; // If set, the aircraft is listed on the used marketplace
+  id: string; // Unique universally
+  ownerPubkey: string; // The airline's Nostr pubkey
+  modelId: string; // Reference to AircraftModel.id
+  name: string; // User-assigned name
+  status: "idle" | "enroute" | "turnaround" | "maintenance" | "delivery";
+  assignedRouteId: string | null;
+  baseAirportIata: string; // Where the aircraft is physically parked (Last or current)
+  purchasedAtTick: number; // When the CURRENT owner bought it
+  purchasePrice: FixedPoint; // What the CURRENT owner paid (Cost Basis)
+  birthTick: number; // When the aircraft was originally manufactured (for depreciation)
+  deliveryAtTick?: number; // When it arrives at truth
+  listingPrice?: FixedPoint | null; // If set, the aircraft is listed on the used marketplace
 
-    // Flight state
-    flight: FlightState | null;
-    lastTickProcessed?: number;
-    turnaroundEndTick?: number;
-    arrivalTickProcessed?: number;
-    maintenanceStartTick?: number;
+  // Flight state
+  flight: FlightState | null;
+  lastTickProcessed?: number;
+  turnaroundEndTick?: number;
+  arrivalTickProcessed?: number;
+  maintenanceStartTick?: number;
 
-    // Acquisition
-    purchaseType: 'buy' | 'lease';
-    leaseStartedAtTick?: number;
+  // Acquisition
+  purchaseType: "buy" | "lease";
+  leaseStartedAtTick?: number;
 
-    // Interior Layout
-    configuration: {
-        economy: number;
-        business: number;
-        first: number;
-        cargoKg: number;
-    };
+  // Interior Layout
+  configuration: {
+    economy: number;
+    business: number;
+    first: number;
+    cargoKg: number;
+  };
 
-    // Wear and Tear Mechanics
-    flightHoursTotal: number;
-    flightHoursSinceCheck: number;
-    condition: number;        // 0.0 to 1.0 (1.0 = brand new)
+  // Wear and Tear Mechanics
+  flightHoursTotal: number;
+  flightHoursSinceCheck: number;
+  condition: number; // 0.0 to 1.0 (1.0 = brand new)
 }
 
 export interface AirlineEntity {
-    id: string;               // Hash of corporate genesis event
-    foundedBy: string;        // Founder's pubkey
-    status: 'private' | 'public' | 'chapter11' | 'liquidated';
+  id: string; // Hash of corporate genesis event
+  foundedBy: string; // Founder's pubkey
+  status: "private" | "public" | "chapter11" | "liquidated";
 
-    // Leadership & Ownership
-    ceoPubkey: string;        // Current operator
-    sharesOutstanding: number;
-    shareholders: Record<string, number>; // pubkey -> share count
+  // Leadership & Ownership
+  ceoPubkey: string; // Current operator
+  sharesOutstanding: number;
+  shareholders: Record<string, number>; // pubkey -> share count
 
-    // Core Identity
-    name: string;
-    icaoCode: string;
-    callsign: string;
-    hubs: string[];           // Array of multiple IATA codes
-    livery: {
-        primary: string;
-        secondary: string;
-        accent: string;
-    };
-    brandScore: number;
-    tier: number;
+  // Core Identity
+  name: string;
+  icaoCode: string;
+  callsign: string;
+  hubs: string[]; // Array of multiple IATA codes
+  livery: {
+    primary: string;
+    secondary: string;
+    accent: string;
+  };
+  brandScore: number;
+  tier: number;
 
-    // Financials
-    corporateBalance: FixedPoint;
-    stockPrice: FixedPoint;   // Derived purely from earnings & market cap
+  // Financials
+  corporateBalance: FixedPoint;
+  stockPrice: FixedPoint; // Derived purely from earnings & market cap
 
-    // Assets & Obligations
-    fleetIds: string[];
-    routeIds: string[];
+  // Assets & Obligations
+  fleetIds: string[];
+  routeIds: string[];
 
-    // Engine State
-    lastTick?: number;
-    timeline?: TimelineEvent[];
+  // Engine State
+  lastTick?: number;
+  timeline?: TimelineEvent[];
 }
 
 // --- Route ---
 
 export interface Route {
-    id: string;               // Unique route ID
-    originIata: string;       // Origin Hub
-    destinationIata: string;  // Target Airport
-    airlinePubkey: string;    // Owner
-    distanceKm: number;
+  id: string; // Unique route ID
+  originIata: string; // Origin Hub
+  destinationIata: string; // Target Airport
+  airlinePubkey: string; // Owner
+  distanceKm: number;
 
-    // Schedule
-    frequencyPerWeek?: number;
+  // Schedule
+  frequencyPerWeek?: number;
 
-    // Operations
-    assignedAircraftIds: string[]; // Which specific planes fly this?
+  // Operations
+  assignedAircraftIds: string[]; // Which specific planes fly this?
 
-    // Pricing
-    fareEconomy: FixedPoint;
-    fareBusiness: FixedPoint;
-    fareFirst: FixedPoint;
+  // Pricing
+  fareEconomy: FixedPoint;
+  fareBusiness: FixedPoint;
+  fareFirst: FixedPoint;
 
-    // Simulation
-    status: 'active' | 'suspended';
-    lastTickProcessed?: number;
+  // Simulation
+  status: "active" | "suspended";
+  lastTickProcessed?: number;
 }
 
 // --- Flight Offer (for QSI calculation) ---
 
 export interface FlightOffer {
-    /** Airline pubkey */
-    airlinePubkey: string;
-    /** Economy fare (FixedPoint) */
-    fareEconomy: FixedPoint;
-    /** Business fare (FixedPoint) */
-    fareBusiness: FixedPoint;
-    /** First class fare (FixedPoint) */
-    fareFirst: FixedPoint;
-    /** Weekly frequency */
-    frequencyPerWeek: number;
-    /** Estimated travel time in minutes */
-    travelTimeMinutes: number;
-    /** Number of stops (0 = nonstop) */
-    stops: number;
-    /** Service quality 0.0–1.0 */
-    serviceScore: number;
-    /** Brand reputation 0.0–1.0 */
-    brandScore: number;
+  /** Airline pubkey */
+  airlinePubkey: string;
+  /** Economy fare (FixedPoint) */
+  fareEconomy: FixedPoint;
+  /** Business fare (FixedPoint) */
+  fareBusiness: FixedPoint;
+  /** First class fare (FixedPoint) */
+  fareFirst: FixedPoint;
+  /** Weekly frequency */
+  frequencyPerWeek: number;
+  /** Estimated travel time in minutes */
+  travelTimeMinutes: number;
+  /** Number of stops (0 = nonstop) */
+  stops: number;
+  /** Service quality 0.0–1.0 */
+  serviceScore: number;
+  /** Brand reputation 0.0–1.0 */
+  brandScore: number;
 }
 
-export type PassengerClass = 'economy' | 'business' | 'first';
+export type PassengerClass = "economy" | "business" | "first";
 
 // --- Simulation Tick ---
 
 export interface TickResult {
-    /** Tick number */
-    tick: number;
-    /** Results per airline */
-    airlines: Map<string, AirlineTickResult>;
-    /** State hash for determinism verification */
-    stateHash: string;
+  /** Tick number */
+  tick: number;
+  /** Results per airline */
+  airlines: Map<string, AirlineTickResult>;
+  /** State hash for determinism verification */
+  stateHash: string;
 }
 
 export interface AirlineTickResult {
-    /** Airline pubkey */
-    pubkey: string;
-    /** Revenue this tick (FixedPoint) */
-    revenue: FixedPoint;
-    /** Costs this tick (FixedPoint) */
-    costs: FixedPoint;
-    /** Profit this tick (FixedPoint) */
-    profit: FixedPoint;
-    /** Per-route results */
-    routes: RouteTickResult[];
+  /** Airline pubkey */
+  pubkey: string;
+  /** Revenue this tick (FixedPoint) */
+  revenue: FixedPoint;
+  /** Costs this tick (FixedPoint) */
+  costs: FixedPoint;
+  /** Profit this tick (FixedPoint) */
+  profit: FixedPoint;
+  /** Per-route results */
+  routes: RouteTickResult[];
 }
 
 export interface RouteTickResult {
-    originIata: string;
-    destinationIata: string;
-    /** Passengers carried this tick */
-    passengers: { economy: number; business: number; first: number };
-    /** Load factor 0.0–1.0 */
-    loadFactor: number;
-    /** Revenue (FixedPoint) */
-    revenue: FixedPoint;
-    /** Costs (FixedPoint) */
-    costs: FixedPoint;
+  originIata: string;
+  destinationIata: string;
+  /** Passengers carried this tick */
+  passengers: { economy: number; business: number; first: number };
+  /** Load factor 0.0–1.0 */
+  loadFactor: number;
+  /** Revenue (FixedPoint) */
+  revenue: FixedPoint;
+  /** Costs (FixedPoint) */
+  costs: FixedPoint;
 }
 
 // --- Timeline & Auditing ---
 
 export type TimelineEventType =
-    | 'takeoff'
-    | 'landing'
-    | 'purchase'
-    | 'sale'
-    | 'lease_payment'
-    | 'maintenance'
-    | 'delivery'
-    | 'hub_change'
-    | 'route_change'
-    | 'ferry'
-    | 'price_war';
+  | "takeoff"
+  | "landing"
+  | "purchase"
+  | "sale"
+  | "lease_payment"
+  | "maintenance"
+  | "delivery"
+  | "hub_change"
+  | "route_change"
+  | "ferry"
+  | "price_war";
 
 export interface TimelineEvent {
-    id: string;
-    tick: number;
-    timestamp: number;
-    type: TimelineEventType;
-    description: string;
-    aircraftId?: string;
-    aircraftName?: string;
-    routeId?: string;
-    originIata?: string;
-    destinationIata?: string;
-    revenue?: FixedPoint;
-    cost?: FixedPoint;
-    profit?: FixedPoint;
-    details?: {
-        passengers?: {
-            economy: number;
-            business: number;
-            first: number;
-            total: number;
-        };
-        seatsOffered?: number;
-        loadFactor?: number;
-        spilledPassengers?: number;
-        flightDurationTicks?: number;
-        revenue?: {
-            tickets: FixedPoint;
-            ancillary: FixedPoint;
-        };
-        costs?: {
-            fuel: FixedPoint;
-            crew: FixedPoint;
-            maintenance: FixedPoint;
-            airport: FixedPoint;
-            navigation: FixedPoint;
-            leasing: FixedPoint;
-            overhead: FixedPoint;
-        };
+  id: string;
+  tick: number;
+  timestamp: number;
+  type: TimelineEventType;
+  description: string;
+  aircraftId?: string;
+  aircraftName?: string;
+  routeId?: string;
+  originIata?: string;
+  destinationIata?: string;
+  revenue?: FixedPoint;
+  cost?: FixedPoint;
+  profit?: FixedPoint;
+  details?: {
+    passengers?: {
+      economy: number;
+      business: number;
+      first: number;
+      total: number;
     };
+    seatsOffered?: number;
+    loadFactor?: number;
+    spilledPassengers?: number;
+    flightDurationTicks?: number;
+    revenue?: {
+      tickets: FixedPoint;
+      ancillary: FixedPoint;
+    };
+    costs?: {
+      fuel: FixedPoint;
+      crew: FixedPoint;
+      maintenance: FixedPoint;
+      airport: FixedPoint;
+      navigation: FixedPoint;
+      leasing: FixedPoint;
+      overhead: FixedPoint;
+    };
+  };
 }
