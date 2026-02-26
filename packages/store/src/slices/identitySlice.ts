@@ -20,6 +20,7 @@ import type { StateCreator } from "zustand";
 import { updateActionChainHashFromEvent } from "../actionChain";
 import { replayActionLog } from "../actionReducer";
 import { useEngineStore } from "../engine";
+import { reconcileFleetToTick } from "../FlightEngine";
 import type { AirlineState } from "../types";
 
 export interface IdentitySlice {
@@ -95,7 +96,10 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
         scopedActions = actions.filter(
           (entry) => (entry.event.created_at ?? 0) > checkpointCreatedAtSeconds,
         );
-        if (scopedActions.length === 0) scopedActions = actions;
+        // If no actions are newer than the checkpoint, the checkpoint
+        // state is authoritative — do NOT fall back to replaying all
+        // actions, as that overwrites live flight state (status, flight,
+        // turnaroundEndTick, etc.) with initial "delivery" values.
       }
       const replayed = await replayActionLog({
         pubkey,
@@ -163,7 +167,7 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
       const suspendedRouteIds = new Set(
         reconciledRoutes.filter((route) => route.status === "suspended").map((route) => route.id),
       );
-      const reconciledFleet = cleanFleet.map((ac) => ({
+      let reconciledFleet = cleanFleet.map((ac) => ({
         ...ac,
         assignedRouteId:
           ac.assignedRouteId &&
@@ -209,6 +213,21 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
             lastTick: oldestAllowedTick,
           };
         }
+      }
+
+      // Step 7: Reconcile fleet flight-cycle positions to lastTick.
+      // The checkpoint saves the fleet at a specific tick, but post-checkpoint
+      // TICK_UPDATE actions may push airline.lastTick ahead.  Without this,
+      // all in-flight aircraft would land simultaneously on the first tick of
+      // catchup because their arrivalTick/turnaroundEndTick is behind lastTick.
+      // reconcileFleetToTick fast-forwards each aircraft's deterministic
+      // round-trip cycle so catchup resumes from the correct phase.
+      if (loadedAirline?.lastTick != null && reconciledFleet.length > 0) {
+        reconciledFleet = reconcileFleetToTick(
+          reconciledFleet,
+          reconciledRoutes,
+          loadedAirline.lastTick,
+        );
       }
 
       set({

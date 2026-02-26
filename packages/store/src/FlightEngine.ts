@@ -570,3 +570,153 @@ export function processFlightEngine(
     events,
   };
 }
+
+/**
+ * Fast-forward an aircraft's flight-cycle position to `targetTick` without
+ * running the full engine.  Used when `lastTick` has been clamped forward
+ * (e.g. after a long absence) and the fleet snapshot from the checkpoint is
+ * older than `targetTick`.  Instead of letting every aircraft land/depart
+ * simultaneously on the first tick of catchup, this places each aircraft at
+ * the correct phase of its round-trip cycle at `targetTick`.
+ *
+ * Only touches aircraft that are actively flying a route (enroute/turnaround
+ * with an assignedRouteId).  Revenue/cost is NOT calculated — this is purely
+ * positional reconciliation.
+ */
+export function reconcileFleetToTick(
+  fleet: AircraftInstance[],
+  routes: Route[],
+  targetTick: number,
+): AircraftInstance[] {
+  return fleet.map((ac) => {
+    // Only reconcile aircraft that are on active routes and have a stale
+    // flight state (arrivalTick or turnaroundEndTick in the past).
+    const route = ac.assignedRouteId ? routes.find((r) => r.id === ac.assignedRouteId) : null;
+    if (!route || route.status !== "active") return ac;
+
+    const model = getAircraftById(ac.modelId);
+    if (!model) return ac;
+
+    const durationTicks = Math.max(
+      1,
+      Math.ceil((route.distanceKm / (model.speedKmh || 800)) * TICKS_PER_HOUR),
+    );
+    const turnaroundTicks = Math.max(
+      1,
+      Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR),
+    );
+    const roundTripTicks = durationTicks * 2 + turnaroundTicks * 2;
+
+    // Determine the reference tick from which we know the aircraft's state.
+    // For enroute aircraft, use departureTick; for turnaround, use arrivalTick;
+    // for idle, use targetTick itself (will depart on first engine tick).
+    let refTick: number;
+    let refPhaseOffset: number; // offset within the round-trip cycle
+
+    if (ac.status === "enroute" && ac.flight) {
+      // Aircraft was mid-flight. Its cycle started at departureTick.
+      refTick = ac.flight.departureTick;
+      if (ac.flight.direction === "outbound") {
+        refPhaseOffset = 0; // outbound starts at offset 0
+      } else {
+        // inbound starts after outbound + turnaround
+        refPhaseOffset = durationTicks + turnaroundTicks;
+      }
+    } else if (ac.status === "turnaround" && ac.flight) {
+      // Aircraft was in turnaround. Turnaround started at arrivalTick.
+      const arrivalTick = ac.flight.arrivalTick;
+      if (ac.flight.direction === "outbound") {
+        // Outbound arrived → turnaround at offset = durationTicks
+        refTick = arrivalTick;
+        refPhaseOffset = durationTicks;
+      } else {
+        // Inbound arrived → turnaround at offset = durationTicks*2 + turnaroundTicks
+        refTick = arrivalTick;
+        refPhaseOffset = durationTicks * 2 + turnaroundTicks;
+      }
+    } else if (ac.status === "idle") {
+      // Idle aircraft — nothing to reconcile, engine will handle departure
+      return ac;
+    } else {
+      // delivery, maintenance — skip
+      return ac;
+    }
+
+    // If the aircraft's state is already current or in the future, no reconciliation needed.
+    const nextTransitionTick =
+      ac.status === "enroute" && ac.flight
+        ? ac.flight.arrivalTick
+        : (ac.turnaroundEndTick ?? targetTick);
+    if (nextTransitionTick >= targetTick) return ac;
+
+    // Compute the cycle-start tick (when the aircraft started its first
+    // outbound leg of THIS cycle).
+    const cycleStartTick = refTick - refPhaseOffset;
+
+    // How far into the cycle is targetTick?
+    const elapsed = targetTick - cycleStartTick;
+    const positionInCycle = ((elapsed % roundTripTicks) + roundTripTicks) % roundTripTicks;
+
+    const updated = { ...ac };
+
+    if (positionInCycle < durationTicks) {
+      // Phase: outbound enroute
+      const departureTick = targetTick - positionInCycle;
+      updated.status = "enroute";
+      updated.flight = {
+        originIata: route.originIata,
+        destinationIata: route.destinationIata,
+        departureTick,
+        arrivalTick: departureTick + durationTicks,
+        direction: "outbound",
+      };
+      updated.turnaroundEndTick = undefined;
+      updated.arrivalTickProcessed = undefined;
+    } else if (positionInCycle < durationTicks + turnaroundTicks) {
+      // Phase: turnaround after outbound
+      const arrivalTick = targetTick - (positionInCycle - durationTicks);
+      updated.status = "turnaround";
+      updated.baseAirportIata = route.destinationIata;
+      updated.flight = {
+        originIata: route.originIata,
+        destinationIata: route.destinationIata,
+        departureTick: arrivalTick - durationTicks,
+        arrivalTick,
+        direction: "outbound",
+      };
+      updated.turnaroundEndTick = arrivalTick + turnaroundTicks;
+      updated.arrivalTickProcessed = arrivalTick;
+    } else if (positionInCycle < durationTicks * 2 + turnaroundTicks) {
+      // Phase: inbound enroute
+      const inboundStart = durationTicks + turnaroundTicks;
+      const departureTick = targetTick - (positionInCycle - inboundStart);
+      updated.status = "enroute";
+      updated.flight = {
+        originIata: route.destinationIata,
+        destinationIata: route.originIata,
+        departureTick,
+        arrivalTick: departureTick + durationTicks,
+        direction: "inbound",
+      };
+      updated.turnaroundEndTick = undefined;
+      updated.arrivalTickProcessed = undefined;
+    } else {
+      // Phase: turnaround after inbound (back at origin)
+      const inboundArrival = durationTicks * 2 + turnaroundTicks;
+      const arrivalTick = targetTick - (positionInCycle - inboundArrival);
+      updated.status = "turnaround";
+      updated.baseAirportIata = route.originIata;
+      updated.flight = {
+        originIata: route.destinationIata,
+        destinationIata: route.originIata,
+        departureTick: arrivalTick - durationTicks,
+        arrivalTick,
+        direction: "inbound",
+      };
+      updated.turnaroundEndTick = arrivalTick + turnaroundTicks;
+      updated.arrivalTickProcessed = arrivalTick;
+    }
+
+    return updated;
+  });
+}

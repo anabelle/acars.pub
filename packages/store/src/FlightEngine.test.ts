@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { AircraftInstance, FixedPoint, FlightOffer, Route, TimelineEvent } from "@airtr/core";
 import { fp, fpToNumber, TICKS_PER_HOUR, calculateDemand, getSuggestedFares } from "@airtr/core";
 import { airports, getAircraftById } from "@airtr/data";
-import { processFlightEngine } from "./FlightEngine.js";
+import { processFlightEngine, reconcileFleetToTick } from "./FlightEngine.js";
 
 const PLAYER_PUBKEY = "player-airline";
 
@@ -688,5 +688,261 @@ describe("FlightEngine — Economic variation", () => {
     const saturatedLoadFactor = totalSeats > 0 ? saturatedDemand / totalSeats : 0;
 
     expect(saturatedLoadFactor).toBeLessThanOrEqual(normalLoadFactor);
+  });
+});
+
+describe("reconcileFleetToTick — flight cycle fast-forward", () => {
+  it("places enroute aircraft mid-flight when targetTick is within the flight", () => {
+    const model = getAircraftById("a320neo")!;
+    const route = makeRoute({
+      id: "route-r1",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-r1"],
+    });
+    const durationTicks = Math.ceil((3000 / model.speedKmh) * TICKS_PER_HOUR);
+
+    // Aircraft departed at tick 100, arrives at 100 + durationTicks
+    const aircraft = makeAircraft({
+      id: "ac-r1",
+      assignedRouteId: "route-r1",
+      status: "enroute",
+      flight: {
+        originIata: "JFK",
+        destinationIata: "LAX",
+        departureTick: 100,
+        arrivalTick: 100 + durationTicks,
+        direction: "outbound",
+      },
+    });
+
+    // Target tick is only slightly ahead — still within the flight
+    const targetTick = 100 + Math.floor(durationTicks / 2);
+    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    expect(result[0].status).toBe("enroute");
+    expect(result[0].flight?.direction).toBe("outbound");
+    expect(result[0].flight?.arrivalTick).toBeGreaterThan(targetTick);
+  });
+
+  it("fast-forwards past arrival into turnaround phase", () => {
+    const model = getAircraftById("a320neo")!;
+    const route = makeRoute({
+      id: "route-r2",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-r2"],
+    });
+    const durationTicks = Math.ceil((3000 / model.speedKmh) * TICKS_PER_HOUR);
+    const turnaroundTicks = Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR);
+
+    const aircraft = makeAircraft({
+      id: "ac-r2",
+      assignedRouteId: "route-r2",
+      status: "enroute",
+      flight: {
+        originIata: "JFK",
+        destinationIata: "LAX",
+        departureTick: 100,
+        arrivalTick: 100 + durationTicks,
+        direction: "outbound",
+      },
+    });
+
+    // Target is past arrival but within turnaround
+    const targetTick = 100 + durationTicks + Math.floor(turnaroundTicks / 2);
+    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    expect(result[0].status).toBe("turnaround");
+    expect(result[0].baseAirportIata).toBe("LAX");
+    expect(result[0].turnaroundEndTick).toBeGreaterThan(targetTick);
+  });
+
+  it("fast-forwards into inbound leg", () => {
+    const model = getAircraftById("a320neo")!;
+    const route = makeRoute({
+      id: "route-r3",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-r3"],
+    });
+    const durationTicks = Math.ceil((3000 / model.speedKmh) * TICKS_PER_HOUR);
+    const turnaroundTicks = Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR);
+
+    const aircraft = makeAircraft({
+      id: "ac-r3",
+      assignedRouteId: "route-r3",
+      status: "enroute",
+      flight: {
+        originIata: "JFK",
+        destinationIata: "LAX",
+        departureTick: 100,
+        arrivalTick: 100 + durationTicks,
+        direction: "outbound",
+      },
+    });
+
+    // Target is in the inbound flight phase
+    const targetTick = 100 + durationTicks + turnaroundTicks + Math.floor(durationTicks / 2);
+    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    expect(result[0].status).toBe("enroute");
+    expect(result[0].flight?.direction).toBe("inbound");
+    expect(result[0].flight?.originIata).toBe("LAX");
+    expect(result[0].flight?.destinationIata).toBe("JFK");
+    expect(result[0].flight?.arrivalTick).toBeGreaterThan(targetTick);
+  });
+
+  it("wraps around full cycles correctly", () => {
+    const model = getAircraftById("a320neo")!;
+    const route = makeRoute({
+      id: "route-r4",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-r4"],
+    });
+    const durationTicks = Math.ceil((3000 / model.speedKmh) * TICKS_PER_HOUR);
+    const turnaroundTicks = Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR);
+    const roundTrip = durationTicks * 2 + turnaroundTicks * 2;
+
+    const aircraft = makeAircraft({
+      id: "ac-r4",
+      assignedRouteId: "route-r4",
+      status: "enroute",
+      flight: {
+        originIata: "JFK",
+        destinationIata: "LAX",
+        departureTick: 100,
+        arrivalTick: 100 + durationTicks,
+        direction: "outbound",
+      },
+    });
+
+    // Target is 3 full cycles + half an outbound leg later
+    const halfOutbound = Math.floor(durationTicks / 2);
+    const targetTick = 100 + roundTrip * 3 + halfOutbound;
+    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    expect(result[0].status).toBe("enroute");
+    expect(result[0].flight?.direction).toBe("outbound");
+    expect(result[0].flight?.arrivalTick).toBeGreaterThan(targetTick);
+  });
+
+  it("does not modify idle aircraft", () => {
+    const route = makeRoute({
+      id: "route-r5",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-r5"],
+    });
+    const aircraft = makeAircraft({
+      id: "ac-r5",
+      assignedRouteId: "route-r5",
+      status: "idle",
+      flight: null,
+    });
+
+    const result = reconcileFleetToTick([aircraft], [route], 50000);
+    expect(result[0].status).toBe("idle");
+    expect(result[0].flight).toBeNull();
+  });
+
+  it("does not modify aircraft without assigned route", () => {
+    const aircraft = makeAircraft({
+      id: "ac-r6",
+      assignedRouteId: null,
+      status: "enroute",
+      flight: {
+        originIata: "JFK",
+        destinationIata: "LAX",
+        departureTick: 100,
+        arrivalTick: 200,
+        direction: "outbound",
+      },
+    });
+
+    const result = reconcileFleetToTick([aircraft], [], 50000);
+    // No route to reconcile against — returned unchanged
+    expect(result[0].flight?.arrivalTick).toBe(200);
+  });
+
+  it("does not modify aircraft whose flight is still in the future", () => {
+    const route = makeRoute({
+      id: "route-r7",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-r7"],
+    });
+    const aircraft = makeAircraft({
+      id: "ac-r7",
+      assignedRouteId: "route-r7",
+      status: "enroute",
+      flight: {
+        originIata: "JFK",
+        destinationIata: "LAX",
+        departureTick: 100,
+        arrivalTick: 50000,
+        direction: "outbound",
+      },
+    });
+
+    const result = reconcileFleetToTick([aircraft], [route], 200);
+    expect(result[0].flight?.arrivalTick).toBe(50000);
+    expect(result[0].status).toBe("enroute");
+  });
+
+  it("multiple aircraft at different phases remain offset after reconciliation", () => {
+    const model = getAircraftById("a320neo")!;
+    const route = makeRoute({
+      id: "route-r8",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-r8a", "ac-r8b"],
+    });
+    const durationTicks = Math.ceil((3000 / model.speedKmh) * TICKS_PER_HOUR);
+    const turnaroundTicks = Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR);
+    const roundTrip = durationTicks * 2 + turnaroundTicks * 2;
+
+    // Aircraft A departed outbound at tick 100
+    const acA = makeAircraft({
+      id: "ac-r8a",
+      assignedRouteId: "route-r8",
+      status: "enroute",
+      flight: {
+        originIata: "JFK",
+        destinationIata: "LAX",
+        departureTick: 100,
+        arrivalTick: 100 + durationTicks,
+        direction: "outbound",
+      },
+    });
+
+    // Aircraft B departed outbound half a round-trip later, so its cycle
+    // is genuinely offset from A's cycle.
+    const bDeparture = 100 + Math.floor(roundTrip / 2);
+    const acB = makeAircraft({
+      id: "ac-r8b",
+      assignedRouteId: "route-r8",
+      status: "enroute",
+      flight: {
+        originIata: "JFK",
+        destinationIata: "LAX",
+        departureTick: bDeparture,
+        arrivalTick: bDeparture + durationTicks,
+        direction: "outbound",
+      },
+    });
+
+    // Fast-forward well past both cycles so reconciliation computes position
+    const targetTick = 100 + roundTrip * 5 + durationTicks + 1;
+
+    const result = reconcileFleetToTick([acA, acB], [route], targetTick);
+    const phaseA = result[0].status + "-" + (result[0].flight?.direction ?? "none");
+    const phaseB = result[1].status + "-" + (result[1].flight?.direction ?? "none");
+    // They should differ because their cycles are offset by half a round-trip
+    expect(phaseA).not.toBe(phaseB);
   });
 });

@@ -132,8 +132,9 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           }
         }
 
+        const refreshedAirline = get().airline;
         const updatedAirline = {
-          ...airline,
+          ...(refreshedAirline ?? airline),
           corporateBalance: currentBalance,
           brandScore: currentBrandScore,
           lastTick: targetTick,
@@ -253,8 +254,9 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       }
 
       // 3. Update state - We move lastTick to targetTick (which might be less than global tick)
+      const refreshedAirline = get().airline;
       const updatedAirline = {
-        ...airline,
+        ...(refreshedAirline ?? airline),
         corporateBalance: currentBalance,
         brandScore: currentBrandScore,
         lastTick: targetTick,
