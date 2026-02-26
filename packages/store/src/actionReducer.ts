@@ -715,6 +715,8 @@ export async function replayActionLog(params: {
           aircraft.purchasePrice = price;
           aircraft.purchasedAtTick = actionTick;
           aircraft.listingPrice = null;
+          aircraft.status = "idle";
+          aircraft.deliveryAtTick = undefined;
           aircraft.condition = condition;
           aircraft.flightHoursTotal = flightHoursTotal;
           aircraft.flightHoursSinceCheck = flightHoursSinceCheck;
@@ -726,7 +728,7 @@ export async function replayActionLog(params: {
             ownerPubkey: pubkey,
             modelId,
             name,
-            status: "delivery",
+            status: "idle",
             purchaseType: "buy",
             assignedRouteId: null,
             baseAirportIata,
@@ -734,7 +736,7 @@ export async function replayActionLog(params: {
             purchasePrice: price,
             listingPrice: null,
             birthTick,
-            deliveryAtTick: actionTick + 20,
+            deliveryAtTick: undefined,
             flight: null,
             configuration,
             flightHoursTotal,
