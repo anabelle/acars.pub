@@ -1,11 +1,13 @@
 import {
   type Airport,
   calculateDemand,
+  calculatePriceElasticity,
   calculateSupplyPressure,
   calculateShares,
   type FixedPoint,
   type FlightOffer,
   fp,
+  fpAdd,
   fpFormat,
   fpScale,
   fpToNumber,
@@ -13,6 +15,9 @@ import {
   getProsperityIndex,
   getSeason,
   getSuggestedFares,
+  PRICE_ELASTICITY_BUSINESS,
+  PRICE_ELASTICITY_ECONOMY,
+  PRICE_ELASTICITY_FIRST,
   haversineDistance,
   ROUTE_SLOT_FEE,
   scaleToAddressableMarket,
@@ -33,6 +38,60 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "@/shared/lib/useConfirm";
+import { getRouteDemandSnapshot } from "@/features/network/hooks/useRouteDemand";
+
+const toneDotClass = {
+  emerald: "bg-emerald-500",
+  amber: "bg-amber-500",
+  rose: "bg-rose-500",
+} as const;
+
+const toneTextClass = {
+  emerald: "text-emerald-400",
+  amber: "text-amber-400",
+  rose: "text-rose-400",
+  muted: "text-muted-foreground",
+} as const;
+
+const getFareTone = (actual: FixedPoint, suggested: FixedPoint) => {
+  const actualValue = fpToNumber(actual);
+  const suggestedValue = fpToNumber(suggested);
+  if (suggestedValue <= 0) return null;
+  const ratio = actualValue / suggestedValue;
+  if (ratio <= 1) return "emerald" as const;
+  if (ratio <= 1.2) return null;
+  if (ratio <= 1.5) return "amber" as const;
+  return "rose" as const;
+};
+
+const getElasticityTone = (multiplier: number) => {
+  if (multiplier >= 0.85) return "emerald" as const;
+  if (multiplier >= 0.6) return "amber" as const;
+  return "rose" as const;
+};
+
+const formatSignedPercent = (value: number) => {
+  const signed = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${signed}${Math.abs(value).toFixed(0)}%`;
+};
+
+const parseFareInput = (value: string) => {
+  const parsed = parseInt(value.replace(/[^0-9]/g, ""), 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const calculateElasticityDisplay = (
+  actualFare: FixedPoint,
+  referenceFare: FixedPoint,
+  elasticity: number,
+) => {
+  const multiplier = calculatePriceElasticity(actualFare, referenceFare, elasticity);
+  const referenceValue = fpToNumber(referenceFare);
+  const actualValue = fpToNumber(actualFare);
+  const ratio = referenceValue > 0 ? actualValue / referenceValue : 1;
+  const deltaPercent = referenceValue > 0 ? (ratio - 1) * 100 : 0;
+  return { multiplier, deltaPercent };
+};
 
 export function RouteManager() {
   const {
@@ -128,10 +187,14 @@ export function RouteManager() {
       dest.longitude,
     );
     const demand = calculateDemand(planningOriginAirport, dest, season, prosperity, 1.0);
-    const avgFarePerKm = 0.12;
-    const baseFare = Math.max(80, Math.round(distance * avgFarePerKm));
-    const totalPax = demand.economy + demand.business + demand.first;
-    const estimatedDailyRevenue = fpScale(fp(baseFare), totalPax / 7);
+    const fares = getSuggestedFares(distance);
+    const estimatedDailyRevenue = fpAdd(
+      fpAdd(
+        fpScale(fares.economy, demand.economy / 7),
+        fpScale(fares.business, demand.business / 7),
+      ),
+      fpScale(fares.first, demand.first / 7),
+    );
     return {
       origin: planningOriginAirport,
       destination: dest,
@@ -171,10 +234,14 @@ export function RouteManager() {
           dest.longitude,
         );
         const demand = calculateDemand(origin, dest, season, prosperity, 1.0);
-        const avgFarePerKm = 0.12;
-        const baseFare = Math.max(80, Math.round(distance * avgFarePerKm));
-        const totalPax = demand.economy + demand.business + demand.first;
-        const estimatedDailyRevenue = fpScale(fp(baseFare), totalPax / 7);
+        const fares = getSuggestedFares(distance);
+        const estimatedDailyRevenue = fpAdd(
+          fpAdd(
+            fpScale(fares.economy, demand.economy / 7),
+            fpScale(fares.business, demand.business / 7),
+          ),
+          fpScale(fares.first, demand.first / 7),
+        );
         return { origin, destination: dest, distance, demand, estimatedDailyRevenue, season };
       });
     },
@@ -275,6 +342,125 @@ export function RouteManager() {
   };
 
   const suggestedFares = fareEditor ? getSuggestedFares(fareEditor.distanceKm) : null;
+  const activeFareRoute = fareEditor
+    ? (routes.find((route) => route.id === fareEditor.routeId) ?? null)
+    : null;
+  const fareDemandSnapshot = useMemo(() => {
+    if (!activeFareRoute) return null;
+    return getRouteDemandSnapshot(activeFareRoute, tick, fleet);
+  }, [activeFareRoute, tick, fleet]);
+  const fareInputValues = {
+    economy: parseFareInput(fareInputs.e),
+    business: parseFareInput(fareInputs.b),
+    first: parseFareInput(fareInputs.f),
+  };
+  const resolvedFareInputs = {
+    economy:
+      fareInputValues.economy ?? (activeFareRoute ? fpToNumber(activeFareRoute.fareEconomy) : 0),
+    business:
+      fareInputValues.business ?? (activeFareRoute ? fpToNumber(activeFareRoute.fareBusiness) : 0),
+    first: fareInputValues.first ?? (activeFareRoute ? fpToNumber(activeFareRoute.fareFirst) : 0),
+  };
+  const fareElasticity = suggestedFares
+    ? {
+        economy: calculateElasticityDisplay(
+          fp(resolvedFareInputs.economy),
+          suggestedFares.economy,
+          PRICE_ELASTICITY_ECONOMY,
+        ),
+        business: calculateElasticityDisplay(
+          fp(resolvedFareInputs.business),
+          suggestedFares.business,
+          PRICE_ELASTICITY_BUSINESS,
+        ),
+        first: calculateElasticityDisplay(
+          fp(resolvedFareInputs.first),
+          suggestedFares.first,
+          PRICE_ELASTICITY_FIRST,
+        ),
+      }
+    : null;
+  const fareProjection = useMemo(() => {
+    if (!suggestedFares || !fareDemandSnapshot || !activeFareRoute) return null;
+    const assignedFleet = activeFareRoute.assignedAircraftIds
+      .map((id) => fleet.find((item) => item.id === id))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    if (assignedFleet.length === 0) return null;
+
+    const weeklyDemand = fareDemandSnapshot.addressableDemand;
+    const frequency = activeFareRoute.assignedAircraftIds.length * 7;
+    if (frequency <= 0) return null;
+
+    const pressureMultiplier = fareDemandSnapshot.pressureMultiplier;
+    const currentEconomy = resolvedFareInputs.economy;
+    const currentBusiness = resolvedFareInputs.business;
+    const currentFirst = resolvedFareInputs.first;
+
+    const currentElasticity = fareElasticity
+      ? {
+          economy: fareElasticity.economy.multiplier,
+          business: fareElasticity.business.multiplier,
+          first: fareElasticity.first.multiplier,
+        }
+      : { economy: 1, business: 1, first: 1 };
+
+    const currentPassengers = {
+      economy: Math.floor(
+        (weeklyDemand.economy / frequency) * pressureMultiplier * currentElasticity.economy,
+      ),
+      business: Math.floor(
+        (weeklyDemand.business / frequency) * pressureMultiplier * currentElasticity.business,
+      ),
+      first: Math.floor(
+        (weeklyDemand.first / frequency) * pressureMultiplier * currentElasticity.first,
+      ),
+    };
+
+    const suggestedPassengers = {
+      economy: Math.floor((weeklyDemand.economy / frequency) * pressureMultiplier),
+      business: Math.floor((weeklyDemand.business / frequency) * pressureMultiplier),
+      first: Math.floor((weeklyDemand.first / frequency) * pressureMultiplier),
+    };
+
+    const currentRevenue = fpAdd(
+      fpAdd(
+        fpScale(fp(currentEconomy), currentPassengers.economy),
+        fpScale(fp(currentBusiness), currentPassengers.business),
+      ),
+      fpScale(fp(currentFirst), currentPassengers.first),
+    );
+
+    const suggestedRevenue = fpAdd(
+      fpAdd(
+        fpScale(suggestedFares.economy, suggestedPassengers.economy),
+        fpScale(suggestedFares.business, suggestedPassengers.business),
+      ),
+      fpScale(suggestedFares.first, suggestedPassengers.first),
+    );
+
+    const currentTotalPassengers =
+      currentPassengers.economy + currentPassengers.business + currentPassengers.first;
+    const suggestedTotalPassengers =
+      suggestedPassengers.economy + suggestedPassengers.business + suggestedPassengers.first;
+
+    return {
+      currentRevenue,
+      suggestedRevenue,
+      currentPassengers: currentTotalPassengers,
+      suggestedPassengers: suggestedTotalPassengers,
+      deltaRevenue: fpToNumber(currentRevenue) - fpToNumber(suggestedRevenue),
+      deltaPassengers: currentTotalPassengers - suggestedTotalPassengers,
+    };
+  }, [
+    suggestedFares,
+    fareDemandSnapshot,
+    activeFareRoute,
+    fleet,
+    fareElasticity,
+    resolvedFareInputs.economy,
+    resolvedFareInputs.business,
+    resolvedFareInputs.first,
+  ]);
 
   return (
     <div className="flex h-full w-full flex-col p-6 overflow-hidden">
@@ -593,6 +779,29 @@ export function RouteManager() {
                     : supplyRatio < 0.7
                       ? "Underserved"
                       : "Balanced";
+                const suggestedRouteFares = getSuggestedFares(route.distanceKm);
+                const economyTone = getFareTone(route.fareEconomy, suggestedRouteFares.economy);
+                const businessTone = getFareTone(route.fareBusiness, suggestedRouteFares.business);
+                const firstTone = getFareTone(route.fareFirst, suggestedRouteFares.first);
+                const economyElasticity = calculatePriceElasticity(
+                  route.fareEconomy,
+                  suggestedRouteFares.economy,
+                  PRICE_ELASTICITY_ECONOMY,
+                );
+                const businessElasticity = calculatePriceElasticity(
+                  route.fareBusiness,
+                  suggestedRouteFares.business,
+                  PRICE_ELASTICITY_BUSINESS,
+                );
+                const firstElasticity = calculatePriceElasticity(
+                  route.fareFirst,
+                  suggestedRouteFares.first,
+                  PRICE_ELASTICITY_FIRST,
+                );
+                const showPriceEffect =
+                  Math.abs(1 - economyElasticity) > 0.05 ||
+                  Math.abs(1 - businessElasticity) > 0.05 ||
+                  Math.abs(1 - firstElasticity) > 0.05;
 
                 return (
                   <div
@@ -618,13 +827,28 @@ export function RouteManager() {
                             Pricing
                           </span>
                           <div className="flex gap-3 mt-1">
-                            <span className="text-xs font-mono bg-zinc-500/10 px-2 py-0.5 rounded border border-zinc-500/20">
+                            <span className="text-xs font-mono bg-zinc-500/10 px-2 py-0.5 rounded border border-zinc-500/20 inline-flex items-center gap-1.5">
+                              {economyTone && (
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${toneDotClass[economyTone]}`}
+                                />
+                              )}
                               E: {fpFormat(route.fareEconomy, 0)}
                             </span>
-                            <span className="text-xs font-mono bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 text-blue-400">
+                            <span className="text-xs font-mono bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 text-blue-400 inline-flex items-center gap-1.5">
+                              {businessTone && (
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${toneDotClass[businessTone]}`}
+                                />
+                              )}
                               B: {fpFormat(route.fareBusiness, 0)}
                             </span>
-                            <span className="text-xs font-mono bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20 text-yellow-500">
+                            <span className="text-xs font-mono bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20 text-yellow-500 inline-flex items-center gap-1.5">
+                              {firstTone && (
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${toneDotClass[firstTone]}`}
+                                />
+                              )}
                               F: {fpFormat(route.fareFirst, 0)}
                             </span>
                           </div>
@@ -752,6 +976,26 @@ export function RouteManager() {
                                 : `Coverage ${(supplyRatio).toFixed(2)}x`}
                             </span>
                           </div>
+                          {showPriceEffect && (
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
+                              <span className="uppercase text-muted-foreground">Price Effect</span>
+                              <span
+                                className={`font-mono ${toneTextClass[getElasticityTone(economyElasticity)]}`}
+                              >
+                                E: {economyElasticity.toFixed(2)}x
+                              </span>
+                              <span
+                                className={`font-mono ${toneTextClass[getElasticityTone(businessElasticity)]}`}
+                              >
+                                B: {businessElasticity.toFixed(2)}x
+                              </span>
+                              <span
+                                className={`font-mono ${toneTextClass[getElasticityTone(firstElasticity)]}`}
+                              >
+                                F: {firstElasticity.toFixed(2)}x
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1128,6 +1372,41 @@ export function RouteManager() {
                       Suggested: {fpToNumber(suggestedFares.economy)}
                     </p>
                   ) : null}
+                  {suggestedFares && fareElasticity ? (
+                    <div className="mt-3 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+                      <div className="flex items-center justify-between text-[10px] font-semibold">
+                        <span className="uppercase text-muted-foreground">Demand Impact</span>
+                        <span
+                          className={`font-mono ${toneTextClass[getElasticityTone(fareElasticity.economy.multiplier)]}`}
+                        >
+                          {fareElasticity.economy.multiplier.toFixed(2)}x
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 w-full rounded-full bg-background/70 overflow-hidden relative">
+                        <div
+                          className={`h-full transition-all duration-500 ${toneDotClass[getElasticityTone(fareElasticity.economy.multiplier)]}`}
+                          style={{
+                            width: `${Math.min(100, (fareElasticity.economy.multiplier / 1.5) * 100)}%`,
+                          }}
+                        />
+                        <div
+                          className="absolute inset-y-0 left-[66.7%] w-px bg-white/30"
+                          aria-hidden
+                        />
+                        {fareElasticity.economy.multiplier > 1 && (
+                          <div
+                            className="absolute inset-y-0 left-[66.7%] bg-sky-500/70"
+                            style={{
+                              width: `${Math.min(33.3, ((fareElasticity.economy.multiplier - 1) / 0.5) * 33.3)}%`,
+                            }}
+                          />
+                        )}
+                      </div>
+                      <p className="mt-2 text-[10px] text-muted-foreground">
+                        Fare is {formatSignedPercent(fareElasticity.economy.deltaPercent)} vs market
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="rounded-xl border border-border/50 bg-background/60 p-4">
                   <label className="text-[10px] uppercase text-muted-foreground font-semibold">
@@ -1145,6 +1424,42 @@ export function RouteManager() {
                     <p className="mt-2 text-[10px] text-blue-400/70">
                       Suggested: {fpToNumber(suggestedFares.business)}
                     </p>
+                  ) : null}
+                  {suggestedFares && fareElasticity ? (
+                    <div className="mt-3 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+                      <div className="flex items-center justify-between text-[10px] font-semibold">
+                        <span className="uppercase text-muted-foreground">Demand Impact</span>
+                        <span
+                          className={`font-mono ${toneTextClass[getElasticityTone(fareElasticity.business.multiplier)]}`}
+                        >
+                          {fareElasticity.business.multiplier.toFixed(2)}x
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 w-full rounded-full bg-background/70 overflow-hidden relative">
+                        <div
+                          className={`h-full transition-all duration-500 ${toneDotClass[getElasticityTone(fareElasticity.business.multiplier)]}`}
+                          style={{
+                            width: `${Math.min(100, (fareElasticity.business.multiplier / 1.5) * 100)}%`,
+                          }}
+                        />
+                        <div
+                          className="absolute inset-y-0 left-[66.7%] w-px bg-white/30"
+                          aria-hidden
+                        />
+                        {fareElasticity.business.multiplier > 1 && (
+                          <div
+                            className="absolute inset-y-0 left-[66.7%] bg-sky-500/70"
+                            style={{
+                              width: `${Math.min(33.3, ((fareElasticity.business.multiplier - 1) / 0.5) * 33.3)}%`,
+                            }}
+                          />
+                        )}
+                      </div>
+                      <p className="mt-2 text-[10px] text-muted-foreground">
+                        Fare is {formatSignedPercent(fareElasticity.business.deltaPercent)} vs
+                        market
+                      </p>
+                    </div>
                   ) : null}
                 </div>
                 <div className="rounded-xl border border-border/50 bg-background/60 p-4">
@@ -1164,8 +1479,83 @@ export function RouteManager() {
                       Suggested: {fpToNumber(suggestedFares.first)}
                     </p>
                   ) : null}
+                  {suggestedFares && fareElasticity ? (
+                    <div className="mt-3 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
+                      <div className="flex items-center justify-between text-[10px] font-semibold">
+                        <span className="uppercase text-muted-foreground">Demand Impact</span>
+                        <span
+                          className={`font-mono ${toneTextClass[getElasticityTone(fareElasticity.first.multiplier)]}`}
+                        >
+                          {fareElasticity.first.multiplier.toFixed(2)}x
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 w-full rounded-full bg-background/70 overflow-hidden relative">
+                        <div
+                          className={`h-full transition-all duration-500 ${toneDotClass[getElasticityTone(fareElasticity.first.multiplier)]}`}
+                          style={{
+                            width: `${Math.min(100, (fareElasticity.first.multiplier / 1.5) * 100)}%`,
+                          }}
+                        />
+                        <div
+                          className="absolute inset-y-0 left-[66.7%] w-px bg-white/30"
+                          aria-hidden
+                        />
+                        {fareElasticity.first.multiplier > 1 && (
+                          <div
+                            className="absolute inset-y-0 left-[66.7%] bg-sky-500/70"
+                            style={{
+                              width: `${Math.min(33.3, ((fareElasticity.first.multiplier - 1) / 0.5) * 33.3)}%`,
+                            }}
+                          />
+                        )}
+                      </div>
+                      <p className="mt-2 text-[10px] text-muted-foreground">
+                        Fare is {formatSignedPercent(fareElasticity.first.deltaPercent)} vs market
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               </div>
+              {fareProjection ? (
+                <div className="rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase text-muted-foreground">
+                    Revenue Projection
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 gap-2 text-xs font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">At current fares</span>
+                      <span className="font-bold text-foreground">
+                        {fpFormat(fareProjection.currentRevenue, 0)} / flight
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">At suggested fares</span>
+                      <span className="font-bold text-muted-foreground">
+                        {fpFormat(fareProjection.suggestedRevenue, 0)} / flight
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Delta</span>
+                      <span
+                        className={`font-bold ${fareProjection.deltaRevenue >= 0 ? "text-emerald-400" : "text-rose-400"}`}
+                      >
+                        {fareProjection.deltaRevenue >= 0 ? "+" : "-"}
+                        {Math.abs(fareProjection.deltaRevenue).toLocaleString()} revenue{" "}
+                        {fareProjection.deltaPassengers !== 0 && (
+                          <span className="text-muted-foreground">
+                            ({fareProjection.deltaPassengers > 0 ? "+" : "-"}
+                            {Math.abs(fareProjection.deltaPassengers)} pax)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-[10px] text-muted-foreground">
+                  Assign aircraft to see revenue projection.
+                </div>
+              )}
               {fareError ? <p className="text-xs font-semibold text-red-400">{fareError}</p> : null}
               <button
                 type="button"

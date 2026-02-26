@@ -361,6 +361,20 @@ export interface TimelineEvent {
   };
 }
 
+// --- Checkpoints ---
+
+export interface Checkpoint {
+  schemaVersion: number;
+  tick: number;
+  createdAt: number;
+  actionChainHash: string;
+  stateHash: string;
+  airline: AirlineEntity;
+  fleet: AircraftInstance[];
+  routes: Route[];
+  timeline: TimelineEvent[];
+}
+
 // --- Game Actions ---
 
 export type GameActionType =

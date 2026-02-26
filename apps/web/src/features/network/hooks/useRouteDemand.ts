@@ -1,12 +1,17 @@
 import { useMemo } from "react";
-import type { DemandResult, Route } from "@airtr/core";
+import type { DemandResult, FixedPoint, Route } from "@airtr/core";
 import {
+  calculatePriceElasticity,
   calculateDemand,
   calculateSupplyPressure,
   getHubCongestionModifier,
   getHubDemandModifier,
   getProsperityIndex,
   getSeason,
+  getSuggestedFares,
+  PRICE_ELASTICITY_BUSINESS,
+  PRICE_ELASTICITY_ECONOMY,
+  PRICE_ELASTICITY_FIRST,
   scaleToAddressableMarket,
 } from "@airtr/core";
 import { airports, HUB_CLASSIFICATIONS } from "@airtr/data";
@@ -19,6 +24,13 @@ export type RouteDemandSnapshot = {
   totalWeeklySeats: number;
   suggestedFleetDelta: number;
   isOversupplied: boolean;
+  elasticityEconomy: number;
+  elasticityBusiness: number;
+  elasticityFirst: number;
+  referenceFareEconomy: FixedPoint;
+  referenceFareBusiness: FixedPoint;
+  referenceFareFirst: FixedPoint;
+  effectiveLoadFactor: number;
 };
 
 const DEFAULT_DEMAND: DemandResult = {
@@ -42,6 +54,25 @@ export function getRouteDemandSnapshot(
   const destination = airports.find((airport) => airport.iata === destinationIata) ?? null;
 
   if (!origin || !destination) {
+    const referenceFares = getSuggestedFares(route.distanceKm);
+    const elasticityEconomy = calculatePriceElasticity(
+      route.fareEconomy,
+      referenceFares.economy,
+      PRICE_ELASTICITY_ECONOMY,
+    );
+    const elasticityBusiness = calculatePriceElasticity(
+      route.fareBusiness,
+      referenceFares.business,
+      PRICE_ELASTICITY_BUSINESS,
+    );
+    const elasticityFirst = calculatePriceElasticity(
+      route.fareFirst,
+      referenceFares.first,
+      PRICE_ELASTICITY_FIRST,
+    );
+    const blendedElasticity =
+      elasticityEconomy * 0.75 + elasticityBusiness * 0.2 + elasticityFirst * 0.05;
+
     return {
       totalDemand: { ...DEFAULT_DEMAND, origin: originIata, destination: destinationIata },
       addressableDemand: { ...DEFAULT_DEMAND, origin: originIata, destination: destinationIata },
@@ -49,6 +80,13 @@ export function getRouteDemandSnapshot(
       totalWeeklySeats: 0,
       suggestedFleetDelta: 0,
       isOversupplied: false,
+      elasticityEconomy,
+      elasticityBusiness,
+      elasticityFirst,
+      referenceFareEconomy: referenceFares.economy,
+      referenceFareBusiness: referenceFares.business,
+      referenceFareFirst: referenceFares.first,
+      effectiveLoadFactor: 0.15 * blendedElasticity,
     };
   }
 
@@ -115,6 +153,37 @@ export function getRouteDemandSnapshot(
   const pressureMultiplier = calculateSupplyPressure(totalWeeklySeats, weeklyAddressableTotal);
   const isOversupplied = totalWeeklySeats > weeklyAddressableTotal;
 
+  const referenceFares = getSuggestedFares(route.distanceKm);
+  const elasticityEconomy = calculatePriceElasticity(
+    route.fareEconomy,
+    referenceFares.economy,
+    PRICE_ELASTICITY_ECONOMY,
+  );
+  const elasticityBusiness = calculatePriceElasticity(
+    route.fareBusiness,
+    referenceFares.business,
+    PRICE_ELASTICITY_BUSINESS,
+  );
+  const elasticityFirst = calculatePriceElasticity(
+    route.fareFirst,
+    referenceFares.first,
+    PRICE_ELASTICITY_FIRST,
+  );
+  const demandTotal =
+    addressableDemand.economy + addressableDemand.business + addressableDemand.first;
+  const demandWeights =
+    demandTotal > 0
+      ? {
+          economy: addressableDemand.economy / demandTotal,
+          business: addressableDemand.business / demandTotal,
+          first: addressableDemand.first / demandTotal,
+        }
+      : { economy: 0.75, business: 0.2, first: 0.05 };
+  const blendedElasticity =
+    elasticityEconomy * demandWeights.economy +
+    elasticityBusiness * demandWeights.business +
+    elasticityFirst * demandWeights.first;
+
   const targetLf = 0.85;
   const targetSeats =
     weeklyAddressableTotal > 0 ? Math.round((weeklyAddressableTotal * targetLf) / 7) : 0;
@@ -136,6 +205,13 @@ export function getRouteDemandSnapshot(
     totalWeeklySeats,
     suggestedFleetDelta,
     isOversupplied,
+    elasticityEconomy,
+    elasticityBusiness,
+    elasticityFirst,
+    referenceFareEconomy: referenceFares.economy,
+    referenceFareBusiness: referenceFares.business,
+    referenceFareFirst: referenceFares.first,
+    effectiveLoadFactor: pressureMultiplier * blendedElasticity,
   };
 }
 

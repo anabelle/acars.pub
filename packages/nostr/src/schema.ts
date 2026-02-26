@@ -1,4 +1,4 @@
-import { createLogger, type FixedPoint, FP_ZERO, fpRaw } from "@airtr/core";
+import { type Checkpoint, createLogger, type FixedPoint, FP_ZERO, fpRaw } from "@airtr/core";
 import type { NDKKind } from "@nostr-dev-kit/ndk";
 import { NDKEvent, type NDKFilter } from "@nostr-dev-kit/ndk";
 import { ensureConnected, getNDK } from "./ndk.js";
@@ -58,6 +58,7 @@ const ACTION_KIND = 30078;
 const WORLD_ID = "dev-v2";
 const AIRTR_SCHEMA_VERSION = 1;
 const ACTION_D_PREFIX = `airtr:world:${WORLD_ID}:action:`;
+const CHECKPOINT_D_TAG = `airtr:world:${WORLD_ID}:checkpoint`;
 
 const MAX_FUTURE_SKEW_SEC = 5 * 60;
 const MAX_EVENT_AGE_SEC = 365 * 24 * 60 * 60;
@@ -171,6 +172,26 @@ export async function publishAction(action: ActionEnvelope): Promise<NDKEvent> {
   return event;
 }
 
+export async function publishCheckpoint(checkpoint: Checkpoint): Promise<NDKEvent> {
+  await ensureConnected();
+  const ndk = getNDK();
+
+  if (!ndk.signer) {
+    throw new Error("No signer available. Call attachSigner() first.");
+  }
+
+  const event = new NDKEvent(ndk);
+  event.kind = ACTION_KIND;
+  event.tags = [
+    ["d", CHECKPOINT_D_TAG],
+    ["world", WORLD_ID],
+  ];
+  event.content = JSON.stringify(checkpoint);
+
+  await event.publish();
+  return event;
+}
+
 /**
  * Loads recent game actions for the current world.
  */
@@ -178,6 +199,7 @@ export async function loadActionLog(options?: {
   authors?: string[];
   limit?: number;
   maxPages?: number;
+  since?: number;
 }): Promise<
   {
     event: NDKEvent;
@@ -186,7 +208,7 @@ export async function loadActionLog(options?: {
 > {
   await ensureConnected();
   const ndk = getNDK();
-  const { authors, limit, maxPages } = options ?? {};
+  const { authors, limit, maxPages, since } = options ?? {};
   const pageLimit = limit ?? 1000;
   const pageCap = maxPages ?? 10;
   const resultsById = new Map<string, { event: NDKEvent; action: ActionEnvelope }>();
@@ -200,6 +222,7 @@ export async function loadActionLog(options?: {
       limit: pageLimit,
       ...(authors && authors.length > 0 ? { authors } : {}),
       ...(until ? { until } : {}),
+      ...(since ? { since } : {}),
     };
 
     const pageResults: { event: NDKEvent; action: ActionEnvelope }[] = [];
@@ -215,6 +238,8 @@ export async function loadActionLog(options?: {
         if (!hasWorldTag(event, WORLD_ID)) return;
         if (!isValidEventTimestamp(event.created_at ?? 0)) return;
         if (!isActionKind(event)) return;
+        const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
+        if (dTag === CHECKPOINT_D_TAG) return;
         if (!event.content.trim().startsWith("{")) return;
 
         try {
@@ -265,6 +290,132 @@ export async function loadActionLog(options?: {
   });
 
   return results;
+}
+
+function parseCheckpoint(data: unknown): Checkpoint | null {
+  if (!isRecord(data)) return null;
+  const schemaVersion = clampInt(data.schemaVersion, 1, 10);
+  const tick = clampInt(data.tick, 0, Number.MAX_SAFE_INTEGER);
+  const createdAt = clampInt(data.createdAt, 0, Number.MAX_SAFE_INTEGER);
+  const actionChainHash = typeof data.actionChainHash === "string" ? data.actionChainHash : null;
+  const stateHash = typeof data.stateHash === "string" ? data.stateHash : null;
+  if (!schemaVersion || tick == null || createdAt == null || !actionChainHash || !stateHash) {
+    return null;
+  }
+  if (!isRecord(data.airline) || !Array.isArray(data.fleet) || !Array.isArray(data.routes)) {
+    return null;
+  }
+  const timeline = Array.isArray(data.timeline) ? data.timeline : [];
+
+  return {
+    schemaVersion,
+    tick,
+    createdAt,
+    actionChainHash,
+    stateHash,
+    airline: data.airline as unknown as Checkpoint["airline"],
+    fleet: data.fleet as unknown as Checkpoint["fleet"],
+    routes: data.routes as unknown as Checkpoint["routes"],
+    timeline: timeline as unknown as Checkpoint["timeline"],
+  };
+}
+
+export async function loadCheckpoint(pubkey: string): Promise<Checkpoint | null> {
+  await ensureConnected();
+  const ndk = getNDK();
+
+  const filter: NDKFilter = {
+    kinds: [ACTION_KIND],
+    authors: [pubkey],
+    limit: 5,
+  };
+
+  let latest: Checkpoint | null = null;
+  let latestCreatedAt = 0;
+  await new Promise<void>((resolve) => {
+    const sub = ndk.subscribe(filter, { closeOnEose: true });
+    const timeout = setTimeout(() => {
+      sub.stop();
+      resolve();
+    }, 6000);
+
+    sub.on("event", (event: NDKEvent) => {
+      if (!hasWorldTag(event, WORLD_ID)) return;
+      const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
+      if (dTag !== CHECKPOINT_D_TAG) return;
+      if (!isValidEventTimestamp(event.created_at ?? 0)) return;
+      if (!event.content.trim().startsWith("{")) return;
+
+      try {
+        const parsed = parseCheckpoint(JSON.parse(event.content));
+        if (!parsed) return;
+        if (parsed.createdAt >= latestCreatedAt) {
+          latest = parsed;
+          latestCreatedAt = parsed.createdAt;
+        }
+      } catch {
+        // Ignore malformed checkpoints
+      }
+    });
+
+    sub.on("eose", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
+
+  return latest;
+}
+
+export async function loadCheckpoints(pubkeys: string[]): Promise<Map<string, Checkpoint>> {
+  if (pubkeys.length === 0) return new Map();
+  await ensureConnected();
+  const ndk = getNDK();
+
+  const filter: NDKFilter = {
+    kinds: [ACTION_KIND],
+    authors: pubkeys,
+    limit: Math.max(pubkeys.length, 100),
+  };
+
+  const checkpoints = new Map<string, Checkpoint>();
+  const latestByPubkey = new Map<string, number>();
+
+  await new Promise<void>((resolve) => {
+    const sub = ndk.subscribe(filter, { closeOnEose: true });
+    const timeout = setTimeout(() => {
+      sub.stop();
+      resolve();
+    }, 8000);
+
+    sub.on("event", (event: NDKEvent) => {
+      if (!hasWorldTag(event, WORLD_ID)) return;
+      const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
+      if (dTag !== CHECKPOINT_D_TAG) return;
+      if (!isValidEventTimestamp(event.created_at ?? 0)) return;
+      if (!event.content.trim().startsWith("{")) return;
+
+      try {
+        const parsed = parseCheckpoint(JSON.parse(event.content));
+        if (!parsed) return;
+        const author = event.author.pubkey;
+        const lastSeen = latestByPubkey.get(author) ?? 0;
+        if (parsed.createdAt >= lastSeen) {
+          checkpoints.set(author, parsed);
+          latestByPubkey.set(author, parsed.createdAt);
+        }
+      } catch {
+        // Ignore malformed checkpoints
+      }
+    });
+
+    sub.on("eose", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
+
+  return checkpoints;
 }
 
 /**

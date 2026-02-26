@@ -1,4 +1,5 @@
 import {
+  computeCheckpointStateHash,
   fp,
   fpAdd,
   fpScale,
@@ -9,8 +10,9 @@ import {
   TICKS_PER_HOUR,
 } from "@airtr/core";
 import { getAircraftById, getHubPricingForIata } from "@airtr/data";
-import { publishAction } from "@airtr/nostr";
+import { publishCheckpoint } from "@airtr/nostr";
 import type { StateCreator } from "zustand";
+import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
 import { processFlightEngine } from "../FlightEngine";
 import type { AirlineState } from "../types";
@@ -20,6 +22,7 @@ export interface EngineSlice {
 }
 
 let isProcessing = false;
+const CHECKPOINT_INTERVAL = 12000;
 
 export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> = (set, get) => ({
   processTick: async (tick: number) => {
@@ -34,13 +37,17 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       const updatedAirline = { ...airline, status: "chapter11" as const };
       const previousState = { airline, fleet, routes, timeline: get().timeline };
       set({ airline: updatedAirline });
-      publishAction({
-        schemaVersion: 2,
-        action: "TICK_UPDATE",
-        payload: {
-          status: "chapter11",
-          tick,
+      publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: "TICK_UPDATE",
+          payload: {
+            status: "chapter11",
+            tick,
+          },
         },
+        get,
+        set,
       }).catch((e) => {
         set(previousState);
         console.error("Bankruptcy sync failed", e);
@@ -133,13 +140,44 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           timeline: currentTimeline,
         };
         set({ fleet: currentFleet, airline: updatedAirline, timeline: currentTimeline });
+        const previousCheckpointTick = Math.floor(lastTick / CHECKPOINT_INTERVAL);
+        const nextCheckpointTick = Math.floor(targetTick / CHECKPOINT_INTERVAL);
+        if (nextCheckpointTick > previousCheckpointTick) {
+          const { actionChainHash } = get();
+          computeCheckpointStateHash({
+            airline: updatedAirline,
+            fleet: currentFleet,
+            routes,
+            timeline: currentTimeline,
+          })
+            .then(async (stateHash) => {
+              const checkpoint = {
+                schemaVersion: 1,
+                tick: targetTick,
+                createdAt: Date.now(),
+                actionChainHash,
+                stateHash,
+                airline: updatedAirline,
+                fleet: currentFleet,
+                routes,
+                timeline: currentTimeline.slice(0, 200),
+              };
+              await publishCheckpoint(checkpoint);
+              set({ latestCheckpoint: checkpoint });
+            })
+            .catch((e) => console.error("Checkpoint publish failed", e));
+        }
         if (anyChanges) {
-          publishAction({
-            schemaVersion: 2,
-            action: "TICK_UPDATE",
-            payload: {
-              tick: targetTick,
+          publishActionWithChain({
+            action: {
+              schemaVersion: 2,
+              action: "TICK_UPDATE",
+              payload: {
+                tick: targetTick,
+              },
             },
+            get,
+            set,
           }).catch((e) => console.error("Auto-sync tick failed", e));
         }
         useEngineStore.setState({ catchupProgress: null });
@@ -223,18 +261,49 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         timeline: currentTimeline,
       };
       set({ fleet: currentFleet, airline: updatedAirline, timeline: currentTimeline });
+      const previousCheckpointTick = Math.floor(lastTick / CHECKPOINT_INTERVAL);
+      const nextCheckpointTick = Math.floor(targetTick / CHECKPOINT_INTERVAL);
+      if (nextCheckpointTick > previousCheckpointTick) {
+        const { actionChainHash } = get();
+        computeCheckpointStateHash({
+          airline: updatedAirline,
+          fleet: currentFleet,
+          routes,
+          timeline: currentTimeline,
+        })
+          .then(async (stateHash) => {
+            const checkpoint = {
+              schemaVersion: 1,
+              tick: targetTick,
+              createdAt: Date.now(),
+              actionChainHash,
+              stateHash,
+              airline: updatedAirline,
+              fleet: currentFleet,
+              routes,
+              timeline: currentTimeline.slice(0, 200),
+            };
+            await publishCheckpoint(checkpoint);
+            set({ latestCheckpoint: checkpoint });
+          })
+          .catch((e) => console.error("Checkpoint publish failed", e));
+      }
 
       // 4. Sync to Nostr only if significant events happened
       if (anyChanges) {
         // Re-read current state at publish time to avoid overwriting
         // concurrent changes (e.g. hub modifications during tick processing).
         // We merge the tick's computed values with the fresh airline identity.
-        publishAction({
-          schemaVersion: 2,
-          action: "TICK_UPDATE",
-          payload: {
-            tick: targetTick,
+        publishActionWithChain({
+          action: {
+            schemaVersion: 2,
+            action: "TICK_UPDATE",
+            payload: {
+              tick: targetTick,
+            },
           },
+          get,
+          set,
         }).catch((e) => console.error("Auto-sync tick failed", e));
       }
       useEngineStore.setState({ catchupProgress: null });

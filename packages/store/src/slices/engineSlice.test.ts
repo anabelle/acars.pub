@@ -9,7 +9,10 @@ vi.mock("../FlightEngine", () => ({
 }));
 
 vi.mock("@airtr/nostr", () => ({
-  publishAction: vi.fn(() => Promise.resolve()),
+  publishAction: vi.fn(() =>
+    Promise.resolve({ id: "evt-1", created_at: 1, author: { pubkey: "player" } }),
+  ),
+  publishCheckpoint: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../engine", () => ({
@@ -77,6 +80,8 @@ const createSliceState = (overrides: Partial<AirlineState>) => {
     fleet: [],
     routes: [],
     timeline: [],
+    actionChainHash: "",
+    latestCheckpoint: null,
     pubkey: "player",
     identityStatus: "ready",
     isLoading: false,

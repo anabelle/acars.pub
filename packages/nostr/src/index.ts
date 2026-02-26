@@ -5,10 +5,13 @@ export { ensureConnected, getNDK } from "./ndk.js";
 export {
   type ActionEnvelope,
   loadActionLog,
+  loadCheckpoint,
+  loadCheckpoints,
   loadMarketplace,
   MARKETPLACE_KIND,
   type MarketplaceListing,
   publishAction,
+  publishCheckpoint,
   publishUsedAircraft,
   type SellerFleetIndex,
 } from "./schema.js";

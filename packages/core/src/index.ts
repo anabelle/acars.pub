@@ -2,6 +2,13 @@
 // @airtr/core — Public API
 // ============================================================
 
+// Checkpoints
+export {
+  canonicalize,
+  computeActionChainHash,
+  computeCheckpointStateHash,
+  verifyCheckpoint,
+} from "./checkpoint.js";
 // Demand
 export {
   calculateDemand,
@@ -29,7 +36,6 @@ export {
   getSuggestedFares,
   ROUTE_SLOT_FEE,
 } from "./finance.js";
-
 // Fixed-point arithmetic
 export {
   FP_SCALE,
@@ -48,7 +54,6 @@ export {
 } from "./fixed-point.js";
 // Fleet
 export { calculateBookValue } from "./fleet.js";
-
 // Geography
 export { haversineDistance } from "./geo.js";
 // Hubs
@@ -68,6 +73,7 @@ export type {
   AirlineTickResult,
   Airport,
   AirportTag,
+  Checkpoint,
   DemandResult,
   FixedPoint,
   FlightOffer,

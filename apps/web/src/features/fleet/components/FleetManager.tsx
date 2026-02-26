@@ -537,9 +537,11 @@ export function FleetManager() {
                               {routes.map((r) => {
                                 const isOutOfRange = r.distanceKm > model.rangeKm;
                                 const routeDemand = routeDemandIndex.get(r.id);
-                                const loadFactor = Math.round(
-                                  (routeDemand?.pressureMultiplier ?? 0) * 100,
-                                );
+                                const effectiveLoadFactor =
+                                  routeDemand?.effectiveLoadFactor ??
+                                  routeDemand?.pressureMultiplier ??
+                                  0;
+                                const loadFactor = Math.round(effectiveLoadFactor * 100);
                                 const healthLabel =
                                   loadFactor >= 80
                                     ? "Healthy"

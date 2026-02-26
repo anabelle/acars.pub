@@ -3,12 +3,13 @@ import { describe, expect, it } from "vitest";
 import { replayActionLog } from "./actionReducer";
 
 describe("replayActionLog", () => {
-  it("clamps balance and ignores invalid actions", () => {
+  it("clamps balance and ignores invalid actions", async () => {
     const pubkey = "pubkey-1";
     const actions = [
       {
         eventId: "evt-1",
         authorPubkey: pubkey,
+        createdAt: 1,
         action: {
           schemaVersion: 2,
           action: "AIRLINE_CREATE",
@@ -25,6 +26,7 @@ describe("replayActionLog", () => {
       {
         eventId: "evt-2",
         authorPubkey: pubkey,
+        createdAt: 2,
         action: {
           schemaVersion: 2,
           action: "AIRCRAFT_PURCHASE",
@@ -38,18 +40,20 @@ describe("replayActionLog", () => {
       },
     ];
 
-    const result = replayActionLog({ pubkey, actions });
+    const result = await replayActionLog({ pubkey, actions });
     expect(result.airline).toBeTruthy();
     expect(result.fleet.length).toBe(0);
     expect(result.airline?.corporateBalance).toBe(fp(1000000000));
+    expect(result.actionChainHash).toBeTypeOf("string");
   });
 
-  it("replays a basic route open action", () => {
+  it("replays a basic route open action", async () => {
     const pubkey = "pubkey-2";
     const actions = [
       {
         eventId: "evt-1",
         authorPubkey: pubkey,
+        createdAt: 1,
         action: {
           schemaVersion: 2,
           action: "AIRLINE_CREATE",
@@ -64,6 +68,7 @@ describe("replayActionLog", () => {
       {
         eventId: "evt-2",
         authorPubkey: pubkey,
+        createdAt: 2,
         action: {
           schemaVersion: 2,
           action: "ROUTE_OPEN",
@@ -78,18 +83,20 @@ describe("replayActionLog", () => {
       },
     ];
 
-    const result = replayActionLog({ pubkey, actions });
+    const result = await replayActionLog({ pubkey, actions });
     expect(result.routes.length).toBe(1);
     expect(result.routes[0]?.originIata).toBe("LAX");
     expect(result.routes[0]?.destinationIata).toBe("SFO");
+    expect(result.actionChainHash).toBeTypeOf("string");
   });
 
-  it("updates status via tick update", () => {
+  it("updates status via tick update", async () => {
     const pubkey = "pubkey-3";
     const actions = [
       {
         eventId: "evt-1",
         authorPubkey: pubkey,
+        createdAt: 1,
         action: {
           schemaVersion: 2,
           action: "AIRLINE_CREATE",
@@ -99,6 +106,7 @@ describe("replayActionLog", () => {
       {
         eventId: "evt-2",
         authorPubkey: pubkey,
+        createdAt: 2,
         action: {
           schemaVersion: 2,
           action: "TICK_UPDATE",
@@ -107,8 +115,9 @@ describe("replayActionLog", () => {
       },
     ];
 
-    const result = replayActionLog({ pubkey, actions });
+    const result = await replayActionLog({ pubkey, actions });
     expect(result.airline?.status).toBe("chapter11");
     expect(result.airline?.lastTick).toBe(5);
+    expect(result.actionChainHash).toBeTypeOf("string");
   });
 });

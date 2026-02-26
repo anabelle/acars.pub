@@ -12,6 +12,7 @@ vi.mock("../FlightEngine", () => ({
 
 vi.mock("@airtr/nostr", () => ({
   loadActionLog: vi.fn(() => Promise.resolve([])),
+  loadCheckpoints: vi.fn(() => Promise.resolve(new Map())),
   getNDK: vi.fn(() => ({})),
   NDKEvent: vi.fn(),
   MARKETPLACE_KIND: 30079,
@@ -32,6 +33,8 @@ const createSliceState = (overrides: Partial<AirlineState>) => {
     fleet: [],
     routes: [],
     timeline: [],
+    actionChainHash: "",
+    latestCheckpoint: null,
     pubkey: "player-pubkey",
     identityStatus: "ready",
     isLoading: false,

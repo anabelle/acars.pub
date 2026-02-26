@@ -1,11 +1,13 @@
 import type {
   AircraftInstance,
   AirlineEntity,
+  Checkpoint,
   FixedPoint,
   Route,
   TimelineEvent,
 } from "@airtr/core";
 import {
+  computeActionChainHash,
   fp,
   fpAdd,
   fpScale,
@@ -20,7 +22,7 @@ export interface ActionRecord {
   action: import("@airtr/core").GameActionEnvelope;
   eventId: string;
   authorPubkey: string;
-  createdAt?: number;
+  createdAt: number | null;
 }
 
 export interface ActionReplayResult {
@@ -28,6 +30,7 @@ export interface ActionReplayResult {
   fleet: AircraftInstance[];
   routes: Route[];
   timeline: TimelineEvent[];
+  actionChainHash: string;
 }
 
 const DEFAULT_LIVERY = {
@@ -102,16 +105,52 @@ const asRecord = (value: unknown): Record<string, unknown> | null =>
 const buildAircraftName = (modelName: string | undefined, index: number) =>
   `${modelName ?? "Aircraft"} ${index}`;
 
-export function replayActionLog(params: {
+export async function buildActionChainHashFromRecords(
+  previousHash: string,
+  records: ActionRecord[],
+): Promise<string> {
+  const sorted = [...records].sort((a, b) => {
+    const aTime = a.createdAt ?? 0;
+    const bTime = b.createdAt ?? 0;
+    if (aTime !== bTime) return aTime - bTime;
+    return a.eventId.localeCompare(b.eventId);
+  });
+  let hash = previousHash;
+  for (const record of sorted) {
+    hash = await computeActionChainHash(hash, {
+      id: record.eventId,
+      createdAt: record.createdAt,
+      authorPubkey: record.authorPubkey,
+      action: record.action,
+    });
+  }
+  return hash;
+}
+
+export async function replayActionLog(params: {
   pubkey: string;
   actions: ActionRecord[];
-}): ActionReplayResult {
-  const { pubkey, actions } = params;
+  checkpoint?: Checkpoint | null;
+}): Promise<ActionReplayResult> {
+  const { pubkey, actions, checkpoint } = params;
 
-  let airline: AirlineEntity | null = null;
+  let airline: AirlineEntity | null = checkpoint?.airline ?? null;
   const fleetById = new Map<string, AircraftInstance>();
   const routesById = new Map<string, Route>();
-  const timeline: TimelineEvent[] = [];
+  const timeline: TimelineEvent[] = checkpoint?.timeline ? [...checkpoint.timeline] : [];
+  let actionChainHash = checkpoint?.actionChainHash ?? "";
+
+  if (checkpoint?.fleet) {
+    for (const aircraft of checkpoint.fleet) {
+      fleetById.set(aircraft.id, { ...aircraft });
+    }
+  }
+
+  if (checkpoint?.routes) {
+    for (const route of checkpoint.routes) {
+      routesById.set(route.id, { ...route });
+    }
+  }
 
   const applyBalanceDelta = (delta: FixedPoint) => {
     if (!airline) return;
@@ -122,11 +161,24 @@ export function replayActionLog(params: {
 
   const fpZero = fp(0);
 
-  for (const record of actions) {
-    if (record.authorPubkey !== pubkey) continue;
+  const filteredActions = actions.filter((record) => record.authorPubkey === pubkey);
+  const sortedActions = [...filteredActions].sort((a, b) => {
+    const aTime = a.createdAt ?? 0;
+    const bTime = b.createdAt ?? 0;
+    if (aTime !== bTime) return aTime - bTime;
+    return a.eventId.localeCompare(b.eventId);
+  });
+
+  for (const record of sortedActions) {
     const { action } = record;
     const payload = action.payload;
     const actionTick = clampInt(payload.tick, 0, Number.MAX_SAFE_INTEGER) ?? 0;
+    actionChainHash = await computeActionChainHash(actionChainHash, {
+      id: record.eventId,
+      createdAt: record.createdAt,
+      authorPubkey: record.authorPubkey,
+      action,
+    });
 
     if (action.action === "AIRLINE_CREATE") {
       const name = clampString(payload.name, MAX_NAME_LENGTH) ?? "New Airline";
@@ -551,5 +603,5 @@ export function replayActionLog(params: {
     };
   }
 
-  return { airline, fleet, routes, timeline };
+  return { airline, fleet, routes, timeline, actionChainHash };
 }

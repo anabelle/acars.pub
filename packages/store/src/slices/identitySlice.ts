@@ -1,4 +1,10 @@
-import type { AircraftInstance, AirlineEntity, Route, TimelineEvent } from "@airtr/core";
+import type {
+  AircraftInstance,
+  AirlineEntity,
+  Checkpoint,
+  Route,
+  TimelineEvent,
+} from "@airtr/core";
 import { fp, fpSub, GENESIS_TIME } from "@airtr/core";
 import { getHubPricingForIata } from "@airtr/data";
 import {
@@ -6,10 +12,12 @@ import {
   ensureConnected,
   getPubkey,
   loadActionLog,
+  loadCheckpoint,
   publishAction,
   waitForNip07,
 } from "@airtr/nostr";
 import type { StateCreator } from "zustand";
+import { updateActionChainHashFromEvent } from "../actionChain";
 import { replayActionLog } from "../actionReducer";
 import { useEngineStore } from "../engine";
 import type { AirlineState } from "../types";
@@ -23,6 +31,8 @@ export interface IdentitySlice {
   fleet: AircraftInstance[];
   routes: Route[];
   timeline: TimelineEvent[];
+  actionChainHash: string;
+  latestCheckpoint: Checkpoint | null;
   initializeIdentity: () => Promise<void>;
   createAirline: (params: CreateAirlineParams) => Promise<void>;
 }
@@ -32,7 +42,10 @@ export type CreateAirlineParams = Pick<
   "name" | "icaoCode" | "callsign" | "hubs" | "livery"
 >;
 
-export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySlice> = (set) => ({
+export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySlice> = (
+  set,
+  get,
+) => ({
   pubkey: null,
   identityStatus: "checking",
   isLoading: false,
@@ -41,6 +54,8 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
   fleet: [],
   routes: [],
   timeline: [],
+  actionChainHash: "",
+  latestCheckpoint: null,
 
   initializeIdentity: async () => {
     set({ isLoading: true, error: null, airline: null, pubkey: null });
@@ -66,15 +81,28 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
       attachSigner();
       ensureConnected();
 
-      const actions = await loadActionLog({ authors: [pubkey], limit: 500, maxPages: 20 });
-      const replayed = replayActionLog({
+      const checkpoint = await loadCheckpoint(pubkey);
+      const actions = await loadActionLog({
+        authors: [pubkey],
+        limit: 500,
+        maxPages: 20,
+      });
+      let scopedActions = actions;
+      if (checkpoint) {
+        scopedActions = actions.filter(
+          (entry) => (entry.event.created_at ?? 0) >= checkpoint.createdAt,
+        );
+        if (scopedActions.length === 0) scopedActions = actions;
+      }
+      const replayed = await replayActionLog({
         pubkey,
-        actions: actions.map((entry) => ({
+        actions: scopedActions.map((entry) => ({
           action: entry.action,
           eventId: entry.event.id,
           authorPubkey: entry.event.author.pubkey,
-          createdAt: entry.event.created_at,
+          createdAt: entry.event.created_at ?? null,
         })),
+        checkpoint,
       });
 
       const existing = replayed.airline ? replayed : null;
@@ -86,6 +114,8 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
           fleet: [],
           routes: [],
           timeline: [],
+          actionChainHash: "",
+          latestCheckpoint: checkpoint,
           identityStatus: "ready",
           isLoading: false,
         });
@@ -168,6 +198,8 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
         fleet: reconciledFleet,
         routes: reconciledRoutes,
         timeline: loadedAirline?.timeline || [],
+        actionChainHash: replayed.actionChainHash,
+        latestCheckpoint: checkpoint,
         identityStatus: "ready",
         isLoading: false,
       });
@@ -193,9 +225,9 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
       const postHubBalance = fpSub(fp(100000000), hubCost);
 
       const currentTick = useEngineStore.getState().tick;
-      await publishAction({
+      const action = {
         schemaVersion: 2,
-        action: "AIRLINE_CREATE",
+        action: "AIRLINE_CREATE" as const,
         payload: {
           name: params.name,
           icaoCode: params.icaoCode,
@@ -205,7 +237,9 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
           corporateBalance: postHubBalance,
           tick: currentTick,
         },
-      });
+      };
+      const event = await publishAction(action);
+      await updateActionChainHashFromEvent({ action, event, get, set });
 
       const pubkey = await getPubkey();
       if (!pubkey) throw new Error("No pubkey after extension ready");

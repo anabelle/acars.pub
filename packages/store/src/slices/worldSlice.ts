@@ -7,7 +7,7 @@ import type {
 } from "@airtr/core";
 import { fpAdd, fpFormat, GENESIS_TIME, TICK_DURATION } from "@airtr/core";
 import { getAircraftById } from "@airtr/data";
-import { getNDK, loadActionLog, MARKETPLACE_KIND, NDKEvent } from "@airtr/nostr";
+import { getNDK, loadActionLog, loadCheckpoints, MARKETPLACE_KIND, NDKEvent } from "@airtr/nostr";
 import type { StateCreator } from "zustand";
 import { replayActionLog } from "../actionReducer";
 import { useEngineStore } from "../engine";
@@ -243,6 +243,8 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
     try {
       const existingState = get();
       const actions = await loadActionLog({ limit: 500, maxPages: 20 });
+      const authorPubkeys = Array.from(new Set(actions.map((entry) => entry.event.author.pubkey)));
+      const checkpoints = await loadCheckpoints(authorPubkeys);
       const competitors = new Map<string, AirlineEntity>();
       const registry = new Map<string, FlightOffer[]>();
       const allGlobalFleet: AircraftInstance[] = [];
@@ -259,14 +261,23 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
       for (const [authorPubkey, entries] of actionsByPubkey.entries()) {
         if (authorPubkey === existingState.pubkey) continue;
 
-        const replayed = replayActionLog({
+        const checkpoint = checkpoints.get(authorPubkey) ?? null;
+        let scopedEntries = entries;
+        if (checkpoint) {
+          scopedEntries = entries.filter(
+            (entry) => (entry.event.created_at ?? 0) >= checkpoint.createdAt,
+          );
+          if (scopedEntries.length === 0) scopedEntries = entries;
+        }
+        const replayed = await replayActionLog({
           pubkey: authorPubkey,
-          actions: entries.map((entry) => ({
+          actions: scopedEntries.map((entry) => ({
             action: entry.action,
             eventId: entry.event.id,
             authorPubkey: entry.event.author.pubkey,
-            createdAt: entry.event.created_at,
+            createdAt: entry.event.created_at ?? null,
           })),
+          checkpoint,
         });
 
         if (!replayed.airline) continue;

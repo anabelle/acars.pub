@@ -2,6 +2,7 @@ import type {
   AircraftInstance,
   AircraftModel,
   AirlineEntity,
+  Checkpoint,
   FixedPoint,
   FlightOffer,
   Route,
@@ -20,6 +21,8 @@ export interface AirlineState {
   fleet: AircraftInstance[];
   routes: Route[];
   timeline: TimelineEvent[];
+  actionChainHash: string;
+  latestCheckpoint: Checkpoint | null;
   pubkey: string | null;
   identityStatus: IdentityStatus;
   isLoading: boolean;

@@ -11,7 +11,9 @@ import type { AirlineState } from "../types";
 import { createNetworkSlice } from "./networkSlice";
 
 vi.mock("@airtr/nostr", () => ({
-  publishAction: vi.fn(() => Promise.resolve()),
+  publishAction: vi.fn(() =>
+    Promise.resolve({ id: "evt-1", created_at: 1, author: { pubkey: "test-pubkey" } }),
+  ),
 }));
 
 vi.mock("../engine", () => ({
@@ -29,6 +31,8 @@ const createSliceState = (overrides: Partial<AirlineState>) => {
     fleet: [],
     routes: [],
     timeline: [],
+    actionChainHash: "",
+    latestCheckpoint: null,
     pubkey: "test-pubkey",
     identityStatus: "ready",
     isLoading: false,

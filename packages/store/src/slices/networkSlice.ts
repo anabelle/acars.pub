@@ -10,8 +10,8 @@ import {
   TICK_DURATION,
 } from "@airtr/core";
 import { airports, getAircraftById, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@airtr/data";
-import { publishAction } from "@airtr/nostr";
 import type { StateCreator } from "zustand";
+import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
 import type { AirlineState } from "../types";
 
@@ -203,19 +203,23 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     }
 
     try {
-      await publishAction({
-        schemaVersion: 2,
-        action:
-          action.type === "add"
-            ? "HUB_ADD"
-            : action.type === "remove"
-              ? "HUB_REMOVE"
-              : "HUB_SWITCH",
-        payload: {
-          iata: action.iata,
-          fee: hubFee,
-          tick: currentTick,
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action:
+            action.type === "add"
+              ? "HUB_ADD"
+              : action.type === "remove"
+                ? "HUB_REMOVE"
+                : "HUB_SWITCH",
+          payload: {
+            iata: action.iata,
+            fee: hubFee,
+            tick: currentTick,
+          },
         },
+        get,
+        set,
       });
     } catch (error: any) {
       set(previousState);
@@ -328,15 +332,19 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     });
 
     try {
-      await publishAction({
-        schemaVersion: 2,
-        action: "ROUTE_REBASE",
-        payload: {
-          routeId,
-          originIata: newOriginIata,
-          destinationIata: targetRoute.destinationIata,
-          tick: currentTick,
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_REBASE",
+          payload: {
+            routeId,
+            originIata: newOriginIata,
+            destinationIata: targetRoute.destinationIata,
+            tick: currentTick,
+          },
         },
+        get,
+        set,
       });
     } catch (error: any) {
       set(previousState);
@@ -413,15 +421,19 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     });
 
     try {
-      await publishAction({
-        schemaVersion: 2,
-        action: "ROUTE_CLOSE",
-        payload: {
-          routeId,
-          originIata: targetRoute.originIata,
-          destinationIata: targetRoute.destinationIata,
-          tick: currentTick,
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_CLOSE",
+          payload: {
+            routeId,
+            originIata: targetRoute.originIata,
+            destinationIata: targetRoute.destinationIata,
+            tick: currentTick,
+          },
         },
+        get,
+        set,
       });
     } catch (error: any) {
       set(previousState);
@@ -516,22 +528,26 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     });
 
     try {
-      await publishAction({
-        schemaVersion: 2,
-        action: "ROUTE_OPEN",
-        payload: {
-          routeId: newRoute.id,
-          originIata,
-          destinationIata,
-          distanceKm,
-          fares: {
-            economy: suggested.economy,
-            business: suggested.business,
-            first: suggested.first,
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_OPEN",
+          payload: {
+            routeId: newRoute.id,
+            originIata,
+            destinationIata,
+            distanceKm,
+            fares: {
+              economy: suggested.economy,
+              business: suggested.business,
+              first: suggested.first,
+            },
+            frequencyPerWeek: newWeeklyFrequency,
+            tick: currentTick,
           },
-          frequencyPerWeek: newWeeklyFrequency,
-          tick: currentTick,
         },
+        get,
+        set,
       });
     } catch (e) {
       set(previousState);
@@ -612,14 +628,18 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     });
 
     try {
-      await publishAction({
-        schemaVersion: 2,
-        action: routeId ? "ROUTE_ASSIGN_AIRCRAFT" : "ROUTE_UNASSIGN_AIRCRAFT",
-        payload: {
-          aircraftId,
-          routeId,
-          tick: currentTick,
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: routeId ? "ROUTE_ASSIGN_AIRCRAFT" : "ROUTE_UNASSIGN_AIRCRAFT",
+          payload: {
+            aircraftId,
+            routeId,
+            tick: currentTick,
+          },
         },
+        get,
+        set,
       });
     } catch (e) {
       set(previousState);
@@ -657,14 +677,18 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     set({ routes: updatedRoutes, airline: updatedAirline });
 
     try {
-      await publishAction({
-        schemaVersion: 2,
-        action: "ROUTE_UPDATE_FARES",
-        payload: {
-          routeId,
-          fares,
-          tick: useEngineStore.getState().tick,
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_UPDATE_FARES",
+          payload: {
+            routeId,
+            fares,
+            tick: useEngineStore.getState().tick,
+          },
         },
+        get,
+        set,
       });
     } catch (e) {
       set(previousState);
