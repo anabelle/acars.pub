@@ -21,7 +21,7 @@ export interface WorldSlice {
   globalFleetByOwner: Map<string, AircraftInstance[]>;
   globalRoutes: Route[];
   globalRoutesByOwner: Map<string, Route[]>;
-  syncWorld: () => Promise<void>;
+  syncWorld: (options?: { force?: boolean }) => Promise<void>;
   processGlobalTick: (tick: number) => Promise<void>;
 }
 
@@ -249,8 +249,9 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
     }
   },
 
-  syncWorld: async () => {
-    if (isSyncingWorld || isProcessingGlobal) return;
+  syncWorld: async (options?: { force?: boolean }) => {
+    if (isSyncingWorld) return;
+    if (isProcessingGlobal && !options?.force) return;
     isSyncingWorld = true;
     try {
       try {

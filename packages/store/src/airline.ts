@@ -1,3 +1,4 @@
+import { ensureConnected } from "@airtr/nostr";
 import { create } from "zustand";
 import { useEngineStore } from "./engine.js";
 import { createEngineSlice } from "./slices/engineSlice.js";
@@ -32,6 +33,7 @@ export const useAirlineStore = create<AirlineState>()((...a) => ({
 // processGlobalTick ~3x per tick, causing duplicate event generation and
 // competitor aircraft position flicker on the map.
 let lastSubscribedTick = -1;
+let initialSyncComplete = false;
 useEngineStore.subscribe((state) => {
   if (state.tick === lastSubscribedTick) return;
   lastSubscribedTick = state.tick;
@@ -40,27 +42,33 @@ useEngineStore.subscribe((state) => {
   void store.processTick(state.tick);
   void store.processGlobalTick(state.tick);
 
-  // Sync world state every 60 ticks (~3 mins)
-  if (state.tick % 60 === 0) {
+  // Sync world state every 60 ticks (~3 mins).
+  // Skip until the initial eager sync completes to avoid racing with it.
+  if (state.tick % 60 === 0 && initialSyncComplete) {
     store.syncWorld();
   }
 });
 
-// Initial world sync — retry if no competitors loaded (relay may not have
-// connected yet on first attempt).
-const INITIAL_SYNC_DELAY = 2000;
-const RETRY_SYNC_DELAY = 5000;
+// Initial world sync — wait for relay connectivity, then fetch with force
+// to bypass the isProcessingGlobal guard that can silently skip the call.
+const RETRY_SYNC_DELAY = 3000;
 const MAX_SYNC_RETRIES = 3;
 
 (async () => {
-  await new Promise((resolve) => setTimeout(resolve, INITIAL_SYNC_DELAY));
+  // Wait for at least one Nostr relay to be connected before fetching
+  // world state, instead of using an arbitrary delay.
+  await ensureConnected();
 
   for (let attempt = 0; attempt <= MAX_SYNC_RETRIES; attempt++) {
-    await useAirlineStore.getState().syncWorld();
+    // force: true bypasses the isProcessingGlobal guard so the initial
+    // sync cannot be silently skipped by a concurrent processGlobalTick.
+    await useAirlineStore.getState().syncWorld({ force: true });
     const { competitors } = useAirlineStore.getState();
     if (competitors.size > 0) break;
     if (attempt < MAX_SYNC_RETRIES) {
       await new Promise((resolve) => setTimeout(resolve, RETRY_SYNC_DELAY));
     }
   }
+
+  initialSyncComplete = true;
 })();

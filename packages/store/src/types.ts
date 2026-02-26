@@ -63,6 +63,6 @@ export interface AirlineState {
   globalFleetByOwner: Map<string, AircraftInstance[]>;
   globalRoutes: Route[];
   globalRoutesByOwner: Map<string, Route[]>;
-  syncWorld: () => Promise<void>;
+  syncWorld: (options?: { force?: boolean }) => Promise<void>;
   processGlobalTick: (tick: number) => Promise<void>;
 }
