@@ -719,7 +719,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
 
     // Target tick is only slightly ahead — still within the flight
     const targetTick = 100 + Math.floor(durationTicks / 2);
-    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], targetTick);
     expect(result[0].status).toBe("enroute");
     expect(result[0].flight?.direction).toBe("outbound");
     expect(result[0].flight?.arrivalTick).toBeGreaterThan(targetTick);
@@ -752,7 +752,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
 
     // Target is past arrival but within turnaround
     const targetTick = 100 + durationTicks + Math.floor(turnaroundTicks / 2);
-    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], targetTick);
     expect(result[0].status).toBe("turnaround");
     expect(result[0].baseAirportIata).toBe("LAX");
     expect(result[0].turnaroundEndTick).toBeGreaterThan(targetTick);
@@ -785,7 +785,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
 
     // Target is in the inbound flight phase
     const targetTick = 100 + durationTicks + turnaroundTicks + Math.floor(durationTicks / 2);
-    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], targetTick);
     expect(result[0].status).toBe("enroute");
     expect(result[0].flight?.direction).toBe("inbound");
     expect(result[0].flight?.originIata).toBe("LAX");
@@ -822,7 +822,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
     // Target is 3 full cycles + half an outbound leg later
     const halfOutbound = Math.floor(durationTicks / 2);
     const targetTick = 100 + roundTrip * 3 + halfOutbound;
-    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], targetTick);
     expect(result[0].status).toBe("enroute");
     expect(result[0].flight?.direction).toBe("outbound");
     expect(result[0].flight?.arrivalTick).toBeGreaterThan(targetTick);
@@ -836,7 +836,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
       flight: null,
     });
 
-    const result = reconcileFleetToTick([aircraft], [], 50000);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [], 50000);
     expect(result[0].status).toBe("idle");
     expect(result[0].flight).toBeNull();
   });
@@ -864,7 +864,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
     });
 
     const targetTick = 50000;
-    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], targetTick);
 
     // Should NOT remain idle — should be placed at some phase in the cycle
     expect(result[0].status).not.toBe("idle");
@@ -921,7 +921,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
     });
 
     const targetTick = 1000 + roundTrip * 5 + durationTicks + 1;
-    const result = reconcileFleetToTick([acA, acB], [route], targetTick);
+    const { fleet: result } = reconcileFleetToTick([acA, acB], [route], targetTick);
 
     // Both should be reconciled (not idle)
     expect(result[0].status).not.toBe("idle");
@@ -958,7 +958,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
     });
 
     const targetTick = 50000;
-    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], targetTick);
 
     // Should be reconciled using purchasedAtTick=500 as cycle anchor
     expect(result[0].status).not.toBe("idle");
@@ -993,7 +993,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
       },
     });
 
-    const result = reconcileFleetToTick([aircraft], [], 50000);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [], 50000);
     // No route to reconcile against — returned unchanged
     expect(result[0].flight?.arrivalTick).toBe(200);
   });
@@ -1019,7 +1019,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
       },
     });
 
-    const result = reconcileFleetToTick([aircraft], [route], 200);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], 200);
     expect(result[0].flight?.arrivalTick).toBe(50000);
     expect(result[0].status).toBe("enroute");
   });
@@ -1070,7 +1070,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
     // Fast-forward well past both cycles so reconciliation computes position
     const targetTick = 100 + roundTrip * 5 + durationTicks + 1;
 
-    const result = reconcileFleetToTick([acA, acB], [route], targetTick);
+    const { fleet: result } = reconcileFleetToTick([acA, acB], [route], targetTick);
     const phaseA = result[0].status + "-" + (result[0].flight?.direction ?? "none");
     const phaseB = result[1].status + "-" + (result[1].flight?.direction ?? "none");
     // They should differ because their cycles are offset by half a round-trip
@@ -1104,7 +1104,7 @@ describe("reconcileFleetToTick — delivery aircraft", () => {
     });
 
     const targetTick = 50000;
-    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], targetTick);
 
     // Should NOT remain in delivery — should be placed at some phase
     expect(result[0].status).not.toBe("delivery");
@@ -1138,7 +1138,7 @@ describe("reconcileFleetToTick — delivery aircraft", () => {
       flight: null,
     });
 
-    const result = reconcileFleetToTick([aircraft], [], 50000);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [], 50000);
     expect(result[0].status).toBe("idle");
     expect(result[0].flight).toBeNull();
   });
@@ -1160,7 +1160,7 @@ describe("reconcileFleetToTick — delivery aircraft", () => {
       flight: null,
     });
 
-    const result = reconcileFleetToTick([aircraft], [route], 50000);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], 50000);
     expect(result[0].status).toBe("delivery");
   });
 
@@ -1187,7 +1187,7 @@ describe("reconcileFleetToTick — delivery aircraft", () => {
     });
 
     const targetTick = 50000;
-    const result = reconcileFleetToTick([aircraft], [route], targetTick);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], targetTick);
 
     expect(result[0].status).not.toBe("delivery");
 
@@ -1228,7 +1228,7 @@ describe("reconcileFleetToTick — delivery aircraft", () => {
     });
 
     // targetTick == cycleStartTick, code does `if (targetTick <= cycleStartTick) return idle`
-    const result = reconcileFleetToTick([aircraft], [route], 5000);
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], 5000);
     expect(result[0].status).toBe("idle");
   });
 });

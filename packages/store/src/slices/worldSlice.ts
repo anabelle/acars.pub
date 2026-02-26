@@ -329,10 +329,15 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
           // values while lastTick was pushed ahead by TICK_UPDATE actions, causing
           // all competitor aircraft to land and depart simultaneously on load.
           if (resolvedAirline.lastTick != null && resolvedFleet.length > 0) {
-            resolvedFleet = reconcileFleetToTick(
+            const { fleet: reconciledFleet, balanceDelta } = reconcileFleetToTick(
               resolvedFleet,
               resolvedRoutes,
               resolvedAirline.lastTick,
+            );
+            resolvedFleet = reconciledFleet;
+            resolvedAirline.corporateBalance = fpAdd(
+              resolvedAirline.corporateBalance,
+              balanceDelta,
             );
           }
 

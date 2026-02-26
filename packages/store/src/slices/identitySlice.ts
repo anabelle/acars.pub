@@ -5,7 +5,7 @@ import type {
   Route,
   TimelineEvent,
 } from "@airtr/core";
-import { fp, fpSub, GENESIS_TIME } from "@airtr/core";
+import { fp, fpAdd, fpSub, GENESIS_TIME } from "@airtr/core";
 import { getHubPricingForIata } from "@airtr/data";
 import {
   attachSigner,
@@ -223,11 +223,16 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
       // reconcileFleetToTick fast-forwards each aircraft's deterministic
       // round-trip cycle so catchup resumes from the correct phase.
       if (loadedAirline?.lastTick != null && reconciledFleet.length > 0) {
-        reconciledFleet = reconcileFleetToTick(
+        const { fleet: reconciled, balanceDelta } = reconcileFleetToTick(
           reconciledFleet,
           reconciledRoutes,
           loadedAirline.lastTick,
         );
+        reconciledFleet = reconciled;
+        loadedAirline = {
+          ...loadedAirline,
+          corporateBalance: fpAdd(loadedAirline.corporateBalance, balanceDelta),
+        };
       }
 
       set({

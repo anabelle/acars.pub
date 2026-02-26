@@ -10,6 +10,7 @@ import {
   detectPriceWar,
   fp,
   fpAdd,
+  fpScale,
   fpSub,
   fpToNumber,
   GENESIS_TIME,
@@ -685,6 +686,45 @@ function applyFlightHours(updated: AircraftInstance, hoursToAdd: number): void {
   updated.condition = Math.max(0, updated.condition - 0.00005 * hoursToAdd);
 }
 
+const DEFAULT_RECONCILE_LOAD_FACTOR = 0.65;
+
+function estimateReconcileProfit(
+  ac: AircraftInstance,
+  route: Route,
+  model: ReturnType<typeof getAircraftById>,
+  hoursPerLeg: number,
+  loadFactor: number,
+): FixedPoint {
+  if (!model || hoursPerLeg <= 0) return fp(0);
+  const clampedLoad = Math.min(1, Math.max(0, loadFactor));
+  const seatsEconomy = Math.max(0, ac.configuration.economy);
+  const seatsBusiness = Math.max(0, ac.configuration.business);
+  const seatsFirst = Math.max(0, ac.configuration.first);
+  const seatsOffered = seatsEconomy + seatsBusiness + seatsFirst;
+  const passengersEconomy = Math.floor(seatsEconomy * clampedLoad);
+  const passengersBusiness = Math.floor(seatsBusiness * clampedLoad);
+  const passengersFirst = Math.floor(seatsFirst * clampedLoad);
+
+  const revenue = calculateFlightRevenue({
+    passengersEconomy,
+    passengersBusiness,
+    passengersFirst,
+    fareEconomy: route.fareEconomy,
+    fareBusiness: route.fareBusiness,
+    fareFirst: route.fareFirst,
+    seatsOffered,
+  });
+
+  const cost = calculateFlightCost({
+    distanceKm: route.distanceKm,
+    aircraft: model,
+    actualPassengers: revenue.actualPassengers,
+    blockHours: hoursPerLeg,
+  });
+
+  return fpSub(revenue.revenueTotal, cost.costTotal);
+}
+
 /**
  * Fast-forward an aircraft's flight-cycle position to `targetTick` without
  * running the full engine.  Used when `lastTick` has been clamped forward
@@ -701,8 +741,9 @@ export function reconcileFleetToTick(
   fleet: AircraftInstance[],
   routes: Route[],
   targetTick: number,
-): AircraftInstance[] {
-  return fleet.map((ac) => {
+): { fleet: AircraftInstance[]; balanceDelta: FixedPoint } {
+  let balanceDelta = fp(0);
+  const updatedFleet: AircraftInstance[] = fleet.map((ac): AircraftInstance => {
     // Handle delivery aircraft that have been delivered but have no route —
     // they just need to transition to idle.  This must happen before the
     // route guard below, which would otherwise return them unchanged.
@@ -773,7 +814,7 @@ export function reconcileFleetToTick(
       const updated = { ...ac };
       applyCyclePhase(updated, route, targetTick, positionInCycle, durationTicks, turnaroundTicks);
       const referenceTick =
-        typeof ac.lastTickProcessed === "number" ? ac.lastTickProcessed : targetTick;
+        typeof ac.lastTickProcessed === "number" ? ac.lastTickProcessed : cycleStartTick;
       const landings = countLandingsBetween(
         cycleStartTick,
         referenceTick,
@@ -783,6 +824,16 @@ export function reconcileFleetToTick(
       );
       const hoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
       applyFlightHours(updated, landings * hoursPerLeg);
+      if (landings > 0) {
+        const perLegProfit = estimateReconcileProfit(
+          updated,
+          route,
+          model,
+          hoursPerLeg,
+          updated.lastKnownLoadFactor ?? DEFAULT_RECONCILE_LOAD_FACTOR,
+        );
+        balanceDelta = fpAdd(balanceDelta, fpScale(perLegProfit, landings));
+      }
       return updated;
     } else if (ac.status === "delivery") {
       // Delivery aircraft whose deliveryAtTick is in the past should be
@@ -810,6 +861,27 @@ export function reconcileFleetToTick(
           durationTicks,
           turnaroundTicks,
         );
+        const referenceTick =
+          typeof ac.lastTickProcessed === "number" ? ac.lastTickProcessed : cycleStartTick;
+        const landings = countLandingsBetween(
+          cycleStartTick,
+          referenceTick,
+          targetTick,
+          durationTicks,
+          turnaroundTicks,
+        );
+        const hoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
+        applyFlightHours(updated, landings * hoursPerLeg);
+        if (landings > 0) {
+          const perLegProfit = estimateReconcileProfit(
+            updated,
+            route,
+            model,
+            hoursPerLeg,
+            updated.lastKnownLoadFactor ?? DEFAULT_RECONCILE_LOAD_FACTOR,
+          );
+          balanceDelta = fpAdd(balanceDelta, fpScale(perLegProfit, landings));
+        }
         return updated;
       }
       // Still in delivery period — skip
@@ -837,7 +909,7 @@ export function reconcileFleetToTick(
     const updated = { ...ac };
     applyCyclePhase(updated, route, targetTick, positionInCycle, durationTicks, turnaroundTicks);
     const referenceTick =
-      typeof ac.lastTickProcessed === "number" ? ac.lastTickProcessed : targetTick;
+      typeof ac.lastTickProcessed === "number" ? ac.lastTickProcessed : cycleStartTick;
     const landings = countLandingsBetween(
       cycleStartTick,
       referenceTick,
@@ -847,7 +919,19 @@ export function reconcileFleetToTick(
     );
     const hoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
     applyFlightHours(updated, landings * hoursPerLeg);
+    if (landings > 0) {
+      const perLegProfit = estimateReconcileProfit(
+        updated,
+        route,
+        model,
+        hoursPerLeg,
+        updated.lastKnownLoadFactor ?? DEFAULT_RECONCILE_LOAD_FACTOR,
+      );
+      balanceDelta = fpAdd(balanceDelta, fpScale(perLegProfit, landings));
+    }
 
     return updated;
   });
+
+  return { fleet: updatedFleet, balanceDelta };
 }
