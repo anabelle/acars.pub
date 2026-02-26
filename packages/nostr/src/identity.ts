@@ -5,9 +5,10 @@ import { getNDK } from "./ndk.js";
  * Check if a NIP-07 extension (nos2x, Alby, etc.) is available RIGHT NOW.
  */
 export function hasNip07(): boolean {
+  if (typeof window === "undefined") return false;
   const nostrProvider = (window as unknown as { nostr?: { getPublicKey?: () => Promise<string> } })
     .nostr;
-  return typeof window !== "undefined" && typeof nostrProvider?.getPublicKey === "function";
+  return typeof nostrProvider?.getPublicKey === "function";
 }
 
 /**
