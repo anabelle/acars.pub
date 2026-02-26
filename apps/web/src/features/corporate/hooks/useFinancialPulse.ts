@@ -56,15 +56,16 @@ export function useFinancialPulse(timeline: TimelineEvent[]): FinancialPulse {
         ? loadFactors.reduce((sum, lf) => sum + lf, 0) / loadFactors.length
         : 0;
 
-    // Time span in ticks between newest and oldest flight
-    const newestTick = landings[0]!.tick;
-    const oldestTick = landings[landings.length - 1]!.tick;
-    const spanTicks = Math.max(newestTick - oldestTick, 1);
-    const spanHours = spanTicks / TICKS_PER_HOUR;
+    // Total flight time from actual flight durations
+    const totalFlightTicks = landings.reduce(
+      (sum, event) => sum + (event.details?.flightDurationTicks ?? 0),
+      0,
+    );
+    const totalFlightHours = totalFlightTicks / TICKS_PER_HOUR;
 
-    // Net income rate = total profit / span hours
+    // Net income rate = total profit / total flight hours
     // We compute in regular numbers then convert back to FP for display
-    const netIncomeRateNum = fpToNumber(totalProfit) / Math.max(spanHours, 0.01);
+    const netIncomeRateNum = totalFlightHours > 0 ? fpToNumber(totalProfit) / totalFlightHours : 0;
     const netIncomeRate = fp(netIncomeRateNum);
 
     // Avg profit per flight

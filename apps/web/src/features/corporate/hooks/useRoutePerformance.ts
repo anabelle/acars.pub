@@ -37,11 +37,13 @@ export function useRoutePerformance(
       const totalProfit = fpSum(events.map((event) => event.profit ?? FP_ZERO));
       const avgLoadFactor =
         events.reduce((sum, event) => sum + (event.details?.loadFactor ?? 0), 0) / events.length;
-      const newestTick = events[0]?.tick ?? 0;
-      const oldestTick = events[events.length - 1]?.tick ?? newestTick;
-      const spanTicks = Math.max(newestTick - oldestTick, 1);
-      const spanHours = spanTicks / TICKS_PER_HOUR;
-      const profitPerHour = fp(fpToNumber(totalProfit) / Math.max(spanHours, 0.01));
+      const totalFlightTicks = events.reduce(
+        (sum, event) => sum + (event.details?.flightDurationTicks ?? 0),
+        0,
+      );
+      const totalFlightHours = totalFlightTicks / TICKS_PER_HOUR;
+      const profitPerHour =
+        totalFlightHours > 0 ? fp(fpToNumber(totalProfit) / totalFlightHours) : FP_ZERO;
 
       const route = routes.find((item) => item.id === routeId);
       const fleetCount = route?.assignedAircraftIds.length ?? 0;

@@ -19,6 +19,7 @@ import {
   getProsperityIndex,
   getSeason,
   getSuggestedFares,
+  NATURAL_LF_CEILING,
   PRICE_ELASTICITY_BUSINESS,
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
@@ -367,13 +368,13 @@ export function processFlightEngine(
           );
 
           // Per-flight allocation (Weekly allocation / frequency), adjusted by supply pressure
-          const paxE = Math.min(
+          let paxE = Math.min(
             seatConfig.economy,
             Math.floor(
               (ourWeeklyAllocation.economy / ourFrequency) * pressureMultiplier * elasticityEconomy,
             ),
           );
-          const paxB = Math.min(
+          let paxB = Math.min(
             seatConfig.business,
             Math.floor(
               (ourWeeklyAllocation.business / ourFrequency) *
@@ -381,12 +382,22 @@ export function processFlightEngine(
                 elasticityBusiness,
             ),
           );
-          const paxF = Math.min(
+          let paxF = Math.min(
             seatConfig.first,
             Math.floor(
               (ourWeeklyAllocation.first / ourFrequency) * pressureMultiplier * elasticityFirst,
             ),
           );
+
+          const totalSeats = seatConfig.economy + seatConfig.business + seatConfig.first;
+          const totalPax = paxE + paxB + paxF;
+          const rawLoadFactor = totalSeats > 0 ? totalPax / totalSeats : 0;
+          if (rawLoadFactor > NATURAL_LF_CEILING && totalPax > 0) {
+            const scale = NATURAL_LF_CEILING / rawLoadFactor;
+            paxE = Math.floor(paxE * scale);
+            paxB = Math.floor(paxB * scale);
+            paxF = Math.floor(paxF * scale);
+          }
           // --- END NEW MP ALLOCATION ---
 
           rev = calculateFlightRevenue({

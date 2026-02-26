@@ -272,6 +272,28 @@ describe("FlightEngine — Solo/Offline scenarios", () => {
     const { landing } = simulateSingleLanding(aircraft, route);
     expect(landing.details?.loadFactor ?? 1).toBeLessThan(0.4);
   });
+
+  it("monopoly routes respect the natural load factor ceiling", () => {
+    const aircraft = makeAircraft({
+      id: "ac-ceiling",
+      modelId: "atr72-600",
+      assignedRouteId: "route-ceiling",
+      baseAirportIata: "BOG",
+    });
+    const route = makeRoute({
+      id: "route-ceiling",
+      originIata: "BOG",
+      destinationIata: "MDE",
+      distanceKm: 300,
+      assignedAircraftIds: [aircraft.id],
+    });
+
+    const { landing } = simulateSingleLanding(aircraft, route);
+    const loadFactor = landing.details?.loadFactor ?? 0;
+
+    expect(loadFactor).toBeGreaterThan(0);
+    expect(loadFactor).toBeLessThanOrEqual(0.88);
+  });
 });
 
 describe("FlightEngine — Multiplayer scenarios", () => {
