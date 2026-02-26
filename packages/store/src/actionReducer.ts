@@ -10,10 +10,13 @@ import {
   computeActionChainHash,
   fp,
   fpAdd,
+  fpFormat,
   fpScale,
   fpSub,
+  GENESIS_TIME,
   getSuggestedFares,
   ROUTE_SLOT_FEE,
+  TICK_DURATION,
   TICKS_PER_HOUR,
 } from "@airtr/core";
 import { getAircraftById } from "@airtr/data";
@@ -138,6 +141,7 @@ export async function replayActionLog(params: {
   const fleetById = new Map<string, AircraftInstance>();
   const routesById = new Map<string, Route>();
   const timeline: TimelineEvent[] = checkpoint?.timeline ? [...checkpoint.timeline] : [];
+  const timelineEventIds = new Set(timeline.map((event) => event.id));
   let actionChainHash = checkpoint?.actionChainHash ?? "";
 
   if (checkpoint?.fleet) {
@@ -159,6 +163,22 @@ export async function replayActionLog(params: {
     airline = { ...airline, corporateBalance: clampedBalance };
   };
 
+  const resolveEventTimestamp = (tick: number, createdAt: number | null) =>
+    typeof createdAt === "number" && Number.isFinite(createdAt)
+      ? createdAt * 1000
+      : GENESIS_TIME + tick * TICK_DURATION;
+
+  const pushTimelineEvent = (event: TimelineEvent) => {
+    if (timelineEventIds.has(event.id)) return;
+    timeline.unshift(event);
+    timelineEventIds.add(event.id);
+    if (timeline.length > 1000) {
+      timeline.length = 1000;
+      timelineEventIds.clear();
+      for (const item of timeline) timelineEventIds.add(item.id);
+    }
+  };
+
   const fpZero = fp(0);
 
   const filteredActions = actions.filter((record) => record.authorPubkey === pubkey);
@@ -173,6 +193,7 @@ export async function replayActionLog(params: {
     const { action } = record;
     const payload = action.payload;
     const actionTick = clampInt(payload.tick, 0, Number.MAX_SAFE_INTEGER) ?? 0;
+    const eventTimestamp = resolveEventTimestamp(actionTick, record.createdAt);
     actionChainHash = await computeActionChainHash(actionChainHash, {
       id: record.eventId,
       createdAt: record.createdAt,
@@ -245,6 +266,16 @@ export async function replayActionLog(params: {
         const fee = clampFixedPoint(payload.fee, fpZero, MAX_PRICE) ?? fpZero;
         applyBalanceDelta(fpSub(fpZero, fee));
         updateLastTick(actionTick);
+        if (iata) {
+          pushTimelineEvent({
+            id: `evt-action-${record.eventId}`,
+            tick: actionTick,
+            timestamp: eventTimestamp,
+            type: "hub_change",
+            description: `Hub added at ${iata}.`,
+            cost: fee,
+          });
+        }
         break;
       }
       case "HUB_REMOVE": {
@@ -253,6 +284,15 @@ export async function replayActionLog(params: {
           airline = { ...airline, hubs: airline.hubs.filter((hub) => hub !== iata) };
         }
         updateLastTick(actionTick);
+        if (iata) {
+          pushTimelineEvent({
+            id: `evt-action-${record.eventId}`,
+            tick: actionTick,
+            timestamp: eventTimestamp,
+            type: "hub_change",
+            description: `Hub removed at ${iata}.`,
+          });
+        }
         break;
       }
       case "HUB_SWITCH": {
@@ -266,6 +306,16 @@ export async function replayActionLog(params: {
         const fee = clampFixedPoint(payload.fee, fpZero, MAX_PRICE) ?? fpZero;
         applyBalanceDelta(fpSub(fpZero, fee));
         updateLastTick(actionTick);
+        if (iata) {
+          pushTimelineEvent({
+            id: `evt-action-${record.eventId}`,
+            tick: actionTick,
+            timestamp: eventTimestamp,
+            type: "hub_change",
+            description: `Hub switched to ${iata}.`,
+            cost: fee,
+          });
+        }
         break;
       }
       case "ROUTE_OPEN": {
@@ -305,11 +355,23 @@ export async function replayActionLog(params: {
         const routeCost = clampFixedPoint(payload.cost ?? ROUTE_SLOT_FEE, fpZero, MAX_PRICE);
         applyBalanceDelta(fpSub(fpZero, routeCost ?? ROUTE_SLOT_FEE));
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "route_change",
+          routeId,
+          originIata: originIata || undefined,
+          destinationIata: destinationIata || undefined,
+          description: `Opened route ${originIata} ↔ ${destinationIata}.`,
+          cost: routeCost ?? ROUTE_SLOT_FEE,
+        });
         break;
       }
       case "ROUTE_CLOSE": {
         const routeId = clampString(payload.routeId, 64);
         if (!routeId) break;
+        const route = routesById.get(routeId);
         routesById.delete(routeId);
         for (const aircraft of fleetById.values()) {
           if (aircraft.assignedRouteId === routeId) {
@@ -317,6 +379,18 @@ export async function replayActionLog(params: {
           }
         }
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "route_change",
+          routeId,
+          originIata: route?.originIata,
+          destinationIata: route?.destinationIata,
+          description: route
+            ? `Closed route ${route.originIata} ↔ ${route.destinationIata}.`
+            : `Closed route ${routeId}.`,
+        });
         break;
       }
       case "ROUTE_REBASE": {
@@ -335,6 +409,16 @@ export async function replayActionLog(params: {
           assignedAircraftIds: [],
         });
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "route_change",
+          routeId,
+          originIata: originIata || undefined,
+          destinationIata: destinationIata || undefined,
+          description: `Rebased route to ${originIata} ↔ ${destinationIata}.`,
+        });
         break;
       }
       case "ROUTE_ASSIGN_AIRCRAFT": {
@@ -359,6 +443,16 @@ export async function replayActionLog(params: {
           route.assignedAircraftIds = [...route.assignedAircraftIds, aircraftId];
         }
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "route_change",
+          routeId,
+          originIata: route.originIata,
+          destinationIata: route.destinationIata,
+          description: `Assigned aircraft ${aircraftId} to ${route.originIata} ↔ ${route.destinationIata}.`,
+        });
         break;
       }
       case "ROUTE_UNASSIGN_AIRCRAFT": {
@@ -378,6 +472,19 @@ export async function replayActionLog(params: {
           }
         }
         updateLastTick(actionTick);
+        const route = routeId ? routesById.get(routeId) : null;
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "route_change",
+          routeId: routeId ?? undefined,
+          originIata: route?.originIata,
+          destinationIata: route?.destinationIata,
+          description: route
+            ? `Unassigned aircraft ${aircraftId} from ${route.originIata} ↔ ${route.destinationIata}.`
+            : `Unassigned aircraft ${aircraftId} from its route.`,
+        });
         break;
       }
       case "ROUTE_UPDATE_FARES": {
@@ -402,6 +509,16 @@ export async function replayActionLog(params: {
               : route.fareFirst,
         });
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "route_change",
+          routeId,
+          originIata: route.originIata,
+          destinationIata: route.destinationIata,
+          description: `Updated fares for ${route.originIata} ↔ ${route.destinationIata}.`,
+        });
         break;
       }
       case "AIRCRAFT_PURCHASE": {
@@ -449,11 +566,22 @@ export async function replayActionLog(params: {
         fleetById.set(instanceId, newAircraft);
         applyBalanceDelta(fpSub(fpZero, price));
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "purchase",
+          aircraftId: instanceId,
+          aircraftName: name,
+          cost: price,
+          description: `Purchased ${model.name} for ${fpFormat(price, 0)}.`,
+        });
         break;
       }
       case "AIRCRAFT_SELL": {
         const instanceId = clampString(payload.instanceId, 64);
         if (!instanceId) break;
+        const aircraft = fleetById.get(instanceId);
         fleetById.delete(instanceId);
         for (const route of routesById.values()) {
           route.assignedAircraftIds = route.assignedAircraftIds.filter((id) => id !== instanceId);
@@ -461,21 +589,43 @@ export async function replayActionLog(params: {
         const salePrice = clampFixedPoint(payload.price, fpZero, MAX_PRICE) ?? fpZero;
         applyBalanceDelta(salePrice);
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "sale",
+          aircraftId: instanceId,
+          aircraftName: aircraft?.name,
+          revenue: salePrice,
+          description: `Sold ${aircraft?.name ?? "aircraft"} for ${fpFormat(salePrice, 0)}.`,
+        });
         break;
       }
       case "AIRCRAFT_BUYOUT": {
         const instanceId = clampString(payload.instanceId, 64);
-        const aircraft = instanceId ? fleetById.get(instanceId) : null;
+        if (!instanceId) break;
+        const aircraft = fleetById.get(instanceId);
         if (!aircraft) break;
         aircraft.purchaseType = "buy";
         const buyoutPrice = clampFixedPoint(payload.price, fpZero, MAX_PRICE) ?? fpZero;
         applyBalanceDelta(fpSub(fpZero, buyoutPrice));
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "purchase",
+          aircraftId: instanceId,
+          aircraftName: aircraft.name,
+          cost: buyoutPrice,
+          description: `Lease buyout for ${aircraft.name} (${fpFormat(buyoutPrice, 0)}).`,
+        });
         break;
       }
       case "AIRCRAFT_LIST": {
         const instanceId = clampString(payload.instanceId, 64);
-        const aircraft = instanceId ? fleetById.get(instanceId) : null;
+        if (!instanceId) break;
+        const aircraft = fleetById.get(instanceId);
         if (!aircraft) break;
         const price = clampFixedPoint(payload.price, fpZero, MAX_PRICE);
         if (!price) break;
@@ -483,14 +633,34 @@ export async function replayActionLog(params: {
         const fee = fpScale(price, 0.005);
         applyBalanceDelta(fpSub(fpZero, fee));
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "sale",
+          aircraftId: instanceId,
+          aircraftName: aircraft.name,
+          cost: fee,
+          description: `Listed ${aircraft.name} for sale (fee ${fpFormat(fee, 0)}).`,
+        });
         break;
       }
       case "AIRCRAFT_CANCEL_LIST": {
         const instanceId = clampString(payload.instanceId, 64);
-        const aircraft = instanceId ? fleetById.get(instanceId) : null;
+        if (!instanceId) break;
+        const aircraft = fleetById.get(instanceId);
         if (!aircraft) break;
         aircraft.listingPrice = null;
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "sale",
+          aircraftId: instanceId,
+          aircraftName: aircraft.name,
+          description: `Cancelled sale listing for ${aircraft.name}.`,
+        });
         break;
       }
       case "AIRCRAFT_BUY_USED": {
@@ -555,11 +725,22 @@ export async function replayActionLog(params: {
 
         applyBalanceDelta(fpSub(fpZero, price));
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "purchase",
+          aircraftId: instanceId,
+          aircraftName: name,
+          cost: price,
+          description: `Purchased used ${name} for ${fpFormat(price, 0)}.`,
+        });
         break;
       }
       case "AIRCRAFT_MAINTENANCE": {
         const instanceId = clampString(payload.instanceId, 64);
-        const aircraft = instanceId ? fleetById.get(instanceId) : null;
+        if (!instanceId) break;
+        const aircraft = fleetById.get(instanceId);
         if (!aircraft) break;
         aircraft.condition = 1.0;
         aircraft.flightHoursSinceCheck = 0;
@@ -568,14 +749,25 @@ export async function replayActionLog(params: {
         const cost = clampFixedPoint(payload.cost, fpZero, MAX_PRICE) ?? fpZero;
         applyBalanceDelta(fpSub(fpZero, cost));
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "maintenance",
+          aircraftId: instanceId,
+          aircraftName: aircraft.name,
+          cost,
+          description: `Maintenance performed on ${aircraft.name} (${fpFormat(cost, 0)}).`,
+        });
         break;
       }
       case "AIRCRAFT_FERRY": {
         const instanceId = clampString(payload.instanceId, 64);
+        if (!instanceId) break;
         const originIata = sanitizeIata(payload.originIata);
         const destinationIata = sanitizeIata(payload.destinationIata);
         const distanceKm = clampNumber(payload.distanceKm, 1, MAX_DISTANCE_KM);
-        const aircraft = instanceId ? fleetById.get(instanceId) : null;
+        const aircraft = fleetById.get(instanceId);
         if (!aircraft || !originIata || !destinationIata) break;
         const model = getAircraftById(aircraft.modelId);
         if (!model || !distanceKm) break;
@@ -593,6 +785,17 @@ export async function replayActionLog(params: {
           distanceKm: distanceKm ?? undefined,
         };
         updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "ferry",
+          aircraftId: instanceId,
+          aircraftName: aircraft.name,
+          originIata: originIata || undefined,
+          destinationIata: destinationIata || undefined,
+          description: `${aircraft.name} ferrying: ${originIata} → ${destinationIata}.`,
+        });
         break;
       }
       default:
