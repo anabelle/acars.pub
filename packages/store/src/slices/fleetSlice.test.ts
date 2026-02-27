@@ -1,4 +1,4 @@
-import type { AircraftInstance, AirlineEntity, FixedPoint } from "@acars/core";
+import type { AircraftInstance, AirlineEntity, FixedPoint, TimelineEvent } from "@acars/core";
 import { fpAdd } from "@acars/core";
 import { getAircraftById } from "@acars/data";
 import { describe, expect, it, vi } from "vitest";
@@ -254,6 +254,40 @@ describe("sellAircraft", () => {
 
     // Balance should be: initial - cost + concurrent revenue + refund = initial + concurrent revenue
     expect(state.airline?.corporateBalance).toBe(fpAdd(initialBalance, concurrentRevenue));
+  });
+
+  it("purchase rollback preserves concurrently-added timeline events", async () => {
+    const airline = makeAirline(["BOG"]);
+    const { state } = createSliceState({ airline, fleet: [], timeline: [] });
+    const model = getAircraftById("atr72-600");
+    expect(model).toBeTruthy();
+
+    const { publishAction } = await import("@acars/nostr");
+    vi.mocked(publishAction).mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("publish failed")), 0);
+        }),
+    );
+
+    const pendingPurchase = state.purchaseAircraft(model!, "BOG");
+
+    // Simulate a concurrent timeline event added by processTick (e.g., a landing event)
+    const concurrentEvent: TimelineEvent = {
+      id: "evt-concurrent-landing",
+      tick: 101,
+      timestamp: 0,
+      type: "landing",
+      description: "Concurrent landing event from tick processing",
+    };
+    state.timeline = [concurrentEvent, ...(state.timeline as TimelineEvent[])];
+
+    await pendingPurchase;
+
+    // The new aircraft should be rolled back
+    expect(state.fleet).toHaveLength(0);
+    // The concurrently-added timeline event should be preserved
+    expect(state.timeline.some((evt) => evt.id === "evt-concurrent-landing")).toBe(true);
   });
 });
 

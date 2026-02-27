@@ -520,6 +520,48 @@ describe("assignAircraftToRoute", () => {
     // Concurrent condition change on ac-2 should be preserved
     expect(state.fleet.find((ac) => ac.id === "ac-2")?.condition).toBe(0.7);
   });
+
+  it("assignment rollback preserves concurrently-added timeline events", async () => {
+    const airline = makeAirline(["BOG"]);
+    const routes = [makeRoute("rt-1", "BOG", "CLO", "active")];
+    const aircraft = { ...makeAircraft("ac-1", null), baseAirportIata: "BOG" };
+
+    const { state } = createSliceState({
+      airline,
+      routes,
+      fleet: [aircraft],
+      timeline: [] as TimelineEvent[],
+    });
+
+    const { publishAction } = await import("@acars/nostr");
+    vi.mocked(publishAction).mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("publish failed")), 0);
+        }),
+    );
+
+    const pending = state.assignAircraftToRoute("ac-1", "rt-1");
+
+    // Simulate a concurrent timeline event added by processTick (e.g., a landing event)
+    const concurrentEvent: TimelineEvent = {
+      id: "evt-concurrent-landing",
+      tick: 101,
+      timestamp: 0,
+      type: "landing",
+      description: "Concurrent landing event from tick processing",
+    };
+    state.timeline = [concurrentEvent, ...(state.timeline as TimelineEvent[])];
+
+    await pending;
+
+    // Assignment should be rolled back
+    expect(state.fleet.find((ac) => ac.id === "ac-1")?.assignedRouteId).toBeNull();
+    // The optimistic assignment event should be removed
+    expect(state.timeline.some((evt) => evt.id.startsWith("evt-assign-"))).toBe(false);
+    // The concurrently-added timeline event should be preserved
+    expect(state.timeline.some((evt) => evt.id === "evt-concurrent-landing")).toBe(true);
+  });
 });
 
 describe("openRoute rollback", () => {
