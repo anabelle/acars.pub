@@ -116,10 +116,27 @@ function splitAntimeridian(points: [number, number][]): [number, number][][] {
     const delta = nextLng - prevLng;
 
     if (Math.abs(delta) > 180) {
-      // Crossed the antimeridian — interpolate the crossing latitude
+      // Crossed the antimeridian — binary-search for the exact great-circle
+      // latitude at the ±180° boundary. Linear interpolation in lng/lat
+      // space is inaccurate because the great circle curves; using SLERP
+      // via getGreatCircleInterpolation gives sub-pixel precision.
       const crossLng = prevLng > 0 ? 180 : -180;
-      const t = (crossLng - prevLng) / delta;
-      const crossLat = prevLat + t * (nextLat - prevLat);
+      const p1: [number, number] = [prevLng, prevLat];
+      const p2: [number, number] = [nextLng, nextLat];
+      let lo = 0;
+      let hi = 1;
+      let crossLat = prevLat;
+      for (let j = 0; j < 20; j++) {
+        const mid = (lo + hi) / 2;
+        const [lng, lat] = getGreatCircleInterpolation(p1, p2, mid);
+        if (prevLng > 0 === lng > 0) {
+          // Same side as prev — haven't crossed yet
+          lo = mid;
+        } else {
+          hi = mid;
+          crossLat = lat;
+        }
+      }
 
       current.push([crossLng, crossLat]);
       segments.push(current);
