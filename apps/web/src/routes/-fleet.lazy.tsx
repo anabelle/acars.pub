@@ -33,8 +33,8 @@ export default function FleetDashboard() {
 
   return (
     <PanelLayout>
-      <div className="flex h-full w-full flex-col p-6 overflow-hidden">
-        <div className="mb-6 flex items-center shrink-0 justify-between pr-10">
+      <div className="flex h-full w-full flex-col p-4 sm:p-6 overflow-hidden">
+        <div className="mb-4 sm:mb-6 flex items-center shrink-0 justify-between pr-10">
           <h2 className="text-2xl font-bold tracking-tight text-foreground">Fleet Manager</h2>
           <span className="rounded-full bg-accent/20 px-3 py-1 text-xs font-semibold uppercase text-accent">
             {fleetSize} Aircraft

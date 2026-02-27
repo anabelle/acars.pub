@@ -152,7 +152,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
 
       {/* Header & Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-card border border-border/40 p-4 shadow-sm backdrop-blur-xl">
-        <div className="flex items-center gap-3 flex-1 min-w-[300px]">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className="relative flex-1">
             <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
             <input
@@ -705,7 +705,7 @@ function PurchaseModal({
         </div>
 
         {/* Footer Action */}
-        <div className="p-6 border-t border-border/50 bg-background/50 flex items-center justify-between shrink-0">
+        <div className="p-4 sm:p-6 border-t border-border/50 bg-background/50 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:justify-between shrink-0">
           <div>
             <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1">
               {purchaseType === "buy" ? "Full Purchase Price" : "Security Deposit (10%)"}

@@ -237,7 +237,7 @@ export function FleetManager() {
             <p className="text-muted-foreground">No aircraft found matching "{search}".</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             {filteredFleet.map((ac) => {
               const model = getAircraftById(ac.modelId);
               if (!model) return null;
@@ -331,7 +331,7 @@ export function FleetManager() {
                     </div>
                   </div>
 
-                  <div className="p-6 pt-4 flex flex-col space-y-4">
+                  <div className="p-4 sm:p-6 pt-3 sm:pt-4 flex flex-col space-y-4">
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                       <div>
                         <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">

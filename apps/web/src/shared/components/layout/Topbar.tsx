@@ -79,7 +79,7 @@ export function Topbar() {
       </div>
 
       {/* Critical Macro Metrics */}
-      <div className="flex items-center space-x-8">
+      <div className="hidden md:flex items-center space-x-8">
         <div className="flex flex-col items-end">
           <span className="text-[10px] uppercase font-semibold text-muted-foreground leading-none">
             Corporate Balance

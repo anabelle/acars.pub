@@ -15,7 +15,7 @@ export function Sidebar() {
   const hasAirlineContext = Boolean(airline || viewedPubkey);
 
   return (
-    <div className="pointer-events-auto flex h-full w-16 md:w-20 flex-col items-center border-r border-border bg-background/80 py-6 backdrop-blur-xl transition-all">
+    <div className="pointer-events-auto hidden sm:flex h-full w-16 md:w-20 flex-col items-center border-r border-border bg-background/80 py-6 backdrop-blur-xl transition-all">
       <div className="flex flex-1 flex-col space-y-4">
         {navItems.map((item) => {
           const isDisabled = item.requiresAirline && !hasAirlineContext;
@@ -46,5 +46,38 @@ export function Sidebar() {
 
       <div className="flex flex-col space-y-4">{/* Future status or settings icons here */}</div>
     </div>
+  );
+}
+
+export function MobileNav() {
+  const { airline, viewedPubkey } = useAirlineStore((state) => state);
+  const hasAirlineContext = Boolean(airline || viewedPubkey);
+
+  return (
+    <nav className="pointer-events-auto flex sm:hidden items-center justify-around border-t border-border bg-background/90 backdrop-blur-xl px-2 py-1.5 shrink-0">
+      {navItems.map((item) => {
+        const isDisabled = item.requiresAirline && !hasAirlineContext;
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-all ${isDisabled ? "pointer-events-none opacity-40" : ""}`}
+            activeProps={{
+              className: "text-primary",
+            }}
+            inactiveProps={{
+              className: isDisabled
+                ? "text-muted-foreground"
+                : "text-muted-foreground active:text-foreground",
+            }}
+          >
+            <item.icon className="h-5 w-5" />
+            <span className="text-[9px] font-semibold uppercase tracking-wider leading-none">
+              {item.label}
+            </span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
