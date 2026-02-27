@@ -1,4 +1,4 @@
-import type { AircraftInstance, AirlineEntity, FixedPoint, Route } from "@airtr/core";
+import type { AircraftInstance, AirlineEntity, FixedPoint, Route } from "@acars/core";
 import { describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
@@ -8,7 +8,7 @@ vi.mock("../FlightEngine", () => ({
   processFlightEngine: vi.fn(),
 }));
 
-vi.mock("@airtr/nostr", () => ({
+vi.mock("@acars/nostr", () => ({
   publishAction: vi.fn(() =>
     Promise.resolve({ id: "evt-1", created_at: 1, author: { pubkey: "player" } }),
   ),
@@ -24,8 +24,8 @@ vi.mock("../engine", () => ({
   },
 }));
 
-vi.mock("@airtr/data", async () => {
-  const actual = await vi.importActual<typeof import("@airtr/data")>("@airtr/data");
+vi.mock("@acars/data", async () => {
+  const actual = await vi.importActual<typeof import("@acars/data")>("@acars/data");
   return {
     ...actual,
     getHubPricingForIata: vi.fn(() => ({ monthlyOpex: 1000, openFee: 0 })),

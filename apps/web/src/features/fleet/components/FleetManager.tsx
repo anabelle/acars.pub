@@ -8,10 +8,10 @@ import {
   fpSub,
   fpToNumber,
   TICKS_PER_HOUR,
-} from "@airtr/core";
-import { getAircraftById } from "@airtr/data";
-import { FAMILY_ICONS } from "@airtr/map";
-import { useActiveAirline, useAirlineStore, useEngineStore } from "@airtr/store";
+} from "@acars/core";
+import { getAircraftById } from "@acars/data";
+import { FAMILY_ICONS } from "@acars/map";
+import { useActiveAirline, useAirlineStore, useEngineStore } from "@acars/store";
 import {
   Plane,
   PlaneLanding,

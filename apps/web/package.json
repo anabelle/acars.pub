@@ -1,5 +1,5 @@
 {
-  "name": "@airtr/web",
+  "name": "@acars/web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,11 +12,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@airtr/core": "workspace:*",
-    "@airtr/data": "workspace:*",
-    "@airtr/map": "workspace:*",
-    "@airtr/nostr": "workspace:^",
-    "@airtr/store": "workspace:*",
+    "@acars/core": "workspace:*",
+    "@acars/data": "workspace:*",
+    "@acars/map": "workspace:*",
+    "@acars/nostr": "workspace:^",
+    "@acars/store": "workspace:*",
     "@nostr-dev-kit/ndk": "2.10.1",
     "@radix-ui/react-slot": "^1.2.4",
     "@tanstack/react-query": "^5.90.21",

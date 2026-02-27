@@ -1,4 +1,4 @@
-import { fp } from "@airtr/core";
+import { fp } from "@acars/core";
 import { describe, expect, it } from "vitest";
 import { replayActionLog } from "./actionReducer";
 

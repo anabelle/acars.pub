@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GENESIS_TIME, TICK_DURATION } from "@airtr/core";
-import { airports as AIRPORTS } from "@airtr/data";
+import { GENESIS_TIME, TICK_DURATION } from "@acars/core";
+import { airports as AIRPORTS } from "@acars/data";
 import { useEngineStore } from "./engine.js";
 
 describe("engine store", () => {

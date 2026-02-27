@@ -4,55 +4,55 @@
 
 zones:
   core:
-    path: packages/@airtr/core
+    path: packages/@acars/core
     description: "Pure game logic — economy, simulation, validation"
     max_diff_lines: 500
     has_determinism_check: true
 
   data:
-    path: packages/@airtr/data
+    path: packages/@acars/data
     description: "Static datasets — airports, aircraft, routes"
     max_diff_lines: 1000  # Data files can be large
     has_determinism_check: false
 
   nostr:
-    path: packages/@airtr/nostr
+    path: packages/@acars/nostr
     description: "Nostr protocol adapter — NDK, events, identity"
     max_diff_lines: 500
     has_determinism_check: false
 
   map:
-    path: packages/@airtr/map
+    path: packages/@acars/map
     description: "2D/2.5D map renderer — MapLibre GL layers"
     max_diff_lines: 500
     has_determinism_check: false
 
   3d:
-    path: packages/@airtr/3d
+    path: packages/@acars/3d
     description: "3D renderer — CesiumJS, glTF models, follow camera"
     max_diff_lines: 500
     has_determinism_check: false
 
   ui:
-    path: packages/@airtr/ui
+    path: packages/@acars/ui
     description: "Shared React components — panels, controls, design system"
     max_diff_lines: 500
     has_determinism_check: false
 
   store:
-    path: packages/@airtr/store
+    path: packages/@acars/store
     description: "Zustand state management — multiple domain stores"
     max_diff_lines: 500
     has_determinism_check: false
 
   audio:
-    path: packages/@airtr/audio
+    path: packages/@acars/audio
     description: "Web Audio API engine — sounds, ambient, procedural"
     max_diff_lines: 500
     has_determinism_check: false
 
   i18n:
-    path: packages/@airtr/i18n
+    path: packages/@acars/i18n
     description: "Internationalization — i18next, translations, types"
     max_diff_lines: 1000
     has_determinism_check: false

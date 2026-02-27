@@ -1,4 +1,4 @@
-import { type Checkpoint, createLogger, type FixedPoint, FP_ZERO, fpRaw } from "@airtr/core";
+import { type Checkpoint, createLogger, type FixedPoint, FP_ZERO, fpRaw } from "@acars/core";
 import type { NDKKind } from "@nostr-dev-kit/ndk";
 import { NDKEvent, type NDKFilter } from "@nostr-dev-kit/ndk";
 import { ensureConnected, getNDK } from "./ndk.js";
@@ -52,7 +52,7 @@ export interface MarketplaceListing {
   };
 }
 
-export type ActionEnvelope = import("@airtr/core").GameActionEnvelope;
+export type ActionEnvelope = import("@acars/core").GameActionEnvelope;
 
 export interface ActionLogEntry {
   event: NDKEvent;
@@ -61,7 +61,7 @@ export interface ActionLogEntry {
 
 const ACTION_KIND = 30078;
 const WORLD_ID = "dev-v3";
-const AIRTR_SCHEMA_VERSION = 1;
+const ACARS_SCHEMA_VERSION = 1;
 const ACTION_D_PREFIX = `airtr:world:${WORLD_ID}:action:`;
 const CHECKPOINT_D_TAG = `airtr:world:${WORLD_ID}:checkpoint`;
 
@@ -486,8 +486,8 @@ export async function loadAirline(): Promise<never> {
  * Publishes an aircraft to the global used marketplace.
  */
 export async function publishUsedAircraft(
-  aircraft: import("@airtr/core").AircraftInstance,
-  price: import("@airtr/core").FixedPoint,
+  aircraft: import("@acars/core").AircraftInstance,
+  price: import("@acars/core").FixedPoint,
 ): Promise<NDKEvent> {
   // Input validation — defense-in-depth against malformed or malicious calls
   if (!aircraft || typeof aircraft.id !== "string" || !aircraft.id) {
@@ -522,7 +522,7 @@ export async function publishUsedAircraft(
 
   const payload = {
     ...aircraft,
-    schemaVersion: AIRTR_SCHEMA_VERSION,
+    schemaVersion: ACARS_SCHEMA_VERSION,
     marketplacePrice: price,
     listedAt: Date.now(),
   };
@@ -673,7 +673,7 @@ export async function loadMarketplace(
     }, 6000);
 
     sub.on("event", (event: NDKEvent) => {
-      // Only attempt to parse if it's an AirTR marketplace entry
+      // Only attempt to parse if it's an ACARS marketplace entry
       const dTag = event.tags.find((t) => t[0] === "d")?.[1];
       if (!dTag?.startsWith(MARKETPLACE_D_PREFIX)) return;
       if (!hasWorldTag(event, WORLD_ID)) return;

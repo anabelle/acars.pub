@@ -1,11 +1,11 @@
-import { aircraftModels } from "@airtr/data";
+import { aircraftModels } from "@acars/data";
 import {
   GENESIS_TIME,
   TICK_DURATION,
   TICKS_PER_HOUR,
   type AirlineEntity,
   type AircraftInstance,
-} from "@airtr/core";
+} from "@acars/core";
 import { getFlightNumber } from "@/features/network/utils/flightNumber";
 
 export type FlightBoardMode = "departures" | "arrivals";

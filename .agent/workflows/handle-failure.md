@@ -15,18 +15,18 @@ When a CI gate fails on your submitted branch, follow this procedure.
 ## Step 2: Diagnose
 
 ### If LINT failed:
-- Run `pnpm lint --filter=@airtr/{zone}` locally
+- Run `pnpm lint --filter=@acars/{zone}` locally
 - Fix formatting and style issues
 - Common causes: trailing whitespace, missing semicolons, unused imports
 
 ### If TYPECHECK failed:
-- Run `pnpm typecheck --filter=@airtr/{zone}` locally
+- Run `pnpm typecheck --filter=@acars/{zone}` locally
 - Fix type errors
 - Common causes: wrong type, missing import, interface mismatch
 - CHECK: Are you using types from another zone? Read their CONTRACT.md.
 
 ### If UNIT TEST failed:
-- Run `pnpm test --filter=@airtr/{zone} --run` locally
+- Run `pnpm test --filter=@acars/{zone} --run` locally
 - Read test output to identify failing test
 - Common causes: wrong expected value, missing edge case, async issue
 

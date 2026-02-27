@@ -1,26 +1,26 @@
-import type { AirlineEntity } from '@airtr/core';
+import type { AirlineEntity } from "@acars/core";
 
 export type CompetitorHubEntry = {
-    name: string;
-    icaoCode?: string;
-    ceoPubkey: string;
+  name: string;
+  icaoCode?: string;
+  ceoPubkey: string;
 };
 
 export function buildCompetitorHubEntries(
-    competitors: Map<string, AirlineEntity>,
-    airportIata: string,
+  competitors: Map<string, AirlineEntity>,
+  airportIata: string,
 ): CompetitorHubEntry[] {
-    const entries: CompetitorHubEntry[] = [];
+  const entries: CompetitorHubEntry[] = [];
 
-    competitors.forEach((value) => {
-        if (value.hubs?.includes(airportIata)) {
-            entries.push({
-                name: value.name,
-                icaoCode: value.icaoCode,
-                ceoPubkey: value.ceoPubkey,
-            });
-        }
-    });
+  competitors.forEach((value) => {
+    if (value.hubs?.includes(airportIata)) {
+      entries.push({
+        name: value.name,
+        icaoCode: value.icaoCode,
+        ceoPubkey: value.ceoPubkey,
+      });
+    }
+  });
 
-    return entries;
+  return entries;
 }

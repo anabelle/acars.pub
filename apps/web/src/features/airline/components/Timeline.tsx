@@ -1,5 +1,5 @@
-import { fpFormat, TICK_DURATION, TICKS_PER_HOUR, type TimelineEvent } from "@airtr/core";
-import { useAirlineStore, useEngineStore } from "@airtr/store";
+import { fpFormat, TICK_DURATION, TICKS_PER_HOUR, type TimelineEvent } from "@acars/core";
+import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowRight,

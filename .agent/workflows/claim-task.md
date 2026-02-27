@@ -51,9 +51,9 @@ description: How an agent claims and executes a task from the backlog
 
 ## Step 5: Self-Verify
 // turbo
-1. Run: `pnpm lint --filter=@airtr/{zone-name}`
-2. Run: `pnpm typecheck --filter=@airtr/{zone-name}`
-3. Run: `pnpm test --filter=@airtr/{zone-name} --run`
+1. Run: `pnpm lint --filter=@acars/{zone-name}`
+2. Run: `pnpm typecheck --filter=@acars/{zone-name}`
+3. Run: `pnpm test --filter=@acars/{zone-name} --run`
 4. If ANY of these fail, fix the issues before proceeding
 5. Do NOT submit work that fails self-verification
 

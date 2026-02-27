@@ -1,5 +1,5 @@
 // ============================================================
-// @airtr/core — Solar Geometry (Day/Night Terminator)
+// @acars/core — Solar Geometry (Day/Night Terminator)
 // ============================================================
 
 const DEG_TO_RAD = Math.PI / 180;

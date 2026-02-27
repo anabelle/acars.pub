@@ -1,6 +1,6 @@
-import type { AircraftInstance, AirlineEntity, FixedPoint, Route } from "@airtr/core";
-import { calculateBookValue, FP_ZERO, fpAdd } from "@airtr/core";
-import { getAircraftById } from "@airtr/data";
+import type { AircraftInstance, AirlineEntity, FixedPoint, Route } from "@acars/core";
+import { calculateBookValue, FP_ZERO, fpAdd } from "@acars/core";
+import { getAircraftById } from "@acars/data";
 
 export type LeaderboardMetric =
   | "balance"

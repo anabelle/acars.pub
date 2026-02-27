@@ -5,7 +5,7 @@ import type {
   FixedPoint,
   Route,
   TimelineEvent,
-} from "@airtr/core";
+} from "@acars/core";
 import {
   computeActionChainHash,
   fp,
@@ -18,12 +18,12 @@ import {
   ROUTE_SLOT_FEE,
   TICK_DURATION,
   TICKS_PER_HOUR,
-} from "@airtr/core";
-import { getAircraftById } from "@airtr/data";
+} from "@acars/core";
+import { getAircraftById } from "@acars/data";
 import { processFlightEngine } from "./FlightEngine";
 
 export interface ActionRecord {
-  action: import("@airtr/core").GameActionEnvelope;
+  action: import("@acars/core").GameActionEnvelope;
   eventId: string;
   authorPubkey: string;
   createdAt: number | null;

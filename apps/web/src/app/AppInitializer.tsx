@@ -1,7 +1,7 @@
-import type { Airport } from "@airtr/core";
-import { airports as AIRPORTS, findPreferredHub } from "@airtr/data";
-import type { UserLocation } from "@airtr/store";
-import { useAirlineStore, useEngineStore } from "@airtr/store";
+import type { Airport } from "@acars/core";
+import { airports as AIRPORTS, findPreferredHub } from "@acars/data";
+import type { UserLocation } from "@acars/store";
+import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useEffect } from "react";
 
 /** Fallback: estimate location from UTC offset */

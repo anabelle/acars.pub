@@ -7,9 +7,9 @@ import type {
   HubTier,
   NightOverlayFeatureCollection,
   Route,
-} from "@airtr/core";
-import { computeNightOverlay } from "@airtr/core";
-import { aircraftModels, HUB_CLASSIFICATIONS } from "@airtr/data";
+} from "@acars/core";
+import { computeNightOverlay } from "@acars/core";
+import { aircraftModels, HUB_CLASSIFICATIONS } from "@acars/data";
 import { FAMILY_ICONS } from "./icons.js";
 
 const aircraftModelMap = new Map(aircraftModels.map((m) => [m.id, m]));
@@ -382,7 +382,7 @@ export function Globe({
     if (!mapContainer.current) return;
 
     // Load saved view state
-    const savedView = localStorage.getItem("airtr_map_view");
+    const savedView = localStorage.getItem("acars_map_view");
     let initialCenter: [number, number] = [0, 20];
     let initialZoom = 1.5;
 
@@ -412,7 +412,7 @@ export function Globe({
       const center = map.getCenter();
       const zoom = map.getZoom();
       localStorage.setItem(
-        "airtr_map_view",
+        "acars_map_view",
         JSON.stringify({
           center: [center.lng, center.lat],
           zoom,
@@ -927,8 +927,8 @@ export function Globe({
           source: "flights",
           paint: {
             "circle-radius": 14,
-            "circle-color": "#4ade80",
-            "circle-opacity": 0.6,
+            "circle-color": ["coalesce", ["get", "secondaryColor"], "#94a3b8"],
+            "circle-opacity": 0.25,
             "circle-blur": 1.5,
           },
         },

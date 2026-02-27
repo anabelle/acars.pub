@@ -1,4 +1,4 @@
-import type { DemandResult, FixedPoint, Route } from "@airtr/core";
+import type { DemandResult, FixedPoint, Route } from "@acars/core";
 import {
   buildHubState,
   calculateDemand,
@@ -14,9 +14,9 @@ import {
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
   scaleToAddressableMarket,
-} from "@airtr/core";
-import { airports, HUB_CLASSIFICATIONS } from "@airtr/data";
-import { useAirlineStore, useEngineStore } from "@airtr/store";
+} from "@acars/core";
+import { airports, HUB_CLASSIFICATIONS } from "@acars/data";
+import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useMemo } from "react";
 
 export type RouteDemandSnapshot = {

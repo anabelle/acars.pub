@@ -6,7 +6,7 @@ const mockUseAirlineStore = vi.fn();
 const mockUseEngineStore = vi.fn();
 const mockUseActiveAirline = vi.fn();
 
-vi.mock("@airtr/store", () => {
+vi.mock("@acars/store", () => {
   return {
     useAirlineStore: () => mockUseAirlineStore(),
     useEngineStore: () => mockUseEngineStore(),
@@ -14,7 +14,7 @@ vi.mock("@airtr/store", () => {
   };
 });
 
-vi.mock("@airtr/data", () => {
+vi.mock("@acars/data", () => {
   return {
     airports: [
       {

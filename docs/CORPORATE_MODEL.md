@@ -1,7 +1,7 @@
-# AirTR — Advanced Corporate & Financial Model
+# ACARS — Advanced Corporate & Financial Model
 ## Stocks, Mergers, Bankruptcy, and the Decoupling of Player and Corporation
 
-As AirTR scales to millions of users, the traditional "One Player = One Airline" model becomes overly restrictive. To simulate a true, dynamic global economy with corporate drama, we must separate the **Player** from the **Airline**.
+As ACARS scales to millions of users, the traditional "One Player = One Airline" model becomes overly restrictive. To simulate a true, dynamic global economy with corporate drama, we must separate the **Player** from the **Airline**.
 
 This document outlines the architecture for Phase 8 ("Social & Depth") of the roadmap: The Corporate Era.
 
@@ -33,7 +33,7 @@ Airlines do not start public. At Tier 1 and Tier 2, the founding Player owns 100
 
 ### 2.1 The IPO (Initial Public Offering)
 When an airline reaches **Tier 3 (Intercontinental)**, the CEO can trigger an IPO event:
-1. The company lists on the global AirTR stock exchange.
+1. The company lists on the global ACARS stock exchange.
 2. A percentage of shares (e.g., 40%) is floated to the public market.
 3. Other players can buy these shares using their personal cash.
 4. The Airline's corporate treasury receives a massive cash injection to fund widebody expansion.

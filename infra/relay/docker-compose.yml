@@ -1,5 +1,5 @@
-# AirTR Nostr Relay — strfry
-# Dedicated relay for AirTR game state events (kind 30078/30079)
+# ACARS Nostr Relay — strfry
+# Dedicated relay for ACARS game state events (kind 30078/30079)
 #
 # Deployment:
 #   scp this directory to the VPS, then:

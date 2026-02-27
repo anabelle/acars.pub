@@ -1,6 +1,6 @@
 # Security Policy
 
-AirTR is an open-source, decentralized simulation with Nostr-based identity and event storage. We take security and safety seriously.
+ACARS is an open-source, decentralized simulation with Nostr-based identity and event storage. We take security and safety seriously.
 
 ## Reporting a Vulnerability
 Please report security issues privately to:

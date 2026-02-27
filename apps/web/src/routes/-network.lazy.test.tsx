@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const mockUseAirlineStore = vi.fn();
 
-vi.mock("@airtr/store", () => {
+vi.mock("@acars/store", () => {
   return {
     useAirlineStore: (selector?: (state: unknown) => unknown) => {
       const state = mockUseAirlineStore();

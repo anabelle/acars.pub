@@ -11,7 +11,7 @@ vi.mock("@tanstack/react-virtual", () => {
   };
 });
 
-vi.mock("@airtr/data", () => {
+vi.mock("@acars/data", () => {
   return {
     airports: [
       {

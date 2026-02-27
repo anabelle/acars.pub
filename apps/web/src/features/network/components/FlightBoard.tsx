@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { PlaneTakeoff, PlaneLanding } from "lucide-react";
-import { useAirlineStore, useEngineStore } from "@airtr/store";
+import { useAirlineStore, useEngineStore } from "@acars/store";
 import { buildFlightBoardRows, type FlightRow } from "@/features/network/utils/flightBoard";
 
 type FlightBoardProps = {

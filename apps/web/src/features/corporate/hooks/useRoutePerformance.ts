@@ -1,5 +1,5 @@
-import type { FixedPoint, Route, TimelineEvent } from "@airtr/core";
-import { FP_ZERO, fp, fpSum, fpToNumber, TICKS_PER_HOUR } from "@airtr/core";
+import type { FixedPoint, Route, TimelineEvent } from "@acars/core";
+import { FP_ZERO, fp, fpSum, fpToNumber, TICKS_PER_HOUR } from "@acars/core";
 import { useMemo } from "react";
 
 export interface RoutePerformanceEntry {

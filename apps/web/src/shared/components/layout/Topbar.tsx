@@ -1,5 +1,5 @@
-import { fpFormat } from "@airtr/core";
-import { useActiveAirline, useAirlineStore } from "@airtr/store";
+import { fpFormat } from "@acars/core";
+import { useActiveAirline, useAirlineStore } from "@acars/store";
 import { useNavigate } from "@tanstack/react-router";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 
@@ -22,7 +22,7 @@ export function Topbar() {
             AT
           </div>
           <div>
-            <h1 className="text-sm font-bold tracking-tight text-foreground leading-none">AirTR</h1>
+            <h1 className="text-sm font-bold tracking-tight text-foreground leading-none">ACARS</h1>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
               Live Aviation Exchange
             </p>

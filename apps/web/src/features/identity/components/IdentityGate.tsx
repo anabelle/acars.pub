@@ -1,4 +1,4 @@
-import { useAirlineStore } from "@airtr/store";
+import { useAirlineStore } from "@acars/store";
 import { Loader2 } from "lucide-react";
 import { AirlineCreator } from "./AirlineCreator";
 

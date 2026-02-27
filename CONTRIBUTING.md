@@ -1,12 +1,12 @@
-# Contributing to AirTR
+# Contributing to ACARS
 
-Thanks for your interest in contributing. AirTR is a deterministic, client-side simulation built on Nostr. Please read the constraints and follow the workflows below.
+Thanks for your interest in contributing. ACARS is a deterministic, client-side simulation built on Nostr. Please read the constraints and follow the workflows below.
 
 ## Ground Rules
 - No central database. State is derived from Nostr events.
 - Real-time sync only (1:1 with UTC).
 - O(1) math over O(N^2) loops.
-- Fixed-point arithmetic only for money (`@airtr/core/src/fixed-point.ts`).
+- Fixed-point arithmetic only for money (`@acars/core/src/fixed-point.ts`).
 - All large lists must be virtualized.
 
 See `AGENTS.md` and `docs/AGENT_DEVELOPMENT_PARADIGM.md` for the full engineering rules.

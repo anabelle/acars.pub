@@ -43,7 +43,7 @@ const mockTimeline = [
   },
 ];
 
-vi.mock("@airtr/store", () => {
+vi.mock("@acars/store", () => {
   return {
     useAirlineStore: (selector?: (s: unknown) => unknown) => {
       const state = {
@@ -59,6 +59,7 @@ vi.mock("@airtr/store", () => {
       airline: mockAirline,
       timeline: mockTimeline,
       routes: [],
+      fleet: [],
       isViewingOther: false,
     }),
     useEngineStore: (selector?: (s: unknown) => unknown) => {

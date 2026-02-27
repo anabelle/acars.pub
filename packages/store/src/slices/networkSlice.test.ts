@@ -4,13 +4,13 @@ import type {
   FixedPoint,
   Route,
   TimelineEvent,
-} from "@airtr/core";
+} from "@acars/core";
 import { describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
 import { createNetworkSlice } from "./networkSlice";
 
-vi.mock("@airtr/nostr", () => ({
+vi.mock("@acars/nostr", () => ({
   publishAction: vi.fn(() =>
     Promise.resolve({ id: "evt-1", created_at: 1, author: { pubkey: "test-pubkey" } }),
   ),

@@ -1,4 +1,4 @@
-import type { AircraftInstance, AirlineEntity, FixedPoint, Route } from "@airtr/core";
+import type { AircraftInstance, AirlineEntity, FixedPoint, Route } from "@acars/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
@@ -14,7 +14,7 @@ vi.mock("../FlightEngine", async (importOriginal) => {
   };
 });
 
-vi.mock("@airtr/nostr", () => ({
+vi.mock("@acars/nostr", () => ({
   loadActionLog: vi.fn(() => Promise.resolve([])),
   loadCheckpoints: vi.fn(() => Promise.resolve(new Map())),
   getNDK: vi.fn(() => ({})),
@@ -166,7 +166,7 @@ describe("processGlobalTick", () => {
     _resetWorldFlags();
 
     // Reset nostr mocks to avoid cross-test contamination
-    const nostr = await import("@airtr/nostr");
+    const nostr = await import("@acars/nostr");
     (nostr.loadActionLog as unknown as ReturnType<typeof vi.fn>).mockClear();
     (nostr.loadActionLog as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockClear();
@@ -254,7 +254,7 @@ describe("processGlobalTick", () => {
   });
 
   it("preserves newer competitor state over older sync snapshot", async () => {
-    const { loadActionLog } = await import("@airtr/nostr");
+    const { loadActionLog } = await import("@acars/nostr");
     const pubkey = "comp-stable";
 
     const newerAirline = makeAirline(pubkey, 120);
@@ -290,7 +290,7 @@ describe("processGlobalTick", () => {
   });
 
   it("fast-forwards competitor fleet during initial sync", async () => {
-    const { loadActionLog } = await import("@airtr/nostr");
+    const { loadActionLog } = await import("@acars/nostr");
     const pubkey = "comp-catchup";
 
     (loadActionLog as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
@@ -350,7 +350,7 @@ describe("processGlobalTick", () => {
   });
 
   it("queues concurrent syncWorld calls instead of dropping them", async () => {
-    const { loadActionLog } = await import("@airtr/nostr");
+    const { loadActionLog } = await import("@acars/nostr");
     (loadActionLog as unknown as ReturnType<typeof vi.fn>).mockClear();
 
     const { state } = createSliceState({});
@@ -368,7 +368,7 @@ describe("processGlobalTick", () => {
   });
 
   it("skips syncWorld while global tick processing", async () => {
-    const { loadActionLog } = await import("@airtr/nostr");
+    const { loadActionLog } = await import("@acars/nostr");
     (loadActionLog as unknown as ReturnType<typeof vi.fn>).mockClear();
 
     // Set up a competitor that needs 1000 ticks of catchup.

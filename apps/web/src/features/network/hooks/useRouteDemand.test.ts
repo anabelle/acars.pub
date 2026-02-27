@@ -1,9 +1,9 @@
-import type { Route } from "@airtr/core";
-import { fp } from "@airtr/core";
+import type { Route } from "@acars/core";
+import { fp } from "@acars/core";
 import { describe, expect, it, vi } from "vitest";
 import { getRouteDemandSnapshot } from "./useRouteDemand";
 
-vi.mock("@airtr/data", () => {
+vi.mock("@acars/data", () => {
   return {
     airports: [
       {
@@ -21,8 +21,8 @@ vi.mock("@airtr/data", () => {
   };
 });
 
-vi.mock("@airtr/core", async () => {
-  const actual = await vi.importActual<typeof import("@airtr/core")>("@airtr/core");
+vi.mock("@acars/core", async () => {
+  const actual = await vi.importActual<typeof import("@acars/core")>("@acars/core");
   return {
     ...actual,
     buildHubState: vi.fn(() => ({

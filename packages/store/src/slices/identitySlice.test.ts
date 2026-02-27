@@ -1,4 +1,4 @@
-import type { AirlineEntity, FixedPoint } from "@airtr/core";
+import type { AirlineEntity, FixedPoint } from "@acars/core";
 import { describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
@@ -8,7 +8,7 @@ const replayActionLog = vi.fn();
 const loadActionLog = vi.fn();
 const loadCheckpoint = vi.fn();
 
-vi.mock("@airtr/nostr", () => ({
+vi.mock("@acars/nostr", () => ({
   attachSigner: vi.fn(),
   ensureConnected: vi.fn(),
   getPubkey: vi.fn(() => Promise.resolve("pubkey-1")),

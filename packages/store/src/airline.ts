@@ -1,10 +1,10 @@
-import { createLogger } from "@airtr/core";
+import { createLogger } from "@acars/core";
 import {
   connectedRelayCount,
   ensureConnected,
   reconnectIfNeeded,
   subscribeActions,
-} from "@airtr/nostr";
+} from "@acars/nostr";
 import { create } from "zustand";
 import { useEngineStore } from "./engine.js";
 import { createEngineSlice } from "./slices/engineSlice.js";

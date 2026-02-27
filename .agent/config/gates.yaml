@@ -57,7 +57,7 @@ gates:
     command: "pnpm run verify:determinism"
     timeout_seconds: 120
     description: "Replay 100 ticks and compare state hash (core zone only)"
-    required: false  # Only runs when @airtr/core is modified
+    required: false  # Only runs when @acars/core is modified
     condition: "zone == 'core'"
 
 # Pipeline behavior

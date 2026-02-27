@@ -1,5 +1,5 @@
-import type { AircraftInstance, AirlineEntity, Route } from "@airtr/core";
-import { fp } from "@airtr/core";
+import type { AircraftInstance, AirlineEntity, Route } from "@acars/core";
+import { fp } from "@acars/core";
 import { describe, expect, it } from "vitest";
 import {
   buildLeaderboardRows,

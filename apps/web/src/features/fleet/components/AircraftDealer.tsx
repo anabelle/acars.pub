@@ -1,8 +1,8 @@
-import type { AircraftModel } from "@airtr/core";
-import { createLogger, FP_ZERO, fpFormat, fpScale, TICK_DURATION } from "@airtr/core";
-import { aircraftModels, getAircraftById } from "@airtr/data";
-import { loadMarketplace, type MarketplaceListing, type SellerFleetIndex } from "@airtr/nostr";
-import { useAirlineStore } from "@airtr/store";
+import type { AircraftModel } from "@acars/core";
+import { createLogger, FP_ZERO, fpFormat, fpScale, TICK_DURATION } from "@acars/core";
+import { aircraftModels, getAircraftById } from "@acars/data";
+import { loadMarketplace, type MarketplaceListing, type SellerFleetIndex } from "@acars/nostr";
+import { useAirlineStore } from "@acars/store";
 import {
   ArrowRight,
   Check,

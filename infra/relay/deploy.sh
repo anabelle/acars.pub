@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy.sh — Deploy or update the AirTR Nostr relay on the VPS
+# deploy.sh — Deploy or update the ACARS Nostr relay on the VPS
 #
 # Usage:
 #   ./deploy.sh                  # Deploy with defaults

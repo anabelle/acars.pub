@@ -8,9 +8,9 @@ import {
   GENESIS_TIME,
   TICK_DURATION,
   TICKS_PER_HOUR,
-} from "@airtr/core";
-import { getAircraftById, getHubPricingForIata } from "@airtr/data";
-import { publishCheckpoint } from "@airtr/nostr";
+} from "@acars/core";
+import { getAircraftById, getHubPricingForIata } from "@acars/data";
+import { publishCheckpoint } from "@acars/nostr";
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";

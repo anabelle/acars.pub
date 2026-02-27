@@ -6,9 +6,9 @@ import {
   haversineDistance,
   ROUTE_SLOT_FEE,
   type Route,
-} from "@airtr/core";
-import { airports as AIRPORTS, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@airtr/data";
-import { useAirlineStore, useEngineStore } from "@airtr/store";
+} from "@acars/core";
+import { airports as AIRPORTS, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@acars/data";
+import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Building2, MapPin, Plane, PlaneTakeoff, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";

@@ -1,5 +1,5 @@
 {
-  "name": "@airtr/map",
+  "name": "@acars/map",
   "version": "0.1.0",
   "type": "module",
   "main": "./src/index.ts",
@@ -11,8 +11,8 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@airtr/core": "workspace:*",
-    "@airtr/data": "workspace:*",
+    "@acars/core": "workspace:*",
+    "@acars/data": "workspace:*",
     "maplibre-gl": "^5.1.0"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-import { useAirlineStore } from "@airtr/store";
+import { useAirlineStore } from "@acars/store";
 import { RouteManager } from "@/features/network/components/RouteManager";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 

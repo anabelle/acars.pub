@@ -1,6 +1,6 @@
-import type { Airport } from "@airtr/core";
-import { fp, fpFormat } from "@airtr/core";
-import { airports as AIRPORTS, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@airtr/data";
+import type { Airport } from "@acars/core";
+import { fp, fpFormat } from "@acars/core";
+import { airports as AIRPORTS, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@acars/data";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { MapPin, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";

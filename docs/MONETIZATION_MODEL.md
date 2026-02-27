@@ -1,7 +1,7 @@
-# AirTR — Monetization & Value Flow Model
+# ACARS — Monetization & Value Flow Model
 ## Integrating Real Bitcoin/Lightning in a Decentralized Economy
 
-AirTR aims to be a trendsetter in Nostr game development, scaling to millions of players. To sustain development and reward players without compromising the deterministic, decentralized nature of the engine, we must architect a monetization model that learns from the vanguard of Bitcoin gaming (e.g., THNDR Games, ZBD) while adapting to our unique technical constraints.
+ACARS aims to be a trendsetter in Nostr game development, scaling to millions of players. To sustain development and reward players without compromising the deterministic, decentralized nature of the engine, we must architect a monetization model that learns from the vanguard of Bitcoin gaming (e.g., THNDR Games, ZBD) while adapting to our unique technical constraints.
 
 ---
 
@@ -15,9 +15,9 @@ Current leaders in the space have proven that integrating the Lightning Network 
 
 ---
 
-## 2. AirTR's Architectural Challenge
+## 2. ACARS's Architectural Challenge
 
-**The Constraint**: Because AirTR is event-sourced and processed strictly on the client (there is no central authoritative game server computing bank balances), we **cannot** implement direct "Pay-to-Win" mechanics safely.
+**The Constraint**: Because ACARS is event-sourced and processed strictly on the client (there is no central authoritative game server computing bank balances), we **cannot** implement direct "Pay-to-Win" mechanics safely.
 *   *Example of a bad idea*: Pay 10,000 sats to receive $50,000,000 in-game currency.
 *   *Why it fails*: A rogue client could simply broadcast the "Received $50M" event without ever actually paying the invoice.
 
@@ -27,17 +27,17 @@ Current leaders in the space have proven that integrating the Lightning Network 
 
 ## 3. The Three-Pillar Monetization Strategy
 
-To balance profitability, a vibrant player-driven economy, and a frictionless free-to-play base, AirTR will implement three distinct revenue flows:
+To balance profitability, a vibrant player-driven economy, and a frictionless free-to-play base, ACARS will implement three distinct revenue flows:
 
 ### Pillar 1: The THNDR Model — Sponsored Competitive Leagues (Play-to-Earn)
-Instead of relying on random ticket draws like casual games, AirTR leverages its deep economic simulation to reward skill.
+Instead of relying on random ticket draws like casual games, ACARS leverages its deep economic simulation to reward skill.
 
-*   **The Funding**: We sell unintrusive, highly targeted ad space within the official `airtr.app` web client (e.g., a real aviation company sponsoring the map background, or an exchange sponsoring the leaderboard).
+*   **The Funding**: We sell unintrusive, highly targeted ad space within the official `acars.pub` web client (e.g., a real aviation company sponsoring the map background, or an exchange sponsoring the leaderboard).
 *   **The Payout**: Every real-world Month (or Quarter), a script evaluates the global, mathematically verifiable Nostr state and distributes 50% of the ad treasury via **Lightning Zaps** to top players.
 *   **Why it works**: It creates massive organic viral marketing ("I made $100 running an airline on Nostr") and drives intense competitive engagement without hyper-inflating the game with generic tokens.
 
 ### Pillar 2: The Nostr Native P2P Economy
-Since AirTR simulates real-world geography and constraints, we create scarce digital real estate that players can trade via Lightning.
+Since ACARS simulates real-world geography and constraints, we create scarce digital real estate that players can trade via Lightning.
 
 *   **Airport Slot Trading (Phase 8)**: Later in the game, major hubs (like LHR or JFK) will have maximum daily flight capacities. Players who reach high tiers early claim these slots.
 *   **Marketplace Integration**: If a player monopolizes LHR, they can lease or sell a landing slot to a new player. The transaction is coordinated via Nostr Marketplace events (**NIP-15 / NIP-99**) and settled dynamically over Lightning (or via DLC escrows). 

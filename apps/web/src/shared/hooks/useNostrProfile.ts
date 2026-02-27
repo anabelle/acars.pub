@@ -1,4 +1,4 @@
-import { ensureConnected, getNDK } from "@airtr/nostr";
+import { ensureConnected, getNDK } from "@acars/nostr";
 import type { NDKUserProfile } from "@nostr-dev-kit/ndk";
 import { nip19 } from "nostr-tools";
 import { useEffect, useState } from "react";

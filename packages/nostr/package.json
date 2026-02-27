@@ -1,5 +1,5 @@
 {
-  "name": "@airtr/nostr",
+  "name": "@acars/nostr",
   "version": "0.1.0",
   "description": "",
   "main": "dist/index.js",
@@ -13,7 +13,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@airtr/core": "workspace:^",
+    "@acars/core": "workspace:^",
     "@nostr-dev-kit/ndk": "^2.10.1"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-import type { AircraftInstance, AircraftModel, FixedPoint, TimelineEvent } from "@airtr/core";
+import type { AircraftInstance, AircraftModel, FixedPoint, TimelineEvent } from "@acars/core";
 import {
   calculateBookValue,
   createLogger,
@@ -11,8 +11,8 @@ import {
   haversineDistance,
   TICK_DURATION,
   TICKS_PER_HOUR,
-} from "@airtr/core";
-import { airports, getAircraftById } from "@airtr/data";
+} from "@acars/core";
+import { airports, getAircraftById } from "@acars/data";
 import {
   attachSigner,
   ensureConnected,
@@ -21,7 +21,7 @@ import {
   type MarketplaceListing,
   NDKEvent,
   publishUsedAircraft,
-} from "@airtr/nostr";
+} from "@acars/nostr";
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";

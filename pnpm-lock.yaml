@@ -44,19 +44,19 @@ importers:
 
   apps/web:
     dependencies:
-      '@airtr/core':
+      '@acars/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@airtr/data':
+      '@acars/data':
         specifier: workspace:*
         version: link:../../packages/data
-      '@airtr/map':
+      '@acars/map':
         specifier: workspace:*
         version: link:../../packages/map
-      '@airtr/nostr':
+      '@acars/nostr':
         specifier: workspace:^
         version: link:../../packages/nostr
-      '@airtr/store':
+      '@acars/store':
         specifier: workspace:*
         version: link:../../packages/store
       '@nostr-dev-kit/ndk':
@@ -174,7 +174,7 @@ importers:
 
   packages/data:
     dependencies:
-      '@airtr/core':
+      '@acars/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -190,10 +190,10 @@ importers:
 
   packages/map:
     dependencies:
-      '@airtr/core':
+      '@acars/core':
         specifier: workspace:*
         version: link:../core
-      '@airtr/data':
+      '@acars/data':
         specifier: workspace:*
         version: link:../data
       maplibre-gl:
@@ -224,7 +224,7 @@ importers:
 
   packages/nostr:
     dependencies:
-      '@airtr/core':
+      '@acars/core':
         specifier: workspace:^
         version: link:../core
       '@nostr-dev-kit/ndk':
@@ -240,13 +240,13 @@ importers:
 
   packages/store:
     dependencies:
-      '@airtr/core':
+      '@acars/core':
         specifier: workspace:*
         version: link:../core
-      '@airtr/data':
+      '@acars/data':
         specifier: workspace:*
         version: link:../data
-      '@airtr/nostr':
+      '@acars/nostr':
         specifier: workspace:^
         version: link:../nostr
       zustand:

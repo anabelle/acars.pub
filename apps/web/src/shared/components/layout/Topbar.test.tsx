@@ -1,5 +1,5 @@
-import type { AirlineEntity } from "@airtr/core";
-import { fp } from "@airtr/core";
+import type { AirlineEntity } from "@acars/core";
+import { fp } from "@acars/core";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Topbar } from "./Topbar";
@@ -8,7 +8,7 @@ const mockUseAirlineStore = vi.fn();
 
 const mockUseActiveAirline = vi.fn();
 
-vi.mock("@airtr/store", () => {
+vi.mock("@acars/store", () => {
   return {
     useAirlineStore: (selector?: (state: { airline: AirlineEntity | null }) => unknown) => {
       const state = mockUseAirlineStore();
@@ -41,7 +41,7 @@ describe("Topbar", () => {
       isViewingOther: false,
     });
     render(<Topbar />);
-    expect(screen.getByText("AirTR")).toBeInTheDocument();
+    expect(screen.getByText("ACARS")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Connect Wallet/i })).toBeInTheDocument();
   });
 

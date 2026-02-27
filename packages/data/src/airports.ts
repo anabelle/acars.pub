@@ -1,5 +1,5 @@
 // auto-generated file
-import type { Airport } from '@airtr/core';
+import type { Airport } from '@acars/core';
 
 export const airports: Airport[] = [
   {

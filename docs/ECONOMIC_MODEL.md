@@ -1,8 +1,8 @@
-# AirTR — Economic Model Specification
+# ACARS — Economic Model Specification
 ## Deterministic Engine for Demand, Competition, Revenue, and Costs
 
 This document is the **authoritative specification** for all economic calculations
-in `@airtr/core`. Any agent implementing economic functions MUST follow this spec exactly.
+in `@acars/core`. Any agent implementing economic functions MUST follow this spec exactly.
 
 ---
 
@@ -72,7 +72,7 @@ Demand is multiplied by a seasonal factor based on route type and time of year:
 | Business Hub | ×0.90 | ×1.00 | ×1.10 |
 | General | ×1.10 | ×0.90 | ×1.00 |
 
-Route type is inferred from destination airport tags in `@airtr/data`.
+Route type is inferred from destination airport tags in `@acars/data`.
 
 ### 1.6 Prosperity Index
 
@@ -287,6 +287,6 @@ All of the above calculations are:
 - **Time Scale**: 1 Real-World Hour = 1,200 Ticks (1 Tick = 3.0 Seconds). The simulation is 1:1 real-time. All progression is anchored to the global GENESIS_TIME (Unix Epoch).
 - **User Interface Formatting**: To maintain immersion, the unit "Ticks" is **never** shown to the user. All time-durations are displayed in human-readable `minutes:seconds` (e.g., "Ready in 2:45"), and all ledger timestamps use **Relative Time** (e.g., "5m ago").
 - All random values use the **seeded PRNG** (`prng.ts`), seeded by tick number.
-- Distance calculations use the **Haversine formula** (implemented in `@airtr/core`).
+- Distance calculations use the **Haversine formula** (implemented in `@acars/core`).
 - The tick processor processes ALL airlines simultaneously per tick (every 3 seconds).
 - Sort order in loops MUST be deterministic (sort by airline pubkey, then by route IATA pair).

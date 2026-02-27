@@ -1,4 +1,4 @@
-# AirTR — Design Bible
+# ACARS — Design Bible
 ## Open-Source, Decentralized, Persistent Airline Management Game on Nostr
 
 ---
@@ -87,7 +87,7 @@ Games that retain players for years use **nested engagement loops** operating at
 ### 2.2 The "Idle" Dimension — Persistent World Advantage
 
 Because the world is **persistent and tick-based**, the game works EVEN WHEN YOU'RE NOT PLAYING. 
-Critically, **Time in AirTR is exactly 1:1 with Real-World UTC Time**. Like Flightradar24, if a plane takes 7 hours to fly from JFK to LHR in reality, it takes exactly 7 hours in the game. You do not fast-forward time.
+Critically, **Time in ACARS is exactly 1:1 with Real-World UTC Time**. Like Flightradar24, if a plane takes 7 hours to fly from JFK to LHR in reality, it takes exactly 7 hours in the game. You do not fast-forward time.
 
 - Your flights continue to fly and earn revenue in real-time
 - Competitors may open routes on your turf while you sleep
@@ -190,7 +190,7 @@ Sound is the **#1 underutilized engagement tool** in browser games. For aviation
 #### Sound Categories
 
 ```
-@airtr/audio/
+@acars/audio/
 ├── system/                    ← UI interaction sounds
 │   ├── click.mp3             ← Subtle, satisfying UI click
 │   ├── hover.mp3             ← Soft hover whisper
@@ -225,7 +225,7 @@ Sound is the **#1 underutilized engagement tool** in browser games. For aviation
 #### Audio Engine Design (Web Audio API)
 
 ```typescript
-// @airtr/audio/engine.ts — Conceptual Architecture
+// @acars/audio/engine.ts — Conceptual Architecture
 
 interface AudioLayer {
   id: string;
@@ -236,7 +236,7 @@ interface AudioLayer {
   volume: number;
 }
 
-class AirTRAudioEngine {
+class ACARSAudioEngine {
   private ctx: AudioContext;
   private layers: Map<string, AudioLayer>;
   private masterGain: GainNode;
@@ -434,7 +434,7 @@ Alliances (groups of airlines) get their own branding:
 
 ```
 packages/
-└── @airtr/i18n/
+└── @acars/i18n/
     ├── index.ts              ← i18next setup, language detection
     ├── locales/
     │   ├── en/
@@ -592,7 +592,7 @@ The game is extensible through a plugin system:
 
 ```typescript
 // Plugin interface
-interface AirTRPlugin {
+interface ACARSPlugin {
   id: string;
   name: string;
   version: string;
@@ -662,7 +662,7 @@ Each package has a clear contract and can evolve independently:
         │               │               │
         ▼               ▼               ▼
 ┌──────────────┐ ┌─────────────┐ ┌──────────────┐
-│ @airtr/map   │ │ @airtr/store│ │ @airtr/nostr │
+│ @acars/map   │ │ @acars/store│ │ @acars/nostr │
 │ MapLibre     │ │ Zustand     │ │ NDK Adapter  │
 │ Globe, Arcs  │ │ State mgmt  │ │ Events I/O   │
 └──────┬───────┘ └──────┬──────┘ └──────┬───────┘
@@ -671,22 +671,22 @@ Each package has a clear contract and can evolve independently:
                     │ depends on
                     ▼
             ┌──────────────┐
-            │ @airtr/core  │  Pure domain logic
+            │ @acars/core  │  Pure domain logic
             │              │  Zero external deps
             └──────┬───────┘
                    │ depends on
                    ▼
            ┌───────────────┐
-           │ @airtr/data   │  Static data
+           │ @acars/data   │  Static data
            │ Airports, etc │  Aircraft catalog
            └───────────────┘
 
     ┌────────────────────────────────────────────┐
     │  PLANNED (not yet implemented):            │
-    │  @airtr/ui    — Shared React components    │
-    │  @airtr/3d    — CesiumJS 3D globe view     │
-    │  @airtr/audio — Web Audio API sound engine  │
-    │  @airtr/i18n  — i18next translations        │
+    │  @acars/ui    — Shared React components    │
+    │  @acars/3d    — CesiumJS 3D globe view     │
+    │  @acars/audio — Web Audio API sound engine  │
+    │  @acars/i18n  — i18next translations        │
     └────────────────────────────────────────────┘
 ```
 
@@ -694,15 +694,15 @@ Each package has a clear contract and can evolve independently:
 
 ```
 Unit Tests (fast, pure, no I/O):
-  @airtr/core  — gravity model, QSI, pricing, costs, tick processor
+  @acars/core  — gravity model, QSI, pricing, costs, tick processor
   Result: "The math works"
 
 Integration Tests (Zustand stores + core):
-  @airtr/store — actions → store updates → correct state
+  @acars/store — actions → store updates → correct state
   Result: "The state management works"
 
 Component Tests (React components):
-  @airtr/ui — panels render correctly with mock data
+  @acars/ui — panels render correctly with mock data
   Result: "The UI renders"
 
 E2E Tests (browser, Playwright):
@@ -710,7 +710,7 @@ E2E Tests (browser, Playwright):
   Result: "The app works end-to-end"
 
 Simulation Tests (deterministic replay):
-  @airtr/core — replay 1000 ticks with known events → verify final state hash
+  @acars/core — replay 1000 ticks with known events → verify final state hash
   Result: "The simulation is deterministic across runs"
 ```
 
@@ -750,7 +750,7 @@ Simulation Tests (deterministic replay):
 
 ## 9. Scalability & The "Millions" Constraint
 
-To achieve our goal of supporting **millions of concurrent players** operating **tens of thousands of planes**, AirTR uses a **Macro-Economic Deterministic Architecture**.
+To achieve our goal of supporting **millions of concurrent players** operating **tens of thousands of planes**, ACARS uses a **Macro-Economic Deterministic Architecture**.
 
 ### 9.1 Math vs Micro-Agents
 We do NOT simulate individual passengers pathfinding through networks (which burns CPU). We use top-down formulas:

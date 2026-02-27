@@ -1,7 +1,7 @@
-# AirTR — Fleet Manager Implementation Plan
+# ACARS — Fleet Manager Implementation Plan
 ## Blueprint for Fail-Safe, Extensible, and Accurate Fleet Operations
 
-This document details the architecture and implementation strategy for the **Fleet Manager** module. This is the critical transition point where AirTR evolves from a tech demo into a deterministic, event-sourced game economy.
+This document details the architecture and implementation strategy for the **Fleet Manager** module. This is the critical transition point where ACARS evolves from a tech demo into a deterministic, event-sourced game economy.
 
 ---
 
@@ -11,14 +11,14 @@ To maintain the "Forever Architecture" and deterministic nature of the game:
 
 1. **No "God Mode" Balances** (Planned): The bank balance should be strictly derived: `InitialBalance - sum(Purchases) + sum(TickProfits)`. Current implementation persists `corporateBalance` on the airline entity for tick-to-tick continuity.
 2. **Event-Sourced Actions**: Buying an aircraft is not a REST API call or a local state mutation. It is a signed Nostr event (`kind: 30079` or similar parameterized replaceable/ephemeral event) added to your airline's timeline.
-3. **Pure Rule Validation**: The decision of "can I buy this plane?" lives entirely in `@airtr/core`, totally isolated from UI or network states.
-4. **Strict Types**: Aircraft models are static, immutable catalogs provided by `@airtr/data`.
+3. **Pure Rule Validation**: The decision of "can I buy this plane?" lives entirely in `@acars/core`, totally isolated from UI or network states.
+4. **Strict Types**: Aircraft models are static, immutable catalogs provided by `@acars/data`.
 
 ---
 
 ## 2. Data Structures & Catalogs
 
-### 2.1 The Aircraft Catalog (`@airtr/data/src/aircraft.ts`)
+### 2.1 The Aircraft Catalog (`@acars/data/src/aircraft.ts`)
 We need a robust catalog of aircraft that balances realism with gameplay progression.
 
 ```typescript
@@ -91,7 +91,7 @@ export interface AircraftModel {
 
 **Key Insight from Real Airlines:** Low-cost carriers (Ryanair, Southwest) achieve 13-14 block hours/day through quick turnarounds (15-25 min). Hub-and-spoke carriers typically achieve 10-12 hours due to connection timing constraints.
 
-### 2.2 The Fleet Instance (`@airtr/core/src/types.ts`)
+### 2.2 The Fleet Instance (`@acars/core/src/types.ts`)
 When a player buys an aircraft, it becomes a specific instance assigned to their airline.
 
 ```typescript
@@ -138,7 +138,7 @@ Instead of creating a new NIP per action, we use a structured payload inside a s
 }
 ```
 
-### 3.2 Action Validators (`@airtr/core/src/actions.ts`)
+### 3.2 Action Validators (`@acars/core/src/actions.ts`)
 A pure function that deeply validates if an action is legal.
 
 ```typescript
@@ -542,32 +542,32 @@ Key metrics visible at a glance (inspired by real airline dashboards):
 ## 6. Implementation Steps (Execution Order)
 
 ### Phase 1: Core Data & Types
-1. **`@airtr/data`**: Define enhanced `AircraftModel` types with utilization, CASM, family ID, and lifecycle fields. Populate `aircraft.ts` catalog with 10 realistic planes from the table above.
-2. **`@airtr/core`**: Build `fleet.ts` containing:
+1. **`@acars/data`**: Define enhanced `AircraftModel` types with utilization, CASM, family ID, and lifecycle fields. Populate `aircraft.ts` catalog with 10 realistic planes from the table above.
+2. **`@acars/core`**: Build `fleet.ts` containing:
    - `AircraftInstance` type with condition and maintenance tracking
    - `validateAircraftPurchase` pure function
    - `calculateBookValue` for depreciation
    - `calculateCommonalityBonus` for fleet efficiency
 
 ### Phase 2: Maintenance & Utilization
-3. **`@airtr/core`**: Build `maintenance.ts` containing:
+3. **`@acars/core`**: Build `maintenance.ts` containing:
    - `MaintenanceSchedule` type
    - `calculateMaintenanceCost` function
    - A/B/C/D check interval logic
    - AOG event probability calculation
-4. **`@airtr/core`**: Build `utilization.ts` containing:
+4. **`@acars/core`**: Build `utilization.ts` containing:
    - `calculateDailyFlights` function
    - `calculateUtilizationScore` function
    - Turnaround time modifiers
 
 ### Phase 3: Nostr Integration
-5. **`@airtr/nostr`**: Update `schema.ts` to export:
+5. **`@acars/nostr`**: Update `schema.ts` to export:
    - `publishGameAction()` for aircraft buy/sell/maintenance
    - Game action listener for event queue
    - Marketplace listing event types (kind 30081 for listings)
 
 ### Phase 4: State Management
-6. **`@airtr/store`**: Update Zustand engine:
+6. **`@acars/store`**: Update Zustand engine:
    - Fleet store with aircraft instances
    - Maintenance schedule store
    - Marketplace listings store
@@ -586,11 +586,11 @@ Key metrics visible at a glance (inspired by real airline dashboards):
    - Quick actions (assign, maintain, sell)
 
 ### Phase 6: Testing & Determinism
-9. **`@airtr/core`**: Write determinism tests:
+9. **`@acars/core`**: Write determinism tests:
    - Replay 1000 ticks with fleet operations
    - Verify book value calculations match expected
    - Verify maintenance scheduling is deterministic
-10. **`@airtr/core`**: Write unit tests for:
+10. **`@acars/core`**: Write unit tests for:
     - Commonality bonus calculations
     - Depreciation formulas
     - AOG probability

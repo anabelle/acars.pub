@@ -1,8 +1,8 @@
-# AirTR
+# ACARS
 
 **Open-Source, Decentralized, Persistent Airline Management MMO on Nostr**
 
-AirTR is a real-world aviation simulation where players build and operate virtual airlines competing on actual routes worldwide. Built for millions of concurrent players with a fully deterministic, client-side game engine backed by the decentralized Nostr protocol.
+ACARS is a real-world aviation simulation where players build and operate virtual airlines competing on actual routes worldwide. Built for millions of concurrent players with a fully deterministic, client-side game engine backed by the decentralized Nostr protocol.
 
 ## Features
 
@@ -38,13 +38,13 @@ AirTR is a real-world aviation simulation where players build and operate virtua
         │                  │                  │
         ▼                  ▼                  ▼
 ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│ @airtr/map   │  │ @airtr/store │  │ @airtr/nostr │
+│ @acars/map   │  │ @acars/store │  │ @acars/nostr │
 │ MapLibre GL  │  │ Zustand      │  │ NDK Adapter  │
 └──────────────┘  └──────┬───────┘  └──────┬───────┘
                          │                  │
                          ▼                  ▼
                   ┌──────────────┐  ┌──────────────┐
-                  │ @airtr/core  │  │ @airtr/data  │
+                  │ @acars/core  │  │ @acars/data  │
                   │ Pure Math    │  │ Static Data  │
                   │ Zero Deps    │  │ Airports     │
                   └──────────────┘  └──────────────┘
@@ -69,8 +69,8 @@ AirTR is a real-world aviation simulation where players build and operate virtua
 
 ```bash
 # Clone the repository
-git clone https://github.com/anomalyco/airtr.git
-cd airtr
+git clone https://github.com/anabelle/acars.pub.git
+cd acars
 
 # Install dependencies
 pnpm install
@@ -96,7 +96,7 @@ pnpm clean        # Remove all build artifacts
 ## Project Structure
 
 ```
-airtr/
+acars/
 ├── apps/
 │   ├── web/                 # React 19 frontend (TanStack Router)
 │   │   └── src/

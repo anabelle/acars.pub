@@ -1,8 +1,8 @@
-import { Globe as CoreGlobe } from "@airtr/map";
-import { useEngineStore, useAirlineStore } from "@airtr/store";
-import { airports as AIRPORTS } from "@airtr/data";
+import { Globe as CoreGlobe } from "@acars/map";
+import { useEngineStore, useAirlineStore } from "@acars/store";
+import { airports as AIRPORTS } from "@acars/data";
 import { useMemo, useState } from "react";
-import type { Airport } from "@airtr/core";
+import type { Airport } from "@acars/core";
 import { AirportInfoPanel } from "@/features/network/components/AirportInfoPanel";
 import { buildGroundPresenceByAirport } from "@/features/network/utils/groundTraffic";
 

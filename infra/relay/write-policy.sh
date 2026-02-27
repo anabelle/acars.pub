@@ -1,5 +1,5 @@
 #!/bin/sh
-# strfry write policy plugin for AirTR
+# strfry write policy plugin for ACARS
 # Only accepts kind 30078/30079 events with d-tags starting with "airtr:"
 # Pure POSIX sh — no jq required (Alpine/busybox compatible)
 

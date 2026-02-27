@@ -1,5 +1,5 @@
-import type { TimelineEvent } from "@airtr/core";
-import { fp, fpToNumber } from "@airtr/core";
+import type { TimelineEvent } from "@acars/core";
+import { fp, fpToNumber } from "@acars/core";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useFinancialPulse } from "./useFinancialPulse";

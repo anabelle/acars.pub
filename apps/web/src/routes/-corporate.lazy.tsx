@@ -1,7 +1,7 @@
-import type { Airport, FixedPoint, TimelineEvent } from "@airtr/core";
-import { FP_ZERO, fp, fpAdd, fpFormat, fpSub, fpSum, fpToNumber, TICK_DURATION } from "@airtr/core";
-import { getAircraftById, getHubPricingForIata } from "@airtr/data";
-import { useActiveAirline, useAirlineStore, useEngineStore } from "@airtr/store";
+import type { Airport, FixedPoint, TimelineEvent } from "@acars/core";
+import { FP_ZERO, fp, fpAdd, fpFormat, fpSub, fpSum, fpToNumber, TICK_DURATION } from "@acars/core";
+import { getAircraftById, getHubPricingForIata } from "@acars/data";
+import { useActiveAirline, useAirlineStore, useEngineStore } from "@acars/store";
 import {
   Building2,
   CheckCircle2,

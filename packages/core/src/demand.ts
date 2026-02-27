@@ -1,5 +1,5 @@
 // ============================================================
-// @airtr/core — Gravity Demand Model
+// @acars/core — Gravity Demand Model
 // ============================================================
 // See docs/ECONOMIC_MODEL.md §1 for full specification.
 // ============================================================

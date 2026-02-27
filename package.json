@@ -1,5 +1,5 @@
 {
-  "name": "airtr",
+  "name": "acars",
   "version": "0.1.0",
   "private": true,
   "description": "Open-source decentralized airline management game on Nostr",
@@ -10,7 +10,7 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @airtr/web dev",
+    "dev": "pnpm --filter @acars/web dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
@@ -18,7 +18,7 @@
     "test:run": "pnpm -r test -- --run",
     "verify:contracts": "pnpm -r build && pnpm -r typecheck",
     "verify:boundaries": "pnpm -r lint",
-    "verify:determinism": "pnpm --filter @airtr/core test -- --run",
+    "verify:determinism": "pnpm --filter @acars/core test -- --run",
     "clean": "pnpm -r clean && rm -rf node_modules",
     "prepare": "husky"
   },

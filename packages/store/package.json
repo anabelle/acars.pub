@@ -1,5 +1,5 @@
 {
-  "name": "@airtr/store",
+  "name": "@acars/store",
   "version": "0.1.0",
   "type": "module",
   "main": "./src/index.ts",
@@ -11,9 +11,9 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@airtr/core": "workspace:*",
-    "@airtr/data": "workspace:*",
-    "@airtr/nostr": "workspace:^",
+    "@acars/core": "workspace:*",
+    "@acars/data": "workspace:*",
+    "@acars/nostr": "workspace:^",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

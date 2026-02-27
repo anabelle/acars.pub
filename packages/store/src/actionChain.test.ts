@@ -1,20 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@airtr/core", () => {
+vi.mock("@acars/core", () => {
   return {
     computeActionChainHash: vi.fn(),
   };
 });
 
-vi.mock("@airtr/nostr", () => {
+vi.mock("@acars/nostr", () => {
   return {
     publishAction: vi.fn(),
   };
 });
 
-import { computeActionChainHash } from "@airtr/core";
+import { computeActionChainHash } from "@acars/core";
 import { publishActionWithChain } from "./actionChain.js";
-import { publishAction } from "@airtr/nostr";
+import { publishAction } from "@acars/nostr";
 
 describe("publishActionWithChain", () => {
   it("serializes action chain hash updates", async () => {

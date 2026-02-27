@@ -1,6 +1,6 @@
-import { getProsperityIndex } from "@airtr/core";
-import { airports as AIRPORTS } from "@airtr/data";
-import { useAirlineStore, useEngineStore } from "@airtr/store";
+import { getProsperityIndex } from "@acars/core";
+import { airports as AIRPORTS } from "@acars/data";
+import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 
 export function Ticker() {

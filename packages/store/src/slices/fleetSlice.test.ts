@@ -1,10 +1,10 @@
-import type { AircraftInstance, AirlineEntity, FixedPoint } from "@airtr/core";
+import type { AircraftInstance, AirlineEntity, FixedPoint } from "@acars/core";
 import { describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
 import { createFleetSlice } from "./fleetSlice";
 
-vi.mock("@airtr/nostr", () => ({
+vi.mock("@acars/nostr", () => ({
   publishAction: vi.fn(() =>
     Promise.resolve({ id: "evt-1", created_at: 1, author: { pubkey: "test-pubkey" } }),
   ),

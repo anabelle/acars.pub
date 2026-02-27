@@ -21,7 +21,7 @@ const mockUseAirlineStore = vi.fn();
 const mockUseEngineStore = vi.fn();
 const mockUseActiveAirline = vi.fn();
 
-vi.mock("@airtr/store", () => {
+vi.mock("@acars/store", () => {
   return {
     useAirlineStore: (selector: Selector<AirlineStoreState>) =>
       selector(mockUseAirlineStore() as AirlineStoreState),
@@ -31,7 +31,7 @@ vi.mock("@airtr/store", () => {
   };
 });
 
-vi.mock("@airtr/map", () => {
+vi.mock("@acars/map", () => {
   return {
     FAMILY_ICONS: {
       a320: { body: "<svg></svg>", accent: "<svg></svg>" },

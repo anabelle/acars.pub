@@ -11,7 +11,7 @@ cause state divergence between clients, breaking the decentralized
 simulation model.
 
 ## Decision
-All financial and economic calculations in `@airtr/core` will use
+All financial and economic calculations in `@acars/core` will use
 fixed-point arithmetic with 4 decimal places of precision.
 We use integer math internally, dividing by 10000 only for display.
 
@@ -31,5 +31,5 @@ const result = (amount * markup) / 10000; // = 1419675 = $141.9675
 - ⚠️ Slightly more complex arithmetic code
 - ⚠️ Must be careful about integer overflow with large values
 - ⚠️ Division truncates rather than rounds — use explicit rounding where needed
-- 🚫 No agent may use bare `number` for financial values in `@airtr/core`
-- 🚫 No agent may use `Math.random()` in `@airtr/core` — use seeded PRNG
+- 🚫 No agent may use bare `number` for financial values in `@acars/core`
+- 🚫 No agent may use `Math.random()` in `@acars/core` — use seeded PRNG

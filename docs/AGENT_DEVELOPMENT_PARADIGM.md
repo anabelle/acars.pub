@@ -1,4 +1,4 @@
-# AirTR — Agent-Collaborative Development Paradigm (ACDP)
+# ACARS — Agent-Collaborative Development Paradigm (ACDP)
 ## A Safe, Scalable, and Fail-Safe System for AI Agents to Build Software Together
 
 ---
@@ -85,17 +85,17 @@ LAW 5: KNOWLEDGE FLOWS DOWN, NEVER SIDEWAYS
 Each package in the monorepo is a **bounded context** with a single owner:
 
 ```
-airtr/
+acars/
 ├── packages/
-│   ├── @airtr/core          ← ZONE: "core"
+│   ├── @acars/core          ← ZONE: "core"
 │   │   ├── OWNERS.md        ← Declares who can modify this zone
 │   │   ├── CONTRACT.md      ← Public API contract
 │   │   └── ...
 │   │
-│   ├── @airtr/data          ← ZONE: "data"
-│   ├── @airtr/nostr         ← ZONE: "nostr"
-│   ├── @airtr/map           ← ZONE: "map"
-│   └── @airtr/store         ← ZONE: "store"
+│   ├── @acars/data          ← ZONE: "data"
+│   ├── @acars/nostr         ← ZONE: "nostr"
+│   ├── @acars/map           ← ZONE: "map"
+│   └── @acars/store         ← ZONE: "store"
 │
 ├── apps/
 │   └── web/                 ← ZONE: "app"
@@ -103,14 +103,14 @@ airtr/
 └── docs/                    ← ZONE: "docs"
 ```
 
-> **Note**: The Design Bible describes additional planned packages (`@airtr/ui`, `@airtr/3d`, `@airtr/audio`, `@airtr/i18n`) that have not yet been created. When they are implemented, they will become additional ownership zones.
+> **Note**: The Design Bible describes additional planned packages (`@acars/ui`, `@acars/3d`, `@acars/audio`, `@acars/i18n`) that have not yet been created. When they are implemented, they will become additional ownership zones.
 
 ### 2.2 OWNERS.md Format
 
 Each zone has an `OWNERS.md` file at its root:
 
 ```markdown
-# @airtr/core — Ownership Record
+# @acars/core — Ownership Record
 
 ## Current Owner
 - **Agent**: agent-core-v1
@@ -128,11 +128,11 @@ All agents may READ files in this zone at any time.
 Reading never requires ownership.
 
 ## Dependencies (zones this zone imports from)
-- @airtr/data (read-only: airport data types)
+- @acars/data (read-only: airport data types)
 
 ## Dependents (zones that import from this zone)
-- @airtr/store
-- @airtr/nostr
+- @acars/store
+- @acars/nostr
 ```
 
 ### 2.3 Ownership Lifecycle
@@ -162,7 +162,7 @@ In multi-agent development, **contracts replace communication**. Instead of agen
 Every zone publishes a `CONTRACT.md` that specifies its public API:
 
 ```markdown
-# @airtr/core — Public API Contract
+# @acars/core — Public API Contract
 ## Version: 1.0.0
 ## Status: STABLE
 
@@ -240,7 +240,7 @@ When an agent needs to change a contract:
 
 ```
 1. Agent creates a PROPOSAL file:
-   packages/@airtr/core/PROPOSALS/002-add-cargo-demand.md
+   packages/@acars/core/PROPOSALS/002-add-cargo-demand.md
    
 2. Proposal includes:
    - What changes
@@ -312,7 +312,7 @@ Agent completes work on branch
          │ PASS
          ▼
 ┌──────────────────────────────┐
-│  GATE 8: DETERMINISM CHECK  │  For @airtr/core only:
+│  GATE 8: DETERMINISM CHECK  │  For @acars/core only:
 │  (< 60 seconds)             │  replay 100 ticks, verify hash
 │                              │  "Is the simulation still pure?"
 └────────┬─────────────────────┘
@@ -388,8 +388,8 @@ Work flows through a **task queue** — a set of markdown files that define what
 │       └── gate-failure-1.md
 │
 ├── contracts/                 ← Symlinks to all CONTRACT.md files
-│   ├── core.md → ../../packages/@airtr/core/CONTRACT.md
-│   ├── store.md → ../../packages/@airtr/store/CONTRACT.md
+│   ├── core.md → ../../packages/@acars/core/CONTRACT.md
+│   ├── store.md → ../../packages/@acars/store/CONTRACT.md
 │   └── ...
 │
 └── config/
@@ -407,7 +407,7 @@ Work flows through a **task queue** — a set of markdown files that define what
 - **ID**: TASK-010
 - **Status**: backlog | active | review | done | failed
 - **Priority**: P1 (critical) | P2 (important) | P3 (nice-to-have)
-- **Zone**: @airtr/core
+- **Zone**: @acars/core
 - **Estimated Complexity**: 3/5
 - **Claimed By**: (empty until claimed)
 - **Branch**: (auto-created on claim)
@@ -441,11 +441,11 @@ between any two airports.
 
 ## Context Files (read these first)
 - docs/DESIGN_BIBLE.md — Section 2 (Engagement Architecture)
-- packages/@airtr/core/CONTRACT.md
+- packages/@acars/core/CONTRACT.md
 - packages/data/src/airports.ts (schema reference)
 
 ## Constraints
-- Do NOT modify any files outside packages/@airtr/core/
+- Do NOT modify any files outside packages/@acars/core/
 - Do NOT add new external dependencies
 - Do NOT change any existing exported interfaces
 ```
@@ -501,7 +501,7 @@ Level 2: AUTOMATED GATES (CI runs on push)
   Catches type errors, test failures, contract violations,
   boundary violations.
 
-Level 3: DETERMINISM VERIFICATION (For @airtr/core only)
+Level 3: DETERMINISM VERIFICATION (For @acars/core only)
   Replays a known sequence of 100 game ticks and compares
   the final state hash against a stored expected hash.
   If the hash differs, the simulation is no longer deterministic.
@@ -664,7 +664,7 @@ IEEE 754 floating-point arithmetic produces different results on
 different hardware, compilers, and optimization levels.
 
 ## Decision
-All financial and economic calculations in @airtr/core will use
+All financial and economic calculations in @acars/core will use
 fixed-point arithmetic with 4 decimal places of precision.
 We will use integer math internally, dividing by 10000 only for display.
 
@@ -675,7 +675,7 @@ Example: $123.45 is stored as 1234500 (integer cents × 100 = 4 decimal fixed)
 - ✅ No rounding surprises
 - ⚠️ Slightly more complex arithmetic code
 - ⚠️ Must be careful about overflow with large numbers
-- 🚫 No agent may use `number` for financial values in @airtr/core
+- 🚫 No agent may use `number` for financial values in @acars/core
 ```
 
 ### 8.4 The Context Window — What Every Agent Reads First
@@ -705,16 +705,16 @@ The system supports **N agents working simultaneously**, limited only by zone av
 ```
 Scenario: 4 agents available, 6 zones
 
-Agent-A claims @airtr/core         → works on TASK-010
+Agent-A claims @acars/core         → works on TASK-010
 Agent-B claims apps/web            → works on TASK-011
-Agent-C claims @airtr/map          → works on TASK-012
-Agent-D claims @airtr/nostr        → works on TASK-013
+Agent-C claims @acars/map          → works on TASK-012
+Agent-D claims @acars/nostr        → works on TASK-013
 
 All 4 agents work IN PARALLEL on separate zones.
 No conflicts possible — they literally cannot touch each other's files.
 
-When Agent-A finishes and releases @airtr/core:
-Agent-D (finished with nostr) can claim @airtr/core for TASK-014.
+When Agent-A finishes and releases @acars/core:
+Agent-D (finished with nostr) can claim @acars/core for TASK-014.
 ```
 
 ### 9.2 Dependency-Aware Scheduling
@@ -799,7 +799,7 @@ agents:
 ### 10.1 File Structure (The Minimum Viable ACDP)
 
 ```
-airtr/
+acars/
 ├── .agent/                         ← THE COMMAND CENTER
 │   ├── config/
 │   │   ├── agents.yaml             ← Agent registry
@@ -846,7 +846,7 @@ airtr/
 │   └── dead-mans-switch.sh         ← Check for zombie locks
 │
 ├── packages/                       ← THE CODE
-│   ├── @airtr/core/
+│   ├── @acars/core/
 │   │   ├── CONTRACT.md
 │   │   ├── OWNERS.md
 │   │   ├── src/
@@ -903,9 +903,9 @@ description: How an agent claims and executes a task
 
 ## Step 5: Self-Verify
 // turbo
-1. Run `pnpm lint --filter=@airtr/{zone}`
-2. Run `pnpm typecheck --filter=@airtr/{zone}`
-3. Run `pnpm test --filter=@airtr/{zone}`
+1. Run `pnpm lint --filter=@acars/{zone}`
+2. Run `pnpm typecheck --filter=@acars/{zone}`
+3. Run `pnpm test --filter=@acars/{zone}`
 4. If any fail, fix and re-verify before submitting
 
 ## Step 6: Submit
@@ -927,16 +927,16 @@ The human operator gets a real-time dashboard showing:
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║  AirTR Agent Development Dashboard                             ║
+║  ACARS Agent Development Dashboard                             ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║                                                                 ║
 ║  ZONES          OWNER         TASK        STATUS                ║
 ║  ─────          ─────         ────        ──────                ║
-║  @airtr/core    agent-core    TASK-010    ██████░░ 75% done     ║
-║  @airtr/map     agent-map     TASK-012    ██░░░░░░ 25% done     ║
-║  @airtr/store   (available)   —           ░░░░░░░░ available    ║
-║  @airtr/nostr   (available)   —           ░░░░░░░░ available    ║
-║  @airtr/data    (available)   —           ░░░░░░░░ available    ║
+║  @acars/core    agent-core    TASK-010    ██████░░ 75% done     ║
+║  @acars/map     agent-map     TASK-012    ██░░░░░░ 25% done     ║
+║  @acars/store   (available)   —           ░░░░░░░░ available    ║
+║  @acars/nostr   (available)   —           ░░░░░░░░ available    ║
+║  @acars/data    (available)   —           ░░░░░░░░ available    ║
 ║  apps/web       (available)   —           ░░░░░░░░ available    ║
 ║                                                                 ║
 ║  PIPELINE        BACKLOG: 24   ACTIVE: 4   DONE: 12   FAIL: 1  ║

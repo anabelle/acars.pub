@@ -1,4 +1,4 @@
-import { useAirlineStore } from "@airtr/store";
+import { useAirlineStore } from "@acars/store";
 import { Link } from "@tanstack/react-router";
 import { Building2, Globe, Map as MapIcon, Plane, Trophy } from "lucide-react";
 

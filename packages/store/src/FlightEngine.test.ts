@@ -1,6 +1,6 @@
-import type { AircraftInstance, FixedPoint, FlightOffer, Route, TimelineEvent } from "@airtr/core";
-import { calculateDemand, fp, fpToNumber, getSuggestedFares, TICKS_PER_HOUR } from "@airtr/core";
-import { airports, getAircraftById } from "@airtr/data";
+import type { AircraftInstance, FixedPoint, FlightOffer, Route, TimelineEvent } from "@acars/core";
+import { calculateDemand, fp, fpToNumber, getSuggestedFares, TICKS_PER_HOUR } from "@acars/core";
+import { airports, getAircraftById } from "@acars/data";
 import { describe, expect, it } from "vitest";
 import { processFlightEngine, reconcileFleetToTick } from "./FlightEngine.js";
 

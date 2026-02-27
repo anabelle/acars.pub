@@ -1,4 +1,4 @@
-import type { FixedPoint, Route, TimelineEvent } from "@airtr/core";
+import type { FixedPoint, Route, TimelineEvent } from "@acars/core";
 import {
   fp,
   fpFormat,
@@ -8,8 +8,8 @@ import {
   getSuggestedFares,
   ROUTE_SLOT_FEE,
   TICK_DURATION,
-} from "@airtr/core";
-import { airports, getAircraftById, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@airtr/data";
+} from "@acars/core";
+import { airports, getAircraftById, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@acars/data";
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";

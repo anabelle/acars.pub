@@ -7,8 +7,8 @@ import type {
   FlightOffer,
   Route,
   TimelineEvent,
-} from "@airtr/core";
-import type { MarketplaceListing } from "@airtr/nostr";
+} from "@acars/core";
+import type { MarketplaceListing } from "@acars/nostr";
 import type { CreateAirlineParams } from "./slices/identitySlice";
 import type { HubAction } from "./slices/networkSlice";
 

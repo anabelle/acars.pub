@@ -17,7 +17,7 @@ type EngineStoreState = {
   startEngine: () => void;
 };
 
-vi.mock("@airtr/store", () => {
+vi.mock("@acars/store", () => {
   const useAirlineStore = Object.assign(
     (selector?: Selector<AirlineStoreState>) => {
       const state = mockUseAirlineStore() as AirlineStoreState;
@@ -32,7 +32,7 @@ vi.mock("@airtr/store", () => {
   };
 });
 
-vi.mock("@airtr/data", () => {
+vi.mock("@acars/data", () => {
   return {
     airports: [
       { iata: "JFK", latitude: 0, longitude: 0, timezone: "UTC", city: "City", population: 1 },

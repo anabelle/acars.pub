@@ -17,7 +17,7 @@ type EngineStoreState = { tick: number };
 const mockUseAirlineStore = vi.fn();
 const mockUseEngineStore = vi.fn();
 
-vi.mock("@airtr/store", () => {
+vi.mock("@acars/store", () => {
   return {
     useAirlineStore: (selector: Selector<AirlineStoreState>) =>
       selector(mockUseAirlineStore() as AirlineStoreState),

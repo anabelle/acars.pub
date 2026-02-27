@@ -1,4 +1,4 @@
-# AirTR Glossary — Domain Terminology
+# ACARS Glossary — Domain Terminology
 
 This glossary defines the shared language used across all zones and by all agents.
 When a term appears in a task, contract, or ADR, it means EXACTLY what is defined here.
@@ -47,7 +47,7 @@ When a term appears in a task, contract, or ADR, it means EXACTLY what is define
 
 ## Architecture Terms
 
-**Zone**: A bounded ownership context in the monorepo (e.g., `@airtr/core`, `@airtr/ui`).
+**Zone**: A bounded ownership context in the monorepo (e.g., `@acars/core`, `@acars/ui`).
 
 **Contract**: The published, versioned public API of a zone. Lives in `CONTRACT.md`.
 

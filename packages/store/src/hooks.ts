@@ -1,4 +1,4 @@
-import type { AircraftInstance, AirlineEntity, Route, TimelineEvent } from "@airtr/core";
+import type { AircraftInstance, AirlineEntity, Route, TimelineEvent } from "@acars/core";
 import { useAirlineStore } from "./airline.js";
 
 const EMPTY_FLEET: AircraftInstance[] = [];

@@ -5,7 +5,7 @@ import type {
   FlightOffer,
   Route,
   TimelineEvent,
-} from "@airtr/core";
+} from "@acars/core";
 import {
   fp,
   fpAdd,
@@ -15,9 +15,9 @@ import {
   GENESIS_TIME,
   TICK_DURATION,
   TICKS_PER_HOUR,
-} from "@airtr/core";
-import { getAircraftById, getHubPricingForIata } from "@airtr/data";
-import { getNDK, loadActionLog, loadCheckpoints, MARKETPLACE_KIND, NDKEvent } from "@airtr/nostr";
+} from "@acars/core";
+import { getAircraftById, getHubPricingForIata } from "@acars/data";
+import { getNDK, loadActionLog, loadCheckpoints, MARKETPLACE_KIND, NDKEvent } from "@acars/nostr";
 import type { StateCreator } from "zustand";
 import { replayActionLog } from "../actionReducer";
 import { useEngineStore } from "../engine";

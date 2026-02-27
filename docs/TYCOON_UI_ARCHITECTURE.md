@@ -35,7 +35,7 @@ We will abandon the "centered webpage" layout. The UI will hug the edges of the 
 - **Progress Bars everywhere:** Visual indicators of capacity (e.g., a route demand bar showing 85% full).
 - **Data Binding (Zustand):** As the deterministic engine ticks, the UI must update instantly without causing massive React re-renders. We will bind directly to atomic Zustand selectors where possible.
 
-## 4. Implementation Plan for AirTR
+## 4. Implementation Plan for ACARS
 
 We will rebuild the `__root.tsx` and routes to match this paradigm.
 

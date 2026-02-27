@@ -4,9 +4,9 @@ import type {
   Checkpoint,
   Route,
   TimelineEvent,
-} from "@airtr/core";
-import { fp, fpAdd, fpSub, GENESIS_TIME } from "@airtr/core";
-import { getHubPricingForIata } from "@airtr/data";
+} from "@acars/core";
+import { fp, fpAdd, fpSub, GENESIS_TIME } from "@acars/core";
+import { getHubPricingForIata } from "@acars/data";
 import {
   attachSigner,
   ensureConnected,
@@ -15,7 +15,7 @@ import {
   loadCheckpoint,
   publishAction,
   waitForNip07,
-} from "@airtr/nostr";
+} from "@acars/nostr";
 import type { StateCreator } from "zustand";
 import { updateActionChainHashFromEvent } from "../actionChain";
 import { replayActionLog } from "../actionReducer";

@@ -1,4 +1,4 @@
-import type { AircraftInstance, FixedPoint, FlightOffer, Route, TimelineEvent } from "@airtr/core";
+import type { AircraftInstance, FixedPoint, FlightOffer, Route, TimelineEvent } from "@acars/core";
 import {
   allocatePassengers,
   calculateDemand,
@@ -26,8 +26,8 @@ import {
   scaleToAddressableMarket,
   TICK_DURATION,
   TICKS_PER_HOUR,
-} from "@airtr/core";
-import { airports, getAircraftById, HUB_CLASSIFICATIONS } from "@airtr/data";
+} from "@acars/core";
+import { airports, getAircraftById, HUB_CLASSIFICATIONS } from "@acars/data";
 
 /**
  * Result of the engine processing a single tick.

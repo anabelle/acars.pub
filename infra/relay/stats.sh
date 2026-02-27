@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# stats.sh — Show AirTR relay statistics
+# stats.sh — Show ACARS relay statistics
 #
 # Usage:
 #   ./stats.sh              # Run locally via SSH to VPS
@@ -69,7 +69,7 @@ if [ "$json_output" = "true" ]; then
 EOF
 else
     echo ""
-    echo "  AirTR Relay Stats — nostr.pixel.xx.kg"
+    echo "  ACARS Relay Stats — nostr.pixel.xx.kg"
     echo "  ======================================="
     echo ""
     echo "  Status:       $container_status ($health)"

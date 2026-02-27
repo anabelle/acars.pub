@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { airports as AIRPORTS } from "@airtr/data";
+import { airports as AIRPORTS } from "@acars/data";
 import { WorldMap } from "./WorldMap";
 
 type Selector<T> = (state: T) => unknown;
@@ -21,7 +21,7 @@ type AirlineStoreState = {
 const mockUseEngineStore = vi.fn();
 const mockUseAirlineStore = vi.fn();
 
-vi.mock("@airtr/store", () => {
+vi.mock("@acars/store", () => {
   return {
     useEngineStore: (selector: Selector<EngineStoreState>) =>
       selector(mockUseEngineStore() as EngineStoreState),
@@ -29,7 +29,7 @@ vi.mock("@airtr/store", () => {
   };
 });
 
-vi.mock("@airtr/map", () => {
+vi.mock("@acars/map", () => {
   return {
     Globe: (props: {
       airports: Array<{ iata: string }>;

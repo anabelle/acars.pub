@@ -1,5 +1,5 @@
-import type { TimelineEvent, TimelineEventType } from "@airtr/core";
-import { useAirlineStore, useEngineStore } from "@airtr/store";
+import type { TimelineEvent, TimelineEventType } from "@acars/core";
+import { useAirlineStore, useEngineStore } from "@acars/store";
 import React from "react";
 import { toast } from "sonner";
 

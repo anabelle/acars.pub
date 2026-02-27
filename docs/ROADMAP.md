@@ -1,4 +1,4 @@
-# AirTR — Implementation Roadmap
+# ACARS — Implementation Roadmap
 ## From Empty Repo to World Simulation
 
 ---
@@ -10,18 +10,18 @@
 | ID | Task | Zone | Dependencies |
 |----|------|------|-------------|
 | T-001 | Initialize pnpm monorepo with workspace config | infra | — |
-| T-002 | Create `@airtr/core` package skeleton (tsconfig, vitest, exports) | core | T-001 |
-| T-003 | Create `@airtr/data` package skeleton | data | T-001 |
-| T-004 | Create `@airtr/nostr` package skeleton | nostr | T-001 |
-| T-005 | Create `@airtr/store` package skeleton (Zustand) | store | T-001 |
-| T-007 | Create `@airtr/map` package skeleton (MapLibre GL) | map | T-001 |
+| T-002 | Create `@acars/core` package skeleton (tsconfig, vitest, exports) | core | T-001 |
+| T-003 | Create `@acars/data` package skeleton | data | T-001 |
+| T-004 | Create `@acars/nostr` package skeleton | nostr | T-001 |
+| T-005 | Create `@acars/store` package skeleton (Zustand) | store | T-001 |
+| T-007 | Create `@acars/map` package skeleton (MapLibre GL) | map | T-001 |
 | T-010 | Create `apps/web` Vite+React application | app | T-001 |
 | T-011 | Set up ESLint, Prettier, TypeScript strict config (shared) | infra | T-001 |
 | T-012 | Set up GitHub Actions CI (gates pipeline) | infra | T-011 |
-| T-013 | Write CONTRACT.md for `@airtr/core` | core | T-002 |
-| T-014 | Write CONTRACT.md for `@airtr/data` | data | T-003 |
+| T-013 | Write CONTRACT.md for `@acars/core` | core | T-002 |
+| T-014 | Write CONTRACT.md for `@acars/data` | data | T-003 |
 
-> **Note**: Tasks T-006 (`@airtr/ui`), T-008 (`@airtr/i18n`), and T-009 (`@airtr/audio`) from the original plan have been deferred. These packages will be created in later phases as needed.
+> **Note**: Tasks T-006 (`@acars/ui`), T-008 (`@acars/i18n`), and T-009 (`@acars/audio`) from the original plan have been deferred. These packages will be created in later phases as needed.
 
 **Estimated effort**: 11 tasks, ~2 days with 2 agents
 
@@ -33,9 +33,9 @@
 
 | ID | Task | Zone | Dependencies |
 |----|------|------|-------------|
-| T-020 | Import OpenFlights airport data into `@airtr/data` | data | T-003 |
+| T-020 | Import OpenFlights airport data into `@acars/data` | data | T-003 |
 | T-021 | Define Airport, Country, AircraftType TypeScript types | core | T-013 |
-| T-022 | Import aircraft type catalog into `@airtr/data` | data | T-021 |
+| T-022 | Import aircraft type catalog into `@acars/data` | data | T-021 |
 | T-023 | MapLibre GL basic globe setup (dark style, 3D terrain) | map | T-007 |
 | T-024 | Airport marker layer on MapLibre (6,072 dots) | map | T-020, T-023 |
 | T-025 | Airport info panel component (name, IATA, location, timezone) | ui | T-006, T-021 |
@@ -112,8 +112,8 @@
 | T-089 | Simulation tick runner (interval timer driving the core engine) | store | T-068, T-046 |
 | T-090 | Persist game actions as Nostr events (route open, price change, etc.) | nostr | T-042, T-070 |
 | T-091 | Onboarding tutorial flow (guided first 5 minutes) | app | T-080 through T-088 |
-| T-092 | Cabin chime sound on route creation | audio | *(deferred — `@airtr/audio` not yet created)* |
-| T-093 | Revenue tick sound (cash register) | audio | *(deferred — `@airtr/audio` not yet created)* |
+| T-092 | Cabin chime sound on route creation | audio | *(deferred — `@acars/audio` not yet created)* |
+| T-093 | Revenue tick sound (cash register) | audio | *(deferred — `@acars/audio` not yet created)* |
 
 **Estimated effort**: 14 tasks, ~3 days with 4 agents. **STATUS: CORE GAMEPLAY COMPLETE ✅** (T-091 onboarding, T-092/T-093 audio deferred)
 

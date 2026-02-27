@@ -1,5 +1,5 @@
 // ============================================================
-// @airtr/core — Finance (Revenue & Costs)
+// @acars/core — Finance (Revenue & Costs)
 // ============================================================
 // See docs/ECONOMIC_MODEL.md §3 and §4 for full specification.
 // ============================================================

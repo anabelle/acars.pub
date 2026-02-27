@@ -1,5 +1,5 @@
 {
-  "name": "@airtr/data",
+  "name": "@acars/data",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,7 +11,7 @@
     "lint": "eslint src --ext ts"
   },
   "dependencies": {
-    "@airtr/core": "workspace:*"
+    "@acars/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

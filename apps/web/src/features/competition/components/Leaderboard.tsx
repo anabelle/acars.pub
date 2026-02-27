@@ -1,6 +1,6 @@
-import type { FixedPoint } from "@airtr/core";
-import { fpFormat } from "@airtr/core";
-import { useAirlineStore, useEngineStore } from "@airtr/store";
+import type { FixedPoint } from "@acars/core";
+import { fpFormat } from "@acars/core";
+import { useAirlineStore, useEngineStore } from "@acars/store";
 import { ArrowDownRight, ArrowUpRight, Trophy } from "lucide-react";
 import { useMemo, useState } from "react";
 import type {

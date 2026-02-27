@@ -18,9 +18,9 @@ const normalizeLevel = (value?: string | null): LogLevel | null => {
 };
 
 const resolveLogLevel = (): LogLevel => {
-  const globalValue = (globalThis as { AIRTR_LOG_LEVEL?: string }).AIRTR_LOG_LEVEL;
+  const globalValue = (globalThis as { ACARS_LOG_LEVEL?: string }).ACARS_LOG_LEVEL;
   const globalProcess = (globalThis as { process?: { env?: Record<string, string> } }).process;
-  const processValue = globalProcess?.env?.AIRTR_LOG_LEVEL;
+  const processValue = globalProcess?.env?.ACARS_LOG_LEVEL;
   return normalizeLevel(globalValue) ?? normalizeLevel(processValue) ?? "info";
 };
 

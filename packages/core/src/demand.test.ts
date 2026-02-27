@@ -1,5 +1,5 @@
 // ============================================================
-// @airtr/core — Gravity Demand Model Tests
+// @acars/core — Gravity Demand Model Tests
 // ============================================================
 
 import { describe, it, expect } from "vitest";

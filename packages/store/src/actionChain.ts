@@ -1,5 +1,5 @@
-import { computeActionChainHash, type GameActionEnvelope } from "@airtr/core";
-import { type NDKEvent, publishAction } from "@airtr/nostr";
+import { computeActionChainHash, type GameActionEnvelope } from "@acars/core";
+import { type NDKEvent, publishAction } from "@acars/nostr";
 import type { AirlineState } from "./types";
 import { enqueueSerialUpdate } from "./utils/asyncQueue";
 

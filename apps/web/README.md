@@ -1,6 +1,6 @@
-# AirTR Web App
+# ACARS Web App
 
-React 19 + Vite front-end for AirTR. This app renders the globe, dashboards, and airline management UI. It relies on Nostr (NIP-07) for identity and state persistence.
+React 19 + Vite front-end for ACARS. This app renders the globe, dashboards, and airline management UI. It relies on Nostr (NIP-07) for identity and state persistence.
 
 ## Quick Start
 

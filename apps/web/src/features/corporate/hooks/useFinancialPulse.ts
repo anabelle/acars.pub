@@ -1,5 +1,5 @@
-import type { FixedPoint, TimelineEvent } from "@airtr/core";
-import { FP_ZERO, fp, fpSub, fpSum, fpToNumber, TICKS_PER_HOUR } from "@airtr/core";
+import type { FixedPoint, TimelineEvent } from "@acars/core";
+import { FP_ZERO, fp, fpSub, fpSum, fpToNumber, TICKS_PER_HOUR } from "@acars/core";
 import { useMemo } from "react";
 
 export const RECENT_FLIGHT_COUNT = 20;

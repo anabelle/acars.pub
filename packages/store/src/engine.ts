@@ -1,152 +1,159 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
-    calculateDemand,
-    getProsperityIndex,
-    haversineDistance,
-    getSeason,
-    fpScale,
-    fp,
-    fpDiv,
-    GENESIS_TIME,
-    TICK_DURATION,
-} from '@airtr/core';
-import type { Airport, Season, FixedPoint } from '@airtr/core';
-import { airports as AIRPORTS } from '@airtr/data';
+  calculateDemand,
+  getProsperityIndex,
+  haversineDistance,
+  getSeason,
+  fpScale,
+  fp,
+  fpDiv,
+  GENESIS_TIME,
+  TICK_DURATION,
+} from "@acars/core";
+import type { Airport, Season, FixedPoint } from "@acars/core";
+import { airports as AIRPORTS } from "@acars/data";
 
 export interface RouteData {
-    origin: Airport;
-    destination: Airport;
-    distance: number;
-    demand: { economy: number; business: number; first: number };
-    estimatedDailyRevenue: FixedPoint;
-    season: Season;
+  origin: Airport;
+  destination: Airport;
+  distance: number;
+  demand: { economy: number; business: number; first: number };
+  estimatedDailyRevenue: FixedPoint;
+  season: Season;
 }
 
 export interface UserLocation {
-    latitude: number;
-    longitude: number;
-    source: 'gps' | 'timezone' | 'manual';
+  latitude: number;
+  longitude: number;
+  source: "gps" | "timezone" | "manual";
 }
 
 let cachedHomeIata: string | null = null;
 let cachedSortedOthers: { airport: Airport; distance: number }[] = [];
 
 function generateRoutes(home: Airport, tick: number): RouteData[] {
-    const now = new Date();
-    const prosperity = getProsperityIndex(tick);
+  const now = new Date();
+  const prosperity = getProsperityIndex(tick);
 
-    if (cachedHomeIata !== home.iata) {
-        cachedHomeIata = home.iata;
-        cachedSortedOthers = AIRPORTS
-            .filter(a => a.iata !== home.iata)
-            .map(a => ({
-                airport: a,
-                distance: haversineDistance(home.latitude, home.longitude, a.latitude, a.longitude),
-            }))
-            .sort((a, b) => a.distance - b.distance);
-    }
+  if (cachedHomeIata !== home.iata) {
+    cachedHomeIata = home.iata;
+    cachedSortedOthers = AIRPORTS.filter((a) => a.iata !== home.iata)
+      .map((a) => ({
+        airport: a,
+        distance: haversineDistance(home.latitude, home.longitude, a.latitude, a.longitude),
+      }))
+      .sort((a, b) => a.distance - b.distance);
+  }
 
-    const others = cachedSortedOthers;
+  const others = cachedSortedOthers;
 
-    // Pick: 2 short-haul, 2 medium, 2 long-haul
-    const picks: Airport[] = [];
-    if (others.length >= 2) picks.push(others[0].airport, others[1].airport);
-    const midIdx = Math.floor(others.length * 0.4);
-    const midIdx2 = Math.floor(others.length * 0.5);
-    if (others.length >= 6) picks.push(others[midIdx].airport, others[midIdx2].airport);
-    if (others.length >= 4) picks.push(others[others.length - 2].airport, others[others.length - 1].airport);
+  // Pick: 2 short-haul, 2 medium, 2 long-haul
+  const picks: Airport[] = [];
+  if (others.length >= 2) picks.push(others[0].airport, others[1].airport);
+  const midIdx = Math.floor(others.length * 0.4);
+  const midIdx2 = Math.floor(others.length * 0.5);
+  if (others.length >= 6) picks.push(others[midIdx].airport, others[midIdx2].airport);
+  if (others.length >= 4)
+    picks.push(others[others.length - 2].airport, others[others.length - 1].airport);
 
-    return picks.map(dest => {
-        const season = getSeason(dest.latitude, now);
-        const distance = haversineDistance(home.latitude, home.longitude, dest.latitude, dest.longitude);
-        const demand = calculateDemand(home, dest, season, prosperity, 1.0);
-        const avgFarePerKm = 0.12;
-        const baseFare = Math.max(80, Math.round(distance * avgFarePerKm));
-        const totalPax = demand.economy + demand.business + demand.first;
-        const estimatedDailyRevenue = fpDiv(fpScale(fp(baseFare), totalPax), fp(7));
-        return { origin: home, destination: dest, distance, demand, estimatedDailyRevenue, season };
-    });
+  return picks.map((dest) => {
+    const season = getSeason(dest.latitude, now);
+    const distance = haversineDistance(
+      home.latitude,
+      home.longitude,
+      dest.latitude,
+      dest.longitude,
+    );
+    const demand = calculateDemand(home, dest, season, prosperity, 1.0);
+    const avgFarePerKm = 0.12;
+    const baseFare = Math.max(80, Math.round(distance * avgFarePerKm));
+    const totalPax = demand.economy + demand.business + demand.first;
+    const estimatedDailyRevenue = fpDiv(fpScale(fp(baseFare), totalPax), fp(7));
+    return { origin: home, destination: dest, distance, demand, estimatedDailyRevenue, season };
+  });
 }
 
-// --- Universal Clock Configuration is now handled in @airtr/core ---
+// --- Universal Clock Configuration is now handled in @acars/core ---
 
 function calculateGlobalTick(): number {
-    const now = Date.now();
-    const elapsed = now - GENESIS_TIME;
-    return Math.max(0, Math.floor(elapsed / TICK_DURATION));
+  const now = Date.now();
+  const elapsed = now - GENESIS_TIME;
+  return Math.max(0, Math.floor(elapsed / TICK_DURATION));
 }
 
 export interface EngineState {
-    tick: number;
-    tickProgress: number; // 0 to 1
-    userLocation: UserLocation | null;
-    homeAirport: Airport | null;
-    routes: RouteData[];
-    locationMethod: string;
-    isEngineRunning: boolean;
-    catchupProgress: { current: number; target: number; phase: 'player' | 'competitor' } | null;
+  tick: number;
+  tickProgress: number; // 0 to 1
+  userLocation: UserLocation | null;
+  homeAirport: Airport | null;
+  routes: RouteData[];
+  locationMethod: string;
+  isEngineRunning: boolean;
+  catchupProgress: { current: number; target: number; phase: "player" | "competitor" } | null;
 
-    syncTick: () => void;
-    setHub: (airport: Airport, loc: UserLocation, method: string) => void;
-    startEngine: () => void;
-    stopEngine: () => void;
+  syncTick: () => void;
+  setHub: (airport: Airport, loc: UserLocation, method: string) => void;
+  startEngine: () => void;
+  stopEngine: () => void;
 }
 
 let engineInterval: ReturnType<typeof setInterval> | null = null;
 
 export const useEngineStore = create<EngineState>((set, get) => ({
-    tick: calculateGlobalTick(),
-    tickProgress: 0,
-    userLocation: null,
-    homeAirport: null,
-    routes: [],
-    locationMethod: '',
-    isEngineRunning: false,
-    catchupProgress: null,
+  tick: calculateGlobalTick(),
+  tickProgress: 0,
+  userLocation: null,
+  homeAirport: null,
+  routes: [],
+  locationMethod: "",
+  isEngineRunning: false,
+  catchupProgress: null,
 
-    syncTick: () => {
-        const now = Date.now();
-        const elapsed = now - GENESIS_TIME;
-        const nextTick = Math.max(0, Math.floor(elapsed / TICK_DURATION));
-        const progress = (elapsed % TICK_DURATION) / TICK_DURATION;
+  syncTick: () => {
+    const now = Date.now();
+    const elapsed = now - GENESIS_TIME;
+    const nextTick = Math.max(0, Math.floor(elapsed / TICK_DURATION));
+    const progress = (elapsed % TICK_DURATION) / TICK_DURATION;
 
-        const { tick, homeAirport } = get();
+    const { tick, homeAirport } = get();
 
-        if (nextTick !== tick) {
-            set({
-                tick: nextTick,
-                tickProgress: progress,
-                routes: homeAirport ? generateRoutes(homeAirport, nextTick) : []
-            });
-        } else {
-            set({ tickProgress: progress });
-        }
-    },
+    if (nextTick !== tick) {
+      set({
+        tick: nextTick,
+        tickProgress: progress,
+        routes: homeAirport ? generateRoutes(homeAirport, nextTick) : [],
+      });
+    } else {
+      set({ tickProgress: progress });
+    }
+  },
 
-    setHub: (airport, loc, method) => {
-        const currentTick = calculateGlobalTick();
-        set({
-            tick: currentTick,
-            userLocation: loc,
-            homeAirport: airport,
-            locationMethod: method,
-            routes: generateRoutes(airport, currentTick)
-        });
-    },
+  setHub: (airport, loc, method) => {
+    const currentTick = calculateGlobalTick();
+    set({
+      tick: currentTick,
+      userLocation: loc,
+      homeAirport: airport,
+      locationMethod: method,
+      routes: generateRoutes(airport, currentTick),
+    });
+  },
 
-    startEngine: () => {
-        const { isEngineRunning, syncTick } = get();
-        if (isEngineRunning) return;
-        syncTick();
-        engineInterval = setInterval(() => { syncTick(); }, 1000);
-        set({ isEngineRunning: true });
-    },
+  startEngine: () => {
+    const { isEngineRunning, syncTick } = get();
+    if (isEngineRunning) return;
+    syncTick();
+    engineInterval = setInterval(() => {
+      syncTick();
+    }, 1000);
+    set({ isEngineRunning: true });
+  },
 
-    stopEngine: () => {
-        if (engineInterval) {
-            clearInterval(engineInterval);
-            engineInterval = null;
-        }
-        set({ isEngineRunning: false });
-    },
+  stopEngine: () => {
+    if (engineInterval) {
+      clearInterval(engineInterval);
+      engineInterval = null;
+    }
+    set({ isEngineRunning: false });
+  },
 }));

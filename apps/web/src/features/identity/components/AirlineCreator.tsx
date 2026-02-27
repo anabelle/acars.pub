@@ -1,7 +1,7 @@
-import type { Airport } from "@airtr/core";
-import { fp, fpFormat } from "@airtr/core";
-import { getHubPricingForIata } from "@airtr/data";
-import { useAirlineStore, useEngineStore } from "@airtr/store";
+import type { Airport } from "@acars/core";
+import { fp, fpFormat } from "@acars/core";
+import { getHubPricingForIata } from "@acars/data";
+import { useAirlineStore, useEngineStore } from "@acars/store";
 import { CheckCircle2, PlaneTakeoff, ShieldAlert } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { toast } from "sonner";

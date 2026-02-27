@@ -1,10 +1,10 @@
 # 🤖 AGENT ONBOARDING GUIDE (`AGENTS.md`)
 
-Welcome to **AirTR**. If you are an AI System, Coding Assistant, or Autonomous Agent assigned to work on this repository, **READ THIS FILE FIRST**.
+Welcome to **ACARS**. If you are an AI System, Coding Assistant, or Autonomous Agent assigned to work on this repository, **READ THIS FILE FIRST**.
 
 You are building the premier, open-source, decentralized real-world aviation simulation on the Nostr protocol. 
 
-## 1. The Spirit of AirTR
+## 1. The Spirit of ACARS
 This is not a casual clicker game. This is a **massive, persistent, Wall Street-style corporate MMO** built to emulate the real world. 
 - **The Scale**: Millions of players trading tens of thousands of active flights. 
 - **The Engine**: 100% deterministic, mathematically pure, client-side evaluation. 
@@ -21,7 +21,7 @@ Time is not fast-forwarded. Game time maps 1:1 to real-world UTC time. 1 Game Ti
 ### Rule 3: $O(1)$ Math Over $O(N^2)$ Loops
 Because this scales to tens of thousands of flights, **you cannot simulate individual passengers**. If your code loops over every passenger, you failed. We use macro-economic formulas (Gravity Model for Demand, QSI for Market Share) that resolve instantly regardless of volume.
 
-### Rule 4: Fixed-Point Arithmetic ONLY (`@airtr/core/src/fixed-point.ts`)
+### Rule 4: Fixed-Point Arithmetic ONLY (`@acars/core/src/fixed-point.ts`)
 Because state is calculated purely on the client side across different Javascript runtimes and architectures, floating-point drift ($\$10.01 + \$5.00 = \$15.0100000001$) will cause the networked state to desync and break the game. **Never use standard Javascript floats for money. You MUST use the `fp()` fixed-point utilities.**
 
 ### Rule 5: Virtualize The UI
@@ -36,11 +36,11 @@ In this game, the **Airline** has been a first-class citizen from day one. You a
 
 ## 4. Architecture Bounded Contexts
 This repo is a strict Monorepo using `pnpm` workspaces. Do NOT mix concerns:
-- `@airtr/core`: Pure math, FixedPoint, zero dependencies. The authoritative state engine.
-- `@airtr/data`: Static catalogs (Airports, AircraftModels, Routes). 
-- `@airtr/nostr`: The I/O layer. Reading/Writing signed events via NDK.
-- `@airtr/store`: Rehydration of the Nostr log into Zustand state memory for React.
-- `@airtr/map`: MapLibre GL globe and route visualization.
+- `@acars/core`: Pure math, FixedPoint, zero dependencies. The authoritative state engine.
+- `@acars/data`: Static catalogs (Airports, AircraftModels, Routes). 
+- `@acars/nostr`: The I/O layer. Reading/Writing signed events via NDK.
+- `@acars/store`: Rehydration of the Nostr log into Zustand state memory for React.
+- `@acars/map`: MapLibre GL globe and route visualization.
 - `apps/web`: The UI. 
 
 ## 5. Your Required Reading List

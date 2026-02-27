@@ -21,7 +21,7 @@ type AirlineStoreState = {
 const mockUseEngineStore = vi.fn();
 const mockUseAirlineStore = vi.fn();
 
-vi.mock("@airtr/store", () => {
+vi.mock("@acars/store", () => {
   return {
     useEngineStore: (selector: Selector<EngineStoreState>) =>
       selector(mockUseEngineStore() as EngineStoreState),
@@ -29,15 +29,15 @@ vi.mock("@airtr/store", () => {
   };
 });
 
-vi.mock("@airtr/core", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@airtr/core")>();
+vi.mock("@acars/core", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@acars/core")>();
   return {
     ...original,
     getProsperityIndex: () => 1.05,
   };
 });
 
-vi.mock("@airtr/data", () => {
+vi.mock("@acars/data", () => {
   return {
     airports: new Array(10).fill(null),
   };

@@ -4,7 +4,7 @@ import { IdentityGate } from "./IdentityGate";
 
 const mockUseAirlineStore = vi.fn();
 
-vi.mock("@airtr/store", () => {
+vi.mock("@acars/store", () => {
   return {
     useAirlineStore: () => mockUseAirlineStore(),
   };

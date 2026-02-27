@@ -1,17 +1,17 @@
 # 🖥 UI/UX & Cross-Platform Architecture
-## The "Universal Web" Strategy for AirTR
+## The "Universal Web" Strategy for ACARS
 
 The MVP React application was a quick prototype to prove the decentralized engine. To achieve the "Planetary Scale" ambition defined in the Design Bible, we need an opinionated, robust, and fiercely scalable UI architecture. 
 
 We cannot afford brittle CSS, broken routes, or duplicate codebases for Mobile and Desktop.
 
-This document outlines the architecture for the **New Frontend Layer** of AirTR.
+This document outlines the architecture for the **New Frontend Layer** of ACARS.
 
 ---
 
 ## 1. The UX Vision: "Bloomberg Terminal meets Flightradar24"
 
-AirTR is an idle-management financial MMO. The UI must feel less like a casual mobile game and more like a high-end corporate dashboard. 
+ACARS is an idle-management financial MMO. The UI must feel less like a casual mobile game and more like a high-end corporate dashboard. 
 - **Dark Mode Default**: Slate/zinc backgrounds with vibrant neon accents for routes and monetary values.
 - **Data Density**: High data density using strict typography (e.g., *Inter* or *Geist*).
 - **Infinite Virtualization**: Lists of 10,000 aircraft must scroll flawlessly at 60fps.
@@ -29,7 +29,7 @@ Instead of maintaining separate Swift/Kotlin code, or fighting the React Native 
 | **Desktop (Mac/Win/Lin)** | **Tauri (Rust)** | Wraps the web bundle in a lightweight OS window. Gives us direct multi-threading for the heavy $O(1)$ math and raw TCP WebSocket speeds for Nostr, bypassing browser limitations. |
 | **Mobile (iOS/Android)** | **Capacitor** | Wraps the web bundle for the App Stores. Allows access to native Haptics (vibrating when buying a plane or receiving a Zap) and Push Notifications for when a dividend is issued. |
 
-Since AirTR relies entirely on purely deterministic client-side mathematics and Nostr WebSockets, wrapping a highly optimized React/Vite/WebGL bundle is the most predictable and performant path.
+Since ACARS relies entirely on purely deterministic client-side mathematics and Nostr WebSockets, wrapping a highly optimized React/Vite/WebGL bundle is the most predictable and performant path.
 
 ---
 
@@ -49,10 +49,10 @@ To ensure that any AI Agent or human contributor can build predictably, we are s
 
 ### 3.3 State & Data: Zustand (+ TanStack Query planned)
 *Why:* 
-- `Zustand`: For synchronous, global engine state (the current Tick, the Airline Entity). Currently handles all state management including Nostr relay data via the `@airtr/store` layer with direct NDK calls.
+- `Zustand`: For synchronous, global engine state (the current Tick, the Airline Entity). Currently handles all state management including Nostr relay data via the `@acars/store` layer with direct NDK calls.
 - `TanStack Query`: Intended for asynchronous data fetching from Nostr relays (e.g., retrieving historical price data for a stock chart, or querying the global leaderboard).
 
-> **Implementation Note:** `@tanstack/react-query` is declared in `apps/web/package.json` but is **not yet imported or used** anywhere in the source code. All async Nostr data currently flows through direct NDK calls in the `@airtr/store` Zustand slices. TanStack Query integration is a future enhancement.
+> **Implementation Note:** `@tanstack/react-query` is declared in `apps/web/package.json` but is **not yet imported or used** anywhere in the source code. All async Nostr data currently flows through direct NDK calls in the `@acars/store` Zustand slices. TanStack Query integration is a future enhancement.
 
 ### 3.4 The Map: MapLibre GL JS (Direct API)
 *Why:* Mapbox is proprietary and expensive. MapLibre is open-source, highly performant WebGL, and can render 100,000 pulsing route lines instantly without destroying device battery.

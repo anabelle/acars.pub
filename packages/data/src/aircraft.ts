@@ -1,5 +1,5 @@
-import type { AircraftModel } from "@airtr/core";
-import { fp } from "@airtr/core";
+import type { AircraftModel } from "@acars/core";
+import { fp } from "@acars/core";
 
 export const aircraftModels: AircraftModel[] = [
   // ================================================================

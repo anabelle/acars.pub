@@ -1,4 +1,4 @@
-# AirTR — Research Sources & References
+# ACARS — Research Sources & References
 ## Curated bibliography for all design decisions, organized by topic
 
 This document preserves all research findings so future sessions can trace
