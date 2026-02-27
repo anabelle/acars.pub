@@ -13,25 +13,52 @@ import { aircraftModels, HUB_CLASSIFICATIONS } from "@acars/data";
 import { getBearing, getGreatCircleInterpolation, makeArcFeature } from "./geo.js";
 import { FAMILY_ICONS } from "./icons.js";
 
-// NASA VIIRS Black Marble 2016 via NASA GIBS WMS (CORS-enabled)
+// NASA VIIRS Black Marble 2016 via NASA GIBS WMS (CORS-enabled, Web Mercator)
 const NASA_BLACK_MARBLE_URL =
-  "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?" +
+  "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?" +
   "SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0" +
   "&LAYERS=VIIRS_Black_Marble_SoundscapeVNP46A1" +
   "&FORMAT=image%2Fjpeg&WIDTH=2048&HEIGHT=1024" +
-  "&CRS=CRS%3A84&BBOX=-180,-90,180,90";
+  "&CRS=EPSG%3A3857&BBOX=-20037508.34,-20037508.34,20037508.34,20037508.34";
 
 const NIGHT_CANVAS_W = 2048;
 const NIGHT_CANVAS_H = 1024;
 
+/** Web Mercator max latitude (degrees) — matches canvas source coordinates */
+const MERCATOR_MAX_LAT = 85.051129;
+
 /**
- * Draws NASA Black Marble onto `canvas`, clipped to the night-side polygon
+ * Convert latitude (degrees) to a normalised Mercator Y in [0, 1],
+ * where 0 = +MERCATOR_MAX_LAT (top) and 1 = -MERCATOR_MAX_LAT (bottom).
+ * The result can be scaled by canvas height H to get a pixel row.
+ */
+function mercatorNormY(lat: number): number {
+  const clamped = Math.max(-MERCATOR_MAX_LAT, Math.min(MERCATOR_MAX_LAT, lat));
+  const radLat = (clamped * Math.PI) / 180;
+  // Standard Web Mercator formula → [0, 1] across the full world
+  const y01 = (1 - Math.log(Math.tan(Math.PI / 4 + radLat / 2)) / Math.PI) / 2;
+  // Re-normalise so the clamp boundaries map exactly to 0 and 1
+  const yTop =
+    (1 - Math.log(Math.tan(Math.PI / 4 + (MERCATOR_MAX_LAT * Math.PI) / 360)) / Math.PI) / 2;
+  const yBot =
+    (1 - Math.log(Math.tan(Math.PI / 4 - (MERCATOR_MAX_LAT * Math.PI) / 360)) / Math.PI) / 2;
+  return (y01 - yTop) / (yBot - yTop);
+}
+
+/** Night-side fallback colour when NASA imagery is unavailable */
+const NIGHT_FALLBACK_FILL = "#0a0a2e";
+
+/**
+ * Draws night-side imagery onto `canvas`, clipped to the night polygon
  * with three opacity zones (civil 45% → astro 70% → core 92%).
- * Uses the even-odd rule so the day-side circle punches a transparent hole.
+ *
+ * If `img` is null (NASA load failed), a flat dark-navy fill is used instead.
+ * All coordinates are pre-warped to Web Mercator so the canvas texture aligns
+ * with MapLibre's Mercator tile grid.
  */
 function paintNightCanvas(
   canvas: HTMLCanvasElement,
-  img: HTMLImageElement,
+  img: HTMLImageElement | null,
   overlay: NightOverlayFeatureCollection,
 ): void {
   const ctx = canvas.getContext("2d");
@@ -41,7 +68,7 @@ function paintNightCanvas(
   ctx.clearRect(0, 0, W, H);
 
   const toX = (lng: number) => ((lng + 180) / 360) * W;
-  const toY = (lat: number) => ((90 - lat) / 180) * H;
+  const toY = (lat: number) => mercatorNormY(lat) * H;
 
   const bands = [
     { band: "civil", alpha: 0.45 },
@@ -68,7 +95,12 @@ function paintNightCanvas(
       ctx.closePath();
     }
     ctx.clip("evenodd");
-    ctx.drawImage(img, 0, 0, W, H);
+    if (img) {
+      ctx.drawImage(img, 0, 0, W, H);
+    } else {
+      ctx.fillStyle = NIGHT_FALLBACK_FILL;
+      ctx.fillRect(0, 0, W, H);
+    }
     ctx.restore();
   }
 }
@@ -523,7 +555,12 @@ export function Globe({
         map.triggerRepaint();
       };
       img.onerror = () => {
-        console.warn("[night] NASA Black Marble failed to load, overlay will remain dark.");
+        console.warn("[night] NASA Black Marble failed to load, falling back to flat fill.");
+        nightImgReady.current = true; // allow fallback painting
+        nightImgRef.current = null;
+        const overlay = computeNightOverlay(new Date(), 1);
+        paintNightCanvas(nightCanvas, null, overlay);
+        map.triggerRepaint();
       };
       img.src = NASA_BLACK_MARBLE_URL;
 
@@ -540,9 +577,9 @@ export function Globe({
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-color": "#ff8c42",
-          "line-width": 8,
-          "line-opacity": 0.15,
-          "line-blur": 4,
+          "line-width": 12,
+          "line-opacity": 0.35,
+          "line-blur": 6,
         },
       });
       // Crisp core line
@@ -553,8 +590,8 @@ export function Globe({
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-color": "#ffb347",
-          "line-width": 1.2,
-          "line-opacity": 0.55,
+          "line-width": 1.5,
+          "line-opacity": 0.75,
           "line-dasharray": [4, 3],
         },
       });
@@ -1337,8 +1374,8 @@ export function Globe({
       (map.getSource(NIGHT_TERMINATOR_SOURCE) as maplibregl.GeoJSONSource | undefined)?.setData(
         terminatorData as GeoJSON.FeatureCollection,
       );
-      // Repaint night canvas if image is ready
-      if (nightImgReady.current && nightCanvasRef.current && nightImgRef.current) {
+      // Repaint night canvas if ready (uses fallback fill when img is null)
+      if (nightImgReady.current && nightCanvasRef.current) {
         const overlay = computeNightOverlay(now, 1);
         paintNightCanvas(nightCanvasRef.current, nightImgRef.current, overlay);
         map.triggerRepaint();
