@@ -222,7 +222,21 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         set,
       });
     } catch (error: any) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                hubs: previousState.airline.hubs,
+                corporateBalance: previousState.airline.corporateBalance,
+                routeIds: previousState.airline.routeIds,
+                timeline: previousState.airline.timeline,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        routes: previousState.routes,
+        timeline: previousState.timeline,
+      }));
       // Roll back engine hub too
       const rollbackIata = previousState.airline.hubs[0];
       const rollbackAirport = airports.find((a) => a.iata === rollbackIata);
@@ -347,7 +361,18 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         set,
       });
     } catch (error: any) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                timeline: previousState.airline.timeline,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        routes: previousState.routes,
+        timeline: previousState.timeline,
+      }));
       console.warn("Failed to publish route rebase to Nostr:", error);
     }
   },
@@ -436,7 +461,19 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         set,
       });
     } catch (error: any) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                routeIds: previousState.airline.routeIds,
+                timeline: previousState.airline.timeline,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        routes: previousState.routes,
+        timeline: previousState.timeline,
+      }));
       console.warn("Failed to publish route closure to Nostr:", error);
     }
   },
@@ -550,7 +587,19 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         set,
       });
     } catch (e) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                corporateBalance: previousState.airline.corporateBalance,
+                routeIds: previousState.airline.routeIds,
+                timeline: previousState.airline.timeline,
+              }
+            : previousState.airline,
+        routes: previousState.routes,
+        timeline: previousState.timeline,
+      }));
       console.error("Failed to sync route to Nostr:", e);
     }
   },
@@ -652,7 +701,18 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         set,
       });
     } catch (e) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                timeline: previousState.airline.timeline,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        routes: previousState.routes,
+        timeline: previousState.timeline,
+      }));
       console.error("Failed to sync assignment to Nostr:", e);
     }
   },
@@ -701,7 +761,9 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         set,
       });
     } catch (e) {
-      set(previousState);
+      set({
+        routes: previousState.routes,
+      });
       console.error("Failed to sync fares to Nostr:", e);
     }
   },

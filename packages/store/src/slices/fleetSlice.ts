@@ -29,6 +29,7 @@ import type { AirlineState } from "../types";
 
 export interface FleetSlice {
   fleet: AircraftInstance[];
+  fleetDeletedDuringCatchup: string[];
   purchaseAircraft: (
     model: AircraftModel,
     deliveryHubIata?: string,
@@ -49,6 +50,7 @@ const logger = createLogger("Fleet");
 
 export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = (set, get) => ({
   fleet: [],
+  fleetDeletedDuringCatchup: [],
   timeline: [],
 
   purchaseAircraft: async (
@@ -152,7 +154,18 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         set,
       });
     } catch (e) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                corporateBalance: previousState.airline.corporateBalance,
+                fleetIds: previousState.airline.fleetIds,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        timeline: previousState.timeline,
+      }));
       console.error("Failed to sync aircraft purchase to Nostr:", e);
     }
   },
@@ -256,7 +269,17 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         set,
       });
     } catch (e) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                timeline: previousState.airline.timeline,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        timeline: previousState.timeline,
+      }));
       console.error("Failed to sync ferry flight to Nostr:", e);
       throw new Error("Failed to sync ferry flight.");
     }
@@ -330,6 +353,10 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
       fleet: updatedFleet,
       routes: updatedRoutes,
       timeline: nextTimeline,
+      fleetDeletedDuringCatchup: (() => {
+        const deleted = get().fleetDeletedDuringCatchup;
+        return deleted.includes(aircraftId) ? deleted : [...deleted, aircraftId];
+      })(),
     });
 
     try {
@@ -364,7 +391,20 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         await deletionEvent.publish();
       }
     } catch (e) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                corporateBalance: previousState.airline.corporateBalance,
+                fleetIds: previousState.airline.fleetIds,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        routes: previousState.routes,
+        timeline: previousState.timeline,
+        fleetDeletedDuringCatchup: state.fleetDeletedDuringCatchup.filter((id) => id !== aircraftId),
+      }));
       console.error("Failed to sync aircraft selling or marketplace listing to Nostr:", e);
       throw new Error("Failed to sync fleet change to Nostr.");
     }
@@ -443,7 +483,17 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         set,
       });
     } catch (e) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                corporateBalance: previousState.airline.corporateBalance,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        timeline: previousState.timeline,
+      }));
       console.error("Failed to sync buyout to Nostr:", e);
     }
   },
@@ -591,7 +641,18 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
       // The seller's client will detect the sale via syncWorld() and clean up
       // their own listing (seller-side settlement).
     } catch (e) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                corporateBalance: previousState.airline.corporateBalance,
+                fleetIds: previousState.airline.fleetIds,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        timeline: previousState.timeline,
+      }));
       console.error("Failed to sync purchase to Nostr:", e);
     }
   },
@@ -662,7 +723,17 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         set,
       });
     } catch (e) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                corporateBalance: previousState.airline.corporateBalance,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        timeline: previousState.timeline,
+      }));
       console.error("Listing failed:", e);
       throw new Error("Failed to publish listing to Nostr.");
     }
@@ -708,7 +779,9 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         set,
       });
     } catch (e) {
-      set(previousState);
+      set({
+        fleet: previousState.fleet,
+      });
       console.error("Cancellation failed:", e);
       throw new Error("Failed to remove listing from Nostr.");
     }
@@ -793,7 +866,18 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         set,
       });
     } catch (e) {
-      set(previousState);
+      set((state) => ({
+        airline:
+          state.airline && previousState.airline
+            ? {
+                ...state.airline,
+                corporateBalance: previousState.airline.corporateBalance,
+                timeline: previousState.airline.timeline,
+              }
+            : previousState.airline,
+        fleet: previousState.fleet,
+        timeline: previousState.timeline,
+      }));
       console.error("Maintenance sync failed:", e);
     }
   },

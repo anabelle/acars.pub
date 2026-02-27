@@ -428,4 +428,36 @@ describe("assignAircraftToRoute", () => {
     expect(aircraft?.assignedRouteId).toBe("rt-1");
     expect(route?.assignedAircraftIds).toContain("ac-1");
   });
+
+  it("rolls back assignment without clobbering concurrent airline updates", async () => {
+    const airline = { ...makeAirline(["BOG"]), lastTick: 10 };
+    const routes = [makeRoute("rt-1", "BOG", "CLO", "active")];
+    const groundedAircraft = {
+      ...makeAircraft("ac-1", null),
+      baseAirportIata: "BOG",
+    };
+
+    const { state } = createSliceState({
+      airline,
+      routes,
+      fleet: [groundedAircraft],
+      timeline: [] as TimelineEvent[],
+    });
+
+    const { publishAction } = await import("@acars/nostr");
+    vi.mocked(publishAction).mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("publish failed")), 0);
+        }),
+    );
+
+    const pendingAssignment = state.assignAircraftToRoute("ac-1", "rt-1");
+    state.airline = { ...(state.airline as AirlineEntity), lastTick: 777 };
+    await pendingAssignment;
+
+    expect(state.airline?.lastTick).toBe(777);
+    expect(state.fleet.find((ac) => ac.id === "ac-1")?.assignedRouteId).toBeNull();
+    expect(state.routes.find((rt) => rt.id === "rt-1")?.assignedAircraftIds).toEqual([]);
+  });
 });

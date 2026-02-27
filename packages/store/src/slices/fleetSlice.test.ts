@@ -1,4 +1,5 @@
 import type { AircraftInstance, AirlineEntity, FixedPoint } from "@acars/core";
+import { getAircraftById } from "@acars/data";
 import { describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
@@ -36,6 +37,7 @@ const createSliceState = (overrides: Partial<AirlineState>) => {
     timeline: [],
     actionChainHash: "",
     actionSeq: 0,
+    fleetDeletedDuringCatchup: [],
     latestCheckpoint: null,
     pubkey: "test-pubkey",
     identityStatus: "ready",
@@ -160,5 +162,27 @@ describe("sellAircraft", () => {
     await expect(state.sellAircraft("ac-1")).rejects.toThrow(
       "Aircraft can only be scrapped while idle.",
     );
+  });
+
+  it("rolls back purchase without clobbering concurrent airline updates", async () => {
+    const airline = { ...makeAirline(["BOG"]), lastTick: 10 };
+    const { state } = createSliceState({ airline, fleet: [], timeline: [] });
+    const model = getAircraftById("atr72-600");
+    expect(model).toBeTruthy();
+
+    const { publishAction } = await import("@acars/nostr");
+    vi.mocked(publishAction).mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("publish failed")), 0);
+        }),
+    );
+
+    const pendingPurchase = state.purchaseAircraft(model!, "BOG");
+    state.airline = { ...(state.airline as AirlineEntity), lastTick: 777 };
+    await pendingPurchase;
+
+    expect(state.airline?.lastTick).toBe(777);
+    expect(state.fleet).toHaveLength(0);
   });
 });

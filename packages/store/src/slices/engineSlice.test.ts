@@ -82,6 +82,7 @@ const createSliceState = (overrides: Partial<AirlineState>) => {
     timeline: [],
     actionChainHash: "",
     actionSeq: 0,
+    fleetDeletedDuringCatchup: [],
     latestCheckpoint: null,
     pubkey: "player",
     identityStatus: "ready",
@@ -141,5 +142,45 @@ describe("engineSlice fast-path", () => {
     const { processFlightEngine } = await import("../FlightEngine");
     expect(processFlightEngine).not.toHaveBeenCalled();
     expect(state.airline?.lastTick).toBeGreaterThan(0);
+  });
+
+  it("excludes optimistically deleted aircraft when merging fleet after catchup", async () => {
+    const airline = makeAirline(0);
+    const fleet = [makeAircraft("ac-1")];
+    const routes: Route[] = [
+      {
+        id: "rt-1",
+        originIata: "JFK",
+        destinationIata: "LAX",
+        airlinePubkey: "player",
+        distanceKm: 1000,
+        assignedAircraftIds: [],
+        fareEconomy: 1000 as FixedPoint,
+        fareBusiness: 2000 as FixedPoint,
+        fareFirst: 3000 as FixedPoint,
+        status: "active",
+      },
+    ];
+
+    const { state } = createSliceState({ airline, fleet, routes });
+    const { processFlightEngine } = await import("../FlightEngine");
+    vi.mocked(processFlightEngine).mockImplementation(
+      (tick, currentFleet, _routes, corporateBalance) => {
+        if (tick === 1) {
+          state.fleet = [];
+          state.fleetDeletedDuringCatchup = ["ac-1"];
+        }
+        return {
+          updatedFleet: currentFleet,
+          corporateBalance,
+          events: [],
+          hasChanges: false,
+        };
+      },
+    );
+
+    await state.processTick(2);
+
+    expect(state.fleet.some((ac) => ac.id === "ac-1")).toBe(false);
   });
 });
