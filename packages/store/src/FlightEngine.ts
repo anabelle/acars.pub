@@ -747,7 +747,7 @@ export function estimateLandingFinancials(
         loadFactor: 0,
         spilledPassengers: 0,
         routeId: route.id,
-        flightDurationTicks: Math.ceil(hoursPerLeg * TICKS_PER_HOUR),
+        flightDurationTicks: Math.max(0, Math.ceil(hoursPerLeg * TICKS_PER_HOUR)),
         revenue: {
           tickets: fp(0),
           economy: fp(0),
