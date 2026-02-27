@@ -39,31 +39,42 @@ const fetchProfile = async (pubkey: string): Promise<NDKUserProfile | null> => {
 };
 
 export function useNostrProfile(pubkey: string | null): NostrProfileState {
-  const [profile, setProfile] = useState<NDKUserProfile | null>(() => {
-    if (!pubkey) return null;
-    return profileCache.get(pubkey) ?? null;
-  });
-  const [isLoading, setIsLoading] = useState(() => {
-    if (!pubkey) return false;
-    return !profileCache.has(pubkey);
-  });
-
-  useEffect(() => {
+  const [state, setState] = useState<{
+    profile: NDKUserProfile | null;
+    isLoading: boolean;
+    pubkey: string | null;
+  }>(() => {
     if (!pubkey) {
-      setProfile(null);
-      setIsLoading(false);
-      return;
+      return { profile: null, isLoading: false, pubkey };
     }
-
     const cached = profileCache.get(pubkey);
     if (cached !== undefined) {
-      setProfile(cached);
-      setIsLoading(false);
-      return;
+      return { profile: cached, isLoading: false, pubkey };
     }
+    return { profile: null, isLoading: true, pubkey };
+  });
+
+  // Derived state synchronization (React docs recommended approach)
+  if (pubkey !== state.pubkey) {
+    if (!pubkey) {
+      setState({ profile: null, isLoading: false, pubkey });
+    } else {
+      const cached = profileCache.get(pubkey);
+      if (cached !== undefined) {
+        setState({ profile: cached, isLoading: false, pubkey });
+      } else {
+        setState({ profile: null, isLoading: true, pubkey });
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!pubkey) return;
+
+    const cached = profileCache.get(pubkey);
+    if (cached !== undefined) return;
 
     let active = true;
-    setIsLoading(true);
 
     let pending = pendingFetches.get(pubkey);
     if (!pending) {
@@ -73,8 +84,11 @@ export function useNostrProfile(pubkey: string | null): NostrProfileState {
 
     pending.then((fetched) => {
       if (!active) return;
-      setProfile(fetched);
-      setIsLoading(false);
+      setState((prev) => {
+        // Only update if the pubkey hasn't changed since we started fetching
+        if (prev.pubkey !== pubkey) return prev;
+        return { ...prev, profile: fetched, isLoading: false };
+      });
     });
 
     return () => {
@@ -83,13 +97,13 @@ export function useNostrProfile(pubkey: string | null): NostrProfileState {
   }, [pubkey]);
 
   return {
-    name: profile?.name ?? null,
-    displayName: profile?.displayName ?? null,
-    image: getProfileImage(profile),
-    nip05: profile?.nip05 ?? null,
-    lud16: profile?.lud16 ?? null,
+    name: state.profile?.name ?? null,
+    displayName: state.profile?.displayName ?? null,
+    image: getProfileImage(state.profile),
+    nip05: state.profile?.nip05 ?? null,
+    lud16: state.profile?.lud16 ?? null,
     npub: pubkey ? getNpub(pubkey) : null,
-    isLoading,
+    isLoading: state.isLoading,
   };
 }
 
