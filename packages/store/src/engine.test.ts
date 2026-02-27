@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GENESIS_TIME, TICK_DURATION } from "@acars/core";
 import { airports as AIRPORTS } from "@acars/data";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEngineStore } from "./engine.js";
 
 describe("engine store", () => {
@@ -48,5 +48,36 @@ describe("engine store", () => {
 
     store.stopEngine();
     expect(useEngineStore.getState().isEngineRunning).toBe(false);
+  });
+
+  it("startEngine aligns timeout to next tick boundary", () => {
+    vi.setSystemTime(GENESIS_TIME + TICK_DURATION + 1200);
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    try {
+      useEngineStore.getState().startEngine();
+
+      expect(timeoutSpy).toHaveBeenCalled();
+      expect(Number(timeoutSpy.mock.calls[0]?.[1])).toBeGreaterThan(TICK_DURATION - 1200);
+      expect(Number(timeoutSpy.mock.calls[0]?.[1])).toBeLessThanOrEqual(TICK_DURATION - 1200 + 100);
+    } finally {
+      useEngineStore.getState().stopEngine();
+      timeoutSpy.mockRestore();
+    }
+  });
+
+  it("tickProgress continues updating while engine runs", () => {
+    vi.setSystemTime(GENESIS_TIME + TICK_DURATION + 1000);
+
+    try {
+      useEngineStore.getState().startEngine();
+      const initialProgress = useEngineStore.getState().tickProgress;
+
+      vi.advanceTimersByTime(1000);
+
+      expect(useEngineStore.getState().tickProgress).not.toBe(initialProgress);
+    } finally {
+      useEngineStore.getState().stopEngine();
+    }
   });
 });
