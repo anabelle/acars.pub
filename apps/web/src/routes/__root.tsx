@@ -9,6 +9,7 @@ import { AppInitializer } from "../app/AppInitializer";
 
 type RootSearch = {
   airportTab?: "info" | "flights";
+  aircraftTab?: "info" | "route";
   tab?: "active" | "opportunities";
 };
 
@@ -27,6 +28,10 @@ export const Route = createRootRoute({
       airportTab:
         search.airportTab === "info" || search.airportTab === "flights"
           ? search.airportTab
+          : undefined,
+      aircraftTab:
+        search.aircraftTab === "info" || search.aircraftTab === "route"
+          ? search.aircraftTab
           : undefined,
       tab: search.tab === "active" || search.tab === "opportunities" ? search.tab : undefined,
     };

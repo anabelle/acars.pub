@@ -1,8 +1,9 @@
-import { Globe as CoreGlobe } from "@acars/map";
-import { useEngineStore, useAirlineStore } from "@acars/store";
+import type { AircraftInstance, Airport } from "@acars/core";
 import { airports as AIRPORTS } from "@acars/data";
-import { useMemo, useState } from "react";
-import type { Airport } from "@acars/core";
+import { Globe as CoreGlobe } from "@acars/map";
+import { useAirlineStore, useEngineStore } from "@acars/store";
+import { useCallback, useMemo, useState } from "react";
+import { AircraftInfoPanel } from "@/features/network/components/AircraftInfoPanel";
 import { AirportInfoPanel } from "@/features/network/components/AirportInfoPanel";
 import { buildGroundPresenceByAirport } from "@/features/network/utils/groundTraffic";
 
@@ -12,6 +13,7 @@ export function WorldMap() {
   const tickProgress = useEngineStore((s) => s.tickProgress);
   const { airline, fleet, globalFleet, globalRoutes, competitors, routes } = useAirlineStore();
   const [inspectedAirport, setInspectedAirport] = useState<Airport | null>(null);
+  const [inspectedAircraft, setInspectedAircraft] = useState<AircraftInstance | null>(null);
   const [focusedAirport, setFocusedAirport] = useState<Airport | null>(null);
 
   const competitorLiveries = useMemo(() => {
@@ -59,6 +61,7 @@ export function WorldMap() {
     if (!airport) return;
     setInspectedAirport(airport);
     setFocusedAirport(airport);
+    setInspectedAircraft(null);
   };
 
   const filteredGlobalFleet = useMemo(() => {
@@ -69,6 +72,20 @@ export function WorldMap() {
       (aircraft) => aircraft.ownerPubkey !== playerPubkey && !playerIds.has(aircraft.id),
     );
   }, [airline, fleet, globalFleet]);
+
+  const handleAircraftSelect = useCallback(
+    (aircraftId: string) => {
+      const ac =
+        fleet.find((a) => a.id === aircraftId) ??
+        filteredGlobalFleet.find((a) => a.id === aircraftId) ??
+        null;
+      if (!ac) return;
+      setInspectedAircraft(ac);
+      setInspectedAirport(null);
+      setFocusedAirport(null);
+    },
+    [fleet, filteredGlobalFleet],
+  );
 
   const { presence: groundPresence } = useMemo(
     () => buildGroundPresenceByAirport(fleet, filteredGlobalFleet, airline ?? null, competitors),
@@ -85,8 +102,10 @@ export function WorldMap() {
         airports={AIRPORTS}
         selectedAirport={selectedAirport}
         onAirportSelect={handleAirportSelect}
+        onAircraftSelect={handleAircraftSelect}
         onMapClick={() => {
           setInspectedAirport(null);
+          setInspectedAircraft(null);
           setFocusedAirport(null);
         }}
         groundPresence={groundPresence}
@@ -106,6 +125,14 @@ export function WorldMap() {
           airport={inspectedAirport}
           onClose={() => {
             setInspectedAirport(null);
+          }}
+        />
+      ) : null}
+      {inspectedAircraft ? (
+        <AircraftInfoPanel
+          aircraft={inspectedAircraft}
+          onClose={() => {
+            setInspectedAircraft(null);
           }}
         />
       ) : null}

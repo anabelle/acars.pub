@@ -18,6 +18,7 @@ export interface GlobeProps {
   airports: Airport[];
   selectedAirport: Airport | null;
   onAirportSelect: (airport: Airport | null) => void;
+  onAircraftSelect?: (aircraftId: string) => void;
   onMapClick?: () => void;
   groundPresence?: Record<string, { color: string; count: number; isPlayer?: boolean }[]>;
   fleet?: AircraftInstance[];
@@ -232,6 +233,7 @@ export function Globe({
   airports,
   selectedAirport,
   onAirportSelect,
+  onAircraftSelect,
   groundPresence,
   fleet = [],
   globalFleet = [],
@@ -310,8 +312,20 @@ export function Globe({
   const latestCompetitorHubColors = useRef(competitorHubColors);
   const latestPlayerRouteDestinations = useRef(playerRouteDestinations);
   const latestGroundPresence = useRef(groundPresence);
+  const latestOnAirportSelect = useRef(onAirportSelect);
+  const latestOnAircraftSelect = useRef(onAircraftSelect);
+  const latestOnMapClick = useRef(onMapClick);
 
   // Keep refs in sync with props (avoid stale closures in RAF loop)
+  useEffect(() => {
+    latestOnAirportSelect.current = onAirportSelect;
+  }, [onAirportSelect]);
+  useEffect(() => {
+    latestOnAircraftSelect.current = onAircraftSelect;
+  }, [onAircraftSelect]);
+  useEffect(() => {
+    latestOnMapClick.current = onMapClick;
+  }, [onMapClick]);
   useEffect(() => {
     latestTick.current = tick;
   }, [tick]);
@@ -403,6 +417,7 @@ export function Globe({
       center: initialCenter,
       zoom: initialZoom,
       pitch: 0,
+      clickTolerance: 10,
     });
 
     map.doubleClickZoom.disable();
@@ -935,25 +950,52 @@ export function Globe({
         "flights-layer",
       );
 
-      // Airport click handler
+      // Airport click handler (uses ref to avoid stale closure)
       map.on("click", "airports-layer", (e) => {
         if (!e.features || e.features.length === 0) return;
-        onAirportSelect(e.features[0].properties as unknown as Airport);
+        (e.originalEvent as MouseEvent & { _handled?: boolean })._handled = true;
+        latestOnAirportSelect.current(e.features[0].properties as unknown as Airport);
       });
 
-      // Map click handler (dismiss panels on empty map clicks)
+      // Aircraft click handlers (all 4 flight layers, uses ref to avoid stale closure)
+      const flightLayers = [
+        "flights-layer",
+        "flights-accent-layer",
+        "global-flights-layer",
+        "global-flights-accent-layer",
+      ];
+      for (const layerId of flightLayers) {
+        map.on("click", layerId, (e) => {
+          if (!e.features || e.features.length === 0) return;
+          (e.originalEvent as MouseEvent & { _handled?: boolean })._handled = true;
+          const id = e.features[0].properties?.id;
+          if (id && latestOnAircraftSelect.current) latestOnAircraftSelect.current(String(id));
+        });
+      }
+
+      // Map click handler (dismiss panels on empty map clicks, uses ref to avoid stale closure)
       map.on("click", (e) => {
-        if (!onMapClick) return;
-        const features = map.queryRenderedFeatures(e.point, { layers: ["airports-layer"] });
-        if (features.length === 0) onMapClick();
+        if ((e.originalEvent as MouseEvent & { _handled?: boolean })._handled) return;
+        if (latestOnMapClick.current) latestOnMapClick.current();
       });
 
+      // Cursor: pointer on airports
       map.on("mouseenter", "airports-layer", () => {
         map.getCanvas().style.cursor = "pointer";
       });
       map.on("mouseleave", "airports-layer", () => {
         map.getCanvas().style.cursor = "";
       });
+
+      // Cursor: pointer on flights
+      for (const layerId of flightLayers) {
+        map.on("mouseenter", layerId, () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", layerId, () => {
+          map.getCanvas().style.cursor = "";
+        });
+      }
     });
 
     mapRef.current = map;
