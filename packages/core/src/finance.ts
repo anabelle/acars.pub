@@ -40,7 +40,6 @@ const LANDING_FEE_PER_1000KG = fp(12); // $12 per tonne
 const TERMINAL_BASE_FEE = fp(250); // $250 base
 const PAX_FACILITY_CHARGE = fp(12); // $12 per passenger
 
-const ASSUMED_FLIGHTS_PER_MONTH = 120; // For leasing amortization (4 flights/day)
 const ANCILLARY_PER_PAX = fp(20);
 export const ROUTE_SLOT_FEE = fp(100000);
 
@@ -188,8 +187,10 @@ export function calculateFlightCost(params: FlightCostParams): {
   // Navigation: distance_km * nav_fee_per_km
   const costNavigation = fpScale(NAV_FEE_PER_KM, params.distanceKm);
 
-  // Leasing amortization
-  const costLeasing = fpScale(params.aircraft.monthlyLease, 1 / ASSUMED_FLIGHTS_PER_MONTH);
+  // Leasing is handled via monthly lump-sum deductions in processFlightEngine
+  // (and applyMonthlyCosts for competitor catchup).  Including per-flight
+  // amortization here would double-charge lease costs.
+  const costLeasing = FP_ZERO;
 
   // Sum base costs
   const baseTotal = [
