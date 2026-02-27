@@ -24,7 +24,7 @@ export function Topbar() {
           <div>
             <h1 className="text-sm font-bold tracking-tight text-foreground leading-none">ACARS</h1>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
-              Live Aviation Exchange
+              Aircraft Communication Addressing and Relay System
             </p>
           </div>
         </div>
