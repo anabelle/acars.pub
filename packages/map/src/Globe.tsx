@@ -10,6 +10,7 @@ import type {
 } from "@acars/core";
 import { computeNightOverlay } from "@acars/core";
 import { aircraftModels, HUB_CLASSIFICATIONS } from "@acars/data";
+import { getBearing, getGreatCircleInterpolation, makeArcFeature } from "./geo.js";
 import { FAMILY_ICONS } from "./icons.js";
 
 const aircraftModelMap = new Map(aircraftModels.map((m) => [m.id, m]));
@@ -39,8 +40,6 @@ const NIGHT_OVERLAY_SOURCE = "night-overlay";
 const NIGHT_CORE_LAYER = "night-core-layer";
 const NIGHT_ASTRO_LAYER = "night-astro-layer";
 const NIGHT_CIVIL_LAYER = "night-civil-layer";
-
-import { getBearing, getGreatCircleInterpolation, makeArcFeature } from "./geo.js";
 
 // =============================================================================
 // --- LOD: Adaptive segment count based on zoom level ---
