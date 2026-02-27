@@ -43,6 +43,15 @@ let lastSubscribedTick = -1;
 let initialSyncComplete = false;
 let unsubscribeActionStream: (() => void) | null = null;
 const logger = createLogger("WorldSync");
+
+/**
+ * Persistent promise chain that serializes tick processing across boundaries.
+ *
+ * Without this, a fast-returning `processTick` (mutex already held) would
+ * cause `processGlobalTick` to run immediately and potentially overlap with
+ * a still-in-flight `processTick` from the previous tick.
+ */
+let tickPipeline: Promise<void> = Promise.resolve();
 const runtimeEnv = (
   globalThis as {
     process?: { env?: { NODE_ENV?: string } };
@@ -81,7 +90,14 @@ useEngineStore.subscribe((state) => {
   lastSubscribedTick = state.tick;
 
   const store = useAirlineStore.getState();
-  void store.processTick(state.tick).then(() => store.processGlobalTick(state.tick));
+  tickPipeline = tickPipeline
+    .then(async () => {
+      await store.processTick(state.tick);
+      await store.processGlobalTick(state.tick);
+    })
+    .catch((error) => {
+      logger.warn("Tick pipeline failed", error);
+    });
 
   // Sync world state every 20 ticks (~1 min) as a safety net.
   // The primary sync path is the live subscription handler above.

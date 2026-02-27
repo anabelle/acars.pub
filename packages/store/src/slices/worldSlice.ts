@@ -131,19 +131,18 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
   processGlobalTick: async (tick: number) => {
     if (!globalTickMutex.tryLock()) return;
 
-    const {
-      competitors,
-      globalFleetByOwner,
-      globalRoutesByOwner,
-      globalRouteRegistry,
-      routes,
-      fleet,
-      pubkey: playerPubkey,
-      airline: playerAirline,
-    } = get();
-    if (competitors.size === 0) return;
-
     try {
+      const {
+        competitors,
+        globalFleetByOwner,
+        globalRoutesByOwner,
+        globalRouteRegistry,
+        routes,
+        fleet,
+        pubkey: playerPubkey,
+        airline: playerAirline,
+      } = get();
+      if (competitors.size === 0) return;
       const updatedGlobalFleet: AircraftInstance[] = [];
       const updatedCompetitors = new Map(competitors);
       const processedPubkeys = new Set<string>();
@@ -336,7 +335,11 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
       }
       return;
     }
-    if (globalTickMutex.isLocked && !options?.force) return;
+    // For non-force calls, acquire the globalTickMutex so processGlobalTick
+    // cannot run concurrently.  Force calls (initial sync, periodic resync)
+    // skip the mutex to guarantee they always execute.
+    const holdGlobalTickLock = !options?.force;
+    if (holdGlobalTickLock && !globalTickMutex.tryLock()) return;
     isSyncingWorld = true;
     try {
       try {
@@ -796,6 +799,7 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         useEngineStore.setState({ catchupProgress: null });
       }
     } finally {
+      if (holdGlobalTickLock) globalTickMutex.unlock();
       isSyncingWorld = false;
       // Drain the queue: if a sync was requested while we were busy, run it now.
       if (pendingSyncWorldOptions) {

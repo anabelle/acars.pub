@@ -387,7 +387,7 @@ describe("processGlobalTick", () => {
 
     // Simulate processGlobalTick holding the mutex by acquiring it directly.
     const mutex = _getGlobalTickMutex();
-    mutex.tryLock();
+    expect(mutex.tryLock()).toBe(true);
 
     // syncWorld without force should be skipped while the mutex is held.
     await state.syncWorld();
