@@ -4,19 +4,19 @@
 // See docs/ECONOMIC_MODEL.md §1 for full specification.
 // ============================================================
 
+import { fpToNumber } from "./fixed-point.js";
+import { haversineDistance } from "./geo.js";
+import { getSeasonalMultiplier } from "./season.js";
 import type {
   Airport,
   BidirectionalDemandResult,
   DemandResult,
   FixedPoint,
-  Season,
   HubState,
   HubTier,
+  Season,
 } from "./types.js";
 import { TICKS_PER_HOUR } from "./types.js";
-import { fpToNumber } from "./fixed-point.js";
-import { haversineDistance } from "./geo.js";
-import { getSeasonalMultiplier } from "./season.js";
 
 // --- Model Parameters (from ECONOMIC_MODEL.md §1.2) ---
 
@@ -106,12 +106,12 @@ export function calculateDemand(
 
   // Gravity model formula
   const numerator =
-    Math.pow(origin.population, ALPHA) *
-    Math.pow(destination.population, BETA) *
-    Math.pow(origin.gdpPerCapita, GAMMA) *
-    Math.pow(destination.gdpPerCapita, DELTA);
+    origin.population ** ALPHA *
+    destination.population ** BETA *
+    origin.gdpPerCapita ** GAMMA *
+    destination.gdpPerCapita ** DELTA;
 
-  const denominator = Math.pow(distance, THETA);
+  const denominator = distance ** THETA;
 
   const baseDemand = K * (numerator / denominator);
 
@@ -143,11 +143,18 @@ export function calculateDemand(
  * from A→B differs from B→A. This function computes both directions by
  * calling `calculateDemand` twice with swapped origin/destination.
  *
+ * The hub modifier is also direction-dependent: `getHubDemandModifier()`
+ * includes an origin-only density bonus, so the outbound and inbound legs
+ * need separately computed hub modifiers (with swapped origin/destination
+ * hub state). Callers should compute each via `getHubDemandModifier()` with
+ * the appropriate directional arguments.
+ *
  * @param origin - Origin airport (outbound perspective)
  * @param destination - Destination airport (outbound perspective)
  * @param season - Current season
  * @param prosperityIndex - Global economic multiplier (default 1.0)
- * @param hubModifier - Hub network demand modifier (default 1.0)
+ * @param outboundHubModifier - Hub modifier for origin→destination (default 1.0)
+ * @param inboundHubModifier - Hub modifier for destination→origin (default 1.0)
  * @returns Outbound and inbound DemandResult objects
  */
 export function calculateBidirectionalDemand(
@@ -155,11 +162,12 @@ export function calculateBidirectionalDemand(
   destination: Airport,
   season: Season,
   prosperityIndex: number = 1.0,
-  hubModifier: number = 1.0,
+  outboundHubModifier: number = 1.0,
+  inboundHubModifier: number = 1.0,
 ): BidirectionalDemandResult {
   return {
-    outbound: calculateDemand(origin, destination, season, prosperityIndex, hubModifier),
-    inbound: calculateDemand(destination, origin, season, prosperityIndex, hubModifier),
+    outbound: calculateDemand(origin, destination, season, prosperityIndex, outboundHubModifier),
+    inbound: calculateDemand(destination, origin, season, prosperityIndex, inboundHubModifier),
   };
 }
 
@@ -274,7 +282,7 @@ export function calculateSupplyPressure(totalWeeklySeats: number, weeklyDemand: 
   }
 
   // Over-supplied: decay with slight aggression (exponent 1.1)
-  const pressure = NATURAL_LF_CEILING / Math.pow(supplyRatio, 1.1);
+  const pressure = NATURAL_LF_CEILING / supplyRatio ** 1.1;
   return Math.max(0.15, pressure);
 }
 
@@ -299,7 +307,7 @@ export function calculatePriceElasticity(
   if (actual <= 0) return MAX_PRICE_ELASTICITY_MULTIPLIER;
 
   const ratio = actual / reference;
-  const multiplier = Math.pow(ratio, elasticity);
+  const multiplier = ratio ** elasticity;
 
   if (!Number.isFinite(multiplier)) {
     return ratio <= 1 ? MAX_PRICE_ELASTICITY_MULTIPLIER : MIN_PRICE_ELASTICITY_MULTIPLIER;

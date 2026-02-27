@@ -2,25 +2,25 @@
 // @acars/core — Gravity Demand Model Tests
 // ============================================================
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   calculateBidirectionalDemand,
   calculateDemand,
   calculatePriceElasticity,
-  getProsperityIndex,
-  scaleToAddressableMarket,
   calculateSupplyPressure,
+  getProsperityIndex,
   MAX_PRICE_ELASTICITY_MULTIPLIER,
-  PLAYER_MARKET_CEILING,
   MIN_ADDRESSABLE_WEEKLY,
   MIN_PRICE_ELASTICITY_MULTIPLIER,
   NATURAL_LF_CEILING,
+  PLAYER_MARKET_CEILING,
   PRICE_ELASTICITY_BUSINESS,
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
+  scaleToAddressableMarket,
 } from "./demand.js";
 import { fp } from "./fixed-point.js";
-import type { Airport, DemandResult, BidirectionalDemandResult } from "./types.js";
+import type { Airport, BidirectionalDemandResult, DemandResult } from "./types.js";
 
 // --- Test airport fixtures ---
 
@@ -431,11 +431,41 @@ describe("calculateBidirectionalDemand()", () => {
 
   it("inbound result matches direct calculateDemand(dest, origin)", () => {
     const direct = calculateDemand(MAD, BOG, "spring", 1.0, 1.0);
-    const bidir = calculateBidirectionalDemand(BOG, MAD, "spring", 1.0, 1.0);
+    const bidir = calculateBidirectionalDemand(BOG, MAD, "spring", 1.0, 1.0, 1.0);
     expect(bidir.inbound.economy).toBe(direct.economy);
     expect(bidir.inbound.business).toBe(direct.business);
     expect(bidir.inbound.first).toBe(direct.first);
     expect(bidir.inbound.origin).toBe(direct.origin);
     expect(bidir.inbound.destination).toBe(direct.destination);
+  });
+
+  it("applies separate hub modifiers per direction", () => {
+    const outboundHubMod = 1.5;
+    const inboundHubMod = 1.2;
+    const result = calculateBidirectionalDemand(
+      BOG,
+      MAD,
+      "spring",
+      1.0,
+      outboundHubMod,
+      inboundHubMod,
+    );
+
+    // Verify outbound uses outboundHubModifier
+    const directOutbound = calculateDemand(BOG, MAD, "spring", 1.0, outboundHubMod);
+    expect(result.outbound.economy).toBe(directOutbound.economy);
+    expect(result.outbound.business).toBe(directOutbound.business);
+    expect(result.outbound.first).toBe(directOutbound.first);
+
+    // Verify inbound uses inboundHubModifier
+    const directInbound = calculateDemand(MAD, BOG, "spring", 1.0, inboundHubMod);
+    expect(result.inbound.economy).toBe(directInbound.economy);
+    expect(result.inbound.business).toBe(directInbound.business);
+    expect(result.inbound.first).toBe(directInbound.first);
+
+    // Different hub modifiers should produce different totals
+    const outTotal = result.outbound.economy + result.outbound.business + result.outbound.first;
+    const inTotal = result.inbound.economy + result.inbound.business + result.inbound.first;
+    expect(outTotal).not.toBe(inTotal);
   });
 });
