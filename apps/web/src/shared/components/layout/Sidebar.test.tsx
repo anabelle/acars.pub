@@ -3,6 +3,15 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "./Sidebar";
 
+vi.mock("@acars/store", () => {
+  return {
+    useAirlineStore: (selector?: (state: Record<string, unknown>) => unknown) => {
+      const state = { airline: null, viewedPubkey: null };
+      return selector ? selector(state) : state;
+    },
+  };
+});
+
 vi.mock("@tanstack/react-router", () => {
   return {
     Link: ({ children }: { children: ReactNode }) => <div>{children}</div>,
