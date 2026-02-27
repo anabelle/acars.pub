@@ -16,61 +16,60 @@ import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
 import { estimateLandingFinancials, processFlightEngine } from "../FlightEngine";
 import type { AirlineState } from "../types";
+import { AsyncMutex } from "../utils/asyncMutex";
 
 export interface EngineSlice {
   processTick: (tick: number) => Promise<void>;
 }
 
-let isProcessing = false;
+const tickMutex = new AsyncMutex();
 const CHECKPOINT_INTERVAL = 1200;
 
 export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> = (set, get) => ({
   processTick: async (tick: number) => {
-    if (isProcessing) return;
+    if (!tickMutex.tryLock()) return;
 
-    const { fleet, airline, routes } = get();
-    if (!airline || airline.status === "liquidated") return;
-
-    // EMERGENCY BANKRUPTCY CHECK
-    // If balance is severely negative (e.g. -$10M), auto-pause operations
-    if (fpToNumber(airline.corporateBalance) < -10000000 && airline.status !== "chapter11") {
-      const updatedAirline = { ...airline, status: "chapter11" as const };
-      const previousState = {
-        airline,
-        fleet,
-        routes,
-        timeline: get().timeline,
-      };
-      set({ airline: updatedAirline });
-      publishActionWithChain({
-        action: {
-          schemaVersion: 2,
-          action: "TICK_UPDATE",
-          payload: {
-            status: "chapter11",
-            tick,
-          },
-        },
-        get,
-        set,
-      }).catch((e) => {
-        set(previousState);
-        console.error("Bankruptcy sync failed", e);
-      });
-      return;
-    }
-
-    // Prevent processing flights for a bankrupt airline
-    if (airline.status === "chapter11") return;
-
-    // 1. Determine where we are vs where we need to be
-    const lastTick = airline.lastTick ?? tick - 1;
-
-    // If we are already caught up, skip.
-    if (lastTick >= tick) return;
-
-    isProcessing = true;
     try {
+      const { fleet, airline, routes } = get();
+      if (!airline || airline.status === "liquidated") return;
+
+      // EMERGENCY BANKRUPTCY CHECK
+      // If balance is severely negative (e.g. -$10M), auto-pause operations
+      if (fpToNumber(airline.corporateBalance) < -10000000 && airline.status !== "chapter11") {
+        const updatedAirline = { ...airline, status: "chapter11" as const };
+        const previousState = {
+          airline,
+          fleet,
+          routes,
+          timeline: get().timeline,
+        };
+        set({ airline: updatedAirline });
+        publishActionWithChain({
+          action: {
+            schemaVersion: 2,
+            action: "TICK_UPDATE",
+            payload: {
+              status: "chapter11",
+              tick,
+            },
+          },
+          get,
+          set,
+        }).catch((e) => {
+          set(previousState);
+          console.error("Bankruptcy sync failed", e);
+        });
+        return;
+      }
+
+      // Prevent processing flights for a bankrupt airline
+      if (airline.status === "chapter11") return;
+
+      // 1. Determine where we are vs where we need to be
+      const lastTick = airline.lastTick ?? tick - 1;
+
+      // If we are already caught up, skip.
+      if (lastTick >= tick) return;
       // 2. Catch up simulation
       // Safety cap: Never simulate more than 50,000 ticks (~40 hours) in one frame
       // to avoid freezing the browser. If the jump is larger, we will catch up
@@ -561,7 +560,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       }
       useEngineStore.setState({ catchupProgress: null });
     } finally {
-      isProcessing = false;
+      tickMutex.unlock();
       useEngineStore.setState({ catchupProgress: null });
     }
   },
