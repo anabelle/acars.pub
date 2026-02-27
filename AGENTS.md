@@ -45,7 +45,7 @@ This repo is a strict Monorepo using `pnpm` workspaces. Do NOT mix concerns:
 
 ## 5. Your Required Reading List
 Before executing complex tasks or architecture decisions, use your tools to `view_file` the following:
-1. `docs/DESIGN_BIBLE.md` -> The gameplay vision, UI targets, and the O(1) constraints.
+1. `docs/DESIGN_PRINCIPLES.md` -> The gameplay vision, UI targets, and the O(1) constraints.
 2. `docs/CORPORATE_MODEL.md` -> The Wall Street mechanics (M&A, Bankruptcy, Stocks).
 3. `docs/ECONOMIC_MODEL.md` -> The math behind route demand, QSI, and Fixed-Point cost models.
 4. `docs/MONETIZATION_MODEL.md` -> How the game generates real Bitcoin/Fiat via P2E and Zaps.

@@ -122,7 +122,7 @@ acars/
 │   ├── nostr/               # Nostr I/O layer (NDK)
 │   └── store/               # Zustand state management
 ├── docs/
-│   ├── DESIGN_BIBLE.md      # Gameplay vision & UI targets
+│   ├── DESIGN_PRINCIPLES.md      # Gameplay vision & UI targets
 │   ├── ECONOMIC_MODEL.md    # Math behind demand, QSI, costs
 │   ├── CORPORATE_MODEL.md   # Wall Street mechanics (M&A, IPOs)
 │   ├── FLEET_MANAGER_PLAN.md    # Aircraft lifecycle
@@ -185,7 +185,7 @@ Every feature must answer: *"If 10,000 players fire this event simultaneously, w
 
 | Document | Purpose |
 |----------|---------|
-| [DESIGN_BIBLE.md](docs/DESIGN_BIBLE.md) | Gameplay vision, engagement loops, sensory design |
+| [DESIGN_PRINCIPLES.md](docs/DESIGN_PRINCIPLES.md) | Gameplay vision, engagement loops, sensory design |
 | [ECONOMIC_MODEL.md](docs/ECONOMIC_MODEL.md) | Gravity model, QSI, fixed-point costs |
 | [CORPORATE_MODEL.md](docs/CORPORATE_MODEL.md) | IPOs, M&A, bankruptcy, stock mechanics |
 | [FLEET_MANAGER_PLAN.md](docs/FLEET_MANAGER_PLAN.md) | Aircraft depreciation, maintenance, commonality |

@@ -440,7 +440,7 @@ between any two airports.
 | GKA    | POM         | summer | 0.8        |    340        |     42       |
 
 ## Context Files (read these first)
-- docs/DESIGN_BIBLE.md — Section 2 (Engagement Architecture)
+- docs/DESIGN_PRINCIPLES.md — Section 2 (Engagement Architecture)
 - packages/@acars/core/CONTRACT.md
 - packages/data/src/airports.ts (schema reference)
 
@@ -689,7 +689,7 @@ When any agent starts a task, it MUST read (in this order):
 4. .agent/knowledge/decisions/*.md           ← Why things are the way they are
 5. .agent/knowledge/patterns/*.md            ← How to write code in this project
 6. .agent/feedback/TASK-NNN/*.md             ← Previous failure feedback (if retry)
-7. docs/DESIGN_BIBLE.md (relevant sections)  ← Game design context
+7. docs/DESIGN_PRINCIPLES.md (relevant sections)  ← Game design context
 ```
 
 This ordered reading list ensures every agent starts with the same context, regardless of which AI model or platform is running it.
@@ -892,7 +892,7 @@ description: How an agent claims and executes a task
 4. Read all ADRs in `.agent/knowledge/decisions/`
 5. Read relevant patterns in `.agent/knowledge/patterns/`
 6. Read any existing feedback in `.agent/feedback/TASK-{ID}/`
-7. Read relevant sections of docs/DESIGN_BIBLE.md
+7. Read relevant sections of docs/DESIGN_PRINCIPLES.md
 
 ## Step 4: Implement
 1. Write code following established patterns
