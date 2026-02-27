@@ -1,17 +1,17 @@
-import { create } from "zustand";
+import type { Airport, FixedPoint, Season } from "@acars/core";
 import {
   calculateDemand,
-  getProsperityIndex,
-  haversineDistance,
-  getSeason,
-  fpScale,
   fp,
   fpDiv,
+  fpScale,
   GENESIS_TIME,
+  getProsperityIndex,
+  getSeason,
+  haversineDistance,
   TICK_DURATION,
 } from "@acars/core";
-import type { Airport, Season, FixedPoint } from "@acars/core";
 import { airports as AIRPORTS } from "@acars/data";
+import { create } from "zustand";
 
 export interface RouteData {
   origin: Airport;
@@ -69,7 +69,14 @@ function generateRoutes(home: Airport, tick: number): RouteData[] {
     const baseFare = Math.max(80, Math.round(distance * avgFarePerKm));
     const totalPax = demand.economy + demand.business + demand.first;
     const estimatedDailyRevenue = fpDiv(fpScale(fp(baseFare), totalPax), fp(7));
-    return { origin: home, destination: dest, distance, demand, estimatedDailyRevenue, season };
+    return {
+      origin: home,
+      destination: dest,
+      distance,
+      demand,
+      estimatedDailyRevenue,
+      season,
+    };
   });
 }
 
@@ -89,7 +96,11 @@ export interface EngineState {
   routes: RouteData[];
   locationMethod: string;
   isEngineRunning: boolean;
-  catchupProgress: { current: number; target: number; phase: "player" | "competitor" } | null;
+  catchupProgress: {
+    current: number;
+    target: number;
+    phase: "player" | "competitor";
+  } | null;
 
   syncTick: () => void;
   setHub: (airport: Airport, loc: UserLocation, method: string) => void;
@@ -120,7 +131,7 @@ export const useEngineStore = create<EngineState>((set, get) => ({
     const now = Date.now();
     const elapsed = now - GENESIS_TIME;
     const nextTick = Math.max(0, Math.floor(elapsed / TICK_DURATION));
-    const progress = (elapsed % TICK_DURATION) / TICK_DURATION;
+    const progress = getMsIntoTick(elapsed) / TICK_DURATION;
 
     const { tick, homeAirport } = get();
 
