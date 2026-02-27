@@ -1,0 +1,48 @@
+# AirTR Nostr Relay — strfry
+# Dedicated relay for AirTR game state events (kind 30078/30079)
+#
+# Deployment:
+#   scp this directory to the VPS, then:
+#   docker compose up -d
+#
+# The relay runs independently of other services on the VPS.
+# It connects to the host's nginx via the external "pixel_pixel-net" network.
+
+services:
+  strfry:
+    image: ghcr.io/hoytech/strfry:latest
+    container_name: strfry-relay
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7777:7777"
+    volumes:
+      - relay-data:/app/strfry-db
+      - ./strfry.conf:/etc/strfry.conf:ro
+      - ./write-policy.sh:/etc/strfry-policy/write-policy.sh:ro
+    networks:
+      - pixel-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:7777"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  relay-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${RELAY_DATA_DIR:-/home/pixel/pixel/nostr-relay/data}
+
+networks:
+  pixel-net:
+    external: true
+    name: pixel_pixel-net

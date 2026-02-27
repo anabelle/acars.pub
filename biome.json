@@ -12,7 +12,8 @@
       "**/node_modules/**",
       "apps/**/dist/**",
       "packages/**/dist/**",
-      "**/routeTree.gen.ts"
+      "**/routeTree.gen.ts",
+      "infra/**"
     ]
   }
 }
