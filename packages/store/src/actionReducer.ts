@@ -7,6 +7,7 @@ import type {
   TimelineEvent,
 } from "@acars/core";
 import {
+  calculateBookValue,
   computeActionChainHash,
   fp,
   fpAdd,
@@ -138,8 +139,9 @@ export async function replayActionLog(params: {
   pubkey: string;
   actions: ActionRecord[];
   checkpoint?: Checkpoint | null;
+  rejectedEventIds?: Set<string>;
 }): Promise<ActionReplayResult> {
-  const { pubkey, actions, checkpoint } = params;
+  const { pubkey, actions, checkpoint, rejectedEventIds } = params;
 
   let airline: AirlineEntity | null = checkpoint?.airline ?? null;
   const fleetById = new Map<string, AircraftInstance>();
@@ -214,6 +216,7 @@ export async function replayActionLog(params: {
 
   for (const record of sortedActions) {
     const { action } = record;
+    if (rejectedEventIds?.has(record.eventId)) continue;
     const payload = action.payload;
     const actionTick = clampInt(payload.tick, 0, Number.MAX_SAFE_INTEGER) ?? 0;
     const eventTimestamp = resolveEventTimestamp(actionTick, record.createdAt);
@@ -366,8 +369,8 @@ export async function replayActionLog(params: {
           suggested.first;
         const frequencyPerWeek = clampInt(payload.frequencyPerWeek, 0, 1000) ?? 7;
 
-        const routeCost = clampFixedPoint(payload.cost ?? ROUTE_SLOT_FEE, fpZero, MAX_PRICE);
-        if (!canAfford(routeCost ?? ROUTE_SLOT_FEE)) break;
+        const routeCost = ROUTE_SLOT_FEE;
+        if (!canAfford(routeCost)) break;
 
         routesById.set(routeId, {
           id: routeId,
@@ -566,10 +569,9 @@ export async function replayActionLog(params: {
           first: clampInt(configurationPayload?.first, 0, 1000) ?? model.capacity.first,
           cargoKg: clampInt(configurationPayload?.cargoKg, 0, 1000000) ?? model.capacity.cargoKg,
         };
-        const price = clampFixedPoint(payload.price, fpZero, MAX_PRICE);
-        if (!price) break;
-        if (!canAfford(price)) break;
         const purchaseType = payload.purchaseType === "lease" ? "lease" : "buy";
+        const price = purchaseType === "buy" ? model.price : fpScale(model.price, 0.1);
+        if (!canAfford(price)) break;
         const name =
           clampString(payload.name, MAX_NAME_LENGTH) ??
           buildAircraftName(model.name, fleetById.size + 1);
@@ -617,7 +619,19 @@ export async function replayActionLog(params: {
         for (const route of routesById.values()) {
           route.assignedAircraftIds = route.assignedAircraftIds.filter((id) => id !== instanceId);
         }
-        const salePrice = clampFixedPoint(payload.price, fpZero, MAX_PRICE) ?? fpZero;
+        const model = getAircraftById(aircraft?.modelId ?? "");
+        if (!model) break;
+        const isLease = aircraft?.purchaseType === "lease";
+        const marketValue = isLease
+          ? fp(0)
+          : calculateBookValue(
+              model,
+              aircraft?.flightHoursTotal ?? 0,
+              aircraft?.condition ?? 1.0,
+              aircraft?.birthTick || aircraft?.purchasedAtTick || actionTick,
+              actionTick,
+            );
+        const salePrice = fpScale(marketValue, 0.7);
         applyBalanceDelta(salePrice);
         updateLastTick(actionTick);
         pushTimelineEvent({
@@ -637,7 +651,15 @@ export async function replayActionLog(params: {
         if (!instanceId) break;
         const aircraft = fleetById.get(instanceId);
         if (!aircraft) break;
-        const buyoutPrice = clampFixedPoint(payload.price, fpZero, MAX_PRICE) ?? fpZero;
+        const model = getAircraftById(aircraft.modelId);
+        if (!model) break;
+        const buyoutPrice = calculateBookValue(
+          model,
+          aircraft.flightHoursTotal,
+          aircraft.condition,
+          aircraft.birthTick || aircraft.purchasedAtTick,
+          actionTick,
+        );
         if (!canAfford(buyoutPrice)) break;
         aircraft.purchaseType = "buy";
         applyBalanceDelta(fpSub(fpZero, buyoutPrice));
@@ -778,7 +800,11 @@ export async function replayActionLog(params: {
         if (!instanceId) break;
         const aircraft = fleetById.get(instanceId);
         if (!aircraft) break;
-        const cost = clampFixedPoint(payload.cost, fpZero, MAX_PRICE) ?? fpZero;
+        const model = getAircraftById(aircraft.modelId);
+        if (!model) break;
+        const baseFee = fp(15000);
+        const repairCost = fpScale(model.price, (1 - aircraft.condition) * 0.1);
+        const cost = fpAdd(baseFee, repairCost);
         if (!canAfford(cost)) break;
         aircraft.condition = 1.0;
         aircraft.flightHoursSinceCheck = 0;

@@ -270,7 +270,7 @@ describe("processGlobalTick", () => {
         action: {
           schemaVersion: 2,
           action: "AIRLINE_CREATE",
-          payload: { name: "Old Air", hubs: ["JFK"], corporateBalance: 100000000, tick: 80 },
+          payload: { name: "Old Air", hubs: ["JFK"], corporateBalance: 1000000000000, tick: 80 },
         },
       },
     ]);
@@ -303,7 +303,12 @@ describe("processGlobalTick", () => {
         action: {
           schemaVersion: 2,
           action: "AIRLINE_CREATE",
-          payload: { name: "Catchup Air", hubs: ["JFK"], corporateBalance: 100000000, tick: 10 },
+          payload: {
+            name: "Catchup Air",
+            hubs: ["JFK"],
+            corporateBalance: 1000000000000,
+            tick: 10,
+          },
         },
       },
       {
