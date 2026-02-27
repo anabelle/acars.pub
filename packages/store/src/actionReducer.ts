@@ -615,6 +615,7 @@ export async function replayActionLog(params: {
         const instanceId = clampString(payload.instanceId, 64);
         if (!instanceId) break;
         const aircraft = fleetById.get(instanceId);
+        if (!aircraft) break;
         fleetById.delete(instanceId);
         for (const route of routesById.values()) {
           route.assignedAircraftIds = route.assignedAircraftIds.filter((id) => id !== instanceId);
