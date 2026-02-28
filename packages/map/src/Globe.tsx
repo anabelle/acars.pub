@@ -1,17 +1,129 @@
 import maplibregl from "maplibre-gl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type {
-  AircraftInstance,
-  Airport,
-  HubTier,
-  NightOverlayFeatureCollection,
-  Route,
-} from "@acars/core";
-import { computeNightOverlay } from "@acars/core";
+import type { AircraftInstance, Airport, HubTier, Route } from "@acars/core";
+import { getSubsolarPoint } from "@acars/core";
 import { aircraftModels, HUB_CLASSIFICATIONS } from "@acars/data";
 import { getBearing, getGreatCircleInterpolation, makeArcFeature } from "./geo.js";
 import { FAMILY_ICONS } from "./icons.js";
+
+const NIGHT_CANVAS_W = 1024;
+const NIGHT_CANVAS_H = 512;
+
+/** Web Mercator max latitude (degrees) — matches canvas source coordinates */
+const MERCATOR_MAX_LAT = 85.051129;
+const DEG2RAD = Math.PI / 180;
+
+/** Night tint colour (RGBA components) — very dark blue-black */
+const NIGHT_R = 8;
+const NIGHT_G = 10;
+const NIGHT_B = 28;
+
+/**
+ * Max alpha for the deepest night. Keep below 1.0 so the basemap
+ * (CARTO Dark Matter city lights, labels, borders) stays visible.
+ */
+const NIGHT_MAX_ALPHA = 0.38;
+
+/**
+ * Inverse Mercator Y: convert normalised canvas row [0,1] back to latitude.
+ */
+function inverseMercatorY(normY: number): number {
+  // normY 0 = +MERCATOR_MAX_LAT, normY 1 = -MERCATOR_MAX_LAT
+  const yTop =
+    (1 - Math.log(Math.tan(Math.PI / 4 + (MERCATOR_MAX_LAT * DEG2RAD) / 2)) / Math.PI) / 2;
+  const yBot =
+    (1 - Math.log(Math.tan(Math.PI / 4 - (MERCATOR_MAX_LAT * DEG2RAD) / 2)) / Math.PI) / 2;
+  const y01 = yTop + normY * (yBot - yTop);
+  const latRad = 2 * Math.atan(Math.exp((1 - 2 * y01) * Math.PI)) - Math.PI / 2;
+  return latRad / DEG2RAD;
+}
+
+/**
+ * Paints a smooth night-side tint onto the canvas.
+ *
+ * For each pixel, computes the angular distance from the subsolar point
+ * and maps it to an alpha value with a smooth transition through civil
+ * twilight (sun altitude 0° to −6°, angular distance 90°–96°).
+ *
+ * The result is a dark blue-black wash that smoothly darkens the night
+ * side without pixelation at any zoom level (it's a continuous gradient).
+ */
+function paintNightCanvas(
+  canvas: HTMLCanvasElement,
+  subsolarLat: number,
+  subsolarLng: number,
+): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const W = canvas.width;
+  const H = canvas.height;
+
+  const imgData = ctx.createImageData(W, H);
+  const data = imgData.data;
+
+  const sunLatRad = subsolarLat * DEG2RAD;
+  const sunLngRad = subsolarLng * DEG2RAD;
+
+  // Angular distance thresholds (radians)
+  // 90° = terminator (sun at horizon)
+  // 96° = civil twilight end (sun 6° below horizon)
+  const TERMINATOR = (90 * Math.PI) / 180;
+  const TWILIGHT_END = (96 * Math.PI) / 180;
+
+  // Pre-compute latitude for each row (Mercator inverse)
+  const rowLat = new Float64Array(H);
+  const rowLatRad = new Float64Array(H);
+  for (let y = 0; y < H; y++) {
+    const lat = inverseMercatorY(y / H);
+    rowLat[y] = lat;
+    rowLatRad[y] = lat * DEG2RAD;
+  }
+
+  const maxAlpha255 = Math.round(NIGHT_MAX_ALPHA * 255);
+
+  for (let y = 0; y < H; y++) {
+    const latRad = rowLatRad[y];
+    const sinLat = Math.sin(latRad);
+    const cosLat = Math.cos(latRad);
+    const sinSunLat = Math.sin(sunLatRad);
+    const cosSunLat = Math.cos(sunLatRad);
+    const latTerm = sinLat * sinSunLat;
+    const latCosTerm = cosLat * cosSunLat;
+
+    for (let x = 0; x < W; x++) {
+      const lng = (x / W) * 360 - 180;
+      const lngRad = lng * DEG2RAD;
+      const dLng = lngRad - sunLngRad;
+
+      const cosD = latTerm + latCosTerm * Math.cos(dLng);
+      const dist = Math.acos(Math.max(-1, Math.min(1, cosD)));
+
+      let alpha: number;
+      if (dist <= TERMINATOR) {
+        // Day side — fully transparent
+        alpha = 0;
+      } else if (dist >= TWILIGHT_END) {
+        // Deep night — max darkness
+        alpha = maxAlpha255;
+      } else {
+        // Twilight zone — smooth cubic ease
+        const t = (dist - TERMINATOR) / (TWILIGHT_END - TERMINATOR);
+        // Smoothstep for a gentle transition
+        const s = t * t * (3 - 2 * t);
+        alpha = Math.round(s * maxAlpha255);
+      }
+
+      const idx = (y * W + x) * 4;
+      data[idx] = NIGHT_R;
+      data[idx + 1] = NIGHT_G;
+      data[idx + 2] = NIGHT_B;
+      data[idx + 3] = alpha;
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+}
 
 const aircraftModelMap = new Map(aircraftModels.map((m) => [m.id, m]));
 
@@ -36,10 +148,8 @@ export interface GlobeProps {
   style?: React.CSSProperties;
 }
 
-const NIGHT_OVERLAY_SOURCE = "night-overlay";
-const NIGHT_CORE_LAYER = "night-core-layer";
-const NIGHT_ASTRO_LAYER = "night-astro-layer";
-const NIGHT_CIVIL_LAYER = "night-civil-layer";
+const NIGHT_CANVAS_SOURCE = "night-canvas";
+const NIGHT_CANVAS_LAYER = "night-canvas-layer";
 
 // =============================================================================
 // --- LOD: Adaptive segment count based on zoom level ---
@@ -261,6 +371,7 @@ export function Globe({
   // -------------------------------------------------------------------------
   const rafId = useRef<number>(0);
   const nightOverlayTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const nightCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const latestTick = useRef(tick);
   const latestTickProgress = useRef(tickProgress);
   const latestFleet = useRef(fleet);
@@ -420,18 +531,38 @@ export function Globe({
       addIcon("airplane-icon", FAMILY_ICONS["a320"].body);
       addIcon("airplane-icon-accent", FAMILY_ICONS["a320"].accent);
 
-      // Sources
-      map.addSource("airports", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
+      // --- Night canvas source (smooth solar gradient) ---
+      const nightCanvas = document.createElement("canvas");
+      nightCanvas.width = NIGHT_CANVAS_W;
+      nightCanvas.height = NIGHT_CANVAS_H;
+      nightCanvasRef.current = nightCanvas;
+
+      // Paint immediately
+      const sun = getSubsolarPoint(new Date());
+      paintNightCanvas(nightCanvas, sun.lat, sun.lng);
+
+      map.addSource(NIGHT_CANVAS_SOURCE, {
+        type: "canvas",
+        canvas: nightCanvas,
+        coordinates: [
+          [-180, 85.051129],
+          [180, 85.051129],
+          [180, -85.051129],
+          [-180, -85.051129],
+        ],
+        animate: true,
       });
-      map.addSource(NIGHT_OVERLAY_SOURCE, {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: [],
-        } as NightOverlayFeatureCollection,
+      map.addLayer({
+        id: NIGHT_CANVAS_LAYER,
+        type: "raster",
+        source: NIGHT_CANVAS_SOURCE,
+        paint: {
+          "raster-opacity": 1.0,
+          "raster-resampling": "linear",
+          "raster-fade-duration": 0,
+        },
       });
+
       map.addSource("flights", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -448,36 +579,9 @@ export function Globe({
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
-
-      map.addLayer({
-        id: NIGHT_CIVIL_LAYER,
-        type: "fill",
-        source: NIGHT_OVERLAY_SOURCE,
-        filter: ["==", ["get", "band"], "civil"],
-        paint: {
-          "fill-color": "#0a0a2e",
-          "fill-opacity": 0.12,
-        },
-      });
-      map.addLayer({
-        id: NIGHT_ASTRO_LAYER,
-        type: "fill",
-        source: NIGHT_OVERLAY_SOURCE,
-        filter: ["==", ["get", "band"], "astro"],
-        paint: {
-          "fill-color": "#0a0a2e",
-          "fill-opacity": 0.25,
-        },
-      });
-      map.addLayer({
-        id: NIGHT_CORE_LAYER,
-        type: "fill",
-        source: NIGHT_OVERLAY_SOURCE,
-        filter: ["==", ["get", "band"], "core"],
-        paint: {
-          "fill-color": "#0a0a2e",
-          "fill-opacity": 0.35,
-        },
+      map.addSource("airports", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
       });
 
       // Layer: Global Arcs
@@ -1231,10 +1335,10 @@ export function Globe({
     const map = mapRef.current;
 
     const updateNightOverlay = () => {
-      const overlay = computeNightOverlay(new Date(), 1);
-      (map.getSource(NIGHT_OVERLAY_SOURCE) as maplibregl.GeoJSONSource | undefined)?.setData(
-        overlay,
-      );
+      if (nightCanvasRef.current) {
+        const sun = getSubsolarPoint(new Date());
+        paintNightCanvas(nightCanvasRef.current, sun.lat, sun.lng);
+      }
     };
 
     updateNightOverlay();
