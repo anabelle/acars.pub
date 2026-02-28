@@ -17,7 +17,7 @@ import { FAMILY_ICONS } from "./icons.js";
 const NASA_BLACK_MARBLE_URL =
   "https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi?" +
   "SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0" +
-  "&LAYERS=VIIRS_Black_Marble_SoundscapeVNP46A1" +
+  "&LAYERS=VIIRS_Black_Marble" +
   "&FORMAT=image%2Fjpeg&WIDTH=2048&HEIGHT=1024" +
   "&CRS=EPSG%3A3857&BBOX=-20037508.34,-20037508.34,20037508.34,20037508.34";
 
@@ -530,7 +530,7 @@ export function Globe({
           [180, -85.051129],
           [-180, -85.051129],
         ],
-        animate: false,
+        animate: true,
       });
       map.addLayer({
         id: NIGHT_CANVAS_LAYER,
