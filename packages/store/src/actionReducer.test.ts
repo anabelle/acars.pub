@@ -179,8 +179,8 @@ describe("replayActionLog", () => {
           action: "ROUTE_OPEN",
           payload: {
             routeId: "rt-2",
-            originIata: "PTY",
-            destinationIata: "MTY",
+            originIata: "MTY",
+            destinationIata: "PTY",
             distanceKm: 2200,
             tick: 5,
           },

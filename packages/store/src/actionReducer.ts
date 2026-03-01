@@ -199,6 +199,19 @@ export async function replayActionLog(params: {
       .sort((a, b) => (a.tick !== b.tick ? b.tick - a.tick : b.timestamp - a.timestamp));
 
   const fpZero = fp(0);
+  const routePairKey = (originIata: string, destinationIata: string) =>
+    [originIata, destinationIata].sort().join(":");
+  const routePairs = new Set<string>(
+    [...routesById.values()].map((route) => routePairKey(route.originIata, route.destinationIata)),
+  );
+  const routePairToRouteId = new Map<string, string>(
+    [...routesById.values()].map((route) => [
+      routePairKey(route.originIata, route.destinationIata),
+      route.id,
+    ]),
+  );
+  // Maps duplicate route IDs (from retried ROUTE_OPEN events) to the
+  // canonical route ID so later actions still resolve to a single route.
   const routeIdAliases = new Map<string, string>();
   const resolveRouteId = (routeId: string | null) =>
     routeId ? (routeIdAliases.get(routeId) ?? routeId) : null;
@@ -358,9 +371,11 @@ export async function replayActionLog(params: {
         const destinationIata = sanitizeIata(payload.destinationIata);
         const distanceKm = clampNumber(payload.distanceKm, 1, MAX_DISTANCE_KM);
         if (!routeId || !originIata || !destinationIata || !distanceKm) break;
-        const existingRoute = [...routesById.values()].find(
-          (route) => route.originIata === originIata && route.destinationIata === destinationIata,
-        );
+        const pairKey = routePairKey(originIata, destinationIata);
+        const existingRouteId = routePairs.has(pairKey)
+          ? routePairToRouteId.get(pairKey)
+          : undefined;
+        const existingRoute = existingRouteId ? routesById.get(existingRouteId) : undefined;
         if (existingRoute) {
           routeIdAliases.set(routeId, existingRoute.id);
           break;
@@ -395,6 +410,8 @@ export async function replayActionLog(params: {
           fareFirst,
           status: "active",
         });
+        routePairs.add(pairKey);
+        routePairToRouteId.set(pairKey, routeId);
 
         applyBalanceDelta(fpSub(fpZero, routeCost ?? ROUTE_SLOT_FEE));
         updateLastTick(actionTick);
@@ -416,6 +433,11 @@ export async function replayActionLog(params: {
         if (!routeId) break;
         const route = routesById.get(routeId);
         routesById.delete(routeId);
+        if (route) {
+          const pairKey = routePairKey(route.originIata, route.destinationIata);
+          routePairs.delete(pairKey);
+          routePairToRouteId.delete(pairKey);
+        }
         for (const aircraft of fleetById.values()) {
           if (aircraft.assignedRouteId === routeId) {
             aircraft.assignedRouteId = null;
@@ -444,6 +466,9 @@ export async function replayActionLog(params: {
         if (!originIata || !destinationIata) break;
         const route = routesById.get(routeId);
         if (!route) break;
+        const previousPairKey = routePairKey(route.originIata, route.destinationIata);
+        routePairs.delete(previousPairKey);
+        routePairToRouteId.delete(previousPairKey);
         routesById.set(routeId, {
           ...route,
           originIata,
@@ -451,6 +476,9 @@ export async function replayActionLog(params: {
           status: "active",
           assignedAircraftIds: [],
         });
+        const nextPairKey = routePairKey(originIata, destinationIata);
+        routePairs.add(nextPairKey);
+        routePairToRouteId.set(nextPairKey, routeId);
         updateLastTick(actionTick);
         pushTimelineEvent({
           id: `evt-action-${record.eventId}`,

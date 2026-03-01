@@ -597,7 +597,9 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
 
     if (
       routes.some(
-        (route) => route.originIata === originIata && route.destinationIata === destinationIata,
+        (route) =>
+          (route.originIata === originIata && route.destinationIata === destinationIata) ||
+          (route.originIata === destinationIata && route.destinationIata === originIata),
       )
     ) {
       throw new Error(`Route ${originIata} ↔ ${destinationIata} already exists.`);

@@ -239,14 +239,14 @@ describe("openRoute", () => {
       timeline: [] as TimelineEvent[],
     });
 
-    await expect(state.openRoute("BOG", "MDE", 300)).rejects.toThrow(
-      "Route BOG ↔ MDE already exists.",
+    await expect(state.openRoute("MDE", "BOG", 300)).rejects.toThrow(
+      "Route MDE ↔ BOG already exists.",
     );
   });
 
   it("blocks opening a route when a slot-controlled hub exceeds capacity", async () => {
     const airline = makeAirline(["LHR"]);
-    const routes = [makeRoute("rt-1", "LHR", "CDG", "active")];
+    const routes = [makeRoute("rt-1", "LHR", "JFK", "active")];
     routes[0].frequencyPerWeek = 200000;
     const { state } = createSliceState({
       airline,
@@ -255,7 +255,7 @@ describe("openRoute", () => {
       timeline: [] as TimelineEvent[],
     });
 
-    await expect(state.openRoute("LHR", "JFK", 5540)).rejects.toThrow(
+    await expect(state.openRoute("LHR", "CDG", 5540)).rejects.toThrow(
       "Slot capacity exceeded at LHR",
     );
   });
