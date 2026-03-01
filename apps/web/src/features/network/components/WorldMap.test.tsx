@@ -96,6 +96,7 @@ describe("WorldMap", () => {
       fleet: [],
       fleetByOwner: new Map(),
       routesByOwner: new Map(),
+      pubkey: "test-pubkey",
       competitors: new Map(),
       routes: [],
     });

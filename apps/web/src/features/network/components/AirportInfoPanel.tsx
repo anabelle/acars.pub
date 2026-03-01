@@ -54,7 +54,7 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const search = useSearch({ from: "__root__" });
-  const { airline, routes, fleet, fleetByOwner, competitors, modifyHubs, openRoute } =
+  const { airline, routes, fleet, fleetByOwner, competitors, modifyHubs, openRoute, pubkey } =
     useAirlineStore();
   const setHub = useEngineStore((s) => s.setHub);
 
@@ -149,13 +149,13 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
   );
 
   const competitorFleet = useMemo(() => {
-    const playerPubkey = airline?.ceoPubkey ?? null;
+    const playerPubkey = pubkey ?? null;
     const result: AircraftInstance[] = [];
-    fleetByOwner.forEach((ownerFleet, pubkey) => {
-      if (pubkey !== playerPubkey) result.push(...ownerFleet);
+    fleetByOwner.forEach((ownerFleet, key) => {
+      if (key !== playerPubkey) result.push(...ownerFleet);
     });
     return result;
-  }, [airline, fleetByOwner]);
+  }, [pubkey, fleetByOwner]);
 
   const groundTraffic = useMemo(
     () => buildGroundTraffic(airport.iata, fleet, competitorFleet, airline ?? null, competitors),

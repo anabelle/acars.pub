@@ -128,7 +128,7 @@ function FlightStrip({
 export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps) {
   const navigate = useNavigate();
   const search = useSearch({ from: "__root__" });
-  const { airline, routes, fleet, routesByOwner, competitors } = useAirlineStore();
+  const { airline, fleet, routesByOwner, competitors } = useAirlineStore();
   const tick = useEngineStore((s) => s.tick);
   const tickProgress = useEngineStore((s) => s.tickProgress);
 
@@ -187,16 +187,20 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
 
   const assignedRoute = useMemo((): Route | null => {
     if (!aircraft.assignedRouteId) return null;
-    // Check player routes first
-    const playerMatch = routes.find((r) => r.id === aircraft.assignedRouteId);
-    if (playerMatch) return playerMatch;
-    // Check all competitor routes
-    for (const ownerRoutes of routesByOwner.values()) {
+    // Direct bucket lookup via owner pubkey when available
+    const ownerRoutes = aircraft.ownerPubkey ? routesByOwner.get(aircraft.ownerPubkey) : undefined;
+    if (ownerRoutes) {
       const match = ownerRoutes.find((r) => r.id === aircraft.assignedRouteId);
       if (match) return match;
     }
+    // Fallback: scan all owners (e.g. if ownerPubkey is missing)
+    for (const bucket of routesByOwner.values()) {
+      if (bucket === ownerRoutes) continue; // already checked
+      const match = bucket.find((r) => r.id === aircraft.assignedRouteId);
+      if (match) return match;
+    }
     return null;
-  }, [aircraft.assignedRouteId, routes, routesByOwner]);
+  }, [aircraft.assignedRouteId, aircraft.ownerPubkey, routesByOwner]);
 
   const siblingsOnRoute = useMemo(() => {
     if (!assignedRoute || !isPlayerAircraft) return [];

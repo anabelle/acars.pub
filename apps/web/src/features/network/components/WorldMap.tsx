@@ -11,7 +11,8 @@ export function WorldMap() {
   const homeAirport = useEngineStore((s) => s.homeAirport);
   const tick = useEngineStore((s) => s.tick);
   const tickProgress = useEngineStore((s) => s.tickProgress);
-  const { airline, fleet, fleetByOwner, routesByOwner, competitors, routes } = useAirlineStore();
+  const { airline, fleet, fleetByOwner, routesByOwner, competitors, routes, pubkey } =
+    useAirlineStore();
   const [inspectedAirport, setInspectedAirport] = useState<Airport | null>(null);
   const [inspectedAircraft, setInspectedAircraft] = useState<AircraftInstance | null>(null);
   const [focusedAirport, setFocusedAirport] = useState<Airport | null>(null);
@@ -65,22 +66,22 @@ export function WorldMap() {
   };
 
   const competitorFleet = useMemo(() => {
-    const playerPubkey = airline?.ceoPubkey ?? null;
+    const playerPubkey = pubkey ?? null;
     const result: AircraftInstance[] = [];
-    fleetByOwner.forEach((ownerFleet, pubkey) => {
-      if (pubkey !== playerPubkey) result.push(...ownerFleet);
+    fleetByOwner.forEach((ownerFleet, key) => {
+      if (key !== playerPubkey) result.push(...ownerFleet);
     });
     return result;
-  }, [airline, fleetByOwner]);
+  }, [pubkey, fleetByOwner]);
 
   const competitorRoutes = useMemo(() => {
-    const playerPubkey = airline?.ceoPubkey ?? null;
+    const playerPubkey = pubkey ?? null;
     const result: Route[] = [];
-    routesByOwner.forEach((ownerRoutes, pubkey) => {
-      if (pubkey !== playerPubkey) result.push(...ownerRoutes);
+    routesByOwner.forEach((ownerRoutes, key) => {
+      if (key !== playerPubkey) result.push(...ownerRoutes);
     });
     return result;
-  }, [airline, routesByOwner]);
+  }, [pubkey, routesByOwner]);
 
   const handleAircraftSelect = useCallback(
     (aircraftId: string) => {

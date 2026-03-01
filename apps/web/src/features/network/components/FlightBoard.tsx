@@ -89,17 +89,17 @@ function FidsSection({
 }
 
 export function FlightBoard({ airportIata, airportTimezone }: FlightBoardProps) {
-  const { airline, fleet, fleetByOwner, competitors } = useAirlineStore();
+  const { airline, fleet, fleetByOwner, competitors, pubkey } = useAirlineStore();
   const tick = useEngineStore((s) => s.tick);
 
   const competitorFleet = useMemo(() => {
-    const playerPubkey = airline?.ceoPubkey ?? null;
+    const playerPubkey = pubkey ?? null;
     const result: AircraftInstance[] = [];
-    fleetByOwner.forEach((ownerFleet, pubkey) => {
-      if (pubkey !== playerPubkey) result.push(...ownerFleet);
+    fleetByOwner.forEach((ownerFleet, key) => {
+      if (key !== playerPubkey) result.push(...ownerFleet);
     });
     return result;
-  }, [airline, fleetByOwner]);
+  }, [pubkey, fleetByOwner]);
 
   const departures = useMemo(() => {
     return buildFlightBoardRows({

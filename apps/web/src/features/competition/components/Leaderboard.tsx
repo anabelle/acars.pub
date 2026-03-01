@@ -168,21 +168,24 @@ export function Leaderboard() {
   const currentTick = useEngineStore((s) => s.tick);
   const [metric, setMetric] = useState<LeaderboardMetric>("balance");
 
-  const rows = useMemo(() => {
-    // Flatten fleetByOwner and routesByOwner into lookup maps
-    const aircraftById = new Map<string, AircraftInstance>();
+  // Build lookup maps separately so toggling metric doesn't rebuild them
+  const { aircraftById, routeById } = useMemo(() => {
+    const aircraftMap = new Map<string, AircraftInstance>();
     for (const ownerFleet of fleetByOwner.values()) {
       for (const aircraft of ownerFleet) {
-        aircraftById.set(aircraft.id, aircraft);
+        aircraftMap.set(aircraft.id, aircraft);
       }
     }
-    const routeById = new Map<string, Route>();
+    const routeMap = new Map<string, Route>();
     for (const ownerRoutes of routesByOwner.values()) {
       for (const route of ownerRoutes) {
-        routeById.set(route.id, route);
+        routeMap.set(route.id, route);
       }
     }
+    return { aircraftById: aircraftMap, routeById: routeMap };
+  }, [fleetByOwner, routesByOwner]);
 
+  const rows = useMemo(() => {
     const entries = Array.from(competitors.values());
     if (airline) {
       entries.push(airline);
@@ -197,7 +200,7 @@ export function Leaderboard() {
     );
 
     return sortLeaderboardRows(scored, metric);
-  }, [competitors, airline, fleetByOwner, routesByOwner, currentTick, metric]);
+  }, [competitors, airline, aircraftById, routeById, currentTick, metric]);
 
   const ownId = airline?.id ?? null;
 

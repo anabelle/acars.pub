@@ -418,6 +418,9 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             // Apply monthly costs even for competitors with zero aircraft.
             // They may have hub opex that needs to be charged.
             if (compFleet.length === 0) {
+              // Preserve entries in unified maps so routes aren't lost
+              updatedFleetByOwner.set(competitorPubkey, compFleet);
+              updatedRoutesByOwner.set(competitorPubkey, compRoutes);
               if (airline.lastTick == null || airline.lastTick < currentTick) {
                 updatedCompetitors.set(competitorPubkey, {
                   ...airline,
@@ -470,23 +473,26 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
           });
 
           await settleMarketplaceSales(get, set);
-          return;
+        } else {
+          // No projection needed (tick === 0 or no competitors) — just store raw data
+          const finalFleetByOwner = new Map(competitorFleetByOwner);
+          const finalRoutesByOwner = new Map(competitorRoutesByOwner);
+          if (playerPubkey) {
+            finalFleetByOwner.set(playerPubkey, playerFleet);
+            finalRoutesByOwner.set(playerPubkey, playerRoutes);
+          }
+
+          set({
+            competitors,
+            globalRouteRegistry: registry,
+            fleetByOwner: finalFleetByOwner,
+            routesByOwner: finalRoutesByOwner,
+          });
+
+          await settleMarketplaceSales(get, set);
         }
 
-        // No projection needed (tick === 0 or no competitors) — just store raw data
-        const finalFleetByOwner = new Map(competitorFleetByOwner);
-        const finalRoutesByOwner = new Map(competitorRoutesByOwner);
-        if (playerPubkey) {
-          finalFleetByOwner.set(playerPubkey, playerFleet);
-          finalRoutesByOwner.set(playerPubkey, playerRoutes);
-        }
-
-        set({
-          competitors,
-          globalRouteRegistry: registry,
-          fleetByOwner: finalFleetByOwner,
-          routesByOwner: finalRoutesByOwner,
-        });
+        // --- Shared post-sync housekeeping (runs for both paths) ---
         useEngineStore.setState({ catchupProgress: null });
 
         // --- Competitor Alerts ---
@@ -494,16 +500,16 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         if (myAirline) {
           const myHubs = new Set(myAirline.hubs || []);
           const newTimelineEvents: TimelineEvent[] = [];
-          const currentTick = useEngineStore.getState().tick;
+          const alertTick = useEngineStore.getState().tick;
 
-          for (const [pubkey, comp] of competitors) {
-            if (pubkey === existingState.pubkey) continue;
-            const prevComp = existingState.competitors.get(pubkey);
+          for (const [alertPubkey, comp] of competitors) {
+            if (alertPubkey === existingState.pubkey) continue;
+            const prevComp = existingState.competitors.get(alertPubkey);
             for (const hub of comp.hubs) {
               if (myHubs.has(hub) && (!prevComp || !prevComp.hubs.includes(hub))) {
                 newTimelineEvents.push({
-                  id: `evt-comp-hub-${pubkey}-${hub}-${currentTick}`,
-                  tick: currentTick,
+                  id: `evt-comp-hub-${alertPubkey}-${hub}-${alertTick}`,
+                  tick: alertTick,
                   timestamp: Date.now(),
                   type: "competitor_hub",
                   description: `Competitor ${comp.name} just opened a hub at ${hub}!`,
@@ -518,13 +524,6 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             });
           }
         }
-
-        // --- Seller-side settlement ---
-        // Detect aircraft we listed for sale that now appear in a competitor's fleet.
-        // This means the buyer purchased it; we must settle: remove from our fleet,
-        // credit the listing price, delete our marketplace event (NIP-09 compliant),
-        // and record a timeline event.
-        await settleMarketplaceSales(get, set);
       } catch (error) {
         console.error("[WorldSlice] Failed to sync world:", error);
         useEngineStore.setState({ catchupProgress: null });
