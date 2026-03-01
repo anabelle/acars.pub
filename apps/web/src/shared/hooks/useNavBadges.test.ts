@@ -1,6 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { AircraftInstance, AirlineEntity, Route } from "@acars/core";
+import { fp } from "@acars/core";
 import { useNavBadges } from "./useNavBadges";
 
 // Minimal factory helpers
@@ -14,7 +15,7 @@ const makeAircraft = (overrides: Partial<AircraftInstance> = {}): AircraftInstan
     assignedRouteId: null,
     baseAirportIata: "JFK",
     purchasedAtTick: 0,
-    purchasePrice: 1000000,
+    purchasePrice: fp(1000000),
     birthTick: 0,
     listingPrice: null,
     flight: null,
@@ -37,9 +38,9 @@ const makeRoute = (overrides: Partial<Route> = {}): Route =>
     distanceKm: 5500,
     frequencyPerWeek: 7,
     assignedAircraftIds: [],
-    fareEconomy: 300,
-    fareBusiness: 900,
-    fareFirst: 1800,
+    fareEconomy: fp(300),
+    fareBusiness: fp(900),
+    fareFirst: fp(1800),
     status: "active",
     ...overrides,
   }) as Route;
@@ -55,10 +56,10 @@ const makeAirline = (overrides: Partial<AirlineEntity> = {}): AirlineEntity =>
     hubs: ["JFK"],
     fleetIds: [],
     routeIds: [],
-    corporateBalance: 1000000,
+    corporateBalance: fp(1000000),
     brandScore: 5,
     tier: 1,
-    stockPrice: 10,
+    stockPrice: fp(10),
     livery: { primary: "#000", secondary: "#fff", accent: "#0f0" },
     status: "public",
     ...overrides,
@@ -124,9 +125,9 @@ describe("useNavBadges", () => {
   });
 
   it("computes leaderboard rank correctly", () => {
-    const airline = makeAirline({ id: "al-own", corporateBalance: 500000 });
-    const comp1 = makeAirline({ id: "al-comp1", ceoPubkey: "pk2", corporateBalance: 2000000 });
-    const comp2 = makeAirline({ id: "al-comp2", ceoPubkey: "pk3", corporateBalance: 100000 });
+    const airline = makeAirline({ id: "al-own", corporateBalance: fp(500000) });
+    const comp1 = makeAirline({ id: "al-comp1", ceoPubkey: "pk2", corporateBalance: fp(2000000) });
+    const comp2 = makeAirline({ id: "al-comp2", ceoPubkey: "pk3", corporateBalance: fp(100000) });
     mockState = {
       airline,
       fleet: [],
@@ -142,8 +143,8 @@ describe("useNavBadges", () => {
   });
 
   it("returns rank 1 when airline is top by balance", () => {
-    const airline = makeAirline({ id: "al-own", corporateBalance: 9999999 });
-    const comp = makeAirline({ id: "al-comp", ceoPubkey: "pk2", corporateBalance: 100 });
+    const airline = makeAirline({ id: "al-own", corporateBalance: fp(9999999) });
+    const comp = makeAirline({ id: "al-comp", ceoPubkey: "pk2", corporateBalance: fp(100) });
     mockState = {
       airline,
       fleet: [],
