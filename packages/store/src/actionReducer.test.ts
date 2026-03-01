@@ -121,6 +121,105 @@ describe("replayActionLog", () => {
     expect(result.actionChainHash).toBeTypeOf("string");
   });
 
+  it("deduplicates duplicate route opens for the same origin-destination and preserves assignments", async () => {
+    const pubkey = "pubkey-dup";
+    const actions = [
+      {
+        eventId: "evt-1",
+        authorPubkey: pubkey,
+        createdAt: 1,
+        action: {
+          schemaVersion: 2,
+          action: "AIRLINE_CREATE",
+          payload: { name: "Dup Air", hubs: ["PTY"], corporateBalance: fp(500000000), tick: 1 },
+        },
+      },
+      {
+        eventId: "evt-2",
+        authorPubkey: pubkey,
+        createdAt: 2,
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_PURCHASE",
+          payload: { instanceId: "ac-1", modelId: "a320neo", tick: 2 },
+        },
+      },
+      {
+        eventId: "evt-3",
+        authorPubkey: pubkey,
+        createdAt: 3,
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_PURCHASE",
+          payload: { instanceId: "ac-2", modelId: "a320neo", tick: 3 },
+        },
+      },
+      {
+        eventId: "evt-4",
+        authorPubkey: pubkey,
+        createdAt: 4,
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_OPEN",
+          payload: {
+            routeId: "rt-1",
+            originIata: "PTY",
+            destinationIata: "MTY",
+            distanceKm: 2200,
+            tick: 4,
+          },
+        },
+      },
+      {
+        eventId: "evt-5",
+        authorPubkey: pubkey,
+        createdAt: 5,
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_OPEN",
+          payload: {
+            routeId: "rt-2",
+            originIata: "PTY",
+            destinationIata: "MTY",
+            distanceKm: 2200,
+            tick: 5,
+          },
+        },
+      },
+      {
+        eventId: "evt-6",
+        authorPubkey: pubkey,
+        createdAt: 6,
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_ASSIGN_AIRCRAFT",
+          payload: { aircraftId: "ac-1", routeId: "rt-1", tick: 6 },
+        },
+      },
+      {
+        eventId: "evt-7",
+        authorPubkey: pubkey,
+        createdAt: 7,
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_ASSIGN_AIRCRAFT",
+          payload: { aircraftId: "ac-2", routeId: "rt-2", tick: 7 },
+        },
+      },
+    ];
+
+    const result = await replayActionLog({ pubkey, actions });
+    const route = result.routes.find((r) => r.originIata === "PTY" && r.destinationIata === "MTY");
+    const ac1 = result.fleet.find((ac) => ac.id === "ac-1");
+    const ac2 = result.fleet.find((ac) => ac.id === "ac-2");
+
+    expect(result.routes).toHaveLength(1);
+    expect(route?.id).toBe("rt-1");
+    expect(route?.assignedAircraftIds).toEqual(expect.arrayContaining(["ac-1", "ac-2"]));
+    expect(ac1?.assignedRouteId).toBe("rt-1");
+    expect(ac2?.assignedRouteId).toBe("rt-1");
+  });
+
   it("cleans up old route assignedAircraftIds on aircraft reassignment", async () => {
     const pubkey = "pubkey-4";
     const actions = [

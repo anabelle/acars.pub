@@ -229,9 +229,24 @@ describe("openRoute", () => {
     expect(updatedRoutes[0].originIata).toBe("BOG");
   });
 
+  it("blocks opening a duplicate origin-destination route", async () => {
+    const airline = makeAirline(["BOG"]);
+    const routes = [makeRoute("rt-1", "BOG", "MDE", "active")];
+    const { state } = createSliceState({
+      airline,
+      routes,
+      fleet: [],
+      timeline: [] as TimelineEvent[],
+    });
+
+    await expect(state.openRoute("BOG", "MDE", 300)).rejects.toThrow(
+      "Route BOG ↔ MDE already exists.",
+    );
+  });
+
   it("blocks opening a route when a slot-controlled hub exceeds capacity", async () => {
     const airline = makeAirline(["LHR"]);
-    const routes = [makeRoute("rt-1", "LHR", "JFK", "active")];
+    const routes = [makeRoute("rt-1", "LHR", "CDG", "active")];
     routes[0].frequencyPerWeek = 200000;
     const { state } = createSliceState({
       airline,

@@ -595,6 +595,14 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       throw new Error(`Insufficient funds to open route. Cost: ${fpFormat(ROUTE_SLOT_FEE, 0)}`);
     }
 
+    if (
+      routes.some(
+        (route) => route.originIata === originIata && route.destinationIata === destinationIata,
+      )
+    ) {
+      throw new Error(`Route ${originIata} ↔ ${destinationIata} already exists.`);
+    }
+
     const newWeeklyFrequency = 7;
     const newHourlyFrequency = newWeeklyFrequency / (7 * 24);
     const getHourlyTraffic = (iata: string) =>

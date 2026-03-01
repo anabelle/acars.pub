@@ -199,6 +199,9 @@ export async function replayActionLog(params: {
       .sort((a, b) => (a.tick !== b.tick ? b.tick - a.tick : b.timestamp - a.timestamp));
 
   const fpZero = fp(0);
+  const routeIdAliases = new Map<string, string>();
+  const resolveRouteId = (routeId: string | null) =>
+    routeId ? (routeIdAliases.get(routeId) ?? routeId) : null;
 
   const filteredActions = actions.filter((record) => record.authorPubkey === pubkey);
   const sortedActions = [...filteredActions].sort((a, b) => {
@@ -355,6 +358,13 @@ export async function replayActionLog(params: {
         const destinationIata = sanitizeIata(payload.destinationIata);
         const distanceKm = clampNumber(payload.distanceKm, 1, MAX_DISTANCE_KM);
         if (!routeId || !originIata || !destinationIata || !distanceKm) break;
+        const existingRoute = [...routesById.values()].find(
+          (route) => route.originIata === originIata && route.destinationIata === destinationIata,
+        );
+        if (existingRoute) {
+          routeIdAliases.set(routeId, existingRoute.id);
+          break;
+        }
 
         const faresPayload = asRecord(payload.fares);
         const suggested = getSuggestedFares(distanceKm);
@@ -402,7 +412,7 @@ export async function replayActionLog(params: {
         break;
       }
       case "ROUTE_CLOSE": {
-        const routeId = clampString(payload.routeId, 64);
+        const routeId = resolveRouteId(clampString(payload.routeId, 64));
         if (!routeId) break;
         const route = routesById.get(routeId);
         routesById.delete(routeId);
@@ -427,7 +437,7 @@ export async function replayActionLog(params: {
         break;
       }
       case "ROUTE_REBASE": {
-        const routeId = clampString(payload.routeId, 64);
+        const routeId = resolveRouteId(clampString(payload.routeId, 64));
         if (!routeId) break;
         const originIata = sanitizeIata(payload.originIata);
         const destinationIata = sanitizeIata(payload.destinationIata);
@@ -456,7 +466,7 @@ export async function replayActionLog(params: {
       }
       case "ROUTE_ASSIGN_AIRCRAFT": {
         const aircraftId = clampString(payload.aircraftId, 64);
-        const routeId = clampString(payload.routeId, 64);
+        const routeId = resolveRouteId(clampString(payload.routeId, 64));
         if (!aircraftId || !routeId) break;
         const aircraft = fleetById.get(aircraftId);
         const route = routesById.get(routeId);
@@ -490,7 +500,7 @@ export async function replayActionLog(params: {
       }
       case "ROUTE_UNASSIGN_AIRCRAFT": {
         const aircraftId = clampString(payload.aircraftId, 64);
-        const routeId = clampString(payload.routeId, 64);
+        const routeId = resolveRouteId(clampString(payload.routeId, 64));
         if (!aircraftId) break;
         const aircraft = fleetById.get(aircraftId);
         if (aircraft) aircraft.assignedRouteId = null;
@@ -521,7 +531,7 @@ export async function replayActionLog(params: {
         break;
       }
       case "ROUTE_UPDATE_FARES": {
-        const routeId = clampString(payload.routeId, 64);
+        const routeId = resolveRouteId(clampString(payload.routeId, 64));
         if (!routeId) break;
         const faresPayload = asRecord(payload.fares);
         const route = routesById.get(routeId);
