@@ -85,6 +85,8 @@ export function Topbar() {
         {/* Relay health indicator */}
         <div
           className="flex items-center gap-1.5"
+          role="status"
+          aria-live="polite"
           title={
             isConnected
               ? `${relayCount} relay${relayCount !== 1 ? "s" : ""} connected`
@@ -99,6 +101,11 @@ export function Topbar() {
               Offline
             </span>
           )}
+          <span className="sr-only">
+            {isConnected
+              ? `${relayCount} relay${relayCount !== 1 ? "s" : ""} connected`
+              : "Relay offline"}
+          </span>
         </div>
         <div className="flex flex-col items-end">
           <span className="text-[10px] uppercase font-semibold text-muted-foreground leading-none">
