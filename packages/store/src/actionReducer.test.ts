@@ -386,6 +386,11 @@ describe("replayActionLog", () => {
     // Aircraft from both routes should be merged
     expect(route.assignedAircraftIds).toEqual(expect.arrayContaining(["ac-1", "ac-2"]));
     expect(route.assignedAircraftIds).toHaveLength(2);
+    // Aircraft that pointed at the removed duplicate route must be rebased to canonical
+    const ac1 = result.fleet.find((ac) => ac.id === "ac-1");
+    const ac2 = result.fleet.find((ac) => ac.id === "ac-2");
+    expect(ac1?.assignedRouteId).toBe("rt-1");
+    expect(ac2?.assignedRouteId).toBe("rt-1");
   });
 
   it("cleans up old route assignedAircraftIds on aircraft reassignment", async () => {

@@ -162,6 +162,8 @@ export async function replayActionLog(params: {
     // If a checkpoint was saved with duplicate routes (same O/D),
     // keep only the first and merge assignedAircraftIds.
     const checkpointRouteKeys = new Map<string, string>();
+    // Maps removed duplicate routeId -> canonical routeId for fleet fixup below.
+    const removedRouteAliases = new Map<string, string>();
     for (const route of checkpoint.routes) {
       const odKey = `${route.originIata}:${route.destinationIata}`;
       const canonicalId = checkpointRouteKeys.get(odKey);
@@ -178,9 +180,21 @@ export async function replayActionLog(params: {
             assignedAircraftIds: [...mergedIds],
           });
         }
+        removedRouteAliases.set(route.id, canonicalId);
       } else {
         checkpointRouteKeys.set(odKey, route.id);
         routesById.set(route.id, { ...route });
+      }
+    }
+    // Fix up any aircraft whose assignedRouteId points at a removed duplicate.
+    if (removedRouteAliases.size > 0) {
+      for (const aircraft of fleetById.values()) {
+        if (aircraft.assignedRouteId) {
+          const canonical = removedRouteAliases.get(aircraft.assignedRouteId);
+          if (canonical) {
+            aircraft.assignedRouteId = canonical;
+          }
+        }
       }
     }
   }
