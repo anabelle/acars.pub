@@ -239,8 +239,8 @@ describe("openRoute", () => {
       timeline: [] as TimelineEvent[],
     });
 
-    await expect(state.openRoute("MDE", "BOG", 300)).rejects.toThrow(
-      "Route MDE ↔ BOG already exists.",
+    await expect(state.openRoute("BOG", "MDE", 300)).rejects.toThrow(
+      "Route BOG → MDE already exists.",
     );
   });
 

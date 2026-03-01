@@ -597,12 +597,10 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
 
     if (
       routes.some(
-        (route) =>
-          (route.originIata === originIata && route.destinationIata === destinationIata) ||
-          (route.originIata === destinationIata && route.destinationIata === originIata),
+        (route) => route.originIata === originIata && route.destinationIata === destinationIata,
       )
     ) {
-      throw new Error(`Route ${originIata} ↔ ${destinationIata} already exists.`);
+      throw new Error(`Route ${originIata} → ${destinationIata} already exists.`);
     }
 
     const newWeeklyFrequency = 7;

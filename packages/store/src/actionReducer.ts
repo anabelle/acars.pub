@@ -158,8 +158,30 @@ export async function replayActionLog(params: {
   }
 
   if (checkpoint?.routes) {
+    // Deduplicate checkpoint routes by origin:destination pair.
+    // If a checkpoint was saved with duplicate routes (same O/D),
+    // keep only the first and merge assignedAircraftIds.
+    const checkpointRouteKeys = new Map<string, string>();
     for (const route of checkpoint.routes) {
-      routesById.set(route.id, { ...route });
+      const odKey = `${route.originIata}:${route.destinationIata}`;
+      const canonicalId = checkpointRouteKeys.get(odKey);
+      if (canonicalId) {
+        // Merge aircraft assignments into the canonical route
+        const canonical = routesById.get(canonicalId);
+        if (canonical) {
+          const mergedIds = new Set([
+            ...canonical.assignedAircraftIds,
+            ...route.assignedAircraftIds,
+          ]);
+          routesById.set(canonicalId, {
+            ...canonical,
+            assignedAircraftIds: [...mergedIds],
+          });
+        }
+      } else {
+        checkpointRouteKeys.set(odKey, route.id);
+        routesById.set(route.id, { ...route });
+      }
     }
   }
 
@@ -200,7 +222,7 @@ export async function replayActionLog(params: {
 
   const fpZero = fp(0);
   const routePairKey = (originIata: string, destinationIata: string) =>
-    [originIata, destinationIata].sort().join(":");
+    `${originIata}:${destinationIata}`;
   const routePairs = new Set<string>(
     [...routesById.values()].map((route) => routePairKey(route.originIata, route.destinationIata)),
   );

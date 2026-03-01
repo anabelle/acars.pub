@@ -121,7 +121,7 @@ describe("replayActionLog", () => {
     expect(result.actionChainHash).toBeTypeOf("string");
   });
 
-  it("deduplicates duplicate route opens for the same origin-destination and preserves assignments", async () => {
+  it("deduplicates retried route opens for the same origin-destination and preserves assignments", async () => {
     const pubkey = "pubkey-dup";
     const actions = [
       {
@@ -171,6 +171,7 @@ describe("replayActionLog", () => {
         },
       },
       {
+        // Retried same route (relay delay scenario) — different routeId, same O/D
         eventId: "evt-5",
         authorPubkey: pubkey,
         createdAt: 5,
@@ -179,8 +180,8 @@ describe("replayActionLog", () => {
           action: "ROUTE_OPEN",
           payload: {
             routeId: "rt-2",
-            originIata: "MTY",
-            destinationIata: "PTY",
+            originIata: "PTY",
+            destinationIata: "MTY",
             distanceKm: 2200,
             tick: 5,
           },
@@ -197,6 +198,7 @@ describe("replayActionLog", () => {
         },
       },
       {
+        // Aircraft assigned to duplicate route — should alias to canonical rt-1
         eventId: "evt-7",
         authorPubkey: pubkey,
         createdAt: 7,
@@ -213,11 +215,177 @@ describe("replayActionLog", () => {
     const ac1 = result.fleet.find((ac) => ac.id === "ac-1");
     const ac2 = result.fleet.find((ac) => ac.id === "ac-2");
 
+    // Only one route should exist despite two ROUTE_OPEN events
     expect(result.routes).toHaveLength(1);
     expect(route?.id).toBe("rt-1");
     expect(route?.assignedAircraftIds).toEqual(expect.arrayContaining(["ac-1", "ac-2"]));
     expect(ac1?.assignedRouteId).toBe("rt-1");
     expect(ac2?.assignedRouteId).toBe("rt-1");
+  });
+
+  it("allows opening reverse-direction routes (different O/D pair)", async () => {
+    const pubkey = "pubkey-reverse";
+    const actions = [
+      {
+        eventId: "evt-1",
+        authorPubkey: pubkey,
+        createdAt: 1,
+        action: {
+          schemaVersion: 2,
+          action: "AIRLINE_CREATE",
+          payload: {
+            name: "Reverse Air",
+            hubs: ["PTY", "MTY"],
+            corporateBalance: fp(500000000),
+            tick: 1,
+          },
+        },
+      },
+      {
+        eventId: "evt-2",
+        authorPubkey: pubkey,
+        createdAt: 2,
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_OPEN",
+          payload: {
+            routeId: "rt-1",
+            originIata: "PTY",
+            destinationIata: "MTY",
+            distanceKm: 2200,
+            tick: 2,
+          },
+        },
+      },
+      {
+        eventId: "evt-3",
+        authorPubkey: pubkey,
+        createdAt: 3,
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_OPEN",
+          payload: {
+            routeId: "rt-2",
+            originIata: "MTY",
+            destinationIata: "PTY",
+            distanceKm: 2200,
+            tick: 3,
+          },
+        },
+      },
+    ];
+
+    const result = await replayActionLog({ pubkey, actions });
+
+    // Both directions should be allowed as separate routes
+    expect(result.routes).toHaveLength(2);
+    expect(result.routes.find((r) => r.id === "rt-1")).toBeTruthy();
+    expect(result.routes.find((r) => r.id === "rt-2")).toBeTruthy();
+  });
+
+  it("deduplicates duplicate routes loaded from a checkpoint", async () => {
+    const pubkey = "pubkey-ckpt";
+    const checkpoint = {
+      schemaVersion: 1,
+      tick: 100,
+      createdAt: 100,
+      actionChainHash: "abc",
+      stateHash: "def",
+      airline: {
+        name: "Checkpoint Air",
+        callsign: "CKP",
+        iata: "CK",
+        icao: "CKP",
+        liveryColor: "#000",
+        hubs: ["PTY"],
+        corporateBalance: fp(1000000),
+        routeIds: ["rt-1", "rt-2"],
+        lastTick: 100,
+      },
+      fleet: [
+        {
+          id: "ac-1",
+          ownerPubkey: pubkey,
+          modelId: "a320neo",
+          name: "A320 #1",
+          status: "idle",
+          assignedRouteId: "rt-1",
+          baseAirportIata: "PTY",
+          purchasedAtTick: 10,
+          purchasePrice: fp(50000000),
+          birthTick: 10,
+          flight: null,
+          configuration: { economy: 180, business: 0, first: 0, cargoKg: 0 },
+          flightHoursTotal: 0,
+          flightHoursSinceCheck: 0,
+          condition: 1.0,
+          purchaseType: "buy",
+        },
+        {
+          id: "ac-2",
+          ownerPubkey: pubkey,
+          modelId: "a320neo",
+          name: "A320 #2",
+          status: "idle",
+          assignedRouteId: "rt-2",
+          baseAirportIata: "PTY",
+          purchasedAtTick: 11,
+          purchasePrice: fp(50000000),
+          birthTick: 11,
+          flight: null,
+          configuration: { economy: 180, business: 0, first: 0, cargoKg: 0 },
+          flightHoursTotal: 0,
+          flightHoursSinceCheck: 0,
+          condition: 1.0,
+          purchaseType: "buy",
+        },
+      ],
+      routes: [
+        {
+          id: "rt-1",
+          originIata: "PTY",
+          destinationIata: "MTY",
+          airlinePubkey: pubkey,
+          distanceKm: 2200,
+          frequencyPerWeek: 7,
+          assignedAircraftIds: ["ac-1"],
+          fareEconomy: fp(150),
+          fareBusiness: fp(400),
+          fareFirst: fp(800),
+          status: "active",
+        },
+        {
+          id: "rt-2",
+          originIata: "PTY",
+          destinationIata: "MTY",
+          airlinePubkey: pubkey,
+          distanceKm: 2200,
+          frequencyPerWeek: 7,
+          assignedAircraftIds: ["ac-2"],
+          fareEconomy: fp(160),
+          fareBusiness: fp(420),
+          fareFirst: fp(850),
+          status: "active",
+        },
+      ],
+      timeline: [],
+    };
+
+    const result = await replayActionLog({
+      pubkey,
+      actions: [],
+      checkpoint: checkpoint as any,
+    });
+
+    // Duplicate route from checkpoint should be merged into one
+    expect(result.routes).toHaveLength(1);
+    const route = result.routes[0];
+    expect(route.id).toBe("rt-1");
+    expect(route.originIata).toBe("PTY");
+    expect(route.destinationIata).toBe("MTY");
+    // Aircraft from both routes should be merged
+    expect(route.assignedAircraftIds).toEqual(expect.arrayContaining(["ac-1", "ac-2"]));
+    expect(route.assignedAircraftIds).toHaveLength(2);
   });
 
   it("cleans up old route assignedAircraftIds on aircraft reassignment", async () => {
