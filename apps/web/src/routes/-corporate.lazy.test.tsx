@@ -15,6 +15,41 @@ vi.mock("@/features/airline/components/Timeline", () => {
   };
 });
 
+const { routePerformanceMock, useVirtualizerMock } = vi.hoisted(() => ({
+  routePerformanceMock: [] as Array<{
+    routeId: string;
+    label: string;
+    fleetCount: number;
+    avgLoadFactor: number;
+    profitPerHour: number;
+  }>,
+  useVirtualizerMock: vi.fn(),
+}));
+
+vi.mock("@tanstack/react-virtual", () => {
+  return {
+    useVirtualizer: (args: { count: number }) => {
+      useVirtualizerMock(args);
+      return {
+        getTotalSize: () => args.count * 44,
+        getVirtualItems: () =>
+          Array.from({ length: args.count }, (_, index) => ({
+            index,
+            size: 44,
+            start: index * 44,
+          })),
+      };
+    },
+  };
+});
+
+vi.mock("@/features/corporate/hooks/useRoutePerformance", () => {
+  return {
+    RECENT_FLIGHT_COUNT: 10,
+    useRoutePerformance: () => routePerformanceMock,
+  };
+});
+
 const mockAirline = {
   hubs: ["JFK"],
   corporateBalance: 0,
@@ -74,6 +109,8 @@ import CorporateRoute from "./-corporate.lazy";
 describe("Corporate route", () => {
   beforeEach(() => {
     cleanup();
+    routePerformanceMock.length = 0;
+    useVirtualizerMock.mockClear();
   });
 
   it("renders financial pulse with corporate balance", () => {
@@ -141,5 +178,23 @@ describe("Corporate route", () => {
     render(<CorporateRoute />);
     await user.click(screen.getByText("View All"));
     expect(screen.getByTestId("full-timeline")).toBeInTheDocument();
+  });
+
+  it("renders sorted route performance without truncating to six routes", () => {
+    routePerformanceMock.push(
+      { routeId: "r1", label: "A", fleetCount: 1, avgLoadFactor: 0.51, profitPerHour: 10 },
+      { routeId: "r2", label: "B", fleetCount: 1, avgLoadFactor: 0.52, profitPerHour: 20 },
+      { routeId: "r3", label: "C", fleetCount: 1, avgLoadFactor: 0.53, profitPerHour: 30 },
+      { routeId: "r4", label: "D", fleetCount: 1, avgLoadFactor: 0.54, profitPerHour: 40 },
+      { routeId: "r5", label: "E", fleetCount: 1, avgLoadFactor: 0.55, profitPerHour: 50 },
+      { routeId: "r6", label: "F", fleetCount: 1, avgLoadFactor: 0.56, profitPerHour: 60 },
+      { routeId: "r7", label: "G", fleetCount: 1, avgLoadFactor: 0.57, profitPerHour: 70 },
+    );
+
+    render(<CorporateRoute />);
+
+    expect(useVirtualizerMock).toHaveBeenCalledWith(expect.objectContaining({ count: 7 }));
+    expect(screen.getAllByText("1 aircraft")).toHaveLength(7);
+    expect(screen.getByText("G")).toBeInTheDocument();
   });
 });
