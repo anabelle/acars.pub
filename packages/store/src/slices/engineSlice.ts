@@ -605,7 +605,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
 
           // Look up the route to calculate full financial breakdown
           const isFerry = ac.flight?.purpose === "ferry";
-          const route = !isFerry ? routeById.get(ac.assignedRouteId) : null;
+          const route = !isFerry && ac.assignedRouteId ? routeById.get(ac.assignedRouteId) : null;
 
           // Calculate financials BEFORE mutating aircraft state so ac.flight is intact
           let landingResult: ReturnType<typeof estimateLandingFinancials> | null = null;
@@ -670,7 +670,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         }
 
         if (ac.status === "turnaround" && (ac.turnaroundEndTick || 0) <= targetTick) {
-          const route = routeById.get(ac.assignedRouteId);
+          const route = ac.assignedRouteId ? routeById.get(ac.assignedRouteId) : undefined;
           const model = getAircraftById(ac.modelId);
           if (route && ac.flight && model) {
             const hours = route.distanceKm / (model.speedKmh || 800);
