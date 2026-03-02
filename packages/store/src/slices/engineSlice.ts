@@ -614,22 +614,27 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             currentBalance = fpAdd(currentBalance, landingResult.profit);
             ac.lastKnownLoadFactor = landingResult.revenue.loadFactor;
 
-            recoveryEvents.push({
-              id: `evt-recovery-landing-${ac.id}-${targetTick}`,
-              tick: targetTick,
-              timestamp: simulatedTimestamp,
-              type: "landing",
-              aircraftId: ac.id,
-              aircraftName: ac.name,
-              routeId: route!.id,
-              originIata: ac.flight.originIata,
-              destinationIata: ac.flight.destinationIata,
-              revenue: landingResult.revenue.revenueTotal,
-              cost: landingResult.cost.costTotal,
-              profit: landingResult.profit,
-              description: `${ac.name} landed at ${ac.flight.destinationIata}. Net Profit: ${fpToNumber(landingResult.profit) > 0 ? "+" : ""}${fpToNumber(landingResult.profit)}`,
-              details: landingResult.details,
-            });
+            // Skip the timeline event if the backfill already generated one
+            // for this exact landing (same aircraft + arrival tick).
+            const backfillId = `evt-landing-${ac.id}-${ac.flight.arrivalTick}`;
+            if (!timelineEventIds.has(backfillId)) {
+              recoveryEvents.push({
+                id: `evt-recovery-landing-${ac.id}-${targetTick}`,
+                tick: targetTick,
+                timestamp: simulatedTimestamp,
+                type: "landing",
+                aircraftId: ac.id,
+                aircraftName: ac.name,
+                routeId: route!.id,
+                originIata: ac.flight.originIata,
+                destinationIata: ac.flight.destinationIata,
+                revenue: landingResult.revenue.revenueTotal,
+                cost: landingResult.cost.costTotal,
+                profit: landingResult.profit,
+                description: `${ac.name} landed at ${ac.flight.destinationIata}. Net Profit: ${fpToNumber(landingResult.profit) > 0 ? "+" : ""}${fpToNumber(landingResult.profit)}`,
+                details: landingResult.details,
+              });
+            }
           } else {
             // Ferry or no route — bare event (no financials to calculate)
             recoveryEvents.push({
