@@ -28,10 +28,10 @@ import type { AirlineState } from "../types";
 export interface WorldSlice {
   competitors: Map<string, AirlineEntity>;
   globalRouteRegistry: Map<string, FlightOffer[]>;
-  globalFleet: AircraftInstance[];
-  globalFleetByOwner: Map<string, AircraftInstance[]>;
-  globalRoutes: Route[];
-  globalRoutesByOwner: Map<string, Route[]>;
+  /** Unified fleet index: ALL players (including self) keyed by pubkey. */
+  fleetByOwner: Map<string, AircraftInstance[]>;
+  /** Unified routes index: ALL players (including self) keyed by pubkey. */
+  routesByOwner: Map<string, Route[]>;
   viewAs: (pubkey: string | null) => void;
   syncWorld: (options?: { force?: boolean }) => Promise<void>;
   syncCompetitor: (competitorPubkey: string) => Promise<void>;
@@ -117,10 +117,8 @@ const applyMonthlyCosts = (
 export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = (set, get) => ({
   competitors: new Map(),
   globalRouteRegistry: new Map(),
-  globalFleet: [],
-  globalFleetByOwner: new Map(),
-  globalRoutes: [],
-  globalRoutesByOwner: new Map(),
+  fleetByOwner: new Map(),
+  routesByOwner: new Map(),
   viewAs: (pubkey) => set({ viewedPubkey: pubkey }),
 
   /**
@@ -132,30 +130,23 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
    * deterministic, this produces the correct aircraft positions for any tick
    * without requiring incremental simulation.
    *
-   * IMPORTANT: This function only updates the combined globalFleet for
-   * display purposes. It does NOT mutate globalFleetByOwner (authoritative
-   * fleet by owner) or the competitors map (lastTick, corporateBalance).
-   * Authoritative state is written exclusively by syncWorld/syncCompetitor,
-   * which also apply monthly recurring costs via applyMonthlyCosts.
+   * IMPORTANT: This function updates `fleetByOwner` with projected positions
+   * for competitors.  Player fleet is NOT re-projected here — it is kept in
+   * sync by identitySlice/fleetSlice/engineSlice.
    *
    * reconcileFleetToTick updates lastTickProcessed on individual aircraft,
    * preventing double-counted landings on subsequent projection calls.
    */
   projectCompetitorFleet: (tick: number) => {
-    const { competitors, globalFleetByOwner, globalRoutesByOwner, fleet: playerFleet } = get();
-    if (competitors.size === 0 && (!playerFleet || playerFleet.length === 0)) return;
+    const { competitors, fleetByOwner, routesByOwner } = get();
+    if (competitors.size === 0) return;
 
-    const updatedGlobalFleet: AircraftInstance[] = [];
     let anyChanges = false;
-
-    // Include player's own fleet in the display fleet (they're always at current tick)
-    if (playerFleet && playerFleet.length > 0) {
-      updatedGlobalFleet.push(...playerFleet);
-    }
+    const updatedFleetByOwner = new Map(fleetByOwner);
 
     for (const [pubkey, airline] of competitors) {
-      const compFleet = globalFleetByOwner.get(pubkey) || [];
-      const compRoutes = globalRoutesByOwner.get(pubkey) || [];
+      const compFleet = fleetByOwner.get(pubkey) || [];
+      const compRoutes = routesByOwner.get(pubkey) || [];
 
       if (compFleet.length === 0) {
         continue;
@@ -163,27 +154,18 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
 
       // Already at or ahead of this tick — carry forward as-is
       if (airline.lastTick != null && airline.lastTick >= tick) {
-        updatedGlobalFleet.push(...compFleet);
         continue;
       }
 
-      // Project fleet positions for display only. This does NOT update
-      // globalFleetByOwner (authoritative) — only the combined display fleet.
+      // Project fleet positions and update the per-owner index.
       const { fleet: projectedFleet } = reconcileFleetToTick(compFleet, compRoutes, tick);
-      updatedGlobalFleet.push(...projectedFleet);
+      updatedFleetByOwner.set(pubkey, projectedFleet);
       anyChanges = true;
     }
 
-    // Skip update if no changes and no player fleet to display
-    if (!anyChanges && (!playerFleet || playerFleet.length === 0)) {
-      return;
-    }
+    if (!anyChanges) return;
 
-    // Write to globalFleet (display) only — NOT globalFleetByOwner (authoritative).
-    // This keeps the per-owner index clean for syncWorld reconciliation.
-    set({
-      globalFleet: updatedGlobalFleet,
-    });
+    set({ fleetByOwner: updatedFleetByOwner });
   },
 
   syncWorld: async (options?: { force?: boolean }) => {
@@ -211,8 +193,12 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         const fetchedPubkeys = new Set<string>();
         const competitors = new Map<string, AirlineEntity>(existingState.competitors);
         const registry = new Map<string, FlightOffer[]>();
-        const allGlobalFleet: AircraftInstance[] = [];
-        const allGlobalRoutes: Route[] = [];
+        const allCompetitorFleet: AircraftInstance[] = [];
+        const allCompetitorRoutes: Route[] = [];
+        /** Per-owner fleet index built during processing. */
+        const competitorFleetByOwner = new Map<string, AircraftInstance[]>();
+        /** Per-owner routes index built during processing. */
+        const competitorRoutesByOwner = new Map<string, Route[]>();
 
         const rejectedBuyEventIds = computeRejectedBuyEventIds(actions);
 
@@ -258,47 +244,59 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
           if (!replayed.airline) continue;
 
           const airline = replayed.airline;
-          const fleet = replayed.fleet;
-          const routes = replayed.routes;
+          let resolvedFleet = replayed.fleet;
+          const resolvedRoutes = replayed.routes;
 
-          const existingCompetitor = existingState.competitors.get(authorPubkey) ?? null;
-          const existingLastTick = existingCompetitor?.lastTick ?? -1;
-          const parsedLastTick = airline.lastTick ?? 0;
+          // Merge strategy: always use the replayed airline entity (it has the
+          // latest name, hubs, balance, etc.) but protect against partial relay
+          // responses that return fewer actions than expected, which can produce
+          // an empty fleet even though the competitor actually has aircraft.
+          //
+          // The previous staleness guard compared existingCompetitor.lastTick
+          // (inflated to currentTick by local projection every 3s) against
+          // replayed.lastTick and discarded the replay whenever projection had
+          // run.  This caused newly purchased aircraft to never appear for
+          // competitors because the locally-projected stale fleet always "won."
+          //
+          // New approach: if the replay produced strictly fewer aircraft than
+          // we already know about, keep the existing fleet/routes (partial relay
+          // protection).  Otherwise, take the fresh replay (new aircraft appear).
+          const existingCompetitorFleet = existingState.fleetByOwner.get(authorPubkey) || [];
+          const existingCompetitorRoutes = existingState.routesByOwner.get(authorPubkey) || [];
 
-          const resolvedAirline =
-            existingCompetitor && existingLastTick > parsedLastTick ? existingCompetitor : airline;
-          let resolvedFleet =
-            existingCompetitor && existingLastTick > parsedLastTick
-              ? existingState.globalFleetByOwner.get(authorPubkey) || []
-              : fleet;
-          const resolvedRoutes =
-            existingCompetitor && existingLastTick > parsedLastTick
-              ? existingState.globalRoutesByOwner.get(authorPubkey) || []
-              : routes;
+          if (
+            existingCompetitorFleet.length > 0 &&
+            resolvedFleet.length < existingCompetitorFleet.length
+          ) {
+            resolvedFleet = existingCompetitorFleet;
+          }
+          const finalRoutes =
+            existingCompetitorRoutes.length > resolvedRoutes.length
+              ? existingCompetitorRoutes
+              : resolvedRoutes;
 
           // Reconcile fleet positions to lastTick — same fix as player identity.
           // Without this, checkpoint fleet has stale arrivalTick/turnaroundEndTick
           // values while lastTick was pushed ahead by TICK_UPDATE actions, causing
           // all competitor aircraft to land and depart simultaneously on load.
-          if (resolvedAirline.lastTick != null && resolvedFleet.length > 0) {
+          if (airline.lastTick != null && resolvedFleet.length > 0) {
             const { fleet: reconciledFleet, balanceDelta } = reconcileFleetToTick(
               resolvedFleet,
-              resolvedRoutes,
-              resolvedAirline.lastTick,
+              finalRoutes,
+              airline.lastTick,
             );
             resolvedFleet = reconciledFleet;
-            resolvedAirline.corporateBalance = fpAdd(
-              resolvedAirline.corporateBalance,
-              balanceDelta,
-            );
+            airline.corporateBalance = fpAdd(airline.corporateBalance, balanceDelta);
           }
 
-          competitors.set(authorPubkey, resolvedAirline);
+          competitors.set(authorPubkey, airline);
           fetchedPubkeys.add(authorPubkey);
-          allGlobalFleet.push(...resolvedFleet);
-          allGlobalRoutes.push(...resolvedRoutes);
+          allCompetitorFleet.push(...resolvedFleet);
+          allCompetitorRoutes.push(...finalRoutes);
+          competitorFleetByOwner.set(authorPubkey, resolvedFleet);
+          competitorRoutesByOwner.set(authorPubkey, finalRoutes);
 
-          for (const route of resolvedRoutes) {
+          for (const route of finalRoutes) {
             if (route.status !== "active") continue;
 
             const key = `${route.originIata}-${route.destinationIata}`;
@@ -328,7 +326,7 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             }
 
             const offer: FlightOffer = {
-              airlinePubkey: resolvedAirline.ceoPubkey,
+              airlinePubkey: airline.ceoPubkey,
               fareEconomy: route.fareEconomy,
               fareBusiness: route.fareBusiness,
               fareFirst: route.fareFirst,
@@ -336,7 +334,7 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
               travelTimeMinutes: Math.round(avgTravelTime) || 480,
               stops: 0,
               serviceScore: 0.7,
-              brandScore: resolvedAirline.brandScore || 0.5,
+              brandScore: airline.brandScore || 0.5,
             };
 
             offers.push(offer);
@@ -351,10 +349,12 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
           if (fetchedPubkeys.has(pubkey)) continue;
           // This competitor was already in state but missing from the
           // current fetch — carry forward its existing fleet & routes.
-          const preservedFleet = existingState.globalFleetByOwner.get(pubkey) || [];
-          const preservedRoutes = existingState.globalRoutesByOwner.get(pubkey) || [];
-          allGlobalFleet.push(...preservedFleet);
-          allGlobalRoutes.push(...preservedRoutes);
+          const preservedFleet = existingState.fleetByOwner.get(pubkey) || [];
+          const preservedRoutes = existingState.routesByOwner.get(pubkey) || [];
+          allCompetitorFleet.push(...preservedFleet);
+          allCompetitorRoutes.push(...preservedRoutes);
+          competitorFleetByOwner.set(pubkey, preservedFleet);
+          competitorRoutesByOwner.set(pubkey, preservedRoutes);
 
           for (const route of preservedRoutes) {
             if (route.status !== "active") continue;
@@ -403,14 +403,23 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         // catch-up loop.  This is O(N) per aircraft instead of O(N*T).
         const currentTick = useEngineStore.getState().tick;
 
-        // Include player's fleet in the display globalFleet
+        // Include player's fleet & routes in the unified maps
         const playerFleet = existingState.fleet || [];
+        const playerRoutes = existingState.routes || [];
+        const playerPubkey = existingState.pubkey;
 
         if (currentTick > 0 && competitors.size > 0) {
-          const allFleetByOwner = buildFleetIndex(allGlobalFleet);
-          const allRoutesByOwner = buildRoutesIndex(allGlobalRoutes);
-          const updatedGlobalFleet: AircraftInstance[] = [...playerFleet];
+          const allFleetByOwner = buildFleetIndex(allCompetitorFleet);
+          const allRoutesByOwner = buildRoutesIndex(allCompetitorRoutes);
           const updatedCompetitors = new Map(competitors);
+          const updatedFleetByOwner = new Map<string, AircraftInstance[]>();
+          const updatedRoutesByOwner = new Map<string, Route[]>();
+
+          // Seed player data into the unified maps
+          if (playerPubkey) {
+            updatedFleetByOwner.set(playerPubkey, playerFleet);
+            updatedRoutesByOwner.set(playerPubkey, playerRoutes);
+          }
 
           for (const [competitorPubkey, airline] of competitors) {
             const compFleet = allFleetByOwner.get(competitorPubkey) || [];
@@ -419,6 +428,9 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             // Apply monthly costs even for competitors with zero aircraft.
             // They may have hub opex that needs to be charged.
             if (compFleet.length === 0) {
+              // Preserve entries in unified maps so routes aren't lost
+              updatedFleetByOwner.set(competitorPubkey, compFleet);
+              updatedRoutesByOwner.set(competitorPubkey, compRoutes);
               if (airline.lastTick == null || airline.lastTick < currentTick) {
                 updatedCompetitors.set(competitorPubkey, {
                   ...airline,
@@ -436,7 +448,8 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             }
 
             if (airline.lastTick != null && airline.lastTick >= currentTick) {
-              updatedGlobalFleet.push(...compFleet);
+              updatedFleetByOwner.set(competitorPubkey, compFleet);
+              updatedRoutesByOwner.set(competitorPubkey, compRoutes);
               continue;
             }
 
@@ -445,7 +458,8 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
               compRoutes,
               currentTick,
             );
-            updatedGlobalFleet.push(...projectedFleet);
+            updatedFleetByOwner.set(competitorPubkey, projectedFleet);
+            updatedRoutesByOwner.set(competitorPubkey, compRoutes);
 
             const projectedBalance = applyMonthlyCosts(
               fpAdd(airline.corporateBalance, balanceDelta),
@@ -461,38 +475,34 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             });
           }
 
-          // Include fleet for competitors that had no entries in the fetched
-          // data but were already in allGlobalFleet (shouldn't happen, but
-          // defensive).
-          const finalFleet = updatedGlobalFleet;
-
-          // Build globalFleetByOwner from competitor fleet only (authoritative index).
-          // Do NOT include player fleet here - it's in a separate slice.
-          const competitorFleet = finalFleet.filter(
-            (ac) => ac.ownerPubkey !== existingState.pubkey,
-          );
-
           set({
             competitors: updatedCompetitors,
-            globalFleet: finalFleet,
-            globalFleetByOwner: buildFleetIndex(competitorFleet),
-            globalRoutes: allGlobalRoutes,
-            globalRoutesByOwner: buildRoutesIndex(allGlobalRoutes),
+            fleetByOwner: updatedFleetByOwner,
+            routesByOwner: updatedRoutesByOwner,
             globalRouteRegistry: registry,
           });
 
-          await settleMarketplaceSales(get, set, finalFleet);
-          return;
+          await settleMarketplaceSales(get, set);
+        } else {
+          // No projection needed (tick === 0 or no competitors) — just store raw data
+          const finalFleetByOwner = new Map(competitorFleetByOwner);
+          const finalRoutesByOwner = new Map(competitorRoutesByOwner);
+          if (playerPubkey) {
+            finalFleetByOwner.set(playerPubkey, playerFleet);
+            finalRoutesByOwner.set(playerPubkey, playerRoutes);
+          }
+
+          set({
+            competitors,
+            globalRouteRegistry: registry,
+            fleetByOwner: finalFleetByOwner,
+            routesByOwner: finalRoutesByOwner,
+          });
+
+          await settleMarketplaceSales(get, set);
         }
 
-        set({
-          competitors,
-          globalRouteRegistry: registry,
-          globalFleet: [...playerFleet, ...allGlobalFleet],
-          globalFleetByOwner: buildFleetIndex(allGlobalFleet),
-          globalRoutes: allGlobalRoutes,
-          globalRoutesByOwner: buildRoutesIndex(allGlobalRoutes),
-        });
+        // --- Shared post-sync housekeeping (runs for both paths) ---
         useEngineStore.setState({ catchupProgress: null });
 
         // --- Competitor Alerts ---
@@ -500,16 +510,16 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         if (myAirline) {
           const myHubs = new Set(myAirline.hubs || []);
           const newTimelineEvents: TimelineEvent[] = [];
-          const currentTick = useEngineStore.getState().tick;
+          const alertTick = useEngineStore.getState().tick;
 
-          for (const [pubkey, comp] of competitors) {
-            if (pubkey === existingState.pubkey) continue;
-            const prevComp = existingState.competitors.get(pubkey);
+          for (const [alertPubkey, comp] of competitors) {
+            if (alertPubkey === existingState.pubkey) continue;
+            const prevComp = existingState.competitors.get(alertPubkey);
             for (const hub of comp.hubs) {
               if (myHubs.has(hub) && (!prevComp || !prevComp.hubs.includes(hub))) {
                 newTimelineEvents.push({
-                  id: `evt-comp-hub-${pubkey}-${hub}-${currentTick}`,
-                  tick: currentTick,
+                  id: `evt-comp-hub-${alertPubkey}-${hub}-${alertTick}`,
+                  tick: alertTick,
                   timestamp: Date.now(),
                   type: "competitor_hub",
                   description: `Competitor ${comp.name} just opened a hub at ${hub}!`,
@@ -524,13 +534,6 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             });
           }
         }
-
-        // --- Seller-side settlement ---
-        // Detect aircraft we listed for sale that now appear in a competitor's fleet.
-        // This means the buyer purchased it; we must settle: remove from our fleet,
-        // credit the listing price, delete our marketplace event (NIP-09 compliant),
-        // and record a timeline event.
-        await settleMarketplaceSales(get, set, allGlobalFleet);
       } catch (error) {
         console.error("[WorldSlice] Failed to sync world:", error);
         useEngineStore.setState({ catchupProgress: null });
@@ -636,24 +639,12 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
       const updatedCompetitors = new Map(freshState.competitors);
       updatedCompetitors.set(competitorPubkey, airline);
 
-      // Rebuild global fleet: remove old entries for this competitor, add new ones
-      // Note: globalFleet includes player + competitor aircraft for display
-      const updatedGlobalFleet = [
-        ...freshState.globalFleet.filter((ac) => ac.ownerPubkey !== competitorPubkey),
-        ...resolvedFleet,
-      ];
+      // Update unified fleet/routes maps: replace this competitor's entry in-place
+      const updatedFleetByOwner = new Map(freshState.fleetByOwner);
+      updatedFleetByOwner.set(competitorPubkey, resolvedFleet);
 
-      // Build globalFleetByOwner from competitor fleet only (authoritative index).
-      // Do NOT include player fleet here - it's in a separate slice.
-      const competitorFleet = updatedGlobalFleet.filter(
-        (ac) => ac.ownerPubkey !== freshState.pubkey,
-      );
-
-      // Rebuild global routes: remove old entries for this competitor, add new ones
-      const updatedGlobalRoutes = [
-        ...freshState.globalRoutes.filter((rt) => rt.airlinePubkey !== competitorPubkey),
-        ...resolvedRoutes,
-      ];
+      const updatedRoutesByOwner = new Map(freshState.routesByOwner);
+      updatedRoutesByOwner.set(competitorPubkey, resolvedRoutes);
 
       // Rebuild route registry: remove old offers from this competitor, add new ones
       const updatedRegistry = new Map(freshState.globalRouteRegistry);
@@ -710,10 +701,8 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
 
       set({
         competitors: updatedCompetitors,
-        globalFleet: updatedGlobalFleet,
-        globalFleetByOwner: buildFleetIndex(competitorFleet),
-        globalRoutes: updatedGlobalRoutes,
-        globalRoutesByOwner: buildRoutesIndex(updatedGlobalRoutes),
+        fleetByOwner: updatedFleetByOwner,
+        routesByOwner: updatedRoutesByOwner,
         globalRouteRegistry: updatedRegistry,
       });
     } catch (error) {
@@ -729,19 +718,24 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
  * Seller-side marketplace settlement.
  *
  * For each aircraft in our fleet that has a `listingPrice` set, check if the
- * same instanceId now exists in a competitor's fleet (globalFleet). If so,
+ * same instanceId now exists in a competitor's fleet (fleetByOwner). If so,
  * the buyer has claimed it — settle the transaction on our side.
  */
 async function settleMarketplaceSales(
   get: () => AirlineState,
   set: (state: Partial<AirlineState>) => void,
-  globalFleet: AircraftInstance[],
 ): Promise<void> {
-  const { airline, fleet, routes, timeline, pubkey } = get();
+  const { airline, fleet, routes, timeline, pubkey, fleetByOwner } = get();
   if (!airline || !pubkey) return;
 
   // Build a set of all aircraft IDs owned by competitors
-  const competitorAircraftIds = new Set(globalFleet.map((ac) => ac.id));
+  const competitorAircraftIds = new Set<string>();
+  for (const [ownerPubkey, ownerFleet] of fleetByOwner) {
+    if (ownerPubkey === pubkey) continue;
+    for (const ac of ownerFleet) {
+      competitorAircraftIds.add(ac.id);
+    }
+  }
 
   // Find our listed aircraft that now appear in a competitor's fleet
   const soldAircraft = fleet.filter(

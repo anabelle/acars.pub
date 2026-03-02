@@ -54,10 +54,8 @@ const createSliceState = (overrides: Partial<AirlineState>) => {
     processTick: vi.fn(),
     competitors: new Map(),
     globalRouteRegistry: new Map(),
-    globalFleet: [],
-    globalFleetByOwner: new Map(),
-    globalRoutes: [],
-    globalRoutesByOwner: new Map(),
+    fleetByOwner: new Map(),
+    routesByOwner: new Map(),
     syncWorld: vi.fn(),
     syncCompetitor: vi.fn(),
     projectCompetitorFleet: vi.fn(),
@@ -164,23 +162,21 @@ describe("projectCompetitorFleet", () => {
       [currentPubkey, makeAirline(currentPubkey, tick)],
     ]);
 
-    const globalFleet = [
+    const allFleet = [
       makeAircraft("ac-behind", behindPubkey),
       makeAircraft("ac-current", currentPubkey),
     ];
 
     const { state } = createSliceState({
       competitors,
-      globalFleet,
-      globalFleetByOwner: buildFleetIndex(globalFleet),
-      globalRoutes: [],
-      globalRoutesByOwner: buildRoutesIndex([]),
+      fleetByOwner: buildFleetIndex(allFleet),
+      routesByOwner: buildRoutesIndex([]),
     });
 
     state.projectCompetitorFleet(tick);
 
-    // Both aircraft should appear in the projected global fleet
-    const ids = state.globalFleet.map((ac) => ac.id);
+    // Both aircraft should appear in the projected fleet
+    const ids = [...state.fleetByOwner.values()].flat().map((ac) => ac.id);
     expect(ids).toContain("ac-behind");
     expect(ids).toContain("ac-current");
 
@@ -197,8 +193,7 @@ describe("projectCompetitorFleet", () => {
   it("does nothing when no competitors exist", () => {
     const { state, set } = createSliceState({
       competitors: new Map(),
-      globalFleet: [],
-      globalFleetByOwner: new Map(),
+      fleetByOwner: new Map(),
     });
 
     state.projectCompetitorFleet(100);
@@ -217,10 +212,8 @@ describe("projectCompetitorFleet", () => {
 
     const { state, set } = createSliceState({
       competitors,
-      globalFleet: fleet,
-      globalFleetByOwner: buildFleetIndex(fleet),
-      globalRoutes: [],
-      globalRoutesByOwner: buildRoutesIndex([]),
+      fleetByOwner: buildFleetIndex(fleet),
+      routesByOwner: buildRoutesIndex([]),
     });
 
     state.projectCompetitorFleet(tick);
@@ -241,7 +234,7 @@ describe("syncWorld", () => {
     (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(new Map());
   });
 
-  it("preserves newer competitor state over older sync snapshot", async () => {
+  it("preserves existing fleet when replay returns fewer aircraft (partial relay)", async () => {
     const { loadActionLog } = await import("@acars/nostr");
     const pubkey = "comp-stable";
 
@@ -270,16 +263,82 @@ describe("syncWorld", () => {
 
     const { state } = createSliceState({
       competitors: new Map([[pubkey, newerAirline]]),
-      globalFleet: newerFleet,
-      globalFleetByOwner: buildFleetIndex(newerFleet),
-      globalRoutes: [],
-      globalRoutesByOwner: buildRoutesIndex([]),
+      fleetByOwner: buildFleetIndex(newerFleet),
+      routesByOwner: buildRoutesIndex([]),
     });
 
     await state.syncWorld();
 
-    const ids = state.globalFleet.map((ac) => ac.id);
+    const ids = [...state.fleetByOwner.values()].flat().map((ac) => ac.id);
     expect(ids).toContain("ac-new");
+  });
+
+  it("adopts replayed fleet when replay has more aircraft than local state", async () => {
+    const { loadActionLog } = await import("@acars/nostr");
+    const pubkey = "comp-growing";
+
+    // Existing state: competitor has 1 aircraft, projected to lastTick 500
+    const existingAirline = makeAirline(pubkey, 500);
+    const existingFleet = [makeAircraft("ac-old", pubkey)];
+
+    // Relay returns actions that replay into 2 aircraft (AIRLINE_CREATE + 2 purchases)
+    (loadActionLog as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        event: { id: "evt-1", author: { pubkey }, created_at: 1 },
+        action: {
+          schemaVersion: 2,
+          action: "AIRLINE_CREATE",
+          payload: {
+            name: "Growing Air",
+            hubs: ["JFK"],
+            corporateBalance: 1000000000000,
+            tick: 10,
+          },
+        },
+      },
+      {
+        event: { id: "evt-2", author: { pubkey }, created_at: 2 },
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_PURCHASE",
+          payload: {
+            instanceId: "ac-old",
+            modelId: "atr72-600",
+            price: 1000000,
+            deliveryHubIata: "JFK",
+            tick: 20,
+          },
+        },
+      },
+      {
+        event: { id: "evt-3", author: { pubkey }, created_at: 3 },
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_PURCHASE",
+          payload: {
+            instanceId: "ac-new-purchase",
+            modelId: "atr72-600",
+            price: 1000000,
+            deliveryHubIata: "JFK",
+            tick: 30,
+          },
+        },
+      },
+    ]);
+
+    const { state } = createSliceState({
+      competitors: new Map([[pubkey, existingAirline]]),
+      fleetByOwner: buildFleetIndex(existingFleet),
+      routesByOwner: buildRoutesIndex([]),
+    });
+
+    await state.syncWorld();
+
+    // The replayed fleet (2 aircraft) should be adopted over the existing (1 aircraft)
+    const ids = [...state.fleetByOwner.values()].flat().map((ac) => ac.id);
+    expect(ids).toContain("ac-old");
+    expect(ids).toContain("ac-new-purchase");
+    expect(ids).toHaveLength(2);
   });
 
   it("projects competitor fleet to current tick during sync", async () => {
@@ -326,15 +385,13 @@ describe("syncWorld", () => {
 
     const { state } = createSliceState({
       competitors: new Map(),
-      globalFleet: [],
-      globalFleetByOwner: buildFleetIndex([]),
-      globalRoutes: [],
-      globalRoutesByOwner: buildRoutesIndex([]),
+      fleetByOwner: buildFleetIndex([]),
+      routesByOwner: buildRoutesIndex([]),
     });
 
     await state.syncWorld();
 
-    const ids = state.globalFleet.map((ac) => ac.id);
+    const ids = [...state.fleetByOwner.values()].flat().map((ac) => ac.id);
     expect(ids).toContain("ac-fast");
   });
 

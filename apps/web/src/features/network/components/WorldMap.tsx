@@ -1,4 +1,4 @@
-import type { AircraftInstance, Airport } from "@acars/core";
+import type { AircraftInstance, Airport, Route } from "@acars/core";
 import { airports as AIRPORTS } from "@acars/data";
 import { Globe as CoreGlobe } from "@acars/map";
 import { useAirlineStore, useEngineStore } from "@acars/store";
@@ -11,7 +11,8 @@ export function WorldMap() {
   const homeAirport = useEngineStore((s) => s.homeAirport);
   const tick = useEngineStore((s) => s.tick);
   const tickProgress = useEngineStore((s) => s.tickProgress);
-  const { airline, fleet, globalFleet, globalRoutes, competitors, routes } = useAirlineStore();
+  const { airline, fleet, fleetByOwner, routesByOwner, competitors, routes, pubkey } =
+    useAirlineStore();
   const [inspectedAirport, setInspectedAirport] = useState<Airport | null>(null);
   const [inspectedAircraft, setInspectedAircraft] = useState<AircraftInstance | null>(null);
   const [focusedAirport, setFocusedAirport] = useState<Airport | null>(null);
@@ -64,32 +65,41 @@ export function WorldMap() {
     setInspectedAircraft(null);
   };
 
-  const filteredGlobalFleet = useMemo(() => {
-    if (!airline) return globalFleet;
-    const playerPubkey = airline.ceoPubkey;
-    const playerIds = new Set(fleet.map((ac) => ac.id));
-    return globalFleet.filter(
-      (aircraft) => aircraft.ownerPubkey !== playerPubkey && !playerIds.has(aircraft.id),
-    );
-  }, [airline, fleet, globalFleet]);
+  const competitorFleet = useMemo(() => {
+    const playerPubkey = pubkey ?? null;
+    const result: AircraftInstance[] = [];
+    fleetByOwner.forEach((ownerFleet, key) => {
+      if (key !== playerPubkey) result.push(...ownerFleet);
+    });
+    return result;
+  }, [pubkey, fleetByOwner]);
+
+  const competitorRoutes = useMemo(() => {
+    const playerPubkey = pubkey ?? null;
+    const result: Route[] = [];
+    routesByOwner.forEach((ownerRoutes, key) => {
+      if (key !== playerPubkey) result.push(...ownerRoutes);
+    });
+    return result;
+  }, [pubkey, routesByOwner]);
 
   const handleAircraftSelect = useCallback(
     (aircraftId: string) => {
       const ac =
         fleet.find((a) => a.id === aircraftId) ??
-        filteredGlobalFleet.find((a) => a.id === aircraftId) ??
+        competitorFleet.find((a) => a.id === aircraftId) ??
         null;
       if (!ac) return;
       setInspectedAircraft(ac);
       setInspectedAirport(null);
       setFocusedAirport(null);
     },
-    [fleet, filteredGlobalFleet],
+    [fleet, competitorFleet],
   );
 
   const { presence: groundPresence } = useMemo(
-    () => buildGroundPresenceByAirport(fleet, filteredGlobalFleet, airline ?? null, competitors),
-    [fleet, filteredGlobalFleet, airline, competitors],
+    () => buildGroundPresenceByAirport(fleet, competitorFleet, airline ?? null, competitors),
+    [fleet, competitorFleet, airline, competitors],
   );
 
   if (!homeAirport) return null;
@@ -110,8 +120,8 @@ export function WorldMap() {
         }}
         groundPresence={groundPresence}
         fleet={fleet}
-        globalFleet={filteredGlobalFleet}
-        globalRoutes={globalRoutes}
+        competitorFleet={competitorFleet}
+        competitorRoutes={competitorRoutes}
         playerLivery={airline?.livery || null}
         competitorLiveries={competitorLiveries}
         playerHubs={playerHubs}

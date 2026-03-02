@@ -1,4 +1,4 @@
-import type { FixedPoint } from "@acars/core";
+import type { AircraftInstance, FixedPoint, Route } from "@acars/core";
 import { fpFormat } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { ArrowDownRight, ArrowUpRight, Trophy } from "lucide-react";
@@ -17,7 +17,11 @@ const metricMeta: Record<
   LeaderboardMetric,
   { label: string; description: string; isMoney?: boolean }
 > = {
-  balance: { label: "Liquidity", description: "Ranked by corporate cash position", isMoney: true },
+  balance: {
+    label: "Liquidity",
+    description: "Ranked by corporate cash position",
+    isMoney: true,
+  },
   fleet: { label: "Fleet Size", description: "Ranked by total aircraft count" },
   routes: { label: "Route Count", description: "Ranked by active route count" },
   brand: { label: "Brand Score", description: "Ranked by service reputation" },
@@ -26,7 +30,10 @@ const metricMeta: Record<
     description: "Ranked by depreciated fleet value",
     isMoney: true,
   },
-  networkDistance: { label: "Network Distance", description: "Ranked by total route kilometers" },
+  networkDistance: {
+    label: "Network Distance",
+    description: "Ranked by total route kilometers",
+  },
 };
 
 function formatBrandScore(value: number) {
@@ -155,20 +162,30 @@ function LeaderboardRow({
 export function Leaderboard() {
   const competitors = useAirlineStore((s) => s.competitors);
   const airline = useAirlineStore((s) => s.airline);
-  const fleet = useAirlineStore((s) => s.fleet);
-  const routes = useAirlineStore((s) => s.routes);
-  const globalFleet = useAirlineStore((s) => s.globalFleet);
-  const globalRoutes = useAirlineStore((s) => s.globalRoutes);
+  const fleetByOwner = useAirlineStore((s) => s.fleetByOwner);
+  const routesByOwner = useAirlineStore((s) => s.routesByOwner);
   const viewAs = useAirlineStore((s) => s.viewAs);
   const currentTick = useEngineStore((s) => s.tick);
   const [metric, setMetric] = useState<LeaderboardMetric>("balance");
 
-  const rows = useMemo(() => {
-    const aircraftById = new Map(
-      [...globalFleet, ...fleet].map((aircraft) => [aircraft.id, aircraft]),
-    );
-    const routeById = new Map([...globalRoutes, ...routes].map((route) => [route.id, route]));
+  // Build lookup maps separately so toggling metric doesn't rebuild them
+  const { aircraftById, routeById } = useMemo(() => {
+    const aircraftMap = new Map<string, AircraftInstance>();
+    for (const ownerFleet of fleetByOwner.values()) {
+      for (const aircraft of ownerFleet) {
+        aircraftMap.set(aircraft.id, aircraft);
+      }
+    }
+    const routeMap = new Map<string, Route>();
+    for (const ownerRoutes of routesByOwner.values()) {
+      for (const route of ownerRoutes) {
+        routeMap.set(route.id, route);
+      }
+    }
+    return { aircraftById: aircraftMap, routeById: routeMap };
+  }, [fleetByOwner, routesByOwner]);
 
+  const rows = useMemo(() => {
     const entries = Array.from(competitors.values());
     if (airline) {
       entries.push(airline);
@@ -183,7 +200,7 @@ export function Leaderboard() {
     );
 
     return sortLeaderboardRows(scored, metric);
-  }, [competitors, airline, fleet, routes, globalFleet, globalRoutes, currentTick, metric]);
+  }, [competitors, airline, aircraftById, routeById, currentTick, metric]);
 
   const ownId = airline?.id ?? null;
 
