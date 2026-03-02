@@ -16,7 +16,11 @@ import { publishCheckpoint } from "@acars/nostr";
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
-import { estimateLandingFinancials, processFlightEngine } from "../FlightEngine";
+import {
+  estimateLandingFinancials,
+  processFlightEngine,
+  reconcileFleetToTick,
+} from "../FlightEngine";
 import type { AirlineState } from "../types";
 import { AsyncMutex } from "../utils/asyncMutex";
 
@@ -235,6 +239,15 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         return;
       }
 
+      // Immediate visual reconciliation: project fleet to target tick using
+      // deterministic cycle algebra so the map shows correct positions while
+      // the tick-by-tick financial simulation catches up. Without this, the
+      // fleet appears stuck at stale arrivalTick positions during catch-up.
+      if (targetTick - lastTick > 1) {
+        const { fleet: projectedFleet } = reconcileFleetToTick(fleet, routes, targetTick);
+        set({ fleet: projectedFleet });
+      }
+
       let processingError = false;
       let lastProcessedTick = lastTick;
       for (let t = lastTick + 1; t <= targetTick; t++) {
@@ -353,9 +366,10 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       // Event IDs use the same format as processFlightEngine so duplicates
       // produced later by the tick loop are automatically filtered out.
       const MAX_BACKFILL_PER_AIRCRAFT = 40;
+      const routeById = new Map(routes.map((route) => [route.id, route]));
       for (const ac of currentFleet) {
         if (!ac.assignedRouteId) continue;
-        const route = routes.find((r) => r.id === ac.assignedRouteId);
+        const route = routeById.get(ac.assignedRouteId);
         const model = getAircraftById(ac.modelId);
         if (!route || route.status !== "active" || !model) continue;
         if (route.distanceKm > (model.rangeKm || 0)) continue;
@@ -451,8 +465,8 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         }
       }
 
-      // Merge backfill events into timeline BEFORE the tick loop so that
-      // processFlightEngine's duplicate landing events are deduplicated.
+      // Merge backfill events into timeline AFTER the tick loop catch-up work;
+      // processFlightEngine duplicate landing events are deduplicated by ID.
       if (recoveryEvents.length > 0) {
         const newEvents = recoveryEvents.filter((e) => !timelineEventIds.has(e.id));
         if (newEvents.length > 0) {
@@ -493,7 +507,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
 
       for (const ac of currentFleet) {
         if (ac.status === "idle" && ac.assignedRouteId) {
-          const route = routes.find((r) => r.id === ac.assignedRouteId);
+          const route = routeById.get(ac.assignedRouteId);
           const model = getAircraftById(ac.modelId);
           if (!route || route.status !== "active" || !model) continue;
           const isGrounded = ac.condition < 0.2 || ac.flightHoursSinceCheck > 600;
@@ -591,7 +605,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
 
           // Look up the route to calculate full financial breakdown
           const isFerry = ac.flight?.purpose === "ferry";
-          const route = !isFerry ? routes.find((r) => r.id === ac.assignedRouteId) : null;
+          const route = !isFerry && ac.assignedRouteId ? routeById.get(ac.assignedRouteId) : null;
 
           // Calculate financials BEFORE mutating aircraft state so ac.flight is intact
           let landingResult: ReturnType<typeof estimateLandingFinancials> | null = null;
@@ -656,7 +670,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         }
 
         if (ac.status === "turnaround" && (ac.turnaroundEndTick || 0) <= targetTick) {
-          const route = routes.find((r) => r.id === ac.assignedRouteId);
+          const route = ac.assignedRouteId ? routeById.get(ac.assignedRouteId) : undefined;
           const model = getAircraftById(ac.modelId);
           if (route && ac.flight && model) {
             const hours = route.distanceKm / (model.speedKmh || 800);
