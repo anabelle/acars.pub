@@ -27,6 +27,7 @@ export interface EngineSlice {
 const tickMutex = new AsyncMutex();
 const CHECKPOINT_INTERVAL = 1200;
 const CHECKPOINT_TIMELINE_EVENTS = 1000;
+const TICK_UPDATE_TIMELINE_EVENTS = 200;
 let skippedTickLockCount = 0;
 const TICK_LOCK_LOG_BURST = 3;
 const TICK_LOCK_LOG_SAMPLE = 100;
@@ -80,6 +81,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             payload: {
               status: "chapter11",
               tick,
+              timeline: get().timeline.slice(0, TICK_UPDATE_TIMELINE_EVENTS),
             },
           },
           get,
@@ -222,6 +224,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
               action: "TICK_UPDATE",
               payload: {
                 tick: targetTick,
+                timeline: currentTimeline.slice(0, TICK_UPDATE_TIMELINE_EVENTS),
               },
             },
             get,
@@ -640,6 +643,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             action: "TICK_UPDATE",
             payload: {
               tick: targetTick,
+              timeline: currentTimeline.slice(0, TICK_UPDATE_TIMELINE_EVENTS),
             },
           },
           get,
