@@ -238,6 +238,46 @@ export async function replayActionLog(params: {
     }
   };
 
+  const mergeTickTimelineEvents = (value: unknown) => {
+    if (!Array.isArray(value)) return;
+    for (const candidate of value) {
+      const record = asRecord(candidate);
+      if (!record) continue;
+      const id = asString(record.id);
+      const type = asString(record.type);
+      const description = asString(record.description);
+      const tick = asNumber(record.tick);
+      const timestamp = asNumber(record.timestamp);
+      if (!id || !type || !description || tick == null || timestamp == null) continue;
+      const event: TimelineEvent = {
+        id,
+        type: type as TimelineEvent["type"],
+        description,
+        tick: Math.floor(tick),
+        timestamp: Math.floor(timestamp),
+      };
+      const aircraftId = asString(record.aircraftId);
+      if (aircraftId) event.aircraftId = aircraftId;
+      const aircraftName = asString(record.aircraftName);
+      if (aircraftName) event.aircraftName = aircraftName;
+      const routeId = asString(record.routeId);
+      if (routeId) event.routeId = routeId;
+      const originIata = sanitizeIata(record.originIata);
+      if (originIata) event.originIata = originIata;
+      const destinationIata = sanitizeIata(record.destinationIata);
+      if (destinationIata) event.destinationIata = destinationIata;
+      const revenue = asNumber(record.revenue);
+      if (revenue != null) event.revenue = Math.round(revenue) as FixedPoint;
+      const cost = asNumber(record.cost);
+      if (cost != null) event.cost = Math.round(cost) as FixedPoint;
+      const profit = asNumber(record.profit);
+      if (profit != null) event.profit = Math.round(profit) as FixedPoint;
+      const details = asRecord(record.details);
+      if (details) event.details = details as TimelineEvent["details"];
+      pushTimelineEvent(event);
+    }
+  };
+
   const sortedTimeline = () =>
     timeline
       .slice()
@@ -361,6 +401,7 @@ export async function replayActionLog(params: {
         if (actionTick >= backfillStartTick) {
           backfillTickSet.add(actionTick);
         }
+        mergeTickTimelineEvents(payload.timeline);
         break;
       }
       case "HUB_ADD": {

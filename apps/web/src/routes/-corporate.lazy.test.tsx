@@ -120,9 +120,20 @@ describe("Corporate route", () => {
     expect(screen.queryByTestId("full-timeline")).not.toBeInTheDocument();
   });
 
-  it("shows net income rate when flights exist", () => {
+  it("shows flight revenue rate when flights exist", () => {
     render(<CorporateRoute />);
-    expect(screen.getByText("Net Income Rate")).toBeInTheDocument();
+    expect(screen.getByText("Flight Revenue Rate")).toBeInTheDocument();
+  });
+
+  it("shows billing cycle indicator", () => {
+    render(<CorporateRoute />);
+    expect(screen.getByText("Billing Cycle")).toBeInTheDocument();
+    expect(screen.getByLabelText("Billing cycle progress")).toBeInTheDocument();
+  });
+
+  it("shows low-sample warning when financial sample is small", () => {
+    render(<CorporateRoute />);
+    expect(screen.getByText(/low financial sample/)).toBeInTheDocument();
   });
 
   it("expands activity log to show full timeline", async () => {
