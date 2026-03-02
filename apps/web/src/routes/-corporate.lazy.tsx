@@ -1,5 +1,6 @@
 import type { Airport, FixedPoint, TimelineEvent } from "@acars/core";
 import {
+  CHAPTER11_BALANCE_THRESHOLD_USD,
   FP_ZERO,
   fp,
   fpAdd,
@@ -38,6 +39,12 @@ import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerforma
 import { HubPicker } from "@/features/network/components/HubPicker";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 import { useNostrProfile } from "@/shared/hooks/useNostrProfile";
+
+const CHAPTER11_THRESHOLD_DISPLAY = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+}).format(Math.abs(CHAPTER11_BALANCE_THRESHOLD_USD));
 
 /* ------------------------------------------------------------------ */
 /*  Financial Pulse                                                    */
@@ -462,7 +469,7 @@ function BankruptcyPanel({
       </div>
       <p className="text-xs text-rose-300/70 leading-relaxed">
         {airline.status === "chapter11"
-          ? "Your airline's accumulated debt exceeded the critical threshold of $10,000,000. All flight operations have been automatically suspended and aircraft grounded to prevent further losses."
+          ? `Your airline's accumulated debt exceeded the critical threshold of ${CHAPTER11_THRESHOLD_DISPLAY}. All flight operations have been automatically suspended and aircraft grounded to prevent further losses.`
           : "This airline has been permanently dissolved. All operations have ceased."}
       </p>
       {airline.status === "chapter11" && (

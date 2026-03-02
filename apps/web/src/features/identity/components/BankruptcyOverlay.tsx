@@ -9,6 +9,62 @@ export function BankruptcyOverlay() {
   const isLoading = useAirlineStore((s) => s.isLoading);
   const [dismissed, setDismissed] = React.useState(false);
   const [confirmDissolve, setConfirmDissolve] = React.useState(false);
+  const closeButtonRef = React.useRef<HTMLButtonElement>(null);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const previousFocusRef = React.useRef<HTMLElement | null>(null);
+  const titleId = React.useId();
+  const airlineId = airline?.id ?? null;
+  const airlineStatus = airline?.status ?? null;
+  const isOverlayStatus = airlineStatus === "chapter11" || airlineStatus === "liquidated";
+
+  React.useEffect(() => {
+    setDismissed(false);
+    setConfirmDissolve(false);
+  }, [airlineId, airlineStatus]);
+
+  React.useEffect(() => {
+    if (!isOverlayStatus) return;
+    if (dismissed) return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDismissed(true);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const container = dialogRef.current;
+      if (!container) return;
+      const focusable = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => !el.hasAttribute("disabled"));
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [dismissed, isOverlayStatus, airlineId]);
 
   if (!airline) return null;
   if (airline.status !== "chapter11" && airline.status !== "liquidated") return null;
@@ -21,9 +77,18 @@ export function BankruptcyOverlay() {
   };
 
   return (
-    <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="relative mx-4 max-w-md w-full rounded-2xl border border-rose-500/30 bg-background/95 p-6 shadow-2xl backdrop-blur-xl">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+    >
+      <div
+        ref={dialogRef}
+        className="relative mx-4 max-w-md w-full rounded-2xl border border-rose-500/30 bg-background/95 p-6 shadow-2xl backdrop-blur-xl"
+      >
         <button
+          ref={closeButtonRef}
           type="button"
           onClick={() => setDismissed(true)}
           className="absolute right-3 top-3 rounded-full p-1 text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
@@ -42,7 +107,7 @@ export function BankruptcyOverlay() {
           </div>
 
           <div className="space-y-1">
-            <h2 className="text-lg font-bold text-rose-400">
+            <h2 id={titleId} className="text-lg font-bold text-rose-400">
               {isLiquidated ? "Airline Liquidated" : "Chapter 11 Bankruptcy"}
             </h2>
             <p className="text-sm text-muted-foreground">

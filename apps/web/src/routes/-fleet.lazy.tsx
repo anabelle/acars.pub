@@ -5,8 +5,7 @@ import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 
 export default function FleetDashboard() {
   const { airline, initializeIdentity, isLoading } = useAirlineStore();
-  const isViewingOther = useAirlineStore((state) => Boolean(state.viewedPubkey));
-  const { airline: activeAirline, fleet } = useActiveAirline();
+  const { airline: activeAirline, fleet, isViewingOther } = useActiveAirline();
   const fleetSize = fleet.length;
 
   const isBankrupt =

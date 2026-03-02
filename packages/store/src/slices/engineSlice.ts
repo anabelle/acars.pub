@@ -1,4 +1,5 @@
 import {
+  CHAPTER11_BALANCE_THRESHOLD_USD,
   computeCheckpointStateHash,
   fp,
   fpAdd,
@@ -68,15 +69,30 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       if (!airline || airline.status === "liquidated") return;
 
       // EMERGENCY BANKRUPTCY CHECK
-      // If balance is severely negative (e.g. -$10M), auto-pause operations
-      if (fpToNumber(airline.corporateBalance) < -10000000 && airline.status !== "chapter11") {
-        // Ground all in-flight aircraft at their origin airport
+      // If balance breaches chapter11 threshold, auto-pause operations
+      if (
+        fpToNumber(airline.corporateBalance) < CHAPTER11_BALANCE_THRESHOLD_USD &&
+        airline.status !== "chapter11"
+      ) {
+        // Ground all in-flight aircraft and clear active flight state.
         const groundedFleet = fleet.map((ac) => {
-          if (ac.status === "enroute" || ac.status === "turnaround") {
+          if (ac.status === "enroute") {
             return {
               ...ac,
               status: "idle" as const,
-              currentTick: tick,
+              baseAirportIata: ac.flight?.originIata ?? ac.baseAirportIata,
+              flight: null,
+              turnaroundEndTick: undefined,
+              arrivalTickProcessed: undefined,
+            };
+          }
+          if (ac.status === "turnaround") {
+            return {
+              ...ac,
+              status: "idle" as const,
+              flight: null,
+              turnaroundEndTick: undefined,
+              arrivalTickProcessed: undefined,
             };
           }
           return ac;
@@ -85,7 +101,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         const bankruptcyEvent: import("@acars/core").TimelineEvent = {
           id: `bankruptcy-${tick}`,
           tick,
-          timestamp: Date.now(),
+          timestamp: GENESIS_TIME + tick * TICK_DURATION,
           type: "bankruptcy",
           description: `${airline.name} has filed for Chapter 11 bankruptcy. All operations suspended.`,
         };
