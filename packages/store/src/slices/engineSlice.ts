@@ -456,7 +456,9 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       if (recoveryEvents.length > 0) {
         const newEvents = recoveryEvents.filter((e) => !timelineEventIds.has(e.id));
         if (newEvents.length > 0) {
-          currentTimeline = [...newEvents, ...currentTimeline].slice(0, 1000);
+          currentTimeline = [...newEvents, ...currentTimeline]
+            .sort((a, b) => b.tick - a.tick)
+            .slice(0, 1000);
           timelineEventIds.clear();
           for (const event of currentTimeline) timelineEventIds.add(event.id);
         }
