@@ -134,10 +134,9 @@ export interface ViewportBounds {
  */
 function normalizeLngToViewport(lng: number, swLng: number, neLng: number): number {
   const center = (swLng + neLng) / 2;
-  const d = lng - center;
-  if (d > 180) return lng - 360;
-  if (d < -180) return lng + 360;
-  return lng;
+  const wraps = Math.round((lng - center) / 360);
+  return lng - wraps * 360;
+}
 }
 
 /**
