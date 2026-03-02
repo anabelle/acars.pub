@@ -117,6 +117,101 @@ export function splitAntimeridian(points: [number, number][]): [number, number][
   return segments;
 }
 
+// =============================================================================
+// --- Viewport Culling Helpers ---
+// =============================================================================
+
+/** Minimal bounds interface satisfied by maplibregl.LngLatBounds. */
+export interface ViewportBounds {
+  getSouthWest(): { lng: number; lat: number };
+  getNorthEast(): { lng: number; lat: number };
+}
+
+/**
+ * Shift `lng` into the same winding as the viewport centre so that the
+ * simple min/max range check works even when MapLibre's `getBounds()`
+ * returns unwrapped longitudes past ±180° (antimeridian crossing).
+ */
+function normalizeLngToViewport(lng: number, swLng: number, neLng: number): number {
+  const center = (swLng + neLng) / 2;
+  const wraps = Math.round((lng - center) / 360);
+  return lng - wraps * 360;
+}
+
+/**
+ * Fast bounding-box test: does a great circle route between two points
+ * potentially intersect the given viewport bounds?
+ *
+ * We expand the route's bounding box by a generous margin to account for
+ * the curvature of great circles (which can bulge significantly away from
+ * the straight-line bounding box, especially on long routes).
+ */
+export function routeIntersectsViewport(
+  originLng: number,
+  originLat: number,
+  destLng: number,
+  destLat: number,
+  bounds: ViewportBounds,
+): boolean {
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+
+  // If the route crosses the antimeridian (longitude difference > 180°),
+  // the simple AABB test produces an inverted bounding box that covers
+  // everything *except* the actual route. These are rare long-haul routes;
+  // always render them rather than attempting wrapped AABB math.
+  const lngDiff = Math.abs(originLng - destLng);
+  if (lngDiff > 180) return true;
+
+  // Normalize route endpoints to the viewport's coordinate space
+  originLng = normalizeLngToViewport(originLng, sw.lng, ne.lng);
+  destLng = normalizeLngToViewport(destLng, sw.lng, ne.lng);
+
+  // Calculate route bounding box
+  let minLng = Math.min(originLng, destLng);
+  let maxLng = Math.max(originLng, destLng);
+  const minLat = Math.min(originLat, destLat);
+  const maxLat = Math.max(originLat, destLat);
+
+  // Great circle curvature margin: longer routes bulge more.
+  const latSpan = maxLat - minLat;
+  const lngSpan = maxLng - minLng;
+  const margin = Math.max(latSpan, lngSpan) * 0.3 + 5;
+
+  minLng -= margin;
+  maxLng += margin;
+  const adjMinLat = minLat - margin;
+  const adjMaxLat = maxLat + margin;
+
+  // AABB overlap test
+  return !(maxLng < sw.lng || minLng > ne.lng || adjMaxLat < sw.lat || adjMinLat > ne.lat);
+}
+
+/**
+ * Check if a single point is within viewport bounds (with margin).
+ *
+ * Handles the antimeridian by normalising `lng` to the viewport's
+ * (possibly unwrapped) coordinate space before the range check.
+ */
+export function pointInViewport(
+  lng: number,
+  lat: number,
+  bounds: ViewportBounds,
+  margin: number = 5,
+): boolean {
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+
+  lng = normalizeLngToViewport(lng, sw.lng, ne.lng);
+
+  return (
+    lng >= sw.lng - margin &&
+    lng <= ne.lng + margin &&
+    lat >= sw.lat - margin &&
+    lat <= ne.lat + margin
+  );
+}
+
 /**
  * Converts arc points into a GeoJSON Feature, automatically splitting at
  * the antimeridian if the route crosses it.

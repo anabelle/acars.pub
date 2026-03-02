@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { ViewportBounds } from "./geo.js";
 import {
   getBearing,
   getGreatCircleInterpolation,
   makeArcFeature,
+  pointInViewport,
+  routeIntersectsViewport,
   splitAntimeridian,
 } from "./geo.js";
 
@@ -204,5 +207,97 @@ describe("makeArcFeature", () => {
     expect(feature.geometry.type).toBe("MultiLineString");
     const coords = (feature.geometry as GeoJSON.MultiLineString).coordinates;
     expect(coords).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Helper: create a mock ViewportBounds from sw/ne corners
+// ---------------------------------------------------------------------------
+function makeBounds(swLng: number, swLat: number, neLng: number, neLat: number): ViewportBounds {
+  return {
+    getSouthWest: () => ({ lng: swLng, lat: swLat }),
+    getNorthEast: () => ({ lng: neLng, lat: neLat }),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// pointInViewport — antimeridian tests
+// ---------------------------------------------------------------------------
+describe("pointInViewport", () => {
+  it("returns true for point clearly inside normal bounds", () => {
+    const bounds = makeBounds(10, -10, 30, 10);
+    expect(pointInViewport(20, 0, bounds)).toBe(true);
+  });
+
+  it("returns false for point clearly outside normal bounds", () => {
+    const bounds = makeBounds(10, -10, 30, 10);
+    expect(pointInViewport(100, 0, bounds)).toBe(false);
+  });
+
+  it("handles viewport crossing antimeridian eastward (ne.lng > 180)", () => {
+    // Viewport from 170°E to 190° (= 170°W unwrapped)
+    const bounds = makeBounds(170, -45, 190, -30);
+    // Aircraft at -178° (= 182° unwrapped) should be visible
+    expect(pointInViewport(-178, -37, bounds)).toBe(true);
+    // Aircraft at 175° should also be visible
+    expect(pointInViewport(175, -37, bounds)).toBe(true);
+    // Aircraft at 150° should NOT be visible
+    expect(pointInViewport(150, -37, bounds)).toBe(false);
+  });
+
+  it("handles viewport crossing antimeridian westward (sw.lng < -180)", () => {
+    // Viewport from -190° (= 170°E unwrapped) to -170°
+    const bounds = makeBounds(-190, -45, -170, -30);
+    // Aircraft at 178° (= -182° unwrapped) should be visible
+    expect(pointInViewport(178, -37, bounds)).toBe(true);
+    // Aircraft at -175° should also be visible
+    expect(pointInViewport(-175, -37, bounds)).toBe(true);
+    // Aircraft at -150° should NOT be visible
+    expect(pointInViewport(-150, -37, bounds)).toBe(false);
+  });
+
+  it("NZ scenario: both AKL→SYD and LAX→AKL aircraft visible when viewport covers them", () => {
+    // Wide viewport centered near NZ covering 155°E to 185° (= 175°W)
+    const bounds = makeBounds(155, -50, 185, -25);
+    // AKL→SYD aircraft at ~165°E
+    expect(pointInViewport(165, -38, bounds)).toBe(true);
+    // LAX→AKL aircraft at ~178°E
+    expect(pointInViewport(178, -36, bounds)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// routeIntersectsViewport — antimeridian tests
+// ---------------------------------------------------------------------------
+describe("routeIntersectsViewport", () => {
+  it("returns true for route inside normal bounds", () => {
+    const bounds = makeBounds(10, -10, 50, 10);
+    expect(routeIntersectsViewport(20, 0, 40, 5, bounds)).toBe(true);
+  });
+
+  it("returns false for route outside normal bounds", () => {
+    const bounds = makeBounds(10, -10, 30, 10);
+    expect(routeIntersectsViewport(80, 20, 100, 30, bounds)).toBe(false);
+  });
+
+  it("always returns true for antimeridian-crossing routes", () => {
+    const bounds = makeBounds(10, -10, 30, 10);
+    // LAX to AKL crosses antimeridian (lng diff > 180)
+    expect(routeIntersectsViewport(-118, 34, 175, -37, bounds)).toBe(true);
+  });
+
+  it("handles non-crossing route when VIEWPORT crosses antimeridian eastward", () => {
+    // Viewport from 165°E to 195° (= 165°W unwrapped)
+    const bounds = makeBounds(165, -50, 195, -25);
+    // AKL→SYD route (174.8° to 151.2°): does NOT cross antimeridian itself
+    // but its western end should overlap the viewport's western edge
+    expect(routeIntersectsViewport(174.8, -37, 151.2, -33.9, bounds)).toBe(true);
+  });
+
+  it("handles non-crossing route when VIEWPORT crosses antimeridian westward", () => {
+    // Viewport from -195° (= 165°E) to -165°
+    const bounds = makeBounds(-195, -50, -165, -25);
+    // AKL→SYD route: both endpoints positive, should still be visible
+    expect(routeIntersectsViewport(174.8, -37, 151.2, -33.9, bounds)).toBe(true);
   });
 });
