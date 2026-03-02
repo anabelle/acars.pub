@@ -4,7 +4,13 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { AircraftInstance, Airport, HubTier, Route } from "@acars/core";
 import { getSubsolarPoint } from "@acars/core";
 import { aircraftModels, HUB_CLASSIFICATIONS } from "@acars/data";
-import { getBearing, getGreatCircleInterpolation, makeArcFeature } from "./geo.js";
+import {
+  getBearing,
+  getGreatCircleInterpolation,
+  makeArcFeature,
+  pointInViewport,
+  routeIntersectsViewport,
+} from "./geo.js";
 import { FAMILY_ICONS } from "./icons.js";
 
 const NIGHT_CANVAS_W = 1024;
@@ -168,75 +174,6 @@ function getSegmentCount(zoom: number): number {
   if (zoom < 6) return 24;
   if (zoom < 8) return 36;
   return 50;
-}
-
-// =============================================================================
-// --- Viewport Culling Helpers ---
-// =============================================================================
-
-/**
- * Fast bounding-box test: does a great circle route between two points
- * potentially intersect the given viewport bounds?
- *
- * We expand the route's bounding box by a generous margin to account for
- * the curvature of great circles (which can bulge significantly away from
- * the straight-line bounding box, especially on long routes).
- */
-function routeIntersectsViewport(
-  originLng: number,
-  originLat: number,
-  destLng: number,
-  destLat: number,
-  bounds: maplibregl.LngLatBounds,
-): boolean {
-  const sw = bounds.getSouthWest();
-  const ne = bounds.getNorthEast();
-
-  // If the route crosses the antimeridian (longitude difference > 180°),
-  // the simple AABB test produces an inverted bounding box that covers
-  // everything *except* the actual route. These are rare long-haul routes;
-  // always render them rather than attempting wrapped AABB math.
-  const lngDiff = Math.abs(originLng - destLng);
-  if (lngDiff > 180) return true;
-
-  // Calculate route bounding box
-  let minLng = Math.min(originLng, destLng);
-  let maxLng = Math.max(originLng, destLng);
-  let minLat = Math.min(originLat, destLat);
-  let maxLat = Math.max(originLat, destLat);
-
-  // Great circle curvature margin: longer routes bulge more.
-  // Use a rough heuristic based on lat/lng span.
-  const latSpan = maxLat - minLat;
-  const lngSpan = maxLng - minLng;
-  const margin = Math.max(latSpan, lngSpan) * 0.3 + 5; // min 5 degrees margin
-
-  minLng -= margin;
-  maxLng += margin;
-  minLat -= margin;
-  maxLat += margin;
-
-  // AABB overlap test
-  return !(maxLng < sw.lng || minLng > ne.lng || maxLat < sw.lat || minLat > ne.lat);
-}
-
-/**
- * Check if a single point is within viewport bounds (with margin).
- */
-function pointInViewport(
-  lng: number,
-  lat: number,
-  bounds: maplibregl.LngLatBounds,
-  margin: number = 5,
-): boolean {
-  const sw = bounds.getSouthWest();
-  const ne = bounds.getNorthEast();
-  return (
-    lng >= sw.lng - margin &&
-    lng <= ne.lng + margin &&
-    lat >= sw.lat - margin &&
-    lat <= ne.lat + margin
-  );
 }
 
 type AirportClass =
