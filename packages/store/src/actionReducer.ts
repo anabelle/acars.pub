@@ -5,6 +5,7 @@ import type {
   FixedPoint,
   Route,
   TimelineEvent,
+  TimelineEventType,
 } from "@acars/core";
 import {
   calculateBookValue,
@@ -56,9 +57,25 @@ const MAX_PRICE = fp(1000000000);
 const MIN_BALANCE = fp(-1000000000);
 const MAX_BALANCE = fp(1000000000);
 const VALID_STATUSES: AirlineEntity["status"][] = ["private", "public", "chapter11", "liquidated"];
+const TIMELINE_EVENT_TYPES: ReadonlySet<TimelineEventType> = new Set([
+  "takeoff",
+  "landing",
+  "purchase",
+  "sale",
+  "lease_payment",
+  "maintenance",
+  "delivery",
+  "hub_change",
+  "route_change",
+  "ferry",
+  "competitor_hub",
+  "price_war",
+]);
 
 const asString = (value: unknown): string | null =>
   typeof value === "string" && value.trim() ? value.trim() : null;
+const isTimelineEventType = (value: string): value is TimelineEventType =>
+  TIMELINE_EVENT_TYPES.has(value as TimelineEventType);
 
 const asNumber = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -246,15 +263,23 @@ export async function replayActionLog(params: {
       const id = asString(record.id);
       const type = asString(record.type);
       const description = asString(record.description);
-      const tick = asNumber(record.tick);
-      const timestamp = asNumber(record.timestamp);
-      if (!id || !type || !description || tick == null || timestamp == null) continue;
+      const tick = clampInt(record.tick, 0, Number.MAX_SAFE_INTEGER);
+      const timestamp = clampInt(record.timestamp, 0, Number.MAX_SAFE_INTEGER);
+      if (
+        !id ||
+        !type ||
+        !isTimelineEventType(type) ||
+        !description ||
+        tick == null ||
+        timestamp == null
+      )
+        continue;
       const event: TimelineEvent = {
         id,
-        type: type as TimelineEvent["type"],
+        type,
         description,
-        tick: Math.floor(tick),
-        timestamp: Math.floor(timestamp),
+        tick,
+        timestamp,
       };
       const aircraftId = asString(record.aircraftId);
       if (aircraftId) event.aircraftId = aircraftId;
@@ -266,12 +291,12 @@ export async function replayActionLog(params: {
       if (originIata) event.originIata = originIata;
       const destinationIata = sanitizeIata(record.destinationIata);
       if (destinationIata) event.destinationIata = destinationIata;
-      const revenue = asNumber(record.revenue);
-      if (revenue != null) event.revenue = Math.round(revenue) as FixedPoint;
-      const cost = asNumber(record.cost);
-      if (cost != null) event.cost = Math.round(cost) as FixedPoint;
-      const profit = asNumber(record.profit);
-      if (profit != null) event.profit = Math.round(profit) as FixedPoint;
+      const revenue = clampFixedPoint(record.revenue, MIN_BALANCE, MAX_BALANCE);
+      if (revenue != null) event.revenue = revenue;
+      const cost = clampFixedPoint(record.cost, MIN_BALANCE, MAX_BALANCE);
+      if (cost != null) event.cost = cost;
+      const profit = clampFixedPoint(record.profit, MIN_BALANCE, MAX_BALANCE);
+      if (profit != null) event.profit = profit;
       const details = asRecord(record.details);
       if (details) event.details = details as TimelineEvent["details"];
       pushTimelineEvent(event);

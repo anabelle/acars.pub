@@ -366,9 +366,10 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       // Event IDs use the same format as processFlightEngine so duplicates
       // produced later by the tick loop are automatically filtered out.
       const MAX_BACKFILL_PER_AIRCRAFT = 40;
+      const routeById = new Map(routes.map((route) => [route.id, route]));
       for (const ac of currentFleet) {
         if (!ac.assignedRouteId) continue;
-        const route = routes.find((r) => r.id === ac.assignedRouteId);
+        const route = routeById.get(ac.assignedRouteId);
         const model = getAircraftById(ac.modelId);
         if (!route || route.status !== "active" || !model) continue;
         if (route.distanceKm > (model.rangeKm || 0)) continue;
@@ -464,8 +465,8 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         }
       }
 
-      // Merge backfill events into timeline BEFORE the tick loop so that
-      // processFlightEngine's duplicate landing events are deduplicated.
+      // Merge backfill events into timeline AFTER the tick loop catch-up work;
+      // processFlightEngine duplicate landing events are deduplicated by ID.
       if (recoveryEvents.length > 0) {
         const newEvents = recoveryEvents.filter((e) => !timelineEventIds.has(e.id));
         if (newEvents.length > 0) {

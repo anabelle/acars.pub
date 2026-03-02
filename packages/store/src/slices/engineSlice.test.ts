@@ -802,13 +802,14 @@ describe("immediate visual reconciliation during catch-up", () => {
       },
     };
 
-    createSliceState({
+    const { state } = createSliceState({
       airline: makeAirline(999),
       fleet: [aircraft],
       routes: [route],
     });
 
     // Gap = 1 tick (1000 - 999), should NOT trigger projection
+    await state.processTick(1000);
     expect(reconcileFleetToTick).not.toHaveBeenCalled();
   });
 });
