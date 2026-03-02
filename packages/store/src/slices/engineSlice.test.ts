@@ -708,7 +708,6 @@ describe("deterministic timeline backfill", () => {
     expect(uniqueIds.size).toBe(11);
   });
 });
-
 describe("immediate visual reconciliation during catch-up", () => {
   it("projects fleet to target tick before tick-by-tick loop begins", async () => {
     const { reconcileFleetToTick } = await import("../FlightEngine");
