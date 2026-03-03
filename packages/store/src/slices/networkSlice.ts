@@ -1,4 +1,4 @@
-import type { FixedPoint, Route, TimelineEvent } from "@acars/core";
+import type { AircraftInstance, FixedPoint, Route, TimelineEvent } from "@acars/core";
 import {
   fp,
   fpAdd,
