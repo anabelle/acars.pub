@@ -877,4 +877,38 @@ describe("TICK_UPDATE publish cadence", () => {
 
     expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(2);
   });
+
+  it("throttles retry attempts when publish fails", async () => {
+    const { processFlightEngine } = await import("../FlightEngine");
+    vi.mocked(processFlightEngine).mockImplementation(
+      (_tick, currentFleet, _routes, corporateBalance) => ({
+        updatedFleet: currentFleet,
+        corporateBalance,
+        events: [],
+        hasChanges: true,
+      }),
+    );
+    vi.mocked(publishAction).mockRejectedValue(new Error("Not enough relays received the event"));
+
+    const route = makeRoute("rt-1", 400);
+    const { state } = createSliceState({
+      airline: makeAirline(999),
+      fleet: [makeAircraft("ac-1")],
+      routes: [route],
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await state.processTick(1000);
+      for (let tick = 1001; tick < 1020; tick += 1) {
+        await state.processTick(tick);
+      }
+      expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(1);
+
+      await state.processTick(1020);
+      expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(2);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
 });

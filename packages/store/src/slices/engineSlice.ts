@@ -302,7 +302,6 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             hasMaterialChange: hasMaterialTickUpdate,
           })
         ) {
-          const previousPublishedTick = lastTickUpdatePublishByAirline.get(updatedAirline.id);
           markTickUpdatePublished(updatedAirline.id, targetTick);
           publishActionWithChain({
             action: {
@@ -315,17 +314,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             },
             get,
             set,
-          }).catch((e) => {
-            const currentPublishedTick = lastTickUpdatePublishByAirline.get(updatedAirline.id);
-            if (currentPublishedTick === targetTick) {
-              if (previousPublishedTick == null) {
-                lastTickUpdatePublishByAirline.delete(updatedAirline.id);
-              } else {
-                lastTickUpdatePublishByAirline.set(updatedAirline.id, previousPublishedTick);
-              }
-            }
-            console.error("Auto-sync tick failed", e);
-          });
+          }).catch((e) => console.error("Auto-sync tick failed", e));
         }
         useEngineStore.setState({ catchupProgress: null });
         return;
@@ -885,7 +874,6 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           hasMaterialChange: hasMaterialTickUpdate,
         })
       ) {
-        const previousPublishedTick = lastTickUpdatePublishByAirline.get(updatedAirline.id);
         markTickUpdatePublished(updatedAirline.id, targetTick);
         // Re-read current state at publish time to avoid overwriting
         // concurrent changes (e.g. hub modifications during tick processing).
@@ -901,17 +889,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           },
           get,
           set,
-        }).catch((e) => {
-          const currentPublishedTick = lastTickUpdatePublishByAirline.get(updatedAirline.id);
-          if (currentPublishedTick === targetTick) {
-            if (previousPublishedTick == null) {
-              lastTickUpdatePublishByAirline.delete(updatedAirline.id);
-            } else {
-              lastTickUpdatePublishByAirline.set(updatedAirline.id, previousPublishedTick);
-            }
-          }
-          console.error("Auto-sync tick failed", e);
-        });
+        }).catch((e) => console.error("Auto-sync tick failed", e));
       }
       useEngineStore.setState({ catchupProgress: null });
     } finally {
