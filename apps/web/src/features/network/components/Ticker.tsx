@@ -3,6 +3,10 @@ import { airports as AIRPORTS } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 
+/**
+ * A global ticker component that displays live macroeconomic and network status.
+ * Hidden on mobile devices to save screen space, visible on large screens.
+ */
 export function Ticker() {
   const season = useEngineStore((s) => (s.routes.length > 0 ? s.routes[0]?.season : "winter"));
   const tick = useEngineStore((s) => s.tick);

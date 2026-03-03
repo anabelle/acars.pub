@@ -16,6 +16,10 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ExampleInstrumentedTest {
 
+    /**
+     * Test that checks the application context.
+     * @throws Exception If context retrieval fails.
+     */
     @Test
     public void useAppContext() throws Exception {
         // Context of the app under test.
