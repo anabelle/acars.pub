@@ -463,8 +463,8 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
         isLoading: false,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid nsec key.";
-      set({ error: message, identityStatus: "ready", isLoading: false });
+      console.warn("[IdentitySlice] nsec login failed", error);
+      set({ error: "Invalid nsec key.", identityStatus: "ready", isLoading: false });
     }
   },
 

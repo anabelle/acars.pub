@@ -88,8 +88,8 @@ export function attachSigner(): void {
  */
 export async function loginWithNsec(nsec: string): Promise<string> {
   const ndk = getNDK();
-  const signer = new NDKPrivateKeySigner(nsec);
-  ndk.signer = signer;
+  const signer = new NDKPrivateKeySigner(nsec.trim());
   const user = await signer.user();
+  ndk.signer = signer;
   return user.pubkey;
 }

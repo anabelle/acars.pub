@@ -7,6 +7,7 @@ import { createIdentitySlice } from "./identitySlice";
 const replayActionLog = vi.fn();
 const loadActionLog = vi.fn();
 const loadCheckpoint = vi.fn();
+const loginWithNsecMock = vi.fn();
 
 vi.mock("@acars/core", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@acars/core")>();
@@ -23,6 +24,7 @@ vi.mock("@acars/nostr", () => ({
   getPubkey: vi.fn(() => Promise.resolve("pubkey-1")),
   loadActionLog: (...args: unknown[]) => loadActionLog(...args),
   loadCheckpoint: (...args: unknown[]) => loadCheckpoint(...args),
+  loginWithNsec: (...args: unknown[]) => loginWithNsecMock(...args),
   publishAction: vi.fn(),
   waitForNip07: vi.fn(() => Promise.resolve(true)),
 }));
@@ -94,6 +96,7 @@ beforeEach(() => {
   replayActionLog.mockReset();
   loadActionLog.mockReset();
   loadCheckpoint.mockReset();
+  loginWithNsecMock.mockReset();
   loadActionLog.mockResolvedValue([]);
   loadCheckpoint.mockResolvedValue(null);
 });
@@ -220,5 +223,72 @@ describe("identitySlice initializeIdentity", () => {
         ],
       }),
     );
+  });
+});
+
+describe("identitySlice loginWithNsec", () => {
+  it("loads replayed state after successful nsec login", async () => {
+    loginWithNsecMock.mockResolvedValueOnce("pubkey-2");
+    replayActionLog.mockResolvedValueOnce({
+      airline: makeAirline(90000),
+      fleet: [],
+      routes: [],
+      actionChainHash: "hash-nsec",
+    });
+
+    const { state } = createSliceState({
+      pubkey: "old-pubkey",
+      airline: makeAirline(5),
+      identityStatus: "ready",
+    });
+
+    await state.loginWithNsec("nsec1valid");
+
+    expect(loginWithNsecMock).toHaveBeenCalledWith("nsec1valid");
+    expect(state.pubkey).toBe("pubkey-2");
+    expect(state.airline?.id).toBe("airline-1");
+    expect(state.actionChainHash).toBe("hash-nsec");
+    expect(state.identityStatus).toBe("ready");
+    expect(state.isLoading).toBe(false);
+  });
+
+  it("sets ready empty state when nsec login has no airline history", async () => {
+    loginWithNsecMock.mockResolvedValueOnce("pubkey-2");
+    replayActionLog.mockResolvedValueOnce({
+      airline: null,
+      fleet: [],
+      routes: [],
+      actionChainHash: "",
+    });
+
+    const { state } = createSliceState({
+      pubkey: "old-pubkey",
+      airline: makeAirline(5),
+      identityStatus: "ready",
+    });
+
+    await state.loginWithNsec("nsec1valid");
+
+    expect(state.pubkey).toBe("pubkey-2");
+    expect(state.airline).toBeNull();
+    expect(state.fleet).toEqual([]);
+    expect(state.routes).toEqual([]);
+    expect(state.actionChainHash).toBe("");
+    expect(state.actionSeq).toBe(0);
+    expect(state.latestCheckpoint).toBeNull();
+    expect(state.identityStatus).toBe("ready");
+  });
+
+  it("exposes a fixed user-facing error when nsec login fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    loginWithNsecMock.mockRejectedValueOnce(new Error("library details"));
+    const { state } = createSliceState({ identityStatus: "ready" });
+
+    await state.loginWithNsec("bad-key");
+
+    expect(state.error).toBe("Invalid nsec key.");
+    expect(state.identityStatus).toBe("ready");
+    expect(state.isLoading).toBe(false);
+    warnSpy.mockRestore();
   });
 });
