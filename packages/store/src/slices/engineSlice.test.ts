@@ -843,7 +843,7 @@ describe("TICK_UPDATE publish cadence", () => {
     expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(2);
   });
 
-  it("publishes immediately on timeline material changes before heartbeat", async () => {
+  it("does NOT publish immediately on routine timeline events (rides heartbeat)", async () => {
     const { processFlightEngine } = await import("../FlightEngine");
     vi.mocked(processFlightEngine).mockImplementation(
       (tick, currentFleet, _routes, corporateBalance) => ({
@@ -853,11 +853,11 @@ describe("TICK_UPDATE publish cadence", () => {
           tick === 1001
             ? [
                 {
-                  id: `evt-material-${tick}`,
+                  id: `evt-landing-${tick}`,
                   tick,
                   timestamp: 0,
-                  type: "takeoff",
-                  description: "material event",
+                  type: "landing",
+                  description: "routine landing event",
                 },
               ]
             : [],
@@ -872,10 +872,13 @@ describe("TICK_UPDATE publish cadence", () => {
       routes: [route],
     });
 
+    // First tick publishes (first-ever publish).
     await state.processTick(1000);
+    // Second tick has a landing event but should NOT publish
+    // immediately — routine events ride the heartbeat cadence.
     await state.processTick(1001);
 
-    expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(1);
   });
 
   it("throttles retry attempts when publish fails", async () => {
