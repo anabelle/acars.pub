@@ -881,6 +881,40 @@ describe("TICK_UPDATE publish cadence", () => {
     expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(1);
   });
 
+  it("publishes immediately when airline status changes within heartbeat window", async () => {
+    const route = makeRoute("rt-1", 400);
+    const { state, set } = createSliceState({
+      airline: makeAirline(999),
+      fleet: [makeAircraft("ac-1")],
+      routes: [route],
+    });
+
+    const { processFlightEngine } = await import("../FlightEngine");
+    vi.mocked(processFlightEngine).mockImplementation(
+      (tick, currentFleet, _routes, corporateBalance) => {
+        if (tick === 1001 && state.airline) {
+          set({
+            airline: {
+              ...state.airline,
+              status: "chapter11",
+            },
+          });
+        }
+        return {
+          updatedFleet: currentFleet,
+          corporateBalance,
+          events: [],
+          hasChanges: true,
+        };
+      },
+    );
+
+    await state.processTick(1000);
+    await state.processTick(1001);
+
+    expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(2);
+  });
+
   it("throttles retry attempts when publish fails", async () => {
     const { processFlightEngine } = await import("../FlightEngine");
     vi.mocked(processFlightEngine).mockImplementation(
