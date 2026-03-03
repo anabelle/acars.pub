@@ -32,6 +32,9 @@ import {
 } from "@acars/core";
 import { airports, getAircraftById, HUB_CLASSIFICATIONS } from "@acars/data";
 
+/** Module-level O(1) airport lookup — avoids O(N) airports.find() on every landing. */
+const airportMap = new Map(airports.map((a) => [a.iata, a]));
+
 /**
  * Result of the engine processing a single tick.
  */
@@ -224,10 +227,8 @@ export function processFlightEngine(
       if (route || isFerry || isOrphan) {
         const originIata = route ? route.originIata : ac.flight?.originIata;
         const destinationIata = route ? route.destinationIata : ac.flight?.destinationIata;
-        const origin = originIata ? airports.find((a) => a.iata === originIata) : null;
-        const destination = destinationIata
-          ? airports.find((a) => a.iata === destinationIata)
-          : null;
+        const origin = originIata ? (airportMap.get(originIata) ?? null) : null;
+        const destination = destinationIata ? (airportMap.get(destinationIata) ?? null) : null;
 
         let weeklyDemandResult = {
           economy: 350,

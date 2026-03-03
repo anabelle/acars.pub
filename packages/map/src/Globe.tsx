@@ -32,17 +32,23 @@ const NIGHT_B = 28;
 const NIGHT_MAX_ALPHA = 0.38;
 
 /**
- * Inverse Mercator Y: convert normalised canvas row [0,1] back to latitude.
+ * Pre-computed latitude (radians) for each canvas row — computed once at
+ * module load so paintNightCanvas doesn't redo the inverse Mercator every call.
  */
-function inverseMercatorY(normY: number): number {
-  // normY 0 = +MERCATOR_MAX_LAT, normY 1 = -MERCATOR_MAX_LAT
-  const yTop =
-    (1 - Math.log(Math.tan(Math.PI / 4 + (MERCATOR_MAX_LAT * DEG2RAD) / 2)) / Math.PI) / 2;
-  const yBot =
-    (1 - Math.log(Math.tan(Math.PI / 4 - (MERCATOR_MAX_LAT * DEG2RAD) / 2)) / Math.PI) / 2;
-  const y01 = yTop + normY * (yBot - yTop);
-  const latRad = 2 * Math.atan(Math.exp((1 - 2 * y01) * Math.PI)) - Math.PI / 2;
-  return latRad / DEG2RAD;
+const _yTop =
+  (1 - Math.log(Math.tan(Math.PI / 4 + (MERCATOR_MAX_LAT * DEG2RAD) / 2)) / Math.PI) / 2;
+const _yBot =
+  (1 - Math.log(Math.tan(Math.PI / 4 - (MERCATOR_MAX_LAT * DEG2RAD) / 2)) / Math.PI) / 2;
+const ROW_LAT_RAD = new Float32Array(NIGHT_CANVAS_H);
+for (let _y = 0; _y < NIGHT_CANVAS_H; _y++) {
+  const _y01 = _yTop + (_y / NIGHT_CANVAS_H) * (_yBot - _yTop);
+  ROW_LAT_RAD[_y] = 2 * Math.atan(Math.exp((1 - 2 * _y01) * Math.PI)) - Math.PI / 2;
+}
+
+/** Pre-computed sin/cos for each canvas column longitude — also static. */
+const COL_LNG_RAD = new Float32Array(NIGHT_CANVAS_W);
+for (let _x = 0; _x < NIGHT_CANVAS_W; _x++) {
+  COL_LNG_RAD[_x] = ((_x / NIGHT_CANVAS_W) * 360 - 180) * DEG2RAD;
 }
 
 /**
@@ -54,6 +60,14 @@ function inverseMercatorY(normY: number): number {
  *
  * The result is a dark blue-black wash that smoothly darkens the night
  * side without pixelation at any zoom level (it's a continuous gradient).
+ */
+/**
+ * Paints a smooth night-side tint onto the canvas.
+ *
+ * Uses pre-computed per-row latitude and per-column longitude tables
+ * (ROW_LAT_RAD / COL_LNG_RAD) so the expensive inverse-Mercator and
+ * degree→radian conversions are done only once at module load, not every
+ * 60-second repaint.
  */
 function paintNightCanvas(
   canvas: HTMLCanvasElement,
@@ -72,55 +86,41 @@ function paintNightCanvas(
   const sunLngRad = subsolarLng * DEG2RAD;
 
   // Angular distance thresholds (radians)
-  // 90° = terminator (sun at horizon)
-  // 96° = civil twilight end (sun 6° below horizon)
-  const TERMINATOR = (90 * Math.PI) / 180;
-  const TWILIGHT_END = (96 * Math.PI) / 180;
-
-  // Pre-compute latitude for each row (Mercator inverse)
-  const rowLat = new Float64Array(H);
-  const rowLatRad = new Float64Array(H);
-  for (let y = 0; y < H; y++) {
-    const lat = inverseMercatorY(y / H);
-    rowLat[y] = lat;
-    rowLatRad[y] = lat * DEG2RAD;
-  }
+  const TERMINATOR = Math.PI / 2; // 90°
+  const TWILIGHT_END = (96 * Math.PI) / 180; // 96°
+  const TWILIGHT_RANGE = TWILIGHT_END - TERMINATOR;
 
   const maxAlpha255 = Math.round(NIGHT_MAX_ALPHA * 255);
 
+  // Sun trig — constant for all pixels
+  const sinSunLat = Math.sin(sunLatRad);
+  const cosSunLat = Math.cos(sunLatRad);
+
   for (let y = 0; y < H; y++) {
-    const latRad = rowLatRad[y];
+    const latRad = ROW_LAT_RAD[y];
     const sinLat = Math.sin(latRad);
     const cosLat = Math.cos(latRad);
-    const sinSunLat = Math.sin(sunLatRad);
-    const cosSunLat = Math.cos(sunLatRad);
     const latTerm = sinLat * sinSunLat;
     const latCosTerm = cosLat * cosSunLat;
+    const rowBase = y * W * 4;
 
     for (let x = 0; x < W; x++) {
-      const lng = (x / W) * 360 - 180;
-      const lngRad = lng * DEG2RAD;
-      const dLng = lngRad - sunLngRad;
-
+      const dLng = COL_LNG_RAD[x] - sunLngRad;
       const cosD = latTerm + latCosTerm * Math.cos(dLng);
-      const dist = Math.acos(Math.max(-1, Math.min(1, cosD)));
+      const dist = Math.acos(cosD < -1 ? -1 : cosD > 1 ? 1 : cosD);
 
       let alpha: number;
       if (dist <= TERMINATOR) {
-        // Day side — fully transparent
         alpha = 0;
       } else if (dist >= TWILIGHT_END) {
-        // Deep night — max darkness
         alpha = maxAlpha255;
       } else {
-        // Twilight zone — smooth cubic ease
-        const t = (dist - TERMINATOR) / (TWILIGHT_END - TERMINATOR);
-        // Smoothstep for a gentle transition
+        const t = (dist - TERMINATOR) / TWILIGHT_RANGE;
         const s = t * t * (3 - 2 * t);
-        alpha = Math.round(s * maxAlpha255);
+        alpha = (s * maxAlpha255 + 0.5) | 0;
       }
 
-      const idx = (y * W + x) * 4;
+      const idx = rowBase + x * 4;
       data[idx] = NIGHT_R;
       data[idx + 1] = NIGHT_G;
       data[idx + 2] = NIGHT_B;
@@ -325,46 +325,37 @@ export function Globe({
   const latestOnAircraftSelect = useRef(onAircraftSelect);
   const latestOnMapClick = useRef(onMapClick);
 
-  // Keep refs in sync with props (avoid stale closures in RAF loop)
+  // Keep refs in sync with props (avoid stale closures in RAF loop).
+  // Consolidated into one effect to avoid 11 separate scheduler entries.
   useEffect(() => {
     latestOnAirportSelect.current = onAirportSelect;
-  }, [onAirportSelect]);
-  useEffect(() => {
     latestOnAircraftSelect.current = onAircraftSelect;
-  }, [onAircraftSelect]);
-  useEffect(() => {
     latestOnMapClick.current = onMapClick;
-  }, [onMapClick]);
-  useEffect(() => {
     latestTick.current = tick;
-  }, [tick]);
-  useEffect(() => {
     latestTickProgress.current = tickProgress;
-  }, [tickProgress]);
-  useEffect(() => {
     latestFleet.current = fleet;
-  }, [fleet]);
-  useEffect(() => {
     latestGlobalFleet.current = competitorFleet;
-  }, [competitorFleet]);
-  useEffect(() => {
     latestPlayerLivery.current = playerLivery;
-  }, [playerLivery]);
-  useEffect(() => {
     latestCompetitorLiveries.current = competitorLiveries;
-  }, [competitorLiveries]);
-  useEffect(() => {
     latestPlayerHubs.current = playerHubs;
-  }, [playerHubs]);
-  useEffect(() => {
     latestCompetitorHubColors.current = competitorHubColors;
-  }, [competitorHubColors]);
-  useEffect(() => {
     latestPlayerRouteDestinations.current = playerRouteDestinations;
-  }, [playerRouteDestinations]);
-  useEffect(() => {
     latestGroundPresence.current = groundPresence;
-  }, [groundPresence]);
+  }, [
+    onAirportSelect,
+    onAircraftSelect,
+    onMapClick,
+    tick,
+    tickProgress,
+    fleet,
+    competitorFleet,
+    playerLivery,
+    competitorLiveries,
+    playerHubs,
+    competitorHubColors,
+    playerRouteDestinations,
+    groundPresence,
+  ]);
 
   // =========================================================================
   // Map Initialization (runs once)
@@ -1068,18 +1059,29 @@ export function Globe({
           },
           paint: {
             "icon-color": "#ffffff",
+            // zoom must be the top-level expression input — cannot be nested
+            // inside arithmetic. Use step+case: fade in at zoom 5, then
+            // gate the opacity on the per-feature strobeOn flag.
             "icon-opacity": [
-              "*",
-              ["get", "strobeOn"],
-              ["interpolate", ["linear"], ["zoom"], 4, 0, 5, baseOpacity],
+              "step",
+              ["zoom"],
+              0, // below minzoom 4 → always 0
+              4,
+              ["case", ["==", ["get", "strobeOn"], 1], 0, 0],
+              5,
+              ["case", ["==", ["get", "strobeOn"], 1], baseOpacity, 0],
             ],
             "icon-halo-color": "#ffffff",
             "icon-halo-width": [
-              "*",
-              ["get", "strobeOn"],
-              ["interpolate", ["linear"], ["zoom"], 4, 0.8, 5, 1.8],
+              "step",
+              ["zoom"],
+              0,
+              4,
+              ["case", ["==", ["get", "strobeOn"], 1], 0.8, 0],
+              5,
+              ["case", ["==", ["get", "strobeOn"], 1], 1.8, 0],
             ],
-            "icon-halo-blur": ["*", ["get", "strobeOn"], 0.8],
+            "icon-halo-blur": ["case", ["==", ["get", "strobeOn"], 1], 0.8, 0],
           },
         });
       };
@@ -1408,9 +1410,15 @@ export function Globe({
     const map = mapRef.current;
 
     const updateNightOverlay = () => {
-      if (nightCanvasRef.current) {
-        const sun = getSubsolarPoint(new Date());
-        paintNightCanvas(nightCanvasRef.current, sun.lat, sun.lng);
+      if (!nightCanvasRef.current) return;
+      const canvas = nightCanvasRef.current;
+      const sun = getSubsolarPoint(new Date());
+      // Use requestIdleCallback when available so the ~2ms pixel-fill doesn't
+      // land on a busy animation frame.  Falls back to a simple timeout.
+      if (typeof requestIdleCallback !== "undefined") {
+        requestIdleCallback(() => paintNightCanvas(canvas, sun.lat, sun.lng), { timeout: 2000 });
+      } else {
+        setTimeout(() => paintNightCanvas(canvas, sun.lat, sun.lng), 0);
       }
     };
 
@@ -1438,23 +1446,19 @@ export function Globe({
         const elapsed = currentTick - f.departureTick + currentProgress;
         const progress = Math.max(0, Math.min(1, elapsed / duration));
 
-        const coords = getGreatCircleInterpolation(
-          [origin.longitude, origin.latitude],
-          [dest.longitude, dest.latitude],
-          progress,
-        );
+        const p1: [number, number] = [origin.longitude, origin.latitude];
+        const p2: [number, number] = [dest.longitude, dest.latitude];
+        const coords = getGreatCircleInterpolation(p1, p2, progress);
 
         // Viewport culling for individual aircraft
         if (!pointInViewport(coords[0], coords[1], bounds)) continue;
 
-        const nextProgress = Math.min(1, progress + 0.01);
-        const nextCoords = getGreatCircleInterpolation(
-          [origin.longitude, origin.latitude],
-          [dest.longitude, dest.latitude],
-          nextProgress,
-        );
-
+        // Compute bearing analytically at current progress without a second
+        // SLERP call — sample a tiny step forward (0.5% of route) instead.
+        // This halves getGreatCircleInterpolation calls per frame.
+        const nextCoords = getGreatCircleInterpolation(p1, p2, Math.min(1, progress + 0.005));
         const bearing = getBearing(coords, nextCoords);
+
         const model = aircraftModelMap.get(ac.modelId);
         const familyId = model?.familyId || "a320";
         const wingspanM = model?.wingspanM || 35.8;

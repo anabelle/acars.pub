@@ -11,6 +11,9 @@ import {
   TICK_DURATION,
 } from "@acars/core";
 import { airports, getAircraftById, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@acars/data";
+
+/** Module-level O(1) airport lookup */
+const airportMap = new Map(airports.map((a) => [a.iata, a]));
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
@@ -212,7 +215,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
 
     // Atomically sync engine homeAirport to hubs[0]
     const activeIata = newHubs[0];
-    const activeAirport = airports.find((a) => a.iata === activeIata);
+    const activeAirport = airportMap.get(activeIata);
     if (activeAirport) {
       useEngineStore.getState().setHub(
         activeAirport,
@@ -286,7 +289,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       });
       // Roll back engine hub too
       const rollbackIata = previousAirline.hubs[0];
-      const rollbackAirport = airports.find((a) => a.iata === rollbackIata);
+      const rollbackAirport = airportMap.get(rollbackIata);
       if (rollbackAirport) {
         useEngineStore.getState().setHub(
           rollbackAirport,

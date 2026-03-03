@@ -13,6 +13,9 @@ import {
   TICKS_PER_HOUR,
 } from "@acars/core";
 import { airports, getAircraftById } from "@acars/data";
+
+/** Module-level O(1) airport lookup */
+const airportMap = new Map(airports.map((a) => [a.iata, a]));
 import {
   attachSigner,
   ensureConnected,
@@ -214,8 +217,8 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     const model = getAircraftById(instance.modelId);
     if (!model) throw new Error("Aircraft model not found.");
 
-    const originAirport = airports.find((a) => a.iata === instance.baseAirportIata);
-    const destinationAirport = airports.find((a) => a.iata === destinationIata);
+    const originAirport = airportMap.get(instance.baseAirportIata);
+    const destinationAirport = airportMap.get(destinationIata);
     if (!originAirport || !destinationAirport) {
       throw new Error("Invalid origin or destination airport.");
     }
