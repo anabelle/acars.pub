@@ -2,12 +2,14 @@ import { fpFormat } from "@acars/core";
 import { useActiveAirline, useAirlineStore } from "@acars/store";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
+import { useState } from "react";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
 
 export function Topbar() {
   const airline = useAirlineStore((state) => state.airline);
   const initializeIdentity = useAirlineStore((state) => state.initializeIdentity);
+  const loginWithNsec = useAirlineStore((state) => state.loginWithNsec);
   const isLoading = useAirlineStore((state) => state.isLoading);
   const viewAs = useAirlineStore((state) => state.viewAs);
   const { airline: activeAirline, timeline, isViewingOther } = useActiveAirline();
@@ -16,6 +18,7 @@ export function Topbar() {
   const safeTimeline = Array.isArray(timeline) ? timeline : [];
   const pulse = useFinancialPulse(safeTimeline);
   const avgLoadFactor = pulse.avgLoadFactor;
+  const [showNsecInput, setShowNsecInput] = useState(false);
 
   if (!airline) {
     return (
@@ -31,14 +34,62 @@ export function Topbar() {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={initializeIdentity}
-          disabled={isLoading}
-          className="rounded-md border border-border bg-background/70 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-60"
-        >
-          {isLoading ? "Connecting..." : "Connect Wallet"}
-        </button>
+        <div className="flex items-center gap-2">
+          {showNsecInput ? (
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const input = (e.currentTarget.elements.namedItem("nsec") as HTMLInputElement)
+                  ?.value;
+                if (input?.startsWith("nsec")) {
+                  loginWithNsec(input);
+                }
+              }}
+            >
+              <input
+                name="nsec"
+                type="password"
+                placeholder="nsec1..."
+                autoComplete="off"
+                className="w-48 rounded-md border border-border bg-background/70 px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="rounded-md border border-primary/40 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-primary transition hover:bg-primary/20 disabled:opacity-60"
+              >
+                {isLoading ? "..." : "Login"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowNsecInput(false)}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                ✕
+              </button>
+            </form>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowNsecInput(true)}
+                className="rounded-md border border-border/50 bg-background/50 px-2 py-1.5 text-[10px] font-medium text-muted-foreground/70 transition hover:border-border hover:text-muted-foreground"
+                title="Login with nsec key"
+              >
+                nsec
+              </button>
+              <button
+                type="button"
+                onClick={initializeIdentity}
+                disabled={isLoading}
+                className="rounded-md border border-border bg-background/70 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-60"
+              >
+                {isLoading ? "Connecting..." : "Connect Wallet"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     );
   }

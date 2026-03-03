@@ -13,6 +13,7 @@ import {
   getPubkey,
   loadActionLog,
   loadCheckpoint,
+  loginWithNsec as loginWithNsecNostr,
   publishAction,
   waitForNip07,
 } from "@acars/nostr";
@@ -38,6 +39,7 @@ export interface IdentitySlice {
   actionSeq: number;
   latestCheckpoint: Checkpoint | null;
   initializeIdentity: () => Promise<void>;
+  loginWithNsec: (nsec: string) => Promise<void>;
   createAirline: (params: CreateAirlineParams) => Promise<void>;
   dissolveAirline: () => Promise<void>;
 }
@@ -67,22 +69,30 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
   latestCheckpoint: null,
 
   initializeIdentity: async () => {
+    const prevStatus = get().identityStatus;
     set({ isLoading: true, error: null, airline: null, pubkey: null });
 
     const extensionReady = await waitForNip07();
     if (!extensionReady) {
-      set({ identityStatus: "guest", isLoading: false });
+      set({ identityStatus: "no-extension", isLoading: false });
       return;
     }
 
     try {
-      const pubkey = await getPubkey();
+      // On auto-init (page load), use a short timeout: if the site is already
+      // authorized in nos2x, getPublicKey resolves instantly.  If not, nos2x
+      // needs to open a popup which Chrome blocks without a user gesture, so
+      // we fail fast and let the user click "Connect Wallet" to retry.
+      // On explicit user click (prevStatus !== "checking"), use the full timeout
+      // so nos2x has time to open its authorization popup.
+      const isPassiveInit = prevStatus === "checking";
+      const pubkey = await getPubkey(isPassiveInit ? 2000 : undefined);
 
       if (!pubkey) {
         set({
           identityStatus: "guest",
           isLoading: false,
-          error: "Extension did not return a pubkey",
+          error: isPassiveInit ? null : "Extension did not return a pubkey — check nos2x popup",
         });
         return;
       }
@@ -316,6 +326,145 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
         identityStatus: "ready",
         isLoading: false,
       });
+    }
+  },
+
+  loginWithNsec: async (nsec: string) => {
+    set({ isLoading: true, error: null, airline: null, pubkey: null });
+
+    try {
+      const pubkey = await loginWithNsecNostr(nsec);
+      ensureConnected();
+
+      const [actions, globalActions] = await Promise.all([
+        loadActionLog({
+          authors: [pubkey],
+          limit: 500,
+          maxPages: 100,
+        }),
+        loadActionLog({
+          limit: 500,
+          maxPages: 20,
+        }),
+      ]);
+      const rejectedEventIds = computeRejectedBuyEventIds(globalActions);
+
+      const replayed = await replayActionLog({
+        pubkey,
+        actions: actions.map((entry) => ({
+          action: entry.action,
+          eventId: entry.event.id,
+          authorPubkey: entry.event.author.pubkey,
+          createdAt: entry.event.created_at ?? null,
+        })),
+        checkpoint: null,
+        rejectedEventIds,
+      });
+
+      const existing = replayed.airline ? replayed : null;
+
+      if (!existing) {
+        set({
+          pubkey,
+          airline: null,
+          fleet: [],
+          routes: [],
+          timeline: [],
+          actionChainHash: "",
+          actionSeq: 0,
+          fleetDeletedDuringCatchup: [],
+          latestCheckpoint: null,
+          identityStatus: "ready",
+          isLoading: false,
+        });
+        return;
+      }
+
+      const maxPossibleHours = (Date.now() - GENESIS_TIME) / 3600000 + 48;
+      const cleanFleet = existing.fleet
+        ? existing.fleet.map((ac) => ({
+            ...ac,
+            flightHoursTotal: Math.min(ac.flightHoursTotal, maxPossibleHours),
+            flightHoursSinceCheck: Math.min(ac.flightHoursSinceCheck, maxPossibleHours),
+          }))
+        : [];
+
+      const fleetIds = new Set(cleanFleet.map((ac) => ac.id));
+      const rawRoutes = existing.routes ? existing.routes : [];
+      const activeHubs = new Set((existing.airline?.hubs || []).filter(Boolean));
+      const reconciledRoutes: Route[] = rawRoutes.map((route) => {
+        const hasActiveOrigin = activeHubs.size > 0 ? activeHubs.has(route.originIata) : false;
+        if (!hasActiveOrigin && route.status === "active") {
+          return { ...route, status: "suspended", assignedAircraftIds: [] };
+        }
+        return {
+          ...route,
+          assignedAircraftIds: route.assignedAircraftIds.filter((id) => fleetIds.has(id)),
+        };
+      });
+
+      const routeIds = new Set(reconciledRoutes.map((r) => r.id));
+      const suspendedRouteIds = new Set(
+        reconciledRoutes.filter((r) => r.status === "suspended").map((r) => r.id),
+      );
+      let reconciledFleet = cleanFleet.map((ac) => ({
+        ...ac,
+        assignedRouteId:
+          ac.assignedRouteId &&
+          routeIds.has(ac.assignedRouteId) &&
+          !suspendedRouteIds.has(ac.assignedRouteId)
+            ? ac.assignedRouteId
+            : null,
+      }));
+
+      const engineTick = useEngineStore.getState().tick;
+      let loadedAirline = existing.airline;
+
+      if (
+        loadedAirline &&
+        (loadedAirline.lastTick == null || loadedAirline.lastTick === 0) &&
+        (reconciledFleet.length > 0 || reconciledRoutes.length > 0)
+      ) {
+        const fallbackLastTick = Math.max(0, engineTick - MAX_PLAYER_CATCHUP);
+        loadedAirline = { ...loadedAirline, lastTick: fallbackLastTick };
+      }
+
+      if (loadedAirline?.lastTick != null) {
+        const oldestAllowedTick = Math.max(0, engineTick - MAX_PLAYER_CATCHUP);
+        if (loadedAirline.lastTick < oldestAllowedTick) {
+          loadedAirline = { ...loadedAirline, lastTick: oldestAllowedTick };
+        }
+      }
+
+      if (loadedAirline?.lastTick != null && reconciledFleet.length > 0) {
+        const { fleet: reconciled, balanceDelta } = reconcileFleetToTick(
+          reconciledFleet,
+          reconciledRoutes,
+          loadedAirline.lastTick,
+        );
+        reconciledFleet = reconciled;
+        loadedAirline = {
+          ...loadedAirline,
+          corporateBalance: fpAdd(loadedAirline.corporateBalance, balanceDelta),
+        };
+      }
+
+      set({
+        pubkey,
+        airline: loadedAirline,
+        fleet: reconciledFleet,
+        routes: reconciledRoutes,
+        timeline: loadedAirline?.timeline || [],
+        actionChainHash: replayed.actionChainHash,
+        actionSeq: actions.length,
+        fleetDeletedDuringCatchup: [],
+        latestCheckpoint: null,
+        identityStatus: "ready",
+        isLoading: false,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid nsec key.";
+      set({ error: message, identityStatus: "ready", isLoading: false });
     }
   },
 
