@@ -146,6 +146,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             payload: {
               status: "chapter11",
               tick,
+              corporateBalance: updatedAirline.corporateBalance,
               timeline: get().timeline.slice(0, TICK_UPDATE_TIMELINE_EVENTS),
             },
           },
@@ -309,6 +310,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
               action: "TICK_UPDATE",
               payload: {
                 tick: tickUpdateTick,
+                corporateBalance: updatedAirline.corporateBalance,
                 timeline: currentTimeline.slice(0, TICK_UPDATE_TIMELINE_EVENTS),
               },
             },
@@ -877,6 +879,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             action: "TICK_UPDATE",
             payload: {
               tick: tickUpdateTick,
+              corporateBalance: currentBalance,
               timeline: currentTimeline.slice(0, TICK_UPDATE_TIMELINE_EVENTS),
             },
           },

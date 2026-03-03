@@ -948,4 +948,29 @@ describe("TICK_UPDATE publish cadence", () => {
       errorSpy.mockRestore();
     }
   });
+
+  it("includes corporateBalance in TICK_UPDATE payload", async () => {
+    const { processFlightEngine } = await import("../FlightEngine");
+    const updatedBalance = 888888888 as FixedPoint;
+    vi.mocked(processFlightEngine).mockImplementation((_tick, currentFleet) => ({
+      updatedFleet: currentFleet,
+      corporateBalance: updatedBalance,
+      events: [],
+      hasChanges: true,
+    }));
+
+    const route = makeRoute("rt-1", 400);
+    const { state } = createSliceState({
+      airline: makeAirline(999),
+      fleet: [makeAircraft("ac-1")],
+      routes: [route],
+    });
+
+    await state.processTick(1000);
+    expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(1);
+
+    const publishedAction = vi.mocked(publishAction).mock.calls[0][0];
+    expect(publishedAction.action).toBe("TICK_UPDATE");
+    expect(publishedAction.payload.corporateBalance).toBe(updatedBalance);
+  });
 });
