@@ -601,4 +601,68 @@ describe("replayActionLog", () => {
     expect(aircraft?.status).toBe("idle");
     expect(aircraft?.flight).toBeNull();
   });
+
+  it("TICK_UPDATE with corporateBalance sets authoritative balance", async () => {
+    const pubkey = "pubkey-auth-bal";
+    const authoritativeBalance = fp(7777777);
+    const actions = [
+      {
+        eventId: "evt-1",
+        authorPubkey: pubkey,
+        createdAt: 1,
+        action: {
+          schemaVersion: 2,
+          action: "AIRLINE_CREATE" as const,
+          payload: { name: "Auth Air", hubs: ["LAX"], corporateBalance: fp(50000000), tick: 1 },
+        },
+      },
+      {
+        eventId: "evt-2",
+        authorPubkey: pubkey,
+        createdAt: 2,
+        action: {
+          schemaVersion: 2,
+          action: "TICK_UPDATE" as const,
+          payload: { tick: 100, corporateBalance: authoritativeBalance },
+        },
+      },
+    ];
+
+    const result = await replayActionLog({ pubkey, actions });
+    expect(result.airline?.corporateBalance).toBe(authoritativeBalance);
+    expect(result.airline?.lastTick).toBe(100);
+  });
+
+  it("TICK_UPDATE without corporateBalance falls back to estimation", async () => {
+    const pubkey = "pubkey-est-bal";
+    const initialBalance = fp(50000000);
+    const actions = [
+      {
+        eventId: "evt-1",
+        authorPubkey: pubkey,
+        createdAt: 1,
+        action: {
+          schemaVersion: 2,
+          action: "AIRLINE_CREATE" as const,
+          payload: { name: "Est Air", hubs: ["SFO"], corporateBalance: initialBalance, tick: 1 },
+        },
+      },
+      {
+        eventId: "evt-2",
+        authorPubkey: pubkey,
+        createdAt: 2,
+        action: {
+          schemaVersion: 2,
+          action: "TICK_UPDATE" as const,
+          payload: { tick: 100 },
+        },
+      },
+    ];
+
+    const result = await replayActionLog({ pubkey, actions });
+    // Without corporateBalance in payload, balance should remain unchanged
+    // (no fleet to generate revenue, so reconcileFleetToTick delta is 0)
+    expect(result.airline?.corporateBalance).toBe(initialBalance);
+    expect(result.airline?.lastTick).toBe(100);
+  });
 });

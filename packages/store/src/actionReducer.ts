@@ -499,7 +499,22 @@ export async function replayActionLog(params: {
             Array.from(routesById.values()),
             actionTick,
           );
-          applyBalanceDelta(balanceDelta);
+          // Use authoritative balance from the TICK_UPDATE payload when
+          // available.  The publishing client computed this via the full
+          // demand engine (QSI, competition, price elasticity), which is
+          // far more accurate than the simplified estimation produced by
+          // reconcileFleetToTick.  Fall back to the estimated delta for
+          // old events that predate this field.
+          const authoritativeBalance = clampFixedPoint(
+            payload.corporateBalance,
+            MIN_BALANCE,
+            MAX_BALANCE,
+          );
+          if (authoritativeBalance != null) {
+            airline = { ...airline, corporateBalance: authoritativeBalance };
+          } else {
+            applyBalanceDelta(balanceDelta);
+          }
           fleetById.clear();
           for (const aircraft of reconciledFleet) {
             fleetById.set(aircraft.id, aircraft);
