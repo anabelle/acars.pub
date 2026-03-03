@@ -195,7 +195,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       let currentTimeline = [...get().timeline];
       const timelineEventIds = new Set(currentTimeline.map((event) => event.id));
       const initialAirlineStatus = airline.status;
-      let hasNewTimelineEvents = false;
+
       let consumedDeletedFleetIds = new Set<string>();
 
       const ticksPerMonth = TICKS_PER_MONTH;
@@ -240,7 +240,6 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
               cost: totalCost,
             };
             currentTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
-            hasNewTimelineEvents = true;
           }
         }
 
@@ -291,8 +290,11 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             set({ latestCheckpoint: checkpoint });
           })().catch((e) => console.error("Checkpoint publish failed", e));
         }
-        const hasMaterialTickUpdate =
-          hasNewTimelineEvents || updatedAirline.status !== initialAirlineStatus;
+        // Only status changes (e.g. chapter 11) are truly material.
+        // Routine flight events (landings, takeoffs, turnarounds) are
+        // deterministic — other clients recompute them — so they ride
+        // the 60-second heartbeat cadence instead of publishing every tick.
+        const hasMaterialTickUpdate = updatedAirline.status !== initialAirlineStatus;
         if (
           shouldPublishTickUpdate({
             airlineId: updatedAirline.id,
@@ -371,7 +373,6 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             currentTimeline = [...newEvents, ...currentTimeline].slice(0, 1000);
             timelineEventIds.clear();
             for (const event of currentTimeline) timelineEventIds.add(event.id);
-            hasNewTimelineEvents = true;
           }
         }
 
@@ -397,7 +398,6 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             currentTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
             timelineEventIds.clear();
             for (const event of currentTimeline) timelineEventIds.add(event.id);
-            hasNewTimelineEvents = true;
           }
         }
 
@@ -551,7 +551,6 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             .slice(0, 1000);
           timelineEventIds.clear();
           for (const event of currentTimeline) timelineEventIds.add(event.id);
-          hasNewTimelineEvents = true;
         }
         recoveryEvents.length = 0;
       }
@@ -578,7 +577,6 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           currentTimeline = [...newEvents, ...currentTimeline].slice(0, 1000);
           timelineEventIds.clear();
           for (const event of currentTimeline) timelineEventIds.add(event.id);
-          hasNewTimelineEvents = true;
         }
       }
 
@@ -799,7 +797,6 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           currentTimeline = [...newEvents, ...currentTimeline].slice(0, 1000);
           timelineEventIds.clear();
           for (const event of currentTimeline) timelineEventIds.add(event.id);
-          hasNewTimelineEvents = true;
         }
       }
 
@@ -852,9 +849,10 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         })().catch((e) => console.error("Checkpoint publish failed", e));
       }
 
-      // 4. Sync to Nostr on material changes or heartbeat cadence
-      const hasMaterialTickUpdate =
-        hasNewTimelineEvents || updatedAirline.status !== initialAirlineStatus;
+      // 4. Sync to Nostr on status changes or heartbeat cadence.
+      // Routine flight events are deterministic and do not need
+      // immediate publish — they ride the 60-second heartbeat.
+      const hasMaterialTickUpdate = updatedAirline.status !== initialAirlineStatus;
       if (
         shouldPublishTickUpdate({
           airlineId: updatedAirline.id,

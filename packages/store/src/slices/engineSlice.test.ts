@@ -843,7 +843,7 @@ describe("TICK_UPDATE publish cadence", () => {
     expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(2);
   });
 
-  it("publishes immediately on timeline material changes before heartbeat", async () => {
+  it("does NOT publish immediately on routine timeline events (rides heartbeat)", async () => {
     const { processFlightEngine } = await import("../FlightEngine");
     vi.mocked(processFlightEngine).mockImplementation(
       (tick, currentFleet, _routes, corporateBalance) => ({
@@ -853,11 +853,11 @@ describe("TICK_UPDATE publish cadence", () => {
           tick === 1001
             ? [
                 {
-                  id: `evt-material-${tick}`,
+                  id: `evt-landing-${tick}`,
                   tick,
                   timestamp: 0,
-                  type: "takeoff",
-                  description: "material event",
+                  type: "landing",
+                  description: "routine landing event",
                 },
               ]
             : [],
@@ -871,6 +871,43 @@ describe("TICK_UPDATE publish cadence", () => {
       fleet: [makeAircraft("ac-1")],
       routes: [route],
     });
+
+    // First tick publishes (first-ever publish).
+    await state.processTick(1000);
+    // Second tick has a landing event but should NOT publish
+    // immediately — routine events ride the heartbeat cadence.
+    await state.processTick(1001);
+
+    expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(1);
+  });
+
+  it("publishes immediately when airline status changes within heartbeat window", async () => {
+    const route = makeRoute("rt-1", 400);
+    const { state, set } = createSliceState({
+      airline: makeAirline(999),
+      fleet: [makeAircraft("ac-1")],
+      routes: [route],
+    });
+
+    const { processFlightEngine } = await import("../FlightEngine");
+    vi.mocked(processFlightEngine).mockImplementation(
+      (tick, currentFleet, _routes, corporateBalance) => {
+        if (tick === 1001 && state.airline) {
+          set({
+            airline: {
+              ...state.airline,
+              status: "chapter11",
+            },
+          });
+        }
+        return {
+          updatedFleet: currentFleet,
+          corporateBalance,
+          events: [],
+          hasChanges: true,
+        };
+      },
+    );
 
     await state.processTick(1000);
     await state.processTick(1001);
