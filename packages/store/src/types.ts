@@ -33,6 +33,7 @@ export interface AirlineState {
 
   // Actions
   initializeIdentity: () => Promise<void>;
+  loginWithNsec: (nsec: string) => Promise<void>;
   createAirline: (params: CreateAirlineParams) => Promise<void>;
   dissolveAirline: () => Promise<void>;
   modifyHubs: (action: HubAction) => Promise<void>;

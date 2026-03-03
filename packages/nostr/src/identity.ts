@@ -1,4 +1,4 @@
-import { NDKNip07Signer } from "@nostr-dev-kit/ndk";
+import { NDKNip07Signer, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { getNDK } from "./ndk.js";
 
 /**
@@ -16,7 +16,7 @@ export function hasNip07(): boolean {
  * Extensions inject their content scripts AFTER page JS starts,
  * so we poll briefly before giving up.
  */
-export function waitForNip07(timeoutMs = 1500): Promise<boolean> {
+export function waitForNip07(timeoutMs = 3000): Promise<boolean> {
   return new Promise((resolve) => {
     if (hasNip07()) {
       resolve(true);
@@ -47,7 +47,7 @@ export function waitForNip07(timeoutMs = 1500): Promise<boolean> {
  *
  * Returns the hex pubkey, or null if unavailable/timeout.
  */
-export async function getPubkey(): Promise<string | null> {
+export async function getPubkey(timeoutMs = 15000): Promise<string | null> {
   if (!hasNip07()) return null;
 
   try {
@@ -55,7 +55,9 @@ export async function getPubkey(): Promise<string | null> {
       (
         window as unknown as { nostr: { getPublicKey: () => Promise<string> } }
       ).nostr.getPublicKey(),
-      new Promise<null>((_, reject) => setTimeout(() => reject(new Error("NIP-07 timeout")), 4000)),
+      new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error("NIP-07 timeout")), timeoutMs),
+      ),
     ]);
     return pubkey ?? null;
   } catch (error) {
@@ -75,5 +77,19 @@ export function attachSigner(): void {
   if (!hasNip07()) return;
   const ndk = getNDK();
   // Always create a fresh signer to avoid cached identity
-  ndk.signer = new NDKNip07Signer(4000);
+  ndk.signer = new NDKNip07Signer(15000);
+}
+
+/**
+ * Login with an nsec private key directly (bypass NIP-07 extension).
+ * This is a fallback for when extensions like nos2x are broken.
+ *
+ * Returns the hex pubkey, or throws on invalid key.
+ */
+export async function loginWithNsec(nsec: string): Promise<string> {
+  const ndk = getNDK();
+  const signer = new NDKPrivateKeySigner(nsec.trim());
+  const user = await signer.user();
+  ndk.signer = signer;
+  return user.pubkey;
 }
