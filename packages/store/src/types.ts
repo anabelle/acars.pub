@@ -8,7 +8,7 @@ import type {
   Route,
   TimelineEvent,
 } from "@acars/core";
-import type { MarketplaceListing } from "@acars/nostr";
+import type { ActionLogEntry, MarketplaceListing } from "@acars/nostr";
 import type { CreateAirlineParams } from "./slices/identitySlice";
 import type { HubAction } from "./slices/networkSlice";
 
@@ -75,6 +75,6 @@ export interface AirlineState {
   routesByOwner: Map<string, Route[]>;
   viewAs: (pubkey: string | null) => void;
   syncWorld: (options?: { force?: boolean }) => Promise<void>;
-  syncCompetitor: (competitorPubkey: string) => Promise<void>;
+  syncCompetitor: (competitorPubkey: string, liveEvents?: ActionLogEntry[]) => Promise<void>;
   projectCompetitorFleet: (tick: number) => void;
 }
