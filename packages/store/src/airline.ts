@@ -1,4 +1,5 @@
 import { createLogger } from "@acars/core";
+import type { ActionLogEntry } from "@acars/nostr";
 import {
   connectedRelayCount,
   ensureConnected,
@@ -116,21 +117,21 @@ const runtimeEnv = (
 ).process?.env?.NODE_ENV;
 const enableRealtimeSyncLogs = runtimeEnv !== "production";
 
-// Batching: collect competitor pubkeys that need targeted sync, flush after
+// Batching: collect competitor events that need targeted sync, flush after
 // a short window so rapid-fire events from the same player coalesce.
 const LIVE_SYNC_BATCH_MS = 1000;
-let pendingCompetitorSyncs = new Set<string>();
+let pendingCompetitorSyncs = new Map<string, ActionLogEntry[]>();
 let batchFlushTimer: ReturnType<typeof setTimeout> | null = null;
 const RESUBSCRIBE_REPLAY_WINDOW_SEC = 5;
 let lastSeenActionCreatedAtSec = 0;
 
 // Buffer for live events that arrive before the initial sync completes.
 // Flushed (with deduplication) once initialSyncComplete is set to true.
-const eventBuffer: string[] = [];
+const eventBuffer: Array<{ pubkey: string; entry: ActionLogEntry }> = [];
 
 /** @internal — test-only accessor for the pre-sync event buffer */
 export function _getEventBuffer(): string[] {
-  return [...eventBuffer];
+  return eventBuffer.map((e) => e.pubkey);
 }
 
 function updateLastSeenAction(createdAt: number | undefined) {
@@ -149,19 +150,23 @@ function getResubscribeSince(): number {
 
 function flushPendingCompetitorSyncs() {
   batchFlushTimer = null;
-  const pubkeys = pendingCompetitorSyncs;
-  pendingCompetitorSyncs = new Set();
+  const pending = pendingCompetitorSyncs;
+  pendingCompetitorSyncs = new Map();
 
-  for (const pubkey of pubkeys) {
+  for (const [pubkey, liveEvents] of pending) {
     if (enableRealtimeSyncLogs) {
-      logger.info(`Live sync: fetching competitor ${pubkey.slice(0, 8)}...`);
+      logger.info(
+        `Live sync: fetching competitor ${pubkey.slice(0, 8)}... (${liveEvents.length} cached event(s))`,
+      );
     }
-    void useAirlineStore.getState().syncCompetitor(pubkey);
+    void useAirlineStore.getState().syncCompetitor(pubkey, liveEvents);
   }
 }
 
-function queueCompetitorSync(pubkey: string) {
-  pendingCompetitorSyncs.add(pubkey);
+function queueCompetitorSync(pubkey: string, entry?: ActionLogEntry) {
+  const existing = pendingCompetitorSyncs.get(pubkey) || [];
+  if (entry) existing.push(entry);
+  pendingCompetitorSyncs.set(pubkey, existing);
   if (!batchFlushTimer) {
     batchFlushTimer = setTimeout(flushPendingCompetitorSyncs, LIVE_SYNC_BATCH_MS);
   }
@@ -226,12 +231,18 @@ const RESUBSCRIBE_DELAY_MS = 2000;
 function flushEventBuffer() {
   if (eventBuffer.length === 0) return;
   const { competitors } = useAirlineStore.getState();
-  const seen = new Set<string>();
-  for (const pk of eventBuffer) {
-    if (seen.has(pk)) continue;
-    seen.add(pk);
-    if (!competitors.has(pk)) {
-      queueCompetitorSync(pk);
+  // Group buffered entries by pubkey
+  const byPubkey = new Map<string, ActionLogEntry[]>();
+  for (const { pubkey: pk, entry } of eventBuffer) {
+    const existing = byPubkey.get(pk) || [];
+    existing.push(entry);
+    byPubkey.set(pk, existing);
+  }
+  for (const [pk, entries] of byPubkey) {
+    // Skip competitors already captured by syncWorld
+    if (competitors.has(pk)) continue;
+    for (const entry of entries) {
+      queueCompetitorSync(pk, entry);
     }
   }
   eventBuffer.length = 0;
@@ -259,7 +270,7 @@ async function startActionSubscription(since: number): Promise<void> {
       // Buffer events that arrive before the initial sync finishes so they
       // are not silently dropped.  They will be replayed once sync completes.
       if (!initialSyncComplete) {
-        eventBuffer.push(competitorPubkey);
+        eventBuffer.push({ pubkey: competitorPubkey, entry });
         return;
       }
 
@@ -269,7 +280,7 @@ async function startActionSubscription(since: number): Promise<void> {
 
       // Queue a targeted sync for just this competitor.
       // Events arriving within LIVE_SYNC_BATCH_MS are coalesced.
-      queueCompetitorSync(competitorPubkey);
+      queueCompetitorSync(competitorPubkey, entry);
     },
     onClose: () => {
       // Subscription died unexpectedly (relay disconnect, WebSocket close).

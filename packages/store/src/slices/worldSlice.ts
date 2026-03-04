@@ -9,6 +9,7 @@ import type {
 } from "@acars/core";
 import {
   computeCheckpointStateHash,
+  createLogger,
   fp,
   fpAdd,
   fpFormat,
@@ -21,6 +22,7 @@ import {
 } from "@acars/core";
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
 import { getNDK, loadActionLog, loadCheckpoints, MARKETPLACE_KIND, NDKEvent } from "@acars/nostr";
+import type { ActionLogEntry } from "@acars/nostr";
 import type { StateCreator } from "zustand";
 import { replayActionLog } from "../actionReducer";
 import { useEngineStore } from "../engine";
@@ -38,7 +40,7 @@ export interface WorldSlice {
   routesByOwner: Map<string, Route[]>;
   viewAs: (pubkey: string | null) => void;
   syncWorld: (options?: { force?: boolean }) => Promise<void>;
-  syncCompetitor: (competitorPubkey: string) => Promise<void>;
+  syncCompetitor: (competitorPubkey: string, liveEvents?: ActionLogEntry[]) => Promise<void>;
   /**
    * Re-project all competitor fleets to the given tick using the pure
    * `reconcileFleetToTick` function.  Called every tick from the pipeline
@@ -50,6 +52,13 @@ export interface WorldSlice {
 let isSyncingWorld = false;
 let pendingSyncWorldOptions: { force?: boolean } | null = null;
 const MONTH_TICKS = TICKS_PER_MONTH;
+const worldLogger = createLogger("WorldSync");
+
+// Cached global actions from the last syncWorld() call.
+// Reused by syncCompetitor() to avoid redundant 10K-event fetches.
+let cachedGlobalActions: ActionLogEntry[] = [];
+let cachedGlobalActionsTimestamp = 0;
+const GLOBAL_ACTIONS_CACHE_TTL_MS = 60_000;
 
 /** @internal — test-only helper to reset module-level concurrency flags */
 export function _resetWorldFlags() {
@@ -219,6 +228,11 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
       try {
         const existingState = get();
         const actions = await loadActionLog({ limit: 500, maxPages: 20 });
+
+        // Cache global actions for syncCompetitor() reuse
+        cachedGlobalActions = actions;
+        cachedGlobalActionsTimestamp = Date.now();
+
         const authorPubkeys = Array.from(
           new Set(actions.map((entry) => entry.event.author.pubkey)),
         );
@@ -618,173 +632,226 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
     }
   },
 
-  syncCompetitor: async (competitorPubkey: string) => {
+  syncCompetitor: async (competitorPubkey: string, liveEvents?: ActionLogEntry[]) => {
     const existingState = get();
     if (competitorPubkey === existingState.pubkey) return;
 
-    try {
-      // Targeted fetch for this competitor plus global marketplace buys for replay filtering.
-      const [actions, checkpoints, globalActions] = await Promise.all([
-        loadActionLog({
-          authors: [competitorPubkey],
-          limit: 500,
-          maxPages: 20,
-        }),
-        loadCheckpoints([competitorPubkey]),
-        loadActionLog({ limit: 500, maxPages: 20 }),
-      ]);
+    const maxAttempts = liveEvents && liveEvents.length > 0 ? 2 : 1;
 
-      if (actions.length === 0 && checkpoints.size === 0) return;
-
-      const checkpoint = await verifyCheckpointInternalConsistency(
-        checkpoints.get(competitorPubkey) ?? null,
-        competitorPubkey,
-      );
-      let scopedEntries = actions;
-      if (checkpoint) {
-        scopedEntries = scopeActionsToCheckpoint(actions, checkpoint);
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        worldLogger.info(
+          `Retrying sync for ${competitorPubkey.slice(0, 8)}... (attempt ${attempt + 1})`,
+        );
+        await new Promise((r) => setTimeout(r, 3000));
       }
 
-      const rejectedBuyEventIds = computeRejectedBuyEventIds(globalActions);
+      try {
+        // Reuse cached global actions if recent enough, otherwise fetch fresh.
+        const globalActionsPromise =
+          cachedGlobalActions.length > 0 &&
+          Date.now() - cachedGlobalActionsTimestamp < GLOBAL_ACTIONS_CACHE_TTL_MS
+            ? Promise.resolve(cachedGlobalActions)
+            : loadActionLog({ limit: 500, maxPages: 20 });
 
-      const replayed = await replayActionLog({
-        pubkey: competitorPubkey,
-        actions: scopedEntries.map((entry) => ({
-          action: entry.action,
-          eventId: entry.event.id,
-          authorPubkey: entry.event.author.pubkey,
-          createdAt: entry.event.created_at ?? null,
-        })),
-        checkpoint,
-        rejectedEventIds: rejectedBuyEventIds,
-      });
+        // Targeted fetch for this competitor plus global marketplace buys for replay filtering.
+        const [fetchedActions, checkpoints, globalActions] = await Promise.all([
+          loadActionLog({
+            authors: [competitorPubkey],
+            limit: 500,
+            maxPages: 20,
+          }),
+          loadCheckpoints([competitorPubkey]),
+          globalActionsPromise,
+        ]);
 
-      if (!replayed.airline) return;
-
-      const airline = replayed.airline;
-      let resolvedFleet = replayed.fleet;
-      const resolvedRoutes = replayed.routes;
-
-      // Reconcile fleet positions to lastTick
-      if (
-        airline.status !== "chapter11" &&
-        airline.status !== "liquidated" &&
-        airline.lastTick != null &&
-        resolvedFleet.length > 0
-      ) {
-        const { fleet: reconciledFleet, balanceDelta } = reconcileFleetToTick(
-          resolvedFleet,
-          resolvedRoutes,
-          airline.lastTick,
-        );
-        resolvedFleet = reconciledFleet;
-        airline.corporateBalance = fpAdd(airline.corporateBalance, balanceDelta);
-      }
-
-      // Project fleet forward to the current tick so the stored state is
-      // up-to-date.  This replaces the old processGlobalTick catch-up.
-      const currentTick = useEngineStore.getState().tick;
-      if (
-        airline.status !== "chapter11" &&
-        airline.status !== "liquidated" &&
-        currentTick > 0 &&
-        (airline.lastTick == null || currentTick > airline.lastTick)
-      ) {
-        const { fleet: projectedFleet, balanceDelta } = reconcileFleetToTick(
-          resolvedFleet,
-          resolvedRoutes,
-          currentTick,
-        );
-        resolvedFleet = projectedFleet;
-        airline.corporateBalance = fpAdd(airline.corporateBalance, balanceDelta);
-        // Apply monthly recurring costs (hub opex, lease payments) for any
-        // month boundaries crossed during projection — mirrors syncWorld logic.
-        airline.corporateBalance = applyMonthlyCosts(
-          airline.corporateBalance,
-          airline.hubs,
-          resolvedFleet,
-          airline.lastTick ?? 0,
-          currentTick,
-        );
-        airline.lastTick = currentTick;
-      }
-
-      // Merge into existing state — only replace this competitor's data
-      const freshState = get();
-      const updatedCompetitors = new Map(freshState.competitors);
-      updatedCompetitors.set(competitorPubkey, airline);
-
-      // Update unified fleet/routes maps: replace this competitor's entry in-place
-      const updatedFleetByOwner = new Map(freshState.fleetByOwner);
-      updatedFleetByOwner.set(competitorPubkey, resolvedFleet);
-
-      const updatedRoutesByOwner = new Map(freshState.routesByOwner);
-      updatedRoutesByOwner.set(competitorPubkey, resolvedRoutes);
-
-      // Rebuild route registry: remove old offers from this competitor, add new ones
-      const updatedRegistry = new Map(freshState.globalRouteRegistry);
-      // Remove all offers from this competitor
-      for (const [key, offers] of updatedRegistry) {
-        const filtered = offers.filter((o) => o.airlinePubkey !== competitorPubkey);
-        if (filtered.length > 0) {
-          updatedRegistry.set(key, filtered);
-        } else {
-          updatedRegistry.delete(key);
+        // Merge live-received events into the fetched action log.
+        // This ensures events not yet indexed by relays are still replayed.
+        const seenIds = new Set(fetchedActions.map((e) => e.event.id));
+        const mergedActions = [...fetchedActions];
+        if (liveEvents) {
+          for (const entry of liveEvents) {
+            if (!seenIds.has(entry.event.id)) {
+              mergedActions.push(entry);
+              seenIds.add(entry.event.id);
+            }
+          }
         }
-      }
-      // Add new offers from this competitor
-      for (const route of resolvedRoutes) {
-        if (route.status !== "active") continue;
-        const frequency = Math.max(0, route.assignedAircraftIds.length * 7);
-        if (frequency === 0) continue;
+        // Sort by timestamp for deterministic replay
+        mergedActions.sort((a, b) => {
+          const aTime = a.event.created_at ?? 0;
+          const bTime = b.event.created_at ?? 0;
+          if (aTime !== bTime) return aTime - bTime;
+          return a.event.id.localeCompare(b.event.id);
+        });
 
-        let avgTravelTime = 0;
-        if (route.assignedAircraftIds.length > 0) {
-          const modelIds = route.assignedAircraftIds
-            .map((id: string) => {
-              const ac = resolvedFleet.find((a: AircraftInstance) => a.id === id);
-              return ac?.modelId;
-            })
-            .filter(Boolean);
-          const times = modelIds.map((mid: string | undefined) => {
-            const model = getAircraftById(mid!);
-            if (!model) return 480;
-            return (route.distanceKm / (model.speedKmh || 800)) * 60;
-          });
-          avgTravelTime =
-            times.length > 0
-              ? times.reduce((a: number, b: number) => a + b, 0) / times.length
-              : 480;
+        if (mergedActions.length === 0 && checkpoints.size === 0) {
+          worldLogger.info(
+            `No actions or checkpoints found for ${competitorPubkey.slice(0, 8)}...` +
+              (liveEvents?.length ? ` (had ${liveEvents.length} live event(s))` : ""),
+          );
+          continue; // retry if we had live events
         }
 
-        const key = `${route.originIata}-${route.destinationIata}`;
-        const offers = updatedRegistry.get(key) || [];
-        const offer: FlightOffer = {
-          airlinePubkey: airline.ceoPubkey,
-          fareEconomy: route.fareEconomy,
-          fareBusiness: route.fareBusiness,
-          fareFirst: route.fareFirst,
-          frequencyPerWeek: frequency,
-          travelTimeMinutes: Math.round(avgTravelTime) || 480,
-          stops: 0,
-          serviceScore: 0.7,
-          brandScore: airline.brandScore || 0.5,
-        };
-        offers.push(offer);
-        updatedRegistry.set(key, offers);
-      }
+        const checkpoint = await verifyCheckpointInternalConsistency(
+          checkpoints.get(competitorPubkey) ?? null,
+          competitorPubkey,
+        );
+        let scopedEntries = mergedActions;
+        if (checkpoint) {
+          scopedEntries = scopeActionsToCheckpoint(mergedActions, checkpoint);
+        }
 
-      set({
-        competitors: updatedCompetitors,
-        fleetByOwner: updatedFleetByOwner,
-        routesByOwner: updatedRoutesByOwner,
-        globalRouteRegistry: updatedRegistry,
-      });
-    } catch (error) {
-      console.error(
-        `[WorldSlice] Failed to sync competitor ${competitorPubkey.slice(0, 8)}...:`,
-        error,
-      );
+        const rejectedBuyEventIds = computeRejectedBuyEventIds(globalActions);
+
+        const replayed = await replayActionLog({
+          pubkey: competitorPubkey,
+          actions: scopedEntries.map((entry) => ({
+            action: entry.action,
+            eventId: entry.event.id,
+            authorPubkey: entry.event.author.pubkey,
+            createdAt: entry.event.created_at ?? null,
+          })),
+          checkpoint,
+          rejectedEventIds: rejectedBuyEventIds,
+        });
+
+        if (!replayed.airline) {
+          worldLogger.warn(
+            `Replay produced no airline for ${competitorPubkey.slice(0, 8)}... ` +
+              `(${scopedEntries.length} scoped actions, checkpoint: ${checkpoint ? "yes" : "no"})`,
+          );
+          continue; // retry if attempts remain
+        }
+
+        const airline = replayed.airline;
+        let resolvedFleet = replayed.fleet;
+        const resolvedRoutes = replayed.routes;
+
+        // Reconcile fleet positions to lastTick
+        if (
+          airline.status !== "chapter11" &&
+          airline.status !== "liquidated" &&
+          airline.lastTick != null &&
+          resolvedFleet.length > 0
+        ) {
+          const { fleet: reconciledFleet, balanceDelta } = reconcileFleetToTick(
+            resolvedFleet,
+            resolvedRoutes,
+            airline.lastTick,
+          );
+          resolvedFleet = reconciledFleet;
+          airline.corporateBalance = fpAdd(airline.corporateBalance, balanceDelta);
+        }
+
+        // Project fleet forward to the current tick so the stored state is
+        // up-to-date.  This replaces the old processGlobalTick catch-up.
+        const currentTick = useEngineStore.getState().tick;
+        if (
+          airline.status !== "chapter11" &&
+          airline.status !== "liquidated" &&
+          currentTick > 0 &&
+          (airline.lastTick == null || currentTick > airline.lastTick)
+        ) {
+          const { fleet: projectedFleet, balanceDelta } = reconcileFleetToTick(
+            resolvedFleet,
+            resolvedRoutes,
+            currentTick,
+          );
+          resolvedFleet = projectedFleet;
+          airline.corporateBalance = fpAdd(airline.corporateBalance, balanceDelta);
+          // Apply monthly recurring costs (hub opex, lease payments) for any
+          // month boundaries crossed during projection — mirrors syncWorld logic.
+          airline.corporateBalance = applyMonthlyCosts(
+            airline.corporateBalance,
+            airline.hubs,
+            resolvedFleet,
+            airline.lastTick ?? 0,
+            currentTick,
+          );
+          airline.lastTick = currentTick;
+        }
+
+        // Merge into existing state — only replace this competitor's data
+        const freshState = get();
+        const updatedCompetitors = new Map(freshState.competitors);
+        updatedCompetitors.set(competitorPubkey, airline);
+
+        // Update unified fleet/routes maps: replace this competitor's entry in-place
+        const updatedFleetByOwner = new Map(freshState.fleetByOwner);
+        updatedFleetByOwner.set(competitorPubkey, resolvedFleet);
+
+        const updatedRoutesByOwner = new Map(freshState.routesByOwner);
+        updatedRoutesByOwner.set(competitorPubkey, resolvedRoutes);
+
+        // Rebuild route registry: remove old offers from this competitor, add new ones
+        const updatedRegistry = new Map(freshState.globalRouteRegistry);
+        // Remove all offers from this competitor
+        for (const [key, offers] of updatedRegistry) {
+          const filtered = offers.filter((o) => o.airlinePubkey !== competitorPubkey);
+          if (filtered.length > 0) {
+            updatedRegistry.set(key, filtered);
+          } else {
+            updatedRegistry.delete(key);
+          }
+        }
+        // Add new offers from this competitor
+        for (const route of resolvedRoutes) {
+          if (route.status !== "active") continue;
+          const frequency = Math.max(0, route.assignedAircraftIds.length * 7);
+          if (frequency === 0) continue;
+
+          let avgTravelTime = 0;
+          if (route.assignedAircraftIds.length > 0) {
+            const modelIds = route.assignedAircraftIds
+              .map((id: string) => {
+                const ac = resolvedFleet.find((a: AircraftInstance) => a.id === id);
+                return ac?.modelId;
+              })
+              .filter(Boolean);
+            const times = modelIds.map((mid: string | undefined) => {
+              const model = getAircraftById(mid!);
+              if (!model) return 480;
+              return (route.distanceKm / (model.speedKmh || 800)) * 60;
+            });
+            avgTravelTime =
+              times.length > 0
+                ? times.reduce((a: number, b: number) => a + b, 0) / times.length
+                : 480;
+          }
+
+          const key = `${route.originIata}-${route.destinationIata}`;
+          const offers = updatedRegistry.get(key) || [];
+          const offer: FlightOffer = {
+            airlinePubkey: airline.ceoPubkey,
+            fareEconomy: route.fareEconomy,
+            fareBusiness: route.fareBusiness,
+            fareFirst: route.fareFirst,
+            frequencyPerWeek: frequency,
+            travelTimeMinutes: Math.round(avgTravelTime) || 480,
+            stops: 0,
+            serviceScore: 0.7,
+            brandScore: airline.brandScore || 0.5,
+          };
+          offers.push(offer);
+          updatedRegistry.set(key, offers);
+        }
+
+        set({
+          competitors: updatedCompetitors,
+          fleetByOwner: updatedFleetByOwner,
+          routesByOwner: updatedRoutesByOwner,
+          globalRouteRegistry: updatedRegistry,
+        });
+
+        // Success — no need to retry
+        return;
+      } catch (error) {
+        worldLogger.warn(
+          `Failed to sync competitor ${competitorPubkey.slice(0, 8)}... (attempt ${attempt + 1}/${maxAttempts}):`,
+          error,
+        );
+      }
     }
   },
 });
