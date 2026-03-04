@@ -81,8 +81,11 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
   }, [onClose]);
 
   useEffect(() => {
-    // Reset to info tab when airport changes
-    setActiveTab("info");
+    // Reset to info tab when airport changes, unless URL already specifies a tab
+    // (e.g. ?airportTab=flights from FlightBoard interlinks)
+    if (!search.airportTab) {
+      setActiveTab("info");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airport.iata]);
 

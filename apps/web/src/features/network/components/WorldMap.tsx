@@ -1,6 +1,7 @@
 import type { AircraftInstance, Airport, Route } from "@acars/core";
+import { TICK_DURATION } from "@acars/core";
 import { airports as AIRPORTS } from "@acars/data";
-import { Globe as CoreGlobe } from "@acars/map";
+import { Globe as CoreGlobe, getGreatCircleInterpolation } from "@acars/map";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AircraftInfoPanel } from "@/features/network/components/AircraftInfoPanel";
@@ -8,6 +9,32 @@ import { AirportInfoPanel } from "@/features/network/components/AirportInfoPanel
 import { buildGroundPresenceByAirport } from "@/features/network/utils/groundTraffic";
 
 const airportByIata = new Map<string, Airport>(AIRPORTS.map((a) => [a.iata, a]));
+
+/**
+ * Compute the best airport (or virtual focus point) for centering the map
+ * on a given aircraft. For grounded aircraft, returns the base airport.
+ * For enroute aircraft, returns a virtual Airport at the interpolated position.
+ */
+function getAircraftFocusPoint(ac: AircraftInstance, tick: number, tickProgress: number): Airport | null {
+  if (ac.status === "enroute" && ac.flight) {
+    const origin = airportByIata.get(ac.flight.originIata);
+    const dest = airportByIata.get(ac.flight.destinationIata);
+    if (origin && dest) {
+      const elapsed = (tick - ac.flight.departureTick + tickProgress) * TICK_DURATION;
+      const duration = (ac.flight.arrivalTick - ac.flight.departureTick) * TICK_DURATION;
+      const progress = duration > 0 ? Math.max(0, Math.min(1, elapsed / duration)) : 0;
+      const [lng, lat] = getGreatCircleInterpolation(
+        [origin.longitude, origin.latitude],
+        [dest.longitude, dest.latitude],
+        progress,
+      );
+      // Return virtual airport at interpolated position
+      return { ...dest, latitude: lat, longitude: lng };
+    }
+    return dest ?? null;
+  }
+  return ac.baseAirportIata ? airportByIata.get(ac.baseAirportIata) ?? null : null;
+}
 
 export function WorldMap() {
   const homeAirport = useEngineStore((s) => s.homeAirport);
@@ -100,7 +127,7 @@ export function WorldMap() {
   }, [pubkey, fleetByOwner]);
 
   // Permalink deep-link: when permalinkAircraftId is set (e.g. /aircraft/abc123),
-  // automatically inspect that aircraft on the map.
+  // automatically inspect that aircraft on the map and center on its position.
   useEffect(() => {
     if (!permalinkAircraftId) return;
     const ac =
@@ -110,7 +137,9 @@ export function WorldMap() {
     if (ac) {
       setInspectedAircraft(ac);
       setInspectedAirport(null);
-      setFocusedAirport(null);
+      // Read tick imperatively to avoid re-running this effect every frame
+      const { tick: t, tickProgress: tp } = useEngineStore.getState();
+      setFocusedAirport(getAircraftFocusPoint(ac, t, tp));
     }
     // Re-run whenever fleet data updates (aircraft load asynchronously from Nostr)
   }, [permalinkAircraftId, fleet, competitorFleet]);
@@ -133,10 +162,10 @@ export function WorldMap() {
       if (!ac) return;
       setInspectedAircraft(ac);
       setInspectedAirport(null);
-      setFocusedAirport(null);
+      setFocusedAirport(getAircraftFocusPoint(ac, tick, tickProgress));
       window.history.replaceState(null, "", `/aircraft/${aircraftId}`);
     },
-    [fleet, competitorFleet],
+    [fleet, competitorFleet, tick, tickProgress],
   );
 
   const clearAircraftFocus = () => {

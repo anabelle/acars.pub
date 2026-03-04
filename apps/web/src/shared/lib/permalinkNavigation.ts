@@ -16,6 +16,8 @@ export function navigateToAirport(iata: string, searchParams?: Record<string, st
     useEngineStore.getState().setPermalinkAirport(iata.toUpperCase());
     const qs = searchParams ? `?${new URLSearchParams(searchParams).toString()}` : "";
     window.history.replaceState(null, "", `/airport/${iata.toUpperCase()}${qs}`);
+    // Notify TanStack Router to re-sync internal state with the new URL
+    window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 /**
