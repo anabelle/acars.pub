@@ -161,7 +161,7 @@ describe("airline store – event buffering during initial sync", () => {
     });
   });
 
-  it("deduplicates buffer entries and skips competitors already captured by syncWorld", async () => {
+  it("deduplicates by pubkey and replays buffered entries for known competitors", async () => {
     const { _getEventBuffer } = await import("./airline.js");
 
     // Simulate a burst of events from the same pubkey before sync finishes.
@@ -201,13 +201,50 @@ describe("airline store – event buffering during initial sync", () => {
       vi.useRealTimers();
     }
 
-    const syncedPubkeys = syncCompetitorSpy.mock.calls.map((c) => c[0] as string);
+    const cccCalls = syncCompetitorSpy.mock.calls.filter((c) => c[0] === "competitor-ccc");
+    const dddCalls = syncCompetitorSpy.mock.calls.filter((c) => c[0] === "competitor-ddd");
 
-    // competitor-ccc was already captured by syncWorld → must NOT be re-synced.
-    expect(syncedPubkeys).not.toContain("competitor-ccc");
+    // Known competitors are still replayed; burst entries are batched into one sync call.
+    expect(cccCalls).toHaveLength(1);
+    expect((cccCalls[0]?.[1] as unknown[])?.length).toBe(5);
 
-    // competitor-ddd is genuinely new → must be synced exactly once.
-    expect(syncedPubkeys.filter((pk) => pk === "competitor-ddd")).toHaveLength(1);
+    // Distinct competitor receives one sync with one buffered event.
+    expect(dddCalls).toHaveLength(1);
+    expect((dddCalls[0]?.[1] as unknown[])?.length).toBe(1);
+  });
+
+  it("deduplicates buffered duplicate event ids before sync", async () => {
+    const { _getEventBuffer } = await import("./airline.js");
+
+    capturedOnEvent!({
+      event: { id: "evt-dupe-1", author: { pubkey: "competitor-eee" } },
+      action: { action: "purchase_aircraft" },
+    } as never);
+    capturedOnEvent!({
+      event: { id: "evt-dupe-1", author: { pubkey: "competitor-eee" } },
+      action: { action: "purchase_aircraft" },
+    } as never);
+    capturedOnEvent!({
+      event: { id: "evt-dupe-2", author: { pubkey: "competitor-eee" } },
+      action: { action: "open_route" },
+    } as never);
+
+    syncWorldCompetitors = new Map([["competitor-eee", {}]]);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+
+    try {
+      resolveSyncWorld!();
+      await vi.waitFor(() => expect(_getEventBuffer()).toHaveLength(0), {
+        timeout: 3000,
+      });
+      await vi.advanceTimersByTimeAsync(1100);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const eeeCalls = syncCompetitorSpy.mock.calls.filter((c) => c[0] === "competitor-eee");
+    expect(eeeCalls).toHaveLength(1);
+    expect((eeeCalls[0]?.[1] as unknown[])?.length).toBe(2);
   });
 });
 

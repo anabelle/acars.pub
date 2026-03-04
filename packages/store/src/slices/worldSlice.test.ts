@@ -616,3 +616,258 @@ describe("syncWorld", () => {
     expect(loadActionLog).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("syncCompetitor", () => {
+  beforeEach(async () => {
+    _resetWorldFlags();
+    const nostr = await import("@acars/nostr");
+    (nostr.loadActionLog as unknown as ReturnType<typeof vi.fn>).mockReset();
+    (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockReset();
+    (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(new Map());
+  });
+
+  it("replays liveEvents when targeted relay fetch is empty", async () => {
+    const { loadActionLog } = await import("@acars/nostr");
+    const pubkey = "comp-live-events";
+
+    (loadActionLog as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([]) // competitor-targeted
+      .mockResolvedValueOnce([]); // global actions
+
+    const { state } = createSliceState({
+      competitors: new Map(),
+      fleetByOwner: buildFleetIndex([]),
+      routesByOwner: buildRoutesIndex([]),
+    });
+
+    await state.syncCompetitor(pubkey, [
+      {
+        event: { id: "live-evt-1", author: { pubkey }, created_at: 1 },
+        action: {
+          schemaVersion: 2,
+          action: "AIRLINE_CREATE",
+          payload: {
+            name: "Live Events Air",
+            hubs: ["JFK"],
+            corporateBalance: 1000000000000,
+            tick: 10,
+          },
+        },
+      },
+      {
+        event: { id: "live-evt-2", author: { pubkey }, created_at: 2 },
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_PURCHASE",
+          payload: {
+            instanceId: "ac-live-events",
+            modelId: "atr72-600",
+            price: 1000000,
+            deliveryHubIata: "JFK",
+            tick: 20,
+          },
+        },
+      },
+    ]);
+
+    expect(state.competitors.has(pubkey)).toBe(true);
+    expect(state.fleetByOwner.get(pubkey)?.map((ac) => ac.id)).toContain("ac-live-events");
+  });
+
+  it("uses recent cached global actions even when cache is empty", async () => {
+    const { loadActionLog } = await import("@acars/nostr");
+    const pubkey = "comp-empty-cache";
+    const loadActionLogMock = loadActionLog as unknown as ReturnType<typeof vi.fn>;
+    loadActionLogMock
+      .mockResolvedValueOnce([]) // syncWorld global
+      .mockResolvedValueOnce([
+        // syncCompetitor targeted
+        {
+          event: { id: "evt-create-empty-cache", author: { pubkey }, created_at: 1 },
+          action: {
+            schemaVersion: 2,
+            action: "AIRLINE_CREATE",
+            payload: {
+              name: "Empty Cache Air",
+              hubs: ["JFK"],
+              corporateBalance: 1000000000000,
+              tick: 10,
+            },
+          },
+        },
+      ]);
+
+    const { state } = createSliceState({
+      competitors: new Map(),
+      fleetByOwner: buildFleetIndex([]),
+      routesByOwner: buildRoutesIndex([]),
+    });
+
+    await state.syncWorld();
+    await state.syncCompetitor(pubkey);
+
+    expect(loadActionLogMock).toHaveBeenCalledTimes(2);
+    expect(state.competitors.has(pubkey)).toBe(true);
+  });
+
+  it("merges liveEvents with targeted fetch and ignores duplicate event ids", async () => {
+    const { loadActionLog } = await import("@acars/nostr");
+    const pubkey = "comp-merge-live-events";
+
+    (loadActionLog as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([
+        {
+          event: { id: "evt-create-1", author: { pubkey }, created_at: 1 },
+          action: {
+            schemaVersion: 2,
+            action: "AIRLINE_CREATE",
+            payload: {
+              name: "Merge Live Air",
+              hubs: ["JFK"],
+              corporateBalance: 1000000000000,
+              tick: 10,
+            },
+          },
+        },
+      ]) // competitor-targeted
+      .mockResolvedValueOnce([]); // global actions
+
+    const { state } = createSliceState({
+      competitors: new Map(),
+      fleetByOwner: buildFleetIndex([]),
+      routesByOwner: buildRoutesIndex([]),
+    });
+
+    await state.syncCompetitor(pubkey, [
+      {
+        event: { id: "evt-create-1", author: { pubkey }, created_at: 1 },
+        action: {
+          schemaVersion: 2,
+          action: "AIRLINE_CREATE",
+          payload: {
+            name: "Merge Live Air",
+            hubs: ["JFK"],
+            corporateBalance: 1000000000000,
+            tick: 10,
+          },
+        },
+      },
+      {
+        event: { id: "evt-live-purchase-1", author: { pubkey }, created_at: 2 },
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_PURCHASE",
+          payload: {
+            instanceId: "ac-live-merged",
+            modelId: "atr72-600",
+            price: 1000000,
+            deliveryHubIata: "JFK",
+            tick: 20,
+          },
+        },
+      },
+    ]);
+
+    expect(state.competitors.has(pubkey)).toBe(true);
+    expect(state.fleetByOwner.get(pubkey)?.map((ac) => ac.id)).toContain("ac-live-merged");
+  });
+
+  it("preserves existing fleet/routes when replay returns partial competitor state", async () => {
+    const { loadActionLog } = await import("@acars/nostr");
+    const pubkey = "comp-partial-replay";
+    const loadActionLogMock = loadActionLog as unknown as ReturnType<typeof vi.fn>;
+    loadActionLogMock
+      .mockResolvedValueOnce([
+        {
+          event: { id: "evt-create-partial", author: { pubkey }, created_at: 1 },
+          action: {
+            schemaVersion: 2,
+            action: "AIRLINE_CREATE",
+            payload: {
+              name: "Partial Replay Air",
+              hubs: ["JFK"],
+              corporateBalance: 1000000000000,
+              tick: 10,
+            },
+          },
+        },
+      ]) // competitor-targeted
+      .mockResolvedValueOnce([]); // global actions
+
+    const existingAirline = makeAirline(pubkey, 50);
+    existingAirline.fleetIds = ["ac-existing-1", "ac-existing-2"];
+    existingAirline.routeIds = ["route-existing-1"];
+    const existingFleet = [
+      makeAircraft("ac-existing-1", pubkey),
+      makeAircraft("ac-existing-2", pubkey),
+    ];
+    const existingRoutes: Route[] = [
+      {
+        id: "route-existing-1",
+        originIata: "JFK",
+        destinationIata: "LAX",
+        airlinePubkey: pubkey,
+        distanceKm: 3974,
+        assignedAircraftIds: ["ac-existing-1"],
+        fareEconomy: 100000 as FixedPoint,
+        fareBusiness: 200000 as FixedPoint,
+        fareFirst: 300000 as FixedPoint,
+        status: "active",
+      },
+    ];
+
+    const { state } = createSliceState({
+      competitors: new Map([[pubkey, existingAirline]]),
+      fleetByOwner: buildFleetIndex(existingFleet),
+      routesByOwner: buildRoutesIndex(existingRoutes),
+    });
+
+    await state.syncCompetitor(pubkey);
+
+    expect(state.competitors.has(pubkey)).toBe(true);
+    expect(state.fleetByOwner.get(pubkey)?.map((ac) => ac.id)).toEqual(
+      expect.arrayContaining(["ac-existing-1", "ac-existing-2"]),
+    );
+    expect(state.routesByOwner.get(pubkey)?.map((route) => route.id)).toEqual(
+      expect.arrayContaining(["route-existing-1"]),
+    );
+  });
+
+  it("retries once when liveEvents exist but replay yields no airline", async () => {
+    const { loadActionLog } = await import("@acars/nostr");
+    const pubkey = "comp-retry-live-events";
+    const loadActionLogMock = loadActionLog as unknown as ReturnType<typeof vi.fn>;
+    loadActionLogMock.mockResolvedValue([]);
+
+    const { state } = createSliceState({
+      competitors: new Map(),
+      fleetByOwner: buildFleetIndex([]),
+      routesByOwner: buildRoutesIndex([]),
+    });
+
+    vi.useFakeTimers();
+    try {
+      const syncPromise = state.syncCompetitor(pubkey, [
+        {
+          event: { id: "live-tick-only", author: { pubkey }, created_at: 1 },
+          action: {
+            schemaVersion: 2,
+            action: "TICK_UPDATE",
+            payload: { tick: 123 },
+          },
+        },
+      ]);
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(3000);
+      await syncPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const competitorTargetCalls = loadActionLogMock.mock.calls.filter(
+      (call) => call[0]?.authors?.[0] === pubkey,
+    );
+    expect(competitorTargetCalls).toHaveLength(2);
+    expect(state.competitors.has(pubkey)).toBe(false);
+  });
+});
