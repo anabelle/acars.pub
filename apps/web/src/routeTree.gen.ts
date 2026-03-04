@@ -14,6 +14,8 @@ import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as CorporateRouteImport } from './routes/corporate'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AirportIataRouteImport } from './routes/airport.$iata'
+import { Route as AircraftIdRouteImport } from './routes/aircraft.$id'
 
 const NetworkRoute = NetworkRouteImport.update({
   id: '/network',
@@ -40,6 +42,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AirportIataRoute = AirportIataRouteImport.update({
+  id: '/airport/$iata',
+  path: '/airport/$iata',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AircraftIdRoute = AircraftIdRouteImport.update({
+  id: '/aircraft/$id',
+  path: '/aircraft/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +59,8 @@ export interface FileRoutesByFullPath {
   '/fleet': typeof FleetRoute
   '/leaderboard': typeof LeaderboardRoute
   '/network': typeof NetworkRoute
+  '/aircraft/$id': typeof AircraftIdRoute
+  '/airport/$iata': typeof AirportIataRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +68,8 @@ export interface FileRoutesByTo {
   '/fleet': typeof FleetRoute
   '/leaderboard': typeof LeaderboardRoute
   '/network': typeof NetworkRoute
+  '/aircraft/$id': typeof AircraftIdRoute
+  '/airport/$iata': typeof AirportIataRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +78,37 @@ export interface FileRoutesById {
   '/fleet': typeof FleetRoute
   '/leaderboard': typeof LeaderboardRoute
   '/network': typeof NetworkRoute
+  '/aircraft/$id': typeof AircraftIdRoute
+  '/airport/$iata': typeof AirportIataRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/corporate' | '/fleet' | '/leaderboard' | '/network'
+  fullPaths:
+    | '/'
+    | '/corporate'
+    | '/fleet'
+    | '/leaderboard'
+    | '/network'
+    | '/aircraft/$id'
+    | '/airport/$iata'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/corporate' | '/fleet' | '/leaderboard' | '/network'
-  id: '__root__' | '/' | '/corporate' | '/fleet' | '/leaderboard' | '/network'
+  to:
+    | '/'
+    | '/corporate'
+    | '/fleet'
+    | '/leaderboard'
+    | '/network'
+    | '/aircraft/$id'
+    | '/airport/$iata'
+  id:
+    | '__root__'
+    | '/'
+    | '/corporate'
+    | '/fleet'
+    | '/leaderboard'
+    | '/network'
+    | '/aircraft/$id'
+    | '/airport/$iata'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +117,8 @@ export interface RootRouteChildren {
   FleetRoute: typeof FleetRoute
   LeaderboardRoute: typeof LeaderboardRoute
   NetworkRoute: typeof NetworkRoute
+  AircraftIdRoute: typeof AircraftIdRoute
+  AirportIataRoute: typeof AirportIataRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +158,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/airport/$iata': {
+      id: '/airport/$iata'
+      path: '/airport/$iata'
+      fullPath: '/airport/$iata'
+      preLoaderRoute: typeof AirportIataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aircraft/$id': {
+      id: '/aircraft/$id'
+      path: '/aircraft/$id'
+      fullPath: '/aircraft/$id'
+      preLoaderRoute: typeof AircraftIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +181,8 @@ const rootRouteChildren: RootRouteChildren = {
   FleetRoute: FleetRoute,
   LeaderboardRoute: LeaderboardRoute,
   NetworkRoute: NetworkRoute,
+  AircraftIdRoute: AircraftIdRoute,
+  AirportIataRoute: AirportIataRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
