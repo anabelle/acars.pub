@@ -7,6 +7,7 @@ import {
   calculateHubLandingFee,
   calculatePriceElasticity,
   calculateSupplyPressure,
+  computeRouteFrequency,
   countLandingsBetween,
   detectPriceWar,
   fp,
@@ -300,7 +301,12 @@ export function processFlightEngine(
 
           // Frequency for our offer: how many planes we (the player) have on this route?
           const ourFrequency = route
-            ? Math.max(1, route.assignedAircraftIds.length * 7)
+            ? computeRouteFrequency(
+                route.distanceKm,
+                Math.max(1, route.assignedAircraftIds.length),
+                model.speedKmh || 800,
+                model.turnaroundTimeMinutes,
+              )
             : Math.max(1, ac.flight?.frequencyPerWeek ?? 7);
 
           // Travel time for our current aircraft

@@ -1,5 +1,5 @@
 import type { AircraftInstance, Route } from "@acars/core";
-import { calculateBookValue, fpFormat } from "@acars/core";
+import { calculateBookValue, computeRouteFrequency, fpFormat } from "@acars/core";
 import { airports as AIRPORTS, getAircraftById } from "@acars/data";
 import { FAMILY_ICONS } from "@acars/map";
 import { useAirlineStore, useEngineStore } from "@acars/store";
@@ -91,13 +91,21 @@ function FlightStrip({
     <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono font-bold text-foreground hover:text-primary transition-colors cursor-pointer" onClick={() => navigateToAirport(flight.originIata)}>{flight.originIata}</span>
+          <span
+            className="text-sm font-mono font-bold text-foreground hover:text-primary transition-colors cursor-pointer"
+            onClick={() => navigateToAirport(flight.originIata)}
+          >
+            {flight.originIata}
+          </span>
           <div className="flex-1 flex items-center gap-1 text-muted-foreground">
             <div className="h-px flex-1 bg-sky-500/40" />
             <Plane className="h-3 w-3 text-sky-300" />
             <div className="h-px flex-1 bg-sky-500/40" />
           </div>
-          <span className="text-sm font-mono font-bold text-foreground hover:text-primary transition-colors cursor-pointer" onClick={() => navigateToAirport(flight.destinationIata)}>
+          <span
+            className="text-sm font-mono font-bold text-foreground hover:text-primary transition-colors cursor-pointer"
+            onClick={() => navigateToAirport(flight.destinationIata)}
+          >
             {flight.destinationIata}
           </span>
         </div>
@@ -147,7 +155,9 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
 
   useEffect(() => {
     let armed = false;
-    const timer = setTimeout(() => { armed = true; }, 300);
+    const timer = setTimeout(() => {
+      armed = true;
+    }, 300);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && armed) onClose();
     };
@@ -495,10 +505,16 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
                   </p>
                   <p className="mt-1 text-sm font-mono font-semibold">
                     {aircraft.baseAirportIata ? (
-                      <button type="button" onClick={() => navigateToAirport(aircraft.baseAirportIata)} className="hover:text-primary transition-colors cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={() => navigateToAirport(aircraft.baseAirportIata)}
+                        className="hover:text-primary transition-colors cursor-pointer"
+                      >
                         {aircraft.baseAirportIata}
                       </button>
-                    ) : "—"}
+                    ) : (
+                      "—"
+                    )}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/60 bg-background/70 p-3">
@@ -506,13 +522,27 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
                     Route
                   </p>
                   <p className="mt-1 text-sm font-mono font-semibold">
-                    {assignedRoute
-                      ? <>
-                        <button type="button" onClick={() => navigateToAirport(assignedRoute.originIata)} className="hover:text-primary transition-colors cursor-pointer">{assignedRoute.originIata}</button>
+                    {assignedRoute ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => navigateToAirport(assignedRoute.originIata)}
+                          className="hover:text-primary transition-colors cursor-pointer"
+                        >
+                          {assignedRoute.originIata}
+                        </button>
                         {" — "}
-                        <button type="button" onClick={() => navigateToAirport(assignedRoute.destinationIata)} className="hover:text-primary transition-colors cursor-pointer">{assignedRoute.destinationIata}</button>
+                        <button
+                          type="button"
+                          onClick={() => navigateToAirport(assignedRoute.destinationIata)}
+                          className="hover:text-primary transition-colors cursor-pointer"
+                        >
+                          {assignedRoute.destinationIata}
+                        </button>
                       </>
-                      : "Unassigned"}
+                    ) : (
+                      "Unassigned"
+                    )}
                   </p>
                 </div>
               </div>
@@ -520,14 +550,22 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
           </>
         ) : (
           /* Route tab */
-          <RouteTab route={assignedRoute} siblings={siblingsOnRoute} />
+          <RouteTab route={assignedRoute} siblings={siblingsOnRoute} aircraft={aircraft} />
         )}
       </div>
     </aside>
   );
 }
 
-function RouteTab({ route, siblings }: { route: Route | null; siblings: AircraftInstance[] }) {
+function RouteTab({
+  route,
+  siblings,
+  aircraft,
+}: {
+  route: Route | null;
+  siblings: AircraftInstance[];
+  aircraft: AircraftInstance;
+}) {
   if (!route) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -540,6 +578,13 @@ function RouteTab({ route, siblings }: { route: Route | null; siblings: Aircraft
 
   const originAirport = airportIndex.get(route.originIata);
   const destAirport = airportIndex.get(route.destinationIata);
+  const acModel = getAircraftById(aircraft.modelId);
+  const frequency = computeRouteFrequency(
+    route.distanceKm,
+    route.assignedAircraftIds.length,
+    acModel?.speedKmh || 800,
+    acModel?.turnaroundTimeMinutes || 35,
+  );
 
   const getLocalTime = (tz: string | undefined) => {
     if (!tz) return null;
@@ -570,7 +615,10 @@ function RouteTab({ route, siblings }: { route: Route | null; siblings: Aircraft
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="text-center min-w-0">
-              <span className="text-lg font-mono font-bold text-foreground hover:text-primary transition-colors cursor-pointer" onClick={() => navigateToAirport(route.originIata)}>
+              <span
+                className="text-lg font-mono font-bold text-foreground hover:text-primary transition-colors cursor-pointer"
+                onClick={() => navigateToAirport(route.originIata)}
+              >
                 {route.originIata}
               </span>
               {originAirport ? (
@@ -590,7 +638,10 @@ function RouteTab({ route, siblings }: { route: Route | null; siblings: Aircraft
               <div className="h-px w-4 bg-border" />
             </div>
             <div className="text-center min-w-0">
-              <span className="text-lg font-mono font-bold text-foreground hover:text-primary transition-colors cursor-pointer" onClick={() => navigateToAirport(route.destinationIata)}>
+              <span
+                className="text-lg font-mono font-bold text-foreground hover:text-primary transition-colors cursor-pointer"
+                onClick={() => navigateToAirport(route.destinationIata)}
+              >
                 {route.destinationIata}
               </span>
               {destAirport ? (
@@ -606,10 +657,11 @@ function RouteTab({ route, siblings }: { route: Route | null; siblings: Aircraft
             </div>
           </div>
           <span
-            className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-widest font-semibold ${route.status === "active"
-              ? "bg-emerald-500/20 text-emerald-200"
-              : "bg-muted text-muted-foreground"
-              }`}
+            className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-widest font-semibold ${
+              route.status === "active"
+                ? "bg-emerald-500/20 text-emerald-200"
+                : "bg-muted text-muted-foreground"
+            }`}
           >
             {route.status}
           </span>
@@ -628,7 +680,7 @@ function RouteTab({ route, siblings }: { route: Route | null; siblings: Aircraft
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
               Frequency
             </p>
-            <p className="mt-0.5 text-sm font-mono font-semibold">{route.frequencyPerWeek}x/wk</p>
+            <p className="mt-0.5 text-sm font-mono font-semibold">{frequency}x/wk</p>
           </div>
         </div>
       </div>

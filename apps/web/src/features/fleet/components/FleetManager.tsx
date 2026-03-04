@@ -144,11 +144,13 @@ export function FleetManager() {
     );
   }
 
-  const filteredFleet = fleet.filter(
-    (f) =>
-      f.name.toLowerCase().includes(search.toLowerCase()) ||
-      f.modelId.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredFleet = [...fleet]
+    .reverse()
+    .filter(
+      (f) =>
+        f.name.toLowerCase().includes(search.toLowerCase()) ||
+        f.modelId.toLowerCase().includes(search.toLowerCase()),
+    );
 
   const handleSubmitListing = async () => {
     if (!listingTarget) return;
@@ -296,12 +298,13 @@ export function FleetManager() {
                         </span>
                       ) : (
                         <span
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${ac.status === "idle"
-                            ? ac.assignedRouteId
-                              ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                              : "bg-primary/20 text-primary border border-primary/30"
-                            : "bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                            }`}
+                          className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
+                            ac.status === "idle"
+                              ? ac.assignedRouteId
+                                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                : "bg-primary/20 text-primary border border-primary/30"
+                              : "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                          }`}
                         >
                           {ac.status === "idle" && ac.assignedRouteId ? "assigned" : ac.status}
                         </span>
@@ -343,19 +346,43 @@ export function FleetManager() {
                           {ac.status === "enroute" && ac.flight ? (
                             <>
                               Enroute:{" "}
-                              <button type="button" onClick={() => navigateToAirport(ac.flight!.originIata)} className="hover:text-primary transition-colors cursor-pointer">{ac.flight.originIata}</button>
+                              <button
+                                type="button"
+                                onClick={() => navigateToAirport(ac.flight!.originIata)}
+                                className="hover:text-primary transition-colors cursor-pointer"
+                              >
+                                {ac.flight.originIata}
+                              </button>
                               {" → "}
-                              <button type="button" onClick={() => navigateToAirport(ac.flight!.destinationIata)} className="hover:text-primary transition-colors cursor-pointer">{ac.flight.destinationIata}</button>
+                              <button
+                                type="button"
+                                onClick={() => navigateToAirport(ac.flight!.destinationIata)}
+                                className="hover:text-primary transition-colors cursor-pointer"
+                              >
+                                {ac.flight.destinationIata}
+                              </button>
                             </>
                           ) : ac.status === "delivery" ? (
                             <>
                               Delivery to{" "}
-                              <button type="button" onClick={() => navigateToAirport(ac.baseAirportIata)} className="hover:text-primary transition-colors cursor-pointer">{ac.baseAirportIata}</button>
+                              <button
+                                type="button"
+                                onClick={() => navigateToAirport(ac.baseAirportIata)}
+                                className="hover:text-primary transition-colors cursor-pointer"
+                              >
+                                {ac.baseAirportIata}
+                              </button>
                             </>
                           ) : (
                             <>
                               At{" "}
-                              <button type="button" onClick={() => navigateToAirport(ac.baseAirportIata)} className="hover:text-primary transition-colors cursor-pointer">{ac.baseAirportIata}</button>
+                              <button
+                                type="button"
+                                onClick={() => navigateToAirport(ac.baseAirportIata)}
+                                className="hover:text-primary transition-colors cursor-pointer"
+                              >
+                                {ac.baseAirportIata}
+                              </button>
                             </>
                           )}
                         </p>
@@ -365,7 +392,13 @@ export function FleetManager() {
                           Base Hub
                         </p>
                         <p className="font-mono text-xs text-accent font-bold">
-                          <button type="button" onClick={() => navigateToAirport(baseHub)} className="hover:text-primary transition-colors cursor-pointer">{baseHub}</button>
+                          <button
+                            type="button"
+                            onClick={() => navigateToAirport(baseHub)}
+                            className="hover:text-primary transition-colors cursor-pointer"
+                          >
+                            {baseHub}
+                          </button>
                         </p>
                       </div>
                       <div>
@@ -482,9 +515,21 @@ export function FleetManager() {
                                 Route
                               </span>
                               <span className="text-xs font-bold text-foreground">
-                                <button type="button" onClick={() => navigateToAirport(lastLanding.originIata!)} className="hover:text-primary transition-colors cursor-pointer">{lastLanding.originIata}</button>
+                                <button
+                                  type="button"
+                                  onClick={() => navigateToAirport(lastLanding.originIata!)}
+                                  className="hover:text-primary transition-colors cursor-pointer"
+                                >
+                                  {lastLanding.originIata}
+                                </button>
                                 {" → "}
-                                <button type="button" onClick={() => navigateToAirport(lastLanding.destinationIata!)} className="hover:text-primary transition-colors cursor-pointer">{lastLanding.destinationIata}</button>
+                                <button
+                                  type="button"
+                                  onClick={() => navigateToAirport(lastLanding.destinationIata!)}
+                                  className="hover:text-primary transition-colors cursor-pointer"
+                                >
+                                  {lastLanding.destinationIata}
+                                </button>
                               </span>
                             </div>
                             <div className="flex flex-col text-right">
@@ -513,24 +558,26 @@ export function FleetManager() {
                                   Load Factor
                                 </span>
                                 <span
-                                  className={`text-[10px] font-mono font-black ${lf >= 0.85
-                                    ? "text-emerald-400"
-                                    : lf >= 0.6
-                                      ? "text-yellow-400"
-                                      : "text-red-400"
-                                    }`}
+                                  className={`text-[10px] font-mono font-black ${
+                                    lf >= 0.85
+                                      ? "text-emerald-400"
+                                      : lf >= 0.6
+                                        ? "text-yellow-400"
+                                        : "text-red-400"
+                                  }`}
                                 >
                                   {Math.round(lf * 100)}%
                                 </span>
                               </div>
                               <div className="h-1 w-full bg-muted/30 rounded-full overflow-hidden mb-3">
                                 <div
-                                  className={`h-full rounded-full transition-all ${lf >= 0.85
-                                    ? "bg-emerald-500"
-                                    : lf >= 0.6
-                                      ? "bg-yellow-500"
-                                      : "bg-red-500"
-                                    }`}
+                                  className={`h-full rounded-full transition-all ${
+                                    lf >= 0.85
+                                      ? "bg-emerald-500"
+                                      : lf >= 0.6
+                                        ? "bg-yellow-500"
+                                        : "bg-red-500"
+                                  }`}
                                   style={{ width: `${Math.round(lf * 100)}%` }}
                                 />
                               </div>
