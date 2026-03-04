@@ -30,7 +30,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getRouteDemandSnapshot } from "@/features/network/hooks/useRouteDemand";
 import { useConfirm } from "@/shared/lib/useConfirm";
-import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
+import { navigateToAirport, navigateToAircraft } from "@/shared/lib/permalinkNavigation";
 import { getAircraftBaseHub } from "../utils/aircraftBaseHub";
 import { getAircraftTimer } from "../utils/aircraftTimers";
 import { AircraftDealer } from "./AircraftDealer";
@@ -298,13 +298,12 @@ export function FleetManager() {
                         </span>
                       ) : (
                         <span
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
-                            ac.status === "idle"
-                              ? ac.assignedRouteId
-                                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                                : "bg-primary/20 text-primary border border-primary/30"
-                              : "bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                          }`}
+                          className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${ac.status === "idle"
+                            ? ac.assignedRouteId
+                              ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                              : "bg-primary/20 text-primary border border-primary/30"
+                            : "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                            }`}
                         >
                           {ac.status === "idle" && ac.assignedRouteId ? "assigned" : ac.status}
                         </span>
@@ -319,9 +318,15 @@ export function FleetManager() {
                     </div>
 
                     <div className="relative z-10 flex flex-col h-full justify-end">
-                      <h3 className="text-xl font-black tracking-tighter text-foreground group-hover:text-primary transition-colors">
-                        {ac.name}
-                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => navigateToAircraft(ac.id)}
+                        className="text-left hover:opacity-80 transition-opacity cursor-pointer"
+                      >
+                        <h3 className="text-xl font-black tracking-tighter text-foreground group-hover:text-primary transition-colors">
+                          {ac.name}
+                        </h3>
+                      </button>
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
                         {model.manufacturer} <span className="text-accent">{model.name}</span>
                       </p>
@@ -558,26 +563,24 @@ export function FleetManager() {
                                   Load Factor
                                 </span>
                                 <span
-                                  className={`text-[10px] font-mono font-black ${
-                                    lf >= 0.85
-                                      ? "text-emerald-400"
-                                      : lf >= 0.6
-                                        ? "text-yellow-400"
-                                        : "text-red-400"
-                                  }`}
+                                  className={`text-[10px] font-mono font-black ${lf >= 0.85
+                                    ? "text-emerald-400"
+                                    : lf >= 0.6
+                                      ? "text-yellow-400"
+                                      : "text-red-400"
+                                    }`}
                                 >
                                   {Math.round(lf * 100)}%
                                 </span>
                               </div>
                               <div className="h-1 w-full bg-muted/30 rounded-full overflow-hidden mb-3">
                                 <div
-                                  className={`h-full rounded-full transition-all ${
-                                    lf >= 0.85
-                                      ? "bg-emerald-500"
-                                      : lf >= 0.6
-                                        ? "bg-yellow-500"
-                                        : "bg-red-500"
-                                  }`}
+                                  className={`h-full rounded-full transition-all ${lf >= 0.85
+                                    ? "bg-emerald-500"
+                                    : lf >= 0.6
+                                      ? "bg-yellow-500"
+                                      : "bg-red-500"
+                                    }`}
                                   style={{ width: `${Math.round(lf * 100)}%` }}
                                 />
                               </div>

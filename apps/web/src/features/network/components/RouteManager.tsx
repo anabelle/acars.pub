@@ -27,6 +27,7 @@ import { airports as ALL_AIRPORTS, HUB_CLASSIFICATIONS } from "@acars/data";
 import { useActiveAirline, useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import {
   AlertCircle,
   ArrowDown,
@@ -573,8 +574,14 @@ export function RouteManager() {
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-background/70 px-4 py-3"
                 >
                   <div>
-                    <p className="text-sm font-bold text-foreground">
-                      {route.originIata} → {route.destinationIata}
+                    <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                      <button type="button" onClick={() => navigateToAirport(route.originIata)} className="hover:text-primary transition-colors cursor-pointer">
+                        {route.originIata}
+                      </button>
+                      <span className="text-muted-foreground">→</span>
+                      <button type="button" onClick={() => navigateToAirport(route.destinationIata)} className="hover:text-primary transition-colors cursor-pointer">
+                        {route.destinationIata}
+                      </button>
                     </p>
                     <p className="text-[11px] text-muted-foreground">
                       Distance {Math.round(route.distanceKm).toLocaleString()} km
@@ -772,8 +779,14 @@ export function RouteManager() {
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex flex-wrap items-center gap-3 sm:gap-6">
                             <div className="flex flex-col">
-                              <span className="text-2xl font-black text-primary leading-none tracking-tighter">
-                                {route.originIata} → {route.destinationIata}
+                              <span className="text-2xl font-black text-primary leading-none tracking-tighter flex items-center gap-2">
+                                <button type="button" onClick={() => navigateToAirport(route.originIata)} className="hover:text-foreground transition-colors cursor-pointer">
+                                  {route.originIata}
+                                </button>
+                                <span className="text-muted-foreground">→</span>
+                                <button type="button" onClick={() => navigateToAirport(route.destinationIata)} className="hover:text-foreground transition-colors cursor-pointer">
+                                  {route.destinationIata}
+                                </button>
                               </span>
                               <span className="text-xs text-muted-foreground font-semibold mt-1">
                                 {destinationAirport?.city}, {destinationAirport?.country} •{" "}
@@ -1356,8 +1369,14 @@ export function RouteManager() {
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
                   Route Pricing
                 </p>
-                <h3 className="text-lg font-bold text-foreground">
-                  {fareEditor.originIata} → {fareEditor.destinationIata}
+                <h3 className="text-lg font-bold text-foreground flex items-center gap-1.5">
+                  <button type="button" onClick={() => { setFareEditor(null); navigateToAirport(fareEditor.originIata); }} className="hover:text-primary transition-colors cursor-pointer">
+                    {fareEditor.originIata}
+                  </button>
+                  <span className="text-muted-foreground">→</span>
+                  <button type="button" onClick={() => { setFareEditor(null); navigateToAirport(fareEditor.destinationIata); }} className="hover:text-primary transition-colors cursor-pointer">
+                    {fareEditor.destinationIata}
+                  </button>
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
                   Distance: {Math.round(fareEditor.distanceKm).toLocaleString()} km
