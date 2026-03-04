@@ -351,6 +351,7 @@ export async function replayActionLog(params: {
   const latestActionTick = actionTicks.length ? Math.max(...actionTicks) : 0;
   const backfillStartTick = Math.max(0, latestActionTick - BACKFILL_TICK_WINDOW);
   const backfillTickSet = new Set<number>();
+  let bootstrapTick: number | null = null;
 
   // Bootstrap: If no checkpoint and no AIRLINE_CREATE in the action log,
   // use the latest TICK_UPDATE to create a synthetic airline entity.
@@ -390,8 +391,13 @@ export async function replayActionLog(params: {
               ? (payload.status as AirlineEntity["status"])
               : "private";
           const tier = clampInt(payload.tier, 1, 10) ?? 1;
+          const payloadFleetIds = asStringArray(payload.fleetIds);
+          const payloadRouteIds = asStringArray(payload.routeIds);
+          if (payloadFleetIds.length > 0) authoritativeFleetIds = payloadFleetIds;
+          if (payloadRouteIds.length > 0) authoritativeRouteIds = payloadRouteIds;
 
           dissolved = false;
+          bootstrapTick = tick;
           airline = {
             id: `bootstrap:${record.eventId}`,
             foundedBy: pubkey,
@@ -408,8 +414,8 @@ export async function replayActionLog(params: {
             tier,
             corporateBalance,
             stockPrice: fp(10),
-            fleetIds: asStringArray(payload.fleetIds),
-            routeIds: asStringArray(payload.routeIds),
+            fleetIds: payloadFleetIds,
+            routeIds: payloadRouteIds,
             lastTick: tick,
           };
           break;
@@ -434,6 +440,7 @@ export async function replayActionLog(params: {
         ? Math.floor((record.createdAt * 1000 - GENESIS_TIME) / TICK_DURATION) + TICKS_PER_HOUR
         : Number.MAX_SAFE_INTEGER;
     const actionTick = Math.min(rawActionTick, maxTickFromTimestamp);
+    if (bootstrapTick != null && actionTick <= bootstrapTick) continue;
     const eventTimestamp = resolveEventTimestamp(actionTick, record.createdAt);
     actionChainHash = await computeActionChainHash(actionChainHash, {
       id: record.eventId,
