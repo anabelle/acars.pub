@@ -820,9 +820,10 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
 
         // Rebuild route registry: remove old offers from this competitor, add new ones
         const updatedRegistry = new Map(freshState.globalRouteRegistry);
+        const ownerPubkey = airline.ceoPubkey;
         // Remove all offers from this competitor
         for (const [key, offers] of updatedRegistry) {
-          const filtered = offers.filter((o) => o.airlinePubkey !== competitorPubkey);
+          const filtered = offers.filter((o) => o.airlinePubkey !== ownerPubkey);
           if (filtered.length > 0) {
             updatedRegistry.set(key, filtered);
           } else {
@@ -857,7 +858,7 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
           const key = `${route.originIata}-${route.destinationIata}`;
           const offers = updatedRegistry.get(key) || [];
           const offer: FlightOffer = {
-            airlinePubkey: airline.ceoPubkey,
+            airlinePubkey: ownerPubkey,
             fareEconomy: route.fareEconomy,
             fareBusiness: route.fareBusiness,
             fareFirst: route.fareFirst,
