@@ -368,7 +368,7 @@ export async function replayActionLog(params: {
           const payload = record.action.payload;
           const tick = clampInt(payload.tick, 0, Number.MAX_SAFE_INTEGER) ?? 0;
           const corporateBalance =
-            clampFixedPoint(payload.corporateBalance, MIN_BALANCE, MAX_BALANCE) ?? fp(0);
+            clampFixedPoint(payload.corporateBalance, MIN_BALANCE, MAX_BALANCE) ?? fp(100000000);
           const name = clampString(payload.airlineName, MAX_NAME_LENGTH) ?? "Unknown Airline";
           const icaoCode = clampString(payload.icaoCode, MAX_CODE_LENGTH) ?? "";
           const callsign = clampString(payload.callsign, MAX_CODE_LENGTH) ?? "";
@@ -391,6 +391,7 @@ export async function replayActionLog(params: {
               : "private";
           const tier = clampInt(payload.tier, 1, 10) ?? 1;
 
+          dissolved = false;
           airline = {
             id: `bootstrap:${record.eventId}`,
             foundedBy: pubkey,
@@ -470,6 +471,7 @@ export async function replayActionLog(params: {
         clampFixedPoint(payload.corporateBalance ?? fp(100000000), MIN_BALANCE, MAX_BALANCE) ??
         fp(100000000);
 
+      dissolved = false;
       airline = {
         id: `action:${record.eventId}`,
         foundedBy: pubkey,

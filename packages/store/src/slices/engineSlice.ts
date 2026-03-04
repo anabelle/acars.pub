@@ -150,6 +150,13 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
               fleetIds: groundedFleet.map((ac) => ac.id),
               routeIds: routes.map((r) => r.id),
               timeline: get().timeline.slice(0, TICK_UPDATE_TIMELINE_EVENTS),
+              // Airline identity for bootstrap when AIRLINE_CREATE is missing from relays
+              airlineName: updatedAirline.name,
+              icaoCode: updatedAirline.icaoCode,
+              callsign: updatedAirline.callsign,
+              hubs: updatedAirline.hubs,
+              livery: updatedAirline.livery,
+              tier: updatedAirline.tier,
             },
           },
           get,
