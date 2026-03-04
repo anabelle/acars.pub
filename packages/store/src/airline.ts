@@ -225,12 +225,11 @@ const RESUBSCRIBE_DELAY_MS = 2000;
 
 /**
  * Replay events buffered during the initial sync window.
- * Deduplicates by pubkey and skips competitors already captured by syncWorld.
+ * Deduplicates by pubkey and replays all buffered entries.
  * Mirrors the flushPendingCompetitorSyncs pattern.
  */
 function flushEventBuffer() {
   if (eventBuffer.length === 0) return;
-  const { competitors } = useAirlineStore.getState();
   // Group buffered entries by pubkey
   const byPubkey = new Map<string, ActionLogEntry[]>();
   for (const { pubkey: pk, entry } of eventBuffer) {
@@ -239,8 +238,6 @@ function flushEventBuffer() {
     byPubkey.set(pk, existing);
   }
   for (const [pk, entries] of byPubkey) {
-    // Skip competitors already captured by syncWorld
-    if (competitors.has(pk)) continue;
     for (const entry of entries) {
       queueCompetitorSync(pk, entry);
     }

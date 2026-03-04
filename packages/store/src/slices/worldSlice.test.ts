@@ -616,3 +616,91 @@ describe("syncWorld", () => {
     expect(loadActionLog).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("syncCompetitor", () => {
+  beforeEach(async () => {
+    _resetWorldFlags();
+    const nostr = await import("@acars/nostr");
+    (nostr.loadActionLog as unknown as ReturnType<typeof vi.fn>).mockReset();
+    (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockReset();
+    (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(new Map());
+  });
+
+  it("replays liveEvents when targeted relay fetch is empty", async () => {
+    const { loadActionLog } = await import("@acars/nostr");
+    const pubkey = "comp-live-events";
+
+    (loadActionLog as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([]) // competitor-targeted
+      .mockResolvedValueOnce([]); // global actions
+
+    const { state } = createSliceState({
+      competitors: new Map(),
+      fleetByOwner: buildFleetIndex([]),
+      routesByOwner: buildRoutesIndex([]),
+    });
+
+    await state.syncCompetitor(pubkey, [
+      {
+        event: { id: "live-evt-1", author: { pubkey }, created_at: 1 },
+        action: {
+          schemaVersion: 2,
+          action: "AIRLINE_CREATE",
+          payload: {
+            name: "Live Events Air",
+            hubs: ["JFK"],
+            corporateBalance: 1000000000000,
+            tick: 10,
+          },
+        },
+      },
+      {
+        event: { id: "live-evt-2", author: { pubkey }, created_at: 2 },
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_PURCHASE",
+          payload: {
+            instanceId: "ac-live-events",
+            modelId: "atr72-600",
+            price: 1000000,
+            deliveryHubIata: "JFK",
+            tick: 20,
+          },
+        },
+      },
+    ]);
+
+    expect(state.competitors.has(pubkey)).toBe(true);
+    expect(state.fleetByOwner.get(pubkey)?.map((ac) => ac.id)).toContain("ac-live-events");
+  });
+
+  it("retries once when liveEvents exist but replay yields no airline", async () => {
+    const { loadActionLog } = await import("@acars/nostr");
+    const pubkey = "comp-retry-live-events";
+    const loadActionLogMock = loadActionLog as unknown as ReturnType<typeof vi.fn>;
+    loadActionLogMock.mockResolvedValue([]);
+
+    const { state } = createSliceState({
+      competitors: new Map(),
+      fleetByOwner: buildFleetIndex([]),
+      routesByOwner: buildRoutesIndex([]),
+    });
+
+    await state.syncCompetitor(pubkey, [
+      {
+        event: { id: "live-tick-only", author: { pubkey }, created_at: 1 },
+        action: {
+          schemaVersion: 2,
+          action: "TICK_UPDATE",
+          payload: { tick: 123 },
+        },
+      },
+    ]);
+
+    const competitorTargetCalls = loadActionLogMock.mock.calls.filter(
+      (call) => call[0]?.authors?.[0] === pubkey,
+    );
+    expect(competitorTargetCalls).toHaveLength(2);
+    expect(state.competitors.has(pubkey)).toBe(false);
+  }, 10000);
+});

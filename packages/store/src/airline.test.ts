@@ -161,7 +161,7 @@ describe("airline store – event buffering during initial sync", () => {
     });
   });
 
-  it("deduplicates buffer entries and skips competitors already captured by syncWorld", async () => {
+  it("deduplicates by pubkey and replays buffered entries for known competitors", async () => {
     const { _getEventBuffer } = await import("./airline.js");
 
     // Simulate a burst of events from the same pubkey before sync finishes.
@@ -201,13 +201,16 @@ describe("airline store – event buffering during initial sync", () => {
       vi.useRealTimers();
     }
 
-    const syncedPubkeys = syncCompetitorSpy.mock.calls.map((c) => c[0] as string);
+    const cccCalls = syncCompetitorSpy.mock.calls.filter((c) => c[0] === "competitor-ccc");
+    const dddCalls = syncCompetitorSpy.mock.calls.filter((c) => c[0] === "competitor-ddd");
 
-    // competitor-ccc was already captured by syncWorld → must NOT be re-synced.
-    expect(syncedPubkeys).not.toContain("competitor-ccc");
+    // Known competitors are still replayed; burst entries are batched into one sync call.
+    expect(cccCalls).toHaveLength(1);
+    expect((cccCalls[0]?.[1] as unknown[])?.length).toBe(5);
 
-    // competitor-ddd is genuinely new → must be synced exactly once.
-    expect(syncedPubkeys.filter((pk) => pk === "competitor-ddd")).toHaveLength(1);
+    // Distinct competitor receives one sync with one buffered event.
+    expect(dddCalls).toHaveLength(1);
+    expect((dddCalls[0]?.[1] as unknown[])?.length).toBe(1);
   });
 });
 

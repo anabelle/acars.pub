@@ -64,6 +64,8 @@ const GLOBAL_ACTIONS_CACHE_TTL_MS = 60_000;
 export function _resetWorldFlags() {
   isSyncingWorld = false;
   pendingSyncWorldOptions = null;
+  cachedGlobalActions = [];
+  cachedGlobalActionsTimestamp = 0;
 }
 
 const buildFleetIndex = (fleet: AircraftInstance[]) => {
@@ -648,11 +650,12 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
 
       try {
         // Reuse cached global actions if recent enough, otherwise fetch fresh.
-        const globalActionsPromise =
+        const useCachedGlobalActions =
           cachedGlobalActions.length > 0 &&
-          Date.now() - cachedGlobalActionsTimestamp < GLOBAL_ACTIONS_CACHE_TTL_MS
-            ? Promise.resolve(cachedGlobalActions)
-            : loadActionLog({ limit: 500, maxPages: 20 });
+          Date.now() - cachedGlobalActionsTimestamp < GLOBAL_ACTIONS_CACHE_TTL_MS;
+        const globalActionsPromise = useCachedGlobalActions
+          ? Promise.resolve(cachedGlobalActions)
+          : loadActionLog({ limit: 500, maxPages: 20 });
 
         // Targeted fetch for this competitor plus global marketplace buys for replay filtering.
         const [fetchedActions, checkpoints, globalActions] = await Promise.all([
@@ -664,6 +667,11 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
           loadCheckpoints([competitorPubkey]),
           globalActionsPromise,
         ]);
+
+        if (!useCachedGlobalActions) {
+          cachedGlobalActions = globalActions;
+          cachedGlobalActionsTimestamp = Date.now();
+        }
 
         // Merge live-received events into the fetched action log.
         // This ensures events not yet indexed by relays are still replayed.
