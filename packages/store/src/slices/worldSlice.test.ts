@@ -674,6 +674,42 @@ describe("syncCompetitor", () => {
     expect(state.fleetByOwner.get(pubkey)?.map((ac) => ac.id)).toContain("ac-live-events");
   });
 
+  it("uses recent cached global actions even when cache is empty", async () => {
+    const { loadActionLog } = await import("@acars/nostr");
+    const pubkey = "comp-empty-cache";
+    const loadActionLogMock = loadActionLog as unknown as ReturnType<typeof vi.fn>;
+    loadActionLogMock
+      .mockResolvedValueOnce([]) // syncWorld global
+      .mockResolvedValueOnce([
+        // syncCompetitor targeted
+        {
+          event: { id: "evt-create-empty-cache", author: { pubkey }, created_at: 1 },
+          action: {
+            schemaVersion: 2,
+            action: "AIRLINE_CREATE",
+            payload: {
+              name: "Empty Cache Air",
+              hubs: ["JFK"],
+              corporateBalance: 1000000000000,
+              tick: 10,
+            },
+          },
+        },
+      ]);
+
+    const { state } = createSliceState({
+      competitors: new Map(),
+      fleetByOwner: buildFleetIndex([]),
+      routesByOwner: buildRoutesIndex([]),
+    });
+
+    await state.syncWorld();
+    await state.syncCompetitor(pubkey);
+
+    expect(loadActionLogMock).toHaveBeenCalledTimes(2);
+    expect(state.competitors.has(pubkey)).toBe(true);
+  });
+
   it("merges liveEvents with targeted fetch and ignores duplicate event ids", async () => {
     const { loadActionLog } = await import("@acars/nostr");
     const pubkey = "comp-merge-live-events";
@@ -734,6 +770,67 @@ describe("syncCompetitor", () => {
 
     expect(state.competitors.has(pubkey)).toBe(true);
     expect(state.fleetByOwner.get(pubkey)?.map((ac) => ac.id)).toContain("ac-live-merged");
+  });
+
+  it("preserves existing fleet/routes when replay returns partial competitor state", async () => {
+    const { loadActionLog } = await import("@acars/nostr");
+    const pubkey = "comp-partial-replay";
+    const loadActionLogMock = loadActionLog as unknown as ReturnType<typeof vi.fn>;
+    loadActionLogMock
+      .mockResolvedValueOnce([
+        {
+          event: { id: "evt-create-partial", author: { pubkey }, created_at: 1 },
+          action: {
+            schemaVersion: 2,
+            action: "AIRLINE_CREATE",
+            payload: {
+              name: "Partial Replay Air",
+              hubs: ["JFK"],
+              corporateBalance: 1000000000000,
+              tick: 10,
+            },
+          },
+        },
+      ]) // competitor-targeted
+      .mockResolvedValueOnce([]); // global actions
+
+    const existingAirline = makeAirline(pubkey, 50);
+    existingAirline.fleetIds = ["ac-existing-1", "ac-existing-2"];
+    existingAirline.routeIds = ["route-existing-1"];
+    const existingFleet = [
+      makeAircraft("ac-existing-1", pubkey),
+      makeAircraft("ac-existing-2", pubkey),
+    ];
+    const existingRoutes: Route[] = [
+      {
+        id: "route-existing-1",
+        originIata: "JFK",
+        destinationIata: "LAX",
+        airlinePubkey: pubkey,
+        distanceKm: 3974,
+        assignedAircraftIds: ["ac-existing-1"],
+        fareEconomy: 100000 as FixedPoint,
+        fareBusiness: 200000 as FixedPoint,
+        fareFirst: 300000 as FixedPoint,
+        status: "active",
+      },
+    ];
+
+    const { state } = createSliceState({
+      competitors: new Map([[pubkey, existingAirline]]),
+      fleetByOwner: buildFleetIndex(existingFleet),
+      routesByOwner: buildRoutesIndex(existingRoutes),
+    });
+
+    await state.syncCompetitor(pubkey);
+
+    expect(state.competitors.has(pubkey)).toBe(true);
+    expect(state.fleetByOwner.get(pubkey)?.map((ac) => ac.id)).toEqual(
+      expect.arrayContaining(["ac-existing-1", "ac-existing-2"]),
+    );
+    expect(state.routesByOwner.get(pubkey)?.map((route) => route.id)).toEqual(
+      expect.arrayContaining(["route-existing-1"]),
+    );
   });
 
   it("retries once when liveEvents exist but replay yields no airline", async () => {

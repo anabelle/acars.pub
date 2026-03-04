@@ -651,7 +651,7 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
       try {
         // Reuse cached global actions if recent enough, otherwise fetch fresh.
         const useCachedGlobalActions =
-          cachedGlobalActions.length > 0 &&
+          cachedGlobalActionsTimestamp > 0 &&
           Date.now() - cachedGlobalActionsTimestamp < GLOBAL_ACTIONS_CACHE_TTL_MS;
         const globalActionsPromise = useCachedGlobalActions
           ? Promise.resolve(cachedGlobalActions)
@@ -732,9 +732,36 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
           continue; // retry if attempts remain
         }
 
-        const airline = replayed.airline;
-        let resolvedFleet = replayed.fleet;
-        const resolvedRoutes = replayed.routes;
+        const freshState = get();
+        const existingAirline = freshState.competitors.get(competitorPubkey);
+        const existingFleet = freshState.fleetByOwner.get(competitorPubkey) || [];
+        const existingRoutes = freshState.routesByOwner.get(competitorPubkey) || [];
+
+        const airline =
+          existingAirline == null
+            ? replayed.airline
+            : {
+                ...existingAirline,
+                ...replayed.airline,
+              };
+        let resolvedFleet =
+          existingFleet.length === 0
+            ? replayed.fleet
+            : Array.from(
+                new Map<string, AircraftInstance>([
+                  ...existingFleet.map((ac) => [ac.id, ac] as const),
+                  ...replayed.fleet.map((ac) => [ac.id, ac] as const),
+                ]).values(),
+              );
+        const resolvedRoutes =
+          existingRoutes.length === 0
+            ? replayed.routes
+            : Array.from(
+                new Map<string, Route>([
+                  ...existingRoutes.map((route) => [route.id, route] as const),
+                  ...replayed.routes.map((route) => [route.id, route] as const),
+                ]).values(),
+              );
 
         // Reconcile fleet positions to lastTick
         if (
@@ -781,7 +808,6 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         }
 
         // Merge into existing state — only replace this competitor's data
-        const freshState = get();
         const updatedCompetitors = new Map(freshState.competitors);
         updatedCompetitors.set(competitorPubkey, airline);
 
