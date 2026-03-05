@@ -3,7 +3,9 @@ import {
   type FixedPoint,
   FP_ZERO,
   fp,
+  fpDiv,
   fpFormat,
+  fpMul,
   fpScale,
   fpSub,
   fpToNumber,
@@ -552,12 +554,13 @@ export function FleetManager() {
                               // For leased aircraft, amortize lease cost into per-flight profit
                               const flightDurationTicks =
                                 lastLanding.details?.flightDurationTicks ?? 0;
-                              const flightHours = flightDurationTicks / TICKS_PER_HOUR;
                               const isLeased = ac.purchaseType === "lease";
-                              const leasePerHour = isLeased
-                                ? fpToNumber(model.monthlyLease) / (30 * 24)
-                                : 0;
-                              const leaseForFlight = fp(leasePerHour * flightHours);
+                              const leaseForFlight = isLeased
+                                ? fpDiv(
+                                    fpMul(model.monthlyLease, fp(flightDurationTicks)),
+                                    fp(30 * 24 * TICKS_PER_HOUR),
+                                  )
+                                : FP_ZERO;
                               const trueProfit = isLeased
                                 ? fpSub(flightProfit, leaseForFlight)
                                 : flightProfit;

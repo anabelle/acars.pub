@@ -85,6 +85,7 @@ function dequeue() {
 
 /** Module-level set of aircraft IDs with generation in-flight or queued. */
 const activeGenerations = new Set<string>();
+const cachePersistenceAttempted = new Set<string>();
 
 export interface UseAircraftImageResult {
   imageUrl: string | null;
@@ -169,13 +170,20 @@ export function useAircraftImage(
           URL.revokeObjectURL(objectUrl);
         }
 
-        // Still try to persist to Blossom/Nostr if not already persisted
-        try {
-          const filename = `aircraft-${aircraft.id}.png`;
-          const imageUrl = await uploadToBlossom(cached, filename, "image/png");
-          await updateAircraftLivery(aircraft.id, imageUrl, currentHash);
-        } catch (uploadErr) {
-          console.warn(`[Livery] Cache upload failed for ${aircraft.id}:`, uploadErr);
+        // Still try to persist to Blossom/Nostr if not already persisted.
+        // Gate this per cache key to avoid upload retry loops on rerender.
+        if (!cachePersistenceAttempted.has(cacheKey)) {
+          cachePersistenceAttempted.add(cacheKey);
+          activeGenerations.add(aircraft.id);
+          try {
+            const filename = `aircraft-${aircraft.id}.png`;
+            const imageUrl = await uploadToBlossom(cached, filename, "image/png");
+            await updateAircraftLivery(aircraft.id, imageUrl, currentHash);
+          } catch (uploadErr) {
+            console.warn(`[Livery] Cache upload failed for ${aircraft.id}:`, uploadErr);
+          } finally {
+            activeGenerations.delete(aircraft.id);
+          }
         }
         return;
       }

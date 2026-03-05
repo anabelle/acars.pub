@@ -4,6 +4,7 @@ import { airports } from "@acars/data";
 // Model candidates sent to the server proxy (tries in order)
 const MODEL_CANDIDATES = ["imagen-4.0-generate-001", "imagen-3.0-generate-002"];
 const GENERATE_TIMEOUT_MS = 20_000;
+const LIVERY_PROXY_ENDPOINTS = ["/api/generate-livery", "/functions/api/generate-livery"];
 
 /** Convert a hex color to a human-readable color name for image prompts. */
 function hexToColorName(hex: string): string {
@@ -141,32 +142,45 @@ export async function computePromptHash(
  * Returns the raw image data as a Blob.
  */
 export async function generateLiveryImage(prompt: string): Promise<Blob> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), GENERATE_TIMEOUT_MS);
-  let res: Response;
+  let lastError: string | null = null;
+  let data: { imageBase64: string; mimeType: string } | null = null;
 
-  try {
-    res = await fetch("/api/generate-livery", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({ prompt, models: MODEL_CANDIDATES }),
-    });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Livery generation request timed out");
+  for (const endpoint of LIVERY_PROXY_ENDPOINTS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GENERATE_TIMEOUT_MS);
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({ prompt, models: MODEL_CANDIDATES }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        const error = (body as { error?: string }).error ?? `Proxy error ${res.status}`;
+        if (res.status === 404 || res.status === 405) {
+          lastError = `${error} (${endpoint})`;
+          continue;
+        }
+        throw new Error(error);
+      }
+
+      data = (await res.json()) as { imageBase64: string; mimeType: string };
+      break;
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error("Livery generation request timed out");
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
   }
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error((body as { error?: string }).error ?? `Proxy error ${res.status}`);
+  if (!data) {
+    throw new Error(lastError ?? "Livery generation API unavailable");
   }
-
-  const data = (await res.json()) as { imageBase64: string; mimeType: string };
 
   const binaryStr = atob(data.imageBase64);
   const bytes = new Uint8Array(binaryStr.length);

@@ -1032,7 +1032,9 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     } catch (e) {
       set((state) => ({
         fleet: state.fleet.map((ac) =>
-          ac.id === aircraftId
+          ac.id === aircraftId &&
+          ac.liveryImageUrl === imageUrl &&
+          ac.liveryPromptHash === promptHash
             ? {
                 ...ac,
                 liveryImageUrl: previousLiveryImageUrl,
