@@ -1,7 +1,5 @@
 import { getProsperityIndex } from "@acars/core";
-import { airports as AIRPORTS } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
-import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 
 /**
  * A global ticker component that displays live macroeconomic and network status.
@@ -14,13 +12,9 @@ export function Ticker() {
   const progress = useEngineStore((s) => s.tickProgress);
   const catchup = useEngineStore((s) => s.catchupProgress);
 
-  const { competitors, fleetByOwner, routesByOwner, timeline } = useAirlineStore();
-
-  const safeTimeline = Array.isArray(timeline) ? timeline : [];
+  const { competitors, fleetByOwner, routesByOwner } = useAirlineStore();
 
   const prosperity = getProsperityIndex(tick);
-  const pulse = useFinancialPulse(safeTimeline);
-  const recentLoadFactor = pulse.flightCount > 0 ? Math.round(pulse.avgLoadFactor * 100) : null;
 
   if (!homeAirport) return null;
 
@@ -52,46 +46,28 @@ export function Ticker() {
       </div>
 
       <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
-        <span>Total Planes</span>
+        <span>Planes</span>
         <span className="text-foreground font-bold">
           {Array.from(fleetByOwner.values()).reduce((sum, f) => sum + f.length, 0)}
         </span>
       </div>
 
       <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
-        <span>Active Routes</span>
+        <span>Routes</span>
         <span className="text-foreground font-bold">
           {Array.from(routesByOwner.values()).reduce((sum, r) => sum + r.length, 0)}
         </span>
       </div>
 
       <div className="hidden md:flex items-center space-x-2 border-r border-border pr-6">
-        <span>Hub</span>
-        <span className="text-accent">{homeAirport.iata}</span>
-      </div>
-      <div className="hidden md:flex items-center space-x-2 border-r border-border pr-6">
         <span>Season</span>
         <span className="text-info text-blue-400 capitalize">{season}</span>
       </div>
       <div className="hidden md:flex items-center space-x-2 border-r border-border pr-6">
-        <span>Market Economy</span>
+        <span>Economy</span>
         <span className={`font-semibold ${prosperity >= 1 ? "text-green-500" : "text-orange-400"}`}>
           {(prosperity * 100).toFixed(1)}%
         </span>
-      </div>
-      {recentLoadFactor !== null && (
-        <div className="hidden md:flex items-center space-x-2 border-r border-border pr-6">
-          <span>Avg LF</span>
-          <span
-            className={`font-semibold ${recentLoadFactor >= 80 ? "text-green-500" : recentLoadFactor >= 60 ? "text-amber-400" : "text-rose-400"}`}
-          >
-            {recentLoadFactor}%
-          </span>
-        </div>
-      )}
-      <div className="hidden lg:flex items-center space-x-2 border-r border-border pr-6">
-        <span>Database</span>
-        <span className="text-foreground">{AIRPORTS.length} Airports</span>
       </div>
       <div className="flex items-center space-x-2 shrink-0">
         <span>Status</span>

@@ -2,8 +2,8 @@ import type { AircraftInstance, FixedPoint, Route } from "@acars/core";
 import { fpFormat } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDownRight, ArrowUpRight, Trophy } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { ArrowDownRight, ArrowUpRight, ChevronDown, Trophy } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type {
   LeaderboardMetric,
   LeaderboardRow as LeaderboardRowData,
@@ -45,7 +45,7 @@ function formatBrandScore(value: number) {
 function formatMetric(metric: LeaderboardMetric, value: number | FixedPoint) {
   if (metricMeta[metric].isMoney) return fpFormat(value as FixedPoint, 0);
   if (metric === "brand") return formatBrandScore(value);
-  if (metric === "networkDistance") return `${value.toLocaleString()} km`;
+  if (metric === "networkDistance") return `${Math.round(value as number).toLocaleString()} km`;
   return value.toLocaleString();
 }
 
@@ -168,7 +168,11 @@ export function Leaderboard() {
   const routesByOwner = useAirlineStore((s) => s.routesByOwner);
   const viewAs = useAirlineStore((s) => s.viewAs);
   const currentTick = useEngineStore((s) => s.tick);
-  const [metric, setMetric] = useState<LeaderboardMetric>("balance");
+  const [metric, setMetric] = useState<LeaderboardMetric>("networkDistance");
+  const handleMetricChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => setMetric(e.target.value as LeaderboardMetric),
+    [],
+  );
 
   // Build lookup maps separately so toggling metric doesn't rebuild them
   const { aircraftById, routeById } = useMemo(() => {
@@ -216,7 +220,7 @@ export function Leaderboard() {
 
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="mb-6 flex items-center justify-between pr-10">
+      <div className="mb-4 flex items-center justify-between pr-10">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-primary/10 p-2">
             <Trophy className="h-6 w-6 text-primary" />
@@ -228,28 +232,20 @@ export function Leaderboard() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-[10px] font-semibold uppercase text-muted-foreground">
-          {metricMeta[metric].label}
-        </div>
-      </div>
-
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {(Object.keys(metricMeta) as LeaderboardMetric[]).map((key) => {
-          const isActive = key === metric;
-          return (
-            <button
-              key={key}
-              onClick={() => setMetric(key)}
-              type="button"
-              className={`rounded-xl border px-4 py-3 text-left transition ${isActive ? "border-primary/40 bg-primary/10 text-primary" : "border-border/50 bg-background/40 text-muted-foreground hover:bg-accent/10 hover:text-foreground"}`}
-            >
-              <p className="text-[10px] uppercase font-semibold tracking-wider">
+        <div className="relative">
+          <select
+            value={metric}
+            onChange={handleMetricChange}
+            className="appearance-none cursor-pointer rounded-full border border-border/60 bg-background/60 pl-3 pr-8 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/30"
+          >
+            {(Object.keys(metricMeta) as LeaderboardMetric[]).map((key) => (
+              <option key={key} value={key}>
                 {metricMeta[key].label}
-              </p>
-              <p className="text-[10px] text-muted-foreground/70">{metricMeta[key].description}</p>
-            </button>
-          );
-        })}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        </div>
       </div>
 
       <div ref={parentRef} className="flex-1 overflow-y-auto pr-2 custom-scrollbar">

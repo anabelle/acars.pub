@@ -1,5 +1,4 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import React, { Suspense } from "react";
 import { IdentityGate } from "@/features/identity/components/IdentityGate";
 import { Ticker } from "@/features/network/components/Ticker";
 import { WorldMap } from "@/features/network/components/WorldMap";
@@ -12,15 +11,6 @@ type RootSearch = {
   aircraftTab?: "info" | "route";
   tab?: "active" | "opportunities";
 };
-
-const TanStackRouterDevtools =
-  process.env.NODE_ENV === "production"
-    ? () => null
-    : React.lazy(() =>
-        import("@tanstack/router-devtools").then((res) => ({
-          default: res.TanStackRouterDevtools,
-        })),
-      );
 
 export const Route = createRootRoute({
   validateSearch: (search: Record<string, unknown>): RootSearch => {
@@ -64,10 +54,6 @@ export const Route = createRootRoute({
 
         {/* Layer 2: The Global Edge Ticker (Always rendering) */}
         <Ticker />
-
-        <Suspense fallback={null}>
-          <TanStackRouterDevtools position="top-right" />
-        </Suspense>
       </div>
     </AppInitializer>
   ),

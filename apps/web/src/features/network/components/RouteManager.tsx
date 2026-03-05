@@ -3,6 +3,7 @@ import {
   calculateDemand,
   calculatePriceElasticity,
   calculateShares,
+  computeRouteFrequency,
   type FixedPoint,
   type FlightOffer,
   fp,
@@ -26,6 +27,7 @@ import { airports as ALL_AIRPORTS, HUB_CLASSIFICATIONS } from "@acars/data";
 import { useActiveAirline, useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import {
   AlertCircle,
   ArrowDown,
@@ -177,35 +179,38 @@ export function RouteManager() {
     season: Season;
   };
 
-  const calculateSearchProspect = (dest: Airport): ProspectMarket | null => {
-    if (!planningOriginAirport) return null;
-    const now = new Date();
-    const prosperity = getProsperityIndex(tick);
-    const season = getSeason(dest.latitude, now);
-    const distance = haversineDistance(
-      planningOriginAirport.latitude,
-      planningOriginAirport.longitude,
-      dest.latitude,
-      dest.longitude,
-    );
-    const demand = calculateDemand(planningOriginAirport, dest, season, prosperity, 1.0);
-    const fares = getSuggestedFares(distance);
-    const estimatedDailyRevenue = fpAdd(
-      fpAdd(
-        fpScale(fares.economy, demand.economy / 7),
-        fpScale(fares.business, demand.business / 7),
-      ),
-      fpScale(fares.first, demand.first / 7),
-    );
-    return {
-      origin: planningOriginAirport,
-      destination: dest,
-      distance,
-      demand,
-      estimatedDailyRevenue,
-      season,
-    };
-  };
+  const calculateSearchProspect = useCallback(
+    (dest: Airport): ProspectMarket | null => {
+      if (!planningOriginAirport) return null;
+      const now = new Date();
+      const prosperity = getProsperityIndex(tick);
+      const season = getSeason(dest.latitude, now);
+      const distance = haversineDistance(
+        planningOriginAirport.latitude,
+        planningOriginAirport.longitude,
+        dest.latitude,
+        dest.longitude,
+      );
+      const demand = calculateDemand(planningOriginAirport, dest, season, prosperity, 1.0);
+      const fares = getSuggestedFares(distance);
+      const estimatedDailyRevenue = fpAdd(
+        fpAdd(
+          fpScale(fares.economy, demand.economy / 7),
+          fpScale(fares.business, demand.business / 7),
+        ),
+        fpScale(fares.first, demand.first / 7),
+      );
+      return {
+        origin: planningOriginAirport,
+        destination: dest,
+        distance,
+        demand,
+        estimatedDailyRevenue,
+        season,
+      };
+    },
+    [planningOriginAirport, tick],
+  );
 
   const buildProspects = useCallback(
     (origin: Airport | null): ProspectMarket[] => {
@@ -255,7 +260,10 @@ export function RouteManager() {
     [buildProspects, planningOriginAirport],
   );
 
-  const activeRoutes = useMemo(() => routes.filter((route) => route.status === "active"), [routes]);
+  const activeRoutes = useMemo(
+    () => [...routes].reverse().filter((route) => route.status === "active"),
+    [routes],
+  );
   const suspendedRoutes = useMemo(
     () => routes.filter((route) => route.status === "suspended"),
     [routes],
@@ -264,20 +272,6 @@ export function RouteManager() {
     if (!planningOriginAirport) return [];
     return activeRoutes.filter((route) => route.originIata === planningOriginAirport.iata);
   }, [activeRoutes, planningOriginAirport]);
-
-  const totalDailyDemand = useMemo(() => {
-    if (!planningOriginAirport) return 0;
-    const now = new Date();
-    const prosperity = getProsperityIndex(tick);
-    const weeklyTotal = originActiveRoutes.reduce((acc, route) => {
-      const destination = airportIndex.get(route.destinationIata);
-      if (!destination) return acc;
-      const season = getSeason(destination.latitude, now);
-      const demand = calculateDemand(planningOriginAirport, destination, season, prosperity, 1.0);
-      return acc + demand.economy + demand.business + demand.first;
-    }, 0);
-    return Math.round(weeklyTotal / 7);
-  }, [airportIndex, originActiveRoutes, planningOriginAirport, tick]);
 
   const originHubMeta = planningOriginAirport
     ? HUB_CLASSIFICATIONS[planningOriginAirport.iata]
@@ -372,7 +366,10 @@ export function RouteManager() {
         .filter((item): item is NonNullable<typeof item> => Boolean(item));
       if (assignedFleet.length > 0) {
         const weeklyDemand = fareDemandSnapshot.addressableDemand;
-        const frequency = activeFareRoute.assignedAircraftIds.length * 7;
+        const frequency = computeRouteFrequency(
+          activeFareRoute.distanceKm,
+          activeFareRoute.assignedAircraftIds.length,
+        );
         if (frequency > 0) {
           const pressureMultiplier = fareDemandSnapshot.pressureMultiplier;
           const currentEconomy = resolvedFareInputs.economy;
@@ -482,13 +479,14 @@ export function RouteManager() {
   // --- Virtualization (hooks must come before any conditional return) ---
   const listParentRef = useRef<HTMLDivElement>(null);
 
-  const displayedOpportunities = useMemo(
-    () =>
+  const displayedOpportunities = useMemo(() => {
+    const activeDests = new Set(originActiveRoutes.map((r) => r.destinationIata));
+    const candidates =
       searchQuery.length >= 2
         ? searchResults.map(calculateSearchProspect).filter((m): m is ProspectMarket => Boolean(m))
-        : prospectMarkets,
-    [searchQuery, searchResults, prospectMarkets],
-  );
+        : prospectMarkets;
+    return candidates.filter((m) => !activeDests.has(m.destination.iata));
+  }, [searchQuery, searchResults, prospectMarkets, originActiveRoutes, calculateSearchProspect]);
 
   const activeRoutesVirtualizer = useVirtualizer({
     count: activeRoutes.length,
@@ -510,9 +508,9 @@ export function RouteManager() {
     <div className="flex h-full w-full flex-col p-6 overflow-hidden">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <Globe className="h-8 w-8 text-primary shrink-0" />
-            Network Manager
+          <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
+            <Globe className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />
+            Network
           </h2>
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Manage your routes and flight frequencies from {planningOriginAirport.name}.
@@ -555,77 +553,6 @@ export function RouteManager() {
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider">
-              HQ Hub
-            </p>
-            <MapPin className="h-4 w-4 text-primary" />
-          </div>
-          <p className="text-2xl font-bold text-foreground">{homeAirport.iata}</p>
-          <p className="text-xs text-muted-foreground truncate">
-            {homeAirport.city}, {homeAirport.country}
-          </p>
-          {originCapacityPerHour > 0 && (
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Capacity {originCapacityPerHour}/hr • Projected {projectedOriginHourly.toFixed(1)}/hr
-            </p>
-          )}
-          {originSlotControlled && !canOpenFromOrigin && (
-            <p className="mt-1 text-[11px] text-amber-400">
-              Slot Controlled • Over capacity for new routes
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider">
-              Total Daily Demand
-            </p>
-            <TrendingUp className="h-4 w-4 text-accent" />
-          </div>
-          <p className="text-2xl font-bold text-foreground">
-            {totalDailyDemand.toLocaleString()} pax
-          </p>
-          <p className="text-xs text-muted-foreground">
-            across {originActiveRoutes.length} active routes
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm overflow-hidden relative">
-          <div className="flex justify-between items-start mb-2">
-            <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider">
-              Prosperity Index
-            </p>
-            <TrendingUp
-              className={`h-4 w-4 ${getProsperityIndex(tick) > 1 ? "text-emerald-400" : "text-rose-400"}`}
-            />
-          </div>
-          <p
-            className={`text-2xl font-bold ${getProsperityIndex(tick) > 1 ? "text-emerald-400" : "text-rose-400"}`}
-          >
-            {(getProsperityIndex(tick) * 100).toFixed(1)}%
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {getProsperityIndex(tick) > 1
-              ? "Market Boom - High Demand"
-              : "Market Recession - Low Demand"}
-          </p>
-          {/* Tiny sparkline-like background */}
-          <div className="absolute bottom-0 left-0 w-full h-1 bg-muted/20">
-            <div
-              className={`h-full opacity-50 ${getProsperityIndex(tick) > 1 ? "bg-emerald-500" : "bg-rose-500"}`}
-              style={{
-                width: `${Math.min(100, ((getProsperityIndex(tick) - 0.85) / 0.3) * 100)}%`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
       <div className="flex-1 overflow-hidden flex flex-col pr-2">
         {suspendedRoutes.length > 0 && !isViewingOther && (
           <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
@@ -650,11 +577,25 @@ export function RouteManager() {
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-background/70 px-4 py-3"
                 >
                   <div>
-                    <p className="text-sm font-bold text-foreground">
-                      {route.originIata} → {route.destinationIata}
+                    <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => navigateToAirport(route.originIata)}
+                        className="hover:text-primary transition-colors cursor-pointer"
+                      >
+                        {route.originIata}
+                      </button>
+                      <span className="text-muted-foreground">→</span>
+                      <button
+                        type="button"
+                        onClick={() => navigateToAirport(route.destinationIata)}
+                        className="hover:text-primary transition-colors cursor-pointer"
+                      >
+                        {route.destinationIata}
+                      </button>
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      Distance {route.distanceKm.toLocaleString()} km
+                      Distance {Math.round(route.distanceKm).toLocaleString()} km
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -732,27 +673,29 @@ export function RouteManager() {
             </div>
           </div>
         )}
-        <div className="mb-6 flex items-center gap-4 bg-muted/30 p-4 rounded-2xl border border-border/50">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search by IATA, ICAO, City, or Name..."
-              className="w-full bg-background border border-border/50 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-bold"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+        {tab === "opportunities" && (
+          <div className="mb-6 flex items-center gap-4 bg-muted/30 p-4 rounded-2xl border border-border/50">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search by IATA, ICAO, City, or Name..."
+                className="w-full bg-background border border-border/50 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-bold"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="text-xs font-bold text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            )}
           </div>
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="text-xs font-bold text-muted-foreground hover:text-foreground"
-            >
-              Clear
-            </button>
-          )}
-        </div>
+        )}
 
         {tab === "active" ? (
           activeRoutes.length === 0 ? (
@@ -779,9 +722,7 @@ export function RouteManager() {
               >
                 {activeRoutesVirtualizer.getVirtualItems().map((virtualItem) => {
                   const route = activeRoutes[virtualItem.index];
-                  const market = prospectMarkets.find(
-                    (p) => p.destination.iata === route.destinationIata,
-                  );
+                  const destinationAirport = airportIndex.get(route.destinationIata);
                   const assignedCount = route.assignedAircraftIds.length;
                   const demandSnapshot = getRouteDemandSnapshot(route, tick, fleet, routes);
                   const { addressableDemand } = demandSnapshot;
@@ -845,20 +786,34 @@ export function RouteManager() {
                         transform: `translateY(${virtualItem.start}px)`,
                       }}
                     >
-                      <div className="group relative rounded-2xl bg-card border border-border overflow-hidden p-5 transition-all hover:border-primary/50 hover:shadow-md mb-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-6">
+                      <div className="group relative rounded-2xl bg-card border border-border overflow-hidden p-4 sm:p-5 transition-all hover:border-primary/50 hover:shadow-md mb-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-3 sm:gap-6">
                             <div className="flex flex-col">
-                              <span className="text-2xl font-black text-primary leading-none tracking-tighter">
-                                {route.originIata} → {route.destinationIata}
+                              <span className="text-2xl font-black text-primary leading-none tracking-tighter flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => navigateToAirport(route.originIata)}
+                                  className="hover:text-foreground transition-colors cursor-pointer"
+                                >
+                                  {route.originIata}
+                                </button>
+                                <span className="text-muted-foreground">→</span>
+                                <button
+                                  type="button"
+                                  onClick={() => navigateToAirport(route.destinationIata)}
+                                  className="hover:text-foreground transition-colors cursor-pointer"
+                                >
+                                  {route.destinationIata}
+                                </button>
                               </span>
                               <span className="text-xs text-muted-foreground font-semibold mt-1">
-                                {market?.destination.city}, {market?.destination.country} •{" "}
-                                {route.distanceKm.toLocaleString()}km
+                                {destinationAirport?.city}, {destinationAirport?.country} •{" "}
+                                {Math.round(route.distanceKm).toLocaleString()}km
                               </span>
                             </div>
 
-                            <div className="h-10 w-px bg-border/50" />
+                            <div className="hidden sm:block h-10 w-px bg-border/50" />
 
                             <div className="flex flex-col">
                               <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
@@ -893,7 +848,7 @@ export function RouteManager() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-4">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                             <div className="flex flex-col text-right">
                               <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
                                 Fleet
@@ -954,21 +909,14 @@ export function RouteManager() {
                                   </button>
                                 </>
                               )}
-
-                              <button
-                                type="button"
-                                className="px-4 py-2 bg-accent/20 text-accent-foreground border border-accent/20 rounded-xl text-sm font-bold hover:bg-accent/30 transition-all font-mono"
-                              >
-                                {assignedCount} Planes
-                              </button>
                             </div>
                           </div>
                         </div>
 
                         {/* Market Supply / Demand */}
                         {addressableDemand && (
-                          <div className="mt-4 rounded-2xl border border-border/40 bg-muted/20 p-4">
-                            <div className="flex items-center justify-between mb-3">
+                          <div className="mt-3 rounded-xl sm:rounded-2xl border border-border/40 bg-muted/20 p-3 sm:p-4">
+                            <div className="flex items-center justify-between mb-2 sm:mb-3">
                               <span className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
                                 <TrendingUp className="h-3 w-3" /> Market Supply
                               </span>
@@ -977,7 +925,7 @@ export function RouteManager() {
                               </span>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-3 text-[10px] font-mono">
+                            <div className="grid grid-cols-3 gap-2 sm:gap-3 text-[10px] font-mono">
                               <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
                                 <span className="text-[9px] uppercase text-muted-foreground font-semibold">
                                   Total Market
@@ -1071,7 +1019,7 @@ export function RouteManager() {
                         )}
 
                         {/* Market Analysis Tab */}
-                        <div className="mt-5 pt-5 border-t border-border/50">
+                        <div className="mt-3 sm:mt-5 pt-3 sm:pt-5 border-t border-border/50">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
                               <Globe className="h-3 w-3" />
@@ -1100,28 +1048,43 @@ export function RouteManager() {
                           </div>
 
                           {/* Demand class breakdown visualization */}
-                          {market && (
-                            <div className="flex h-1 w-full rounded-full bg-muted/30 overflow-hidden mb-3">
-                              <div
-                                className="h-full bg-zinc-500"
-                                style={{
-                                  width: `${(market.demand.economy / (market.demand.economy + market.demand.business + market.demand.first)) * 100}%`,
-                                }}
-                              />
-                              <div
-                                className="h-full bg-blue-500"
-                                style={{
-                                  width: `${(market.demand.business / (market.demand.economy + market.demand.business + market.demand.first)) * 100}%`,
-                                }}
-                              />
-                              <div
-                                className="h-full bg-yellow-500"
-                                style={{
-                                  width: `${(market.demand.first / (market.demand.economy + market.demand.business + market.demand.first)) * 100}%`,
-                                }}
-                              />
-                            </div>
-                          )}
+                          {(() => {
+                            const demandTotal =
+                              demandSnapshot.totalDemand.economy +
+                              demandSnapshot.totalDemand.business +
+                              demandSnapshot.totalDemand.first;
+                            return (
+                              <div className="flex h-1 w-full rounded-full bg-muted/30 overflow-hidden mb-3">
+                                <div
+                                  className="h-full bg-zinc-500"
+                                  style={{
+                                    width:
+                                      demandTotal === 0
+                                        ? "0%"
+                                        : `${(demandSnapshot.totalDemand.economy / demandTotal) * 100}%`,
+                                  }}
+                                />
+                                <div
+                                  className="h-full bg-blue-500"
+                                  style={{
+                                    width:
+                                      demandTotal === 0
+                                        ? "0%"
+                                        : `${(demandSnapshot.totalDemand.business / demandTotal) * 100}%`,
+                                  }}
+                                />
+                                <div
+                                  className="h-full bg-yellow-500"
+                                  style={{
+                                    width:
+                                      demandTotal === 0
+                                        ? "0%"
+                                        : `${(demandSnapshot.totalDemand.first / demandTotal) * 100}%`,
+                                  }}
+                                />
+                              </div>
+                            );
+                          })()}
 
                           {(() => {
                             const routeKey = `${route.originIata}-${route.destinationIata}`;
@@ -1144,7 +1107,10 @@ export function RouteManager() {
                                   const comp = competitors.get(offer.airlinePubkey);
 
                                   // Calculate estimated share for this offer vs ours
-                                  const ourFrequency = route.assignedAircraftIds.length * 7;
+                                  const ourFrequency = computeRouteFrequency(
+                                    route.distanceKm,
+                                    route.assignedAircraftIds.length,
+                                  );
                                   const ourTravelTime = Math.round((route.distanceKm / 800) * 60); // simplified model speed
 
                                   const ourOffer: FlightOffer = {
@@ -1167,7 +1133,7 @@ export function RouteManager() {
                                   return (
                                     <div
                                       key={`${offer.airlinePubkey}-${offer.frequencyPerWeek}-${offer.fareEconomy}`}
-                                      className="flex items-center justify-between bg-muted/30 rounded-xl px-4 py-2.5 border border-border/50"
+                                      className="flex flex-wrap items-center justify-between gap-2 bg-muted/30 rounded-xl px-3 sm:px-4 py-2 border border-border/50"
                                     >
                                       <div className="flex items-center gap-3">
                                         <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
@@ -1263,8 +1229,8 @@ export function RouteManager() {
                     }}
                   >
                     <div className="group relative rounded-2xl bg-card border border-border overflow-hidden p-5 transition-all hover:border-primary/50 mb-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-8">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-3 sm:gap-8">
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
                               <span className="text-2xl font-black text-foreground tracking-tighter">
@@ -1439,11 +1405,31 @@ export function RouteManager() {
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
                   Route Pricing
                 </p>
-                <h3 className="text-lg font-bold text-foreground">
-                  {fareEditor.originIata} → {fareEditor.destinationIata}
+                <h3 className="text-lg font-bold text-foreground flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFareEditor(null);
+                      navigateToAirport(fareEditor.originIata);
+                    }}
+                    className="hover:text-primary transition-colors cursor-pointer"
+                  >
+                    {fareEditor.originIata}
+                  </button>
+                  <span className="text-muted-foreground">→</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFareEditor(null);
+                      navigateToAirport(fareEditor.destinationIata);
+                    }}
+                    className="hover:text-primary transition-colors cursor-pointer"
+                  >
+                    {fareEditor.destinationIata}
+                  </button>
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Distance: {fareEditor.distanceKm.toLocaleString()} km
+                  Distance: {Math.round(fareEditor.distanceKm).toLocaleString()} km
                 </p>
               </div>
               <button

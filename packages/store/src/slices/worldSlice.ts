@@ -9,6 +9,7 @@ import type {
 } from "@acars/core";
 import {
   computeCheckpointStateHash,
+  computeRouteFrequency,
   createLogger,
   fp,
   fpAdd,
@@ -393,28 +394,27 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             const key = `${route.originIata}-${route.destinationIata}`;
             const offers = registry.get(key) || [];
 
-            const frequency = Math.max(0, route.assignedAircraftIds.length * 7);
-            if (frequency === 0) continue;
-
+            let avgSpeed = 800;
             let avgTravelTime = 0;
             if (route.assignedAircraftIds.length > 0) {
-              const modelIds = route.assignedAircraftIds
+              const models = route.assignedAircraftIds
                 .map((id: string) => {
                   const ac = resolvedFleet.find((a: AircraftInstance) => a.id === id);
-                  return ac?.modelId;
+                  return ac ? getAircraftById(ac.modelId) : null;
                 })
                 .filter(Boolean);
-
-              const times = modelIds.map((mid: string | undefined) => {
-                const model = getAircraftById(mid!);
-                if (!model) return 480;
-                return (route.distanceKm / (model.speedKmh || 800)) * 60;
-              });
-              avgTravelTime =
-                times.length > 0
-                  ? times.reduce((a: number, b: number) => a + b, 0) / times.length
-                  : 480;
+              if (models.length > 0) {
+                avgSpeed = models.reduce((sum, m) => sum + (m!.speedKmh || 800), 0) / models.length;
+                avgTravelTime = (route.distanceKm / avgSpeed) * 60;
+              }
             }
+
+            const frequency = computeRouteFrequency(
+              route.distanceKm,
+              route.assignedAircraftIds.length,
+              avgSpeed,
+            );
+            if (frequency === 0) continue;
 
             const offer: FlightOffer = {
               airlinePubkey: airline.ceoPubkey,
@@ -451,27 +451,28 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             if (route.status !== "active") continue;
             const key = `${route.originIata}-${route.destinationIata}`;
             const offers = registry.get(key) || [];
-            const frequency = Math.max(0, route.assignedAircraftIds.length * 7);
-            if (frequency === 0) continue;
 
+            let avgSpeed = 800;
             let avgTravelTime = 0;
             if (route.assignedAircraftIds.length > 0) {
-              const modelIds = route.assignedAircraftIds
+              const models = route.assignedAircraftIds
                 .map((id: string) => {
                   const ac = preservedFleet.find((a: AircraftInstance) => a.id === id);
-                  return ac?.modelId;
+                  return ac ? getAircraftById(ac.modelId) : null;
                 })
                 .filter(Boolean);
-              const times = modelIds.map((mid: string | undefined) => {
-                const model = getAircraftById(mid!);
-                if (!model) return 480;
-                return (route.distanceKm / (model.speedKmh || 800)) * 60;
-              });
-              avgTravelTime =
-                times.length > 0
-                  ? times.reduce((a: number, b: number) => a + b, 0) / times.length
-                  : 480;
+              if (models.length > 0) {
+                avgSpeed = models.reduce((sum, m) => sum + (m!.speedKmh || 800), 0) / models.length;
+                avgTravelTime = (route.distanceKm / avgSpeed) * 60;
+              }
             }
+
+            const frequency = computeRouteFrequency(
+              route.distanceKm,
+              route.assignedAircraftIds.length,
+              avgSpeed,
+            );
+            if (frequency === 0) continue;
 
             const offer: FlightOffer = {
               airlinePubkey: airline.ceoPubkey,
@@ -866,27 +867,28 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         // Add new offers from this competitor
         for (const route of resolvedRoutes) {
           if (route.status !== "active") continue;
-          const frequency = Math.max(0, route.assignedAircraftIds.length * 7);
-          if (frequency === 0) continue;
 
+          let avgSpeed = 800;
           let avgTravelTime = 0;
           if (route.assignedAircraftIds.length > 0) {
-            const modelIds = route.assignedAircraftIds
+            const models = route.assignedAircraftIds
               .map((id: string) => {
                 const ac = resolvedFleet.find((a: AircraftInstance) => a.id === id);
-                return ac?.modelId;
+                return ac ? getAircraftById(ac.modelId) : null;
               })
               .filter(Boolean);
-            const times = modelIds.map((mid: string | undefined) => {
-              const model = getAircraftById(mid!);
-              if (!model) return 480;
-              return (route.distanceKm / (model.speedKmh || 800)) * 60;
-            });
-            avgTravelTime =
-              times.length > 0
-                ? times.reduce((a: number, b: number) => a + b, 0) / times.length
-                : 480;
+            if (models.length > 0) {
+              avgSpeed = models.reduce((sum, m) => sum + (m!.speedKmh || 800), 0) / models.length;
+              avgTravelTime = (route.distanceKm / avgSpeed) * 60;
+            }
           }
+
+          const frequency = computeRouteFrequency(
+            route.distanceKm,
+            route.assignedAircraftIds.length,
+            avgSpeed,
+          );
+          if (frequency === 0) continue;
 
           const key = `${route.originIata}-${route.destinationIata}`;
           const offers = updatedRegistry.get(key) || [];

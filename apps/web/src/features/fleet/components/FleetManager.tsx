@@ -30,7 +30,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getRouteDemandSnapshot } from "@/features/network/hooks/useRouteDemand";
 import { useConfirm } from "@/shared/lib/useConfirm";
-import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
+import { navigateToAirport, navigateToAircraft } from "@/shared/lib/permalinkNavigation";
 import { getAircraftBaseHub } from "../utils/aircraftBaseHub";
 import { getAircraftTimer } from "../utils/aircraftTimers";
 import { AircraftDealer } from "./AircraftDealer";
@@ -144,11 +144,13 @@ export function FleetManager() {
     );
   }
 
-  const filteredFleet = fleet.filter(
-    (f) =>
-      f.name.toLowerCase().includes(search.toLowerCase()) ||
-      f.modelId.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredFleet = [...fleet]
+    .reverse()
+    .filter(
+      (f) =>
+        f.name.toLowerCase().includes(search.toLowerCase()) ||
+        f.modelId.toLowerCase().includes(search.toLowerCase()),
+    );
 
   const handleSubmitListing = async () => {
     if (!listingTarget) return;
@@ -316,9 +318,15 @@ export function FleetManager() {
                     </div>
 
                     <div className="relative z-10 flex flex-col h-full justify-end">
-                      <h3 className="text-xl font-black tracking-tighter text-foreground group-hover:text-primary transition-colors">
-                        {ac.name}
-                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => navigateToAircraft(ac.id)}
+                        className="text-left hover:opacity-80 transition-opacity cursor-pointer"
+                      >
+                        <h3 className="text-xl font-black tracking-tighter text-foreground group-hover:text-primary transition-colors">
+                          {ac.name}
+                        </h3>
+                      </button>
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
                         {model.manufacturer} <span className="text-accent">{model.name}</span>
                       </p>
@@ -343,19 +351,43 @@ export function FleetManager() {
                           {ac.status === "enroute" && ac.flight ? (
                             <>
                               Enroute:{" "}
-                              <button type="button" onClick={() => navigateToAirport(ac.flight!.originIata)} className="hover:text-primary transition-colors cursor-pointer">{ac.flight.originIata}</button>
+                              <button
+                                type="button"
+                                onClick={() => navigateToAirport(ac.flight!.originIata)}
+                                className="hover:text-primary transition-colors cursor-pointer"
+                              >
+                                {ac.flight.originIata}
+                              </button>
                               {" → "}
-                              <button type="button" onClick={() => navigateToAirport(ac.flight!.destinationIata)} className="hover:text-primary transition-colors cursor-pointer">{ac.flight.destinationIata}</button>
+                              <button
+                                type="button"
+                                onClick={() => navigateToAirport(ac.flight!.destinationIata)}
+                                className="hover:text-primary transition-colors cursor-pointer"
+                              >
+                                {ac.flight.destinationIata}
+                              </button>
                             </>
                           ) : ac.status === "delivery" ? (
                             <>
                               Delivery to{" "}
-                              <button type="button" onClick={() => navigateToAirport(ac.baseAirportIata)} className="hover:text-primary transition-colors cursor-pointer">{ac.baseAirportIata}</button>
+                              <button
+                                type="button"
+                                onClick={() => navigateToAirport(ac.baseAirportIata)}
+                                className="hover:text-primary transition-colors cursor-pointer"
+                              >
+                                {ac.baseAirportIata}
+                              </button>
                             </>
                           ) : (
                             <>
                               At{" "}
-                              <button type="button" onClick={() => navigateToAirport(ac.baseAirportIata)} className="hover:text-primary transition-colors cursor-pointer">{ac.baseAirportIata}</button>
+                              <button
+                                type="button"
+                                onClick={() => navigateToAirport(ac.baseAirportIata)}
+                                className="hover:text-primary transition-colors cursor-pointer"
+                              >
+                                {ac.baseAirportIata}
+                              </button>
                             </>
                           )}
                         </p>
@@ -365,7 +397,13 @@ export function FleetManager() {
                           Base Hub
                         </p>
                         <p className="font-mono text-xs text-accent font-bold">
-                          <button type="button" onClick={() => navigateToAirport(baseHub)} className="hover:text-primary transition-colors cursor-pointer">{baseHub}</button>
+                          <button
+                            type="button"
+                            onClick={() => navigateToAirport(baseHub)}
+                            className="hover:text-primary transition-colors cursor-pointer"
+                          >
+                            {baseHub}
+                          </button>
                         </p>
                       </div>
                       <div>
@@ -482,9 +520,21 @@ export function FleetManager() {
                                 Route
                               </span>
                               <span className="text-xs font-bold text-foreground">
-                                <button type="button" onClick={() => navigateToAirport(lastLanding.originIata!)} className="hover:text-primary transition-colors cursor-pointer">{lastLanding.originIata}</button>
+                                <button
+                                  type="button"
+                                  onClick={() => navigateToAirport(lastLanding.originIata!)}
+                                  className="hover:text-primary transition-colors cursor-pointer"
+                                >
+                                  {lastLanding.originIata}
+                                </button>
                                 {" → "}
-                                <button type="button" onClick={() => navigateToAirport(lastLanding.destinationIata!)} className="hover:text-primary transition-colors cursor-pointer">{lastLanding.destinationIata}</button>
+                                <button
+                                  type="button"
+                                  onClick={() => navigateToAirport(lastLanding.destinationIata!)}
+                                  className="hover:text-primary transition-colors cursor-pointer"
+                                >
+                                  {lastLanding.destinationIata}
+                                </button>
                               </span>
                             </div>
                             <div className="flex flex-col text-right">
