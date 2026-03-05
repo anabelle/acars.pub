@@ -92,7 +92,7 @@ export function useAircraftImage(
           const imageUrl = await uploadToBlossom(imageBlob, filename, "image/png");
           if (cancelled) return;
 
-          updateAircraftLivery(aircraft.id, imageUrl, currentHash);
+          await updateAircraftLivery(aircraft.id, imageUrl, currentHash);
         } catch (err) {
           if (!cancelled) {
             const message = err instanceof Error ? err.message : "Image generation failed";

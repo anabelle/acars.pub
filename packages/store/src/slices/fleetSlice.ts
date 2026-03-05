@@ -52,7 +52,11 @@ export interface FleetSlice {
   cancelListing: (aircraftId: string) => Promise<void>;
   performMaintenance: (aircraftId: string) => Promise<void>;
   ferryAircraft: (aircraftId: string, destinationIata: string) => Promise<void>;
-  updateAircraftLivery: (aircraftId: string, imageUrl: string, promptHash: string) => void;
+  updateAircraftLivery: (
+    aircraftId: string,
+    imageUrl: string,
+    promptHash: string,
+  ) => Promise<void>;
 }
 
 const logger = createLogger("Fleet");
@@ -999,10 +1003,11 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     }
   },
 
-  updateAircraftLivery: (aircraftId: string, imageUrl: string, promptHash: string) => {
+  updateAircraftLivery: async (aircraftId: string, imageUrl: string, promptHash: string) => {
     const { fleet } = get();
     const idx = fleet.findIndex((f) => f.id === aircraftId);
     if (idx === -1) return;
+    const previous = fleet[idx];
 
     const updatedFleet = [...fleet];
     updatedFleet[idx] = {
@@ -1011,5 +1016,31 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
       liveryPromptHash: promptHash,
     };
     set({ fleet: updatedFleet });
+
+    try {
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_UPDATE_LIVERY",
+          payload: {
+            instanceId: aircraftId,
+            imageUrl,
+            promptHash,
+            tick: useEngineStore.getState().tick,
+          },
+        },
+        get,
+        set,
+      });
+    } catch (e) {
+      set((state) => {
+        const rollbackIdx = state.fleet.findIndex((ac) => ac.id === aircraftId);
+        if (rollbackIdx === -1) return state;
+        const rollbackFleet = [...state.fleet];
+        rollbackFleet[rollbackIdx] = previous;
+        return { fleet: rollbackFleet };
+      });
+      throw e;
+    }
   },
 });

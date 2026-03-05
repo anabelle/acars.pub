@@ -1249,6 +1249,18 @@ export async function replayActionLog(params: {
         });
         break;
       }
+      case "AIRCRAFT_UPDATE_LIVERY": {
+        const instanceId = clampString(payload.instanceId, 64);
+        const imageUrl = clampString(payload.imageUrl, 4096);
+        const promptHash = clampString(payload.promptHash, 128);
+        if (!instanceId || !imageUrl || !promptHash) break;
+        const aircraft = fleetById.get(instanceId);
+        if (!aircraft) break;
+        aircraft.liveryImageUrl = imageUrl;
+        aircraft.liveryPromptHash = promptHash;
+        updateLastTick(actionTick);
+        break;
+      }
       default:
         updateLastTick(actionTick);
         break;

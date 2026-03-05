@@ -414,7 +414,8 @@ export type GameActionType =
   | "AIRCRAFT_CANCEL_LIST"
   | "AIRCRAFT_BUY_USED"
   | "AIRCRAFT_MAINTENANCE"
-  | "AIRCRAFT_FERRY";
+  | "AIRCRAFT_FERRY"
+  | "AIRCRAFT_UPDATE_LIVERY";
 
 export type GameActionPayload = Record<string, unknown>;
 
