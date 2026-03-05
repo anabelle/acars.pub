@@ -275,6 +275,9 @@ importers:
       "@acars/nostr":
         specifier: workspace:^
         version: link:../nostr
+      dexie:
+        specifier: ^4.3.0
+        version: 4.3.0
       zustand:
         specifier: ^5.0.11
         version: 5.0.11(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
@@ -2890,6 +2893,12 @@ packages:
         integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==,
       }
     engines: { node: ">=6" }
+
+  dexie@4.3.0:
+    resolution:
+      {
+        integrity: sha512-5EeoQpJvMKHe6zWt/FSIIuRa3CWlZeIl6zKXt+Lz7BU6RoRRLgX9dZEynRfXrkLcldKYCBiz7xekTEylnie1Ug==,
+      }
 
   didyoumean@1.2.2:
     resolution:
@@ -6781,10 +6790,10 @@ snapshots:
     dependencies:
       "@types/geojson": 7946.0.16
 
-  "@typescript-eslint/eslint-plugin@8.56.0(@typescript-eslint/parser@8.56.0(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)":
+  "@typescript-eslint/eslint-plugin@8.56.0(@typescript-eslint/parser@8.56.0(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)":
     dependencies:
       "@eslint-community/regexpp": 4.12.2
-      "@typescript-eslint/parser": 8.56.0(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)
+      "@typescript-eslint/parser": 8.56.0(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3)
       "@typescript-eslint/scope-manager": 8.56.0
       "@typescript-eslint/type-utils": 8.56.0(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/utils": 8.56.0(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)
@@ -7320,6 +7329,8 @@ snapshots:
   define-lazy-prop@2.0.0: {}
 
   dequal@2.0.3: {}
+
+  dexie@4.3.0: {}
 
   didyoumean@1.2.2: {}
 
@@ -8725,7 +8736,7 @@ snapshots:
 
   typescript-eslint@8.56.0(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3):
     dependencies:
-      "@typescript-eslint/eslint-plugin": 8.56.0(@typescript-eslint/parser@8.56.0(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)
+      "@typescript-eslint/eslint-plugin": 8.56.0(@typescript-eslint/parser@8.56.0(eslint@9.39.3(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/parser": 8.56.0(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/typescript-estree": 8.56.0(typescript@5.9.3)
       "@typescript-eslint/utils": 8.56.0(eslint@9.39.3(jiti@1.21.7))(typescript@5.9.3)

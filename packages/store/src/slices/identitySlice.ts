@@ -1,3 +1,4 @@
+import { computeActionChainHash, fp, fpSub } from "@acars/core";
 import type {
   AircraftInstance,
   AirlineEntity,
@@ -5,26 +6,20 @@ import type {
   Route,
   TimelineEvent,
 } from "@acars/core";
-import { computeCheckpointStateHash, fp, fpAdd, fpSub, GENESIS_TIME } from "@acars/core";
 import { getHubPricingForIata } from "@acars/data";
 import {
   attachSigner,
   ensureConnected,
   getPubkey,
-  loadActionLog,
-  loadCheckpoint,
   loginWithNsec as loginWithNsecNostr,
   publishAction,
   waitForNip07,
 } from "@acars/nostr";
 import type { StateCreator } from "zustand";
-import { publishActionWithChain, updateActionChainHashFromEvent } from "../actionChain";
-import { replayActionLog } from "../actionReducer";
+import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
-import { reconcileFleetToTick } from "../FlightEngine";
-import { computeRejectedBuyEventIds } from "../marketplaceReplay";
-import { scopeActionsToCheckpoint } from "../scopeActions";
 import type { AirlineState } from "../types";
+import { hydrateIdentityFromStorage } from "../localLoader";
 
 export interface IdentitySlice {
   pubkey: string | null;
@@ -43,8 +38,6 @@ export interface IdentitySlice {
   createAirline: (params: CreateAirlineParams) => Promise<void>;
   dissolveAirline: () => Promise<void>;
 }
-
-const MAX_PLAYER_CATCHUP = 50000;
 
 export type CreateAirlineParams = Pick<
   AirlineEntity,
@@ -100,225 +93,7 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
       attachSigner();
       ensureConnected();
 
-      // Allow force-replaying from scratch by adding ?forceReplay to the URL.
-      // This ignores the saved checkpoint and rebuilds state entirely from the
-      // action log — useful to recover from a corrupted checkpoint.
-      const forceReplay =
-        typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).has("forceReplay");
-
-      let checkpoint = forceReplay ? null : await loadCheckpoint(pubkey);
-      if (forceReplay) {
-        console.warn("[IdentitySlice] forceReplay: ignoring checkpoint, replaying all actions");
-      }
-      if (checkpoint) {
-        // Verify checkpoint internal consistency by recomputing the state hash.
-        // We cannot verify the action chain hash independently without replaying
-        // the entire event log from genesis — that is deferred to after replay.
-        const recomputedStateHash = await computeCheckpointStateHash({
-          airline: checkpoint.airline,
-          fleet: checkpoint.fleet,
-          routes: checkpoint.routes,
-          timeline: checkpoint.timeline,
-        });
-        if (recomputedStateHash !== checkpoint.stateHash) {
-          console.warn(
-            "[IdentitySlice] Checkpoint state hash mismatch — falling back to full log replay",
-          );
-          checkpoint = null;
-        }
-      }
-      const [actions, globalActions] = await Promise.all([
-        loadActionLog({
-          authors: [pubkey],
-          limit: 500,
-          maxPages: checkpoint ? 20 : 100,
-        }),
-        loadActionLog({
-          limit: 500,
-          maxPages: 20,
-        }),
-      ]);
-      const rejectedEventIds = computeRejectedBuyEventIds(globalActions);
-
-      let scopedActions = actions;
-      if (checkpoint) {
-        scopedActions = scopeActionsToCheckpoint(actions, checkpoint);
-        // If no actions are newer than the checkpoint, the checkpoint
-        // state is authoritative — do NOT fall back to replaying all
-        // actions, as that overwrites live flight state (status, flight,
-        // turnaroundEndTick, etc.) with initial "delivery" values.
-      }
-      const replayed = await replayActionLog({
-        pubkey,
-        actions: scopedActions.map((entry) => ({
-          action: entry.action,
-          eventId: entry.event.id,
-          authorPubkey: entry.event.author.pubkey,
-          createdAt: entry.event.created_at ?? null,
-        })),
-        checkpoint,
-        rejectedEventIds,
-      });
-
-      // When the checkpoint was used and no newer actions existed, the replayed
-      // actionChainHash must equal the checkpoint's — any mismatch means the
-      // checkpoint data was tampered with or the reducer logic changed.
-      if (checkpoint && scopedActions.length === 0) {
-        if (replayed.actionChainHash !== checkpoint.actionChainHash) {
-          console.warn(
-            "[IdentitySlice] Post-replay action chain hash mismatch — checkpoint may be corrupted",
-          );
-        }
-      }
-
-      const existing = replayed.airline ? replayed : null;
-
-      if (!existing) {
-        set({
-          pubkey,
-          airline: null,
-          fleet: [],
-          routes: [],
-          timeline: [],
-          actionChainHash: "",
-          actionSeq: 0,
-          fleetDeletedDuringCatchup: [],
-          latestCheckpoint: checkpoint,
-          identityStatus: "ready",
-          isLoading: false,
-        });
-        return;
-      }
-
-      const maxPossibleHours = (Date.now() - GENESIS_TIME) / 3600000 + 48;
-
-      const cleanFleet =
-        existing && existing.fleet
-          ? existing.fleet.map((ac) => ({
-              ...ac,
-              flightHoursTotal: Math.min(ac.flightHoursTotal, maxPossibleHours),
-              flightHoursSinceCheck: Math.min(ac.flightHoursSinceCheck, maxPossibleHours),
-            }))
-          : [];
-
-      // Step 6: Bidirectional Route/Fleet Reconciliation
-      // 6a. Ensure routes only list planes that actually exist
-      const fleetIds = new Set(cleanFleet.map((ac) => ac.id));
-      const rawRoutes = existing && existing.routes ? existing.routes : [];
-      const activeHubs = new Set((existing?.airline?.hubs || []).filter(Boolean));
-      const reconciledRoutes: Route[] = rawRoutes.map((route) => {
-        const hasActiveOrigin = activeHubs.size > 0 ? activeHubs.has(route.originIata) : false;
-
-        if (!hasActiveOrigin && route.status === "active") {
-          return {
-            ...route,
-            status: "suspended",
-            assignedAircraftIds: [],
-          };
-        }
-
-        return {
-          ...route,
-          assignedAircraftIds: route.assignedAircraftIds.filter((id) => fleetIds.has(id)),
-        };
-      });
-
-      // 6b. Ensure planes only point to routes that actually exist
-      const routeIds = new Set(reconciledRoutes.map((r) => r.id));
-      const suspendedRouteIds = new Set(
-        reconciledRoutes.filter((route) => route.status === "suspended").map((route) => route.id),
-      );
-      let reconciledFleet = cleanFleet.map((ac) => ({
-        ...ac,
-        assignedRouteId:
-          ac.assignedRouteId &&
-          routeIds.has(ac.assignedRouteId) &&
-          !suspendedRouteIds.has(ac.assignedRouteId)
-            ? ac.assignedRouteId
-            : null,
-      }));
-
-      const engineTick = useEngineStore.getState().tick;
-      let loadedAirline = existing ? existing.airline : null;
-      if (
-        loadedAirline &&
-        (loadedAirline.lastTick == null || loadedAirline.lastTick === 0) &&
-        (reconciledFleet.length > 0 || reconciledRoutes.length > 0)
-      ) {
-        const fallbackLastTick = Math.max(0, engineTick - MAX_PLAYER_CATCHUP);
-        console.warn(
-          "[IdentitySlice] lastTick missing, clamping to recent history to avoid excessive catchup",
-          {
-            pubkey,
-            engineTick,
-            fallbackLastTick,
-          },
-        );
-        loadedAirline = {
-          ...loadedAirline,
-          lastTick: fallbackLastTick,
-        };
-      }
-
-      if (loadedAirline?.lastTick != null) {
-        const oldestAllowedTick = Math.max(0, engineTick - MAX_PLAYER_CATCHUP);
-        if (loadedAirline.lastTick < oldestAllowedTick) {
-          console.warn("[IdentitySlice] lastTick stale, clamping to catchup window", {
-            pubkey,
-            engineTick,
-            lastTick: loadedAirline.lastTick,
-            oldestAllowedTick,
-          });
-          loadedAirline = {
-            ...loadedAirline,
-            lastTick: oldestAllowedTick,
-          };
-        }
-      }
-
-      // Step 7: Reconcile fleet flight-cycle positions to lastTick.
-      // The checkpoint saves the fleet at a specific tick, but post-checkpoint
-      // TICK_UPDATE actions may push airline.lastTick ahead.  Without this,
-      // all in-flight aircraft would land simultaneously on the first tick of
-      // catchup because their arrivalTick/turnaroundEndTick is behind lastTick.
-      // reconcileFleetToTick fast-forwards each aircraft's deterministic
-      // round-trip cycle so catchup resumes from the correct phase.
-      if (loadedAirline?.lastTick != null && reconciledFleet.length > 0) {
-        const { fleet: reconciled, balanceDelta } = reconcileFleetToTick(
-          reconciledFleet,
-          reconciledRoutes,
-          loadedAirline.lastTick,
-        );
-        reconciledFleet = reconciled;
-        loadedAirline = {
-          ...loadedAirline,
-          corporateBalance: fpAdd(loadedAirline.corporateBalance, balanceDelta),
-        };
-      }
-
-      set({
-        pubkey,
-        airline: loadedAirline,
-        fleet: reconciledFleet,
-        routes: reconciledRoutes,
-        timeline: loadedAirline?.timeline || [],
-        actionChainHash: replayed.actionChainHash,
-        actionSeq: actions.length,
-        fleetDeletedDuringCatchup: [],
-        latestCheckpoint: checkpoint,
-        identityStatus: "ready",
-        isLoading: false,
-      });
-
-      // Remove the forceReplay param from the URL so subsequent refreshes
-      // don't keep replaying.  A fresh checkpoint will be published on the
-      // next checkpoint interval, replacing the corrupted one.
-      if (forceReplay && typeof window !== "undefined") {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("forceReplay");
-        window.history.replaceState({}, "", url.toString());
-      }
+      await hydrateIdentityFromStorage(pubkey, set);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to initialize identity.";
       set({
@@ -336,132 +111,7 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
       const pubkey = await loginWithNsecNostr(nsec);
       ensureConnected();
 
-      const [actions, globalActions] = await Promise.all([
-        loadActionLog({
-          authors: [pubkey],
-          limit: 500,
-          maxPages: 100,
-        }),
-        loadActionLog({
-          limit: 500,
-          maxPages: 20,
-        }),
-      ]);
-      const rejectedEventIds = computeRejectedBuyEventIds(globalActions);
-
-      const replayed = await replayActionLog({
-        pubkey,
-        actions: actions.map((entry) => ({
-          action: entry.action,
-          eventId: entry.event.id,
-          authorPubkey: entry.event.author.pubkey,
-          createdAt: entry.event.created_at ?? null,
-        })),
-        checkpoint: null,
-        rejectedEventIds,
-      });
-
-      const existing = replayed.airline ? replayed : null;
-
-      if (!existing) {
-        set({
-          pubkey,
-          airline: null,
-          fleet: [],
-          routes: [],
-          timeline: [],
-          actionChainHash: "",
-          actionSeq: 0,
-          fleetDeletedDuringCatchup: [],
-          latestCheckpoint: null,
-          identityStatus: "ready",
-          isLoading: false,
-        });
-        return;
-      }
-
-      const maxPossibleHours = (Date.now() - GENESIS_TIME) / 3600000 + 48;
-      const cleanFleet = existing.fleet
-        ? existing.fleet.map((ac) => ({
-            ...ac,
-            flightHoursTotal: Math.min(ac.flightHoursTotal, maxPossibleHours),
-            flightHoursSinceCheck: Math.min(ac.flightHoursSinceCheck, maxPossibleHours),
-          }))
-        : [];
-
-      const fleetIds = new Set(cleanFleet.map((ac) => ac.id));
-      const rawRoutes = existing.routes ? existing.routes : [];
-      const activeHubs = new Set((existing.airline?.hubs || []).filter(Boolean));
-      const reconciledRoutes: Route[] = rawRoutes.map((route) => {
-        const hasActiveOrigin = activeHubs.size > 0 ? activeHubs.has(route.originIata) : false;
-        if (!hasActiveOrigin && route.status === "active") {
-          return { ...route, status: "suspended", assignedAircraftIds: [] };
-        }
-        return {
-          ...route,
-          assignedAircraftIds: route.assignedAircraftIds.filter((id) => fleetIds.has(id)),
-        };
-      });
-
-      const routeIds = new Set(reconciledRoutes.map((r) => r.id));
-      const suspendedRouteIds = new Set(
-        reconciledRoutes.filter((r) => r.status === "suspended").map((r) => r.id),
-      );
-      let reconciledFleet = cleanFleet.map((ac) => ({
-        ...ac,
-        assignedRouteId:
-          ac.assignedRouteId &&
-          routeIds.has(ac.assignedRouteId) &&
-          !suspendedRouteIds.has(ac.assignedRouteId)
-            ? ac.assignedRouteId
-            : null,
-      }));
-
-      const engineTick = useEngineStore.getState().tick;
-      let loadedAirline = existing.airline;
-
-      if (
-        loadedAirline &&
-        (loadedAirline.lastTick == null || loadedAirline.lastTick === 0) &&
-        (reconciledFleet.length > 0 || reconciledRoutes.length > 0)
-      ) {
-        const fallbackLastTick = Math.max(0, engineTick - MAX_PLAYER_CATCHUP);
-        loadedAirline = { ...loadedAirline, lastTick: fallbackLastTick };
-      }
-
-      if (loadedAirline?.lastTick != null) {
-        const oldestAllowedTick = Math.max(0, engineTick - MAX_PLAYER_CATCHUP);
-        if (loadedAirline.lastTick < oldestAllowedTick) {
-          loadedAirline = { ...loadedAirline, lastTick: oldestAllowedTick };
-        }
-      }
-
-      if (loadedAirline?.lastTick != null && reconciledFleet.length > 0) {
-        const { fleet: reconciled, balanceDelta } = reconcileFleetToTick(
-          reconciledFleet,
-          reconciledRoutes,
-          loadedAirline.lastTick,
-        );
-        reconciledFleet = reconciled;
-        loadedAirline = {
-          ...loadedAirline,
-          corporateBalance: fpAdd(loadedAirline.corporateBalance, balanceDelta),
-        };
-      }
-
-      set({
-        pubkey,
-        airline: loadedAirline,
-        fleet: reconciledFleet,
-        routes: reconciledRoutes,
-        timeline: loadedAirline?.timeline || [],
-        actionChainHash: replayed.actionChainHash,
-        actionSeq: actions.length,
-        fleetDeletedDuringCatchup: [],
-        latestCheckpoint: null,
-        identityStatus: "ready",
-        isLoading: false,
-      });
+      await hydrateIdentityFromStorage(pubkey, set);
     } catch (error) {
       console.warn("[IdentitySlice] nsec login failed", error);
       set({ error: "Invalid nsec key.", identityStatus: "ready", isLoading: false });
@@ -494,9 +144,15 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
         },
       };
       const event = await publishAction(action);
-      await updateActionChainHashFromEvent({ action, event, get, set });
-
-      const pubkey = await getPubkey();
+      const currentChainHash = get().actionChainHash || "";
+      const pubkey = event.author.pubkey;
+      const nextHash = await computeActionChainHash(currentChainHash, {
+        id: event.id,
+        createdAt: event.created_at ?? null,
+        authorPubkey: pubkey,
+        action,
+      });
+      set({ actionChainHash: nextHash });
       if (!pubkey) throw new Error("No pubkey after extension ready");
 
       const airline: AirlineEntity = {
@@ -528,6 +184,15 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
         timeline: [],
         fleetDeletedDuringCatchup: [],
       });
+
+      const newlyCreatedAirline = get().airline;
+      if (newlyCreatedAirline) {
+        try {
+          await import("../db").then(({ db }) => db.airline.put(newlyCreatedAirline));
+        } catch (e) {
+          console.error("Failed to insert airline to IndexedDB", e);
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to create airline.";
       set({ error: message, isLoading: false });

@@ -14,6 +14,7 @@
     "@acars/core": "workspace:*",
     "@acars/data": "workspace:*",
     "@acars/nostr": "workspace:^",
+    "dexie": "^4.3.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

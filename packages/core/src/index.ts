@@ -9,7 +9,7 @@ export {
   computeCheckpointStateHash,
   verifyCheckpoint,
 } from "./checkpoint.js";
-export type { CyclePhase } from "./cycle.js";
+export * from "./compression.js";
 // Cycle
 export { countLandingsBetween, getCyclePhase } from "./cycle.js";
 // Demand

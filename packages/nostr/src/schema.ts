@@ -59,8 +59,8 @@ export interface ActionLogEntry {
   action: ActionEnvelope;
 }
 
-const ACTION_KIND = 30078;
-const WORLD_ID = "dev-v3";
+export const ACTION_KIND = 30078;
+export const WORLD_ID = "v4-snapshot-rollup";
 const ACARS_SCHEMA_VERSION = 1;
 const ACTION_D_PREFIX = `airtr:world:${WORLD_ID}:action:`;
 const CHECKPOINT_D_TAG = `airtr:world:${WORLD_ID}:checkpoint`;
@@ -86,25 +86,24 @@ function clampInt(value: unknown, min: number, max: number): number | null {
   return rounded;
 }
 
-function isValidEventTimestamp(createdAt: number): boolean {
-  if (!Number.isFinite(createdAt) || createdAt <= 0) return false;
-  const nowSec = Math.floor(Date.now() / 1000);
-  if (createdAt > nowSec + MAX_FUTURE_SKEW_SEC) return false;
-  if (nowSec - createdAt > MAX_EVENT_AGE_SEC) return false;
-  return true;
+export function isValidEventTimestamp(createdAt: number): boolean {
+  const now = Math.floor(Date.now() / 1000);
+  const minValid = now - MAX_EVENT_AGE_SEC;
+  const maxValid = now + MAX_FUTURE_SKEW_SEC;
+  return createdAt >= minValid && createdAt <= maxValid;
 }
 
-function hasWorldTag(event: NDKEvent, worldId: string): boolean {
+export function hasWorldTag(event: NDKEvent, worldId: string): boolean {
   return event.tags.some((tag) => tag[0] === "world" && tag[1] === worldId);
 }
 
-function isActionKind(event: NDKEvent): boolean {
+export function isActionKind(event: NDKEvent): boolean {
   if (event.kind !== ACTION_KIND) return false;
   const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
   return Boolean(dTag && dTag.startsWith(ACTION_D_PREFIX));
 }
 
-function parseActionContent(data: unknown): ActionEnvelope | null {
+export function parseActionContent(data: unknown): ActionEnvelope | null {
   if (!isRecord(data)) return null;
   const schemaVersion = clampInt(data.schemaVersion, 1, 10);
   const action = typeof data.action === "string" ? data.action : null;
@@ -117,13 +116,13 @@ function parseActionContent(data: unknown): ActionEnvelope | null {
   };
 }
 
-function isTransientPublishError(error: unknown): boolean {
-  const name = error instanceof Error ? error.name : "";
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  if (name === "NDKPublishError") return true;
-  return /(not enough relays|timeout|timed out|network|websocket|relay|fetch failed|econn|enotfound|connection)/i.test(
-    message,
-  );
+export function isTransientPublishError(error: unknown): boolean {
+  if (error instanceof Error) {
+    if (error.message.includes("timeout")) return true;
+    if (error.message.includes("network")) return true;
+    if (error.message.includes("connection closed")) return true;
+  }
+  return false;
 }
 
 export function buildActionDTag(action: ActionEnvelope, seq?: number): string {
@@ -175,6 +174,7 @@ export async function publishAction(action: ActionEnvelope, seq?: number): Promi
   event.tags = [
     ["d", buildActionDTag(action, seq)],
     ["world", WORLD_ID],
+    ["expiration", Math.floor(Date.now() / 1000 + 14 * 24 * 60 * 60).toString()],
   ];
 
   event.content = JSON.stringify({

@@ -21,6 +21,10 @@ vi.mock("@acars/nostr", () => ({
   ),
 }));
 
+vi.mock("../actionChain", () => ({
+  publishActionWithChain: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock("../engine", () => ({
   useEngineStore: {
     getState: () => ({
@@ -479,8 +483,8 @@ describe("assignAircraftToRoute", () => {
       timeline: [] as TimelineEvent[],
     });
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
@@ -513,8 +517,8 @@ describe("assignAircraftToRoute", () => {
       timeline: [] as TimelineEvent[],
     });
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
@@ -548,8 +552,8 @@ describe("assignAircraftToRoute", () => {
       timeline: [] as TimelineEvent[],
     });
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
@@ -590,8 +594,8 @@ describe("openRoute rollback", () => {
       timeline: [] as TimelineEvent[],
     });
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
@@ -631,8 +635,8 @@ describe("openRoute rollback", () => {
       timeline: [existingEvent] as TimelineEvent[],
     });
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
