@@ -117,18 +117,44 @@ export async function generateLiveryImage(prompt: string): Promise<Blob> {
         },
       });
 
-      const image = response.generatedImages?.[0]?.image;
-      if (!image?.imageBytes) {
-        throw new Error(`Model ${model} returned no image data`);
+      const sdkImage = response.generatedImages?.[0]?.image;
+      const rawResponse = response as unknown as {
+        predictions?: Array<{
+          bytesBase64Encoded?: string;
+          imageBytes?: string;
+          mimeType?: string;
+          raiFilteredReason?: string;
+          image?: { bytesBase64Encoded?: string; imageBytes?: string; mimeType?: string };
+        }>;
+      };
+      const rawPrediction = rawResponse.predictions?.[0];
+
+      const imageBytes =
+        sdkImage?.imageBytes ??
+        rawPrediction?.bytesBase64Encoded ??
+        rawPrediction?.imageBytes ??
+        rawPrediction?.image?.bytesBase64Encoded ??
+        rawPrediction?.image?.imageBytes;
+      const mimeType = sdkImage?.mimeType ?? rawPrediction?.mimeType ?? rawPrediction?.image?.mimeType;
+
+      if (!imageBytes) {
+        const raiReason =
+          (response.generatedImages?.[0] as { raiFilteredReason?: string } | undefined)
+            ?.raiFilteredReason ?? rawPrediction?.raiFilteredReason;
+        throw new Error(
+          raiReason
+            ? `Model ${model} filtered the image (${raiReason})`
+            : `Model ${model} returned no image bytes`,
+        );
       }
 
-      const binaryStr = atob(image.imageBytes);
+      const binaryStr = atob(imageBytes);
       const bytes = new Uint8Array(binaryStr.length);
       for (let i = 0; i < binaryStr.length; i++) {
         bytes[i] = binaryStr.charCodeAt(i);
       }
 
-      return new Blob([bytes], { type: image.mimeType ?? "image/png" });
+      return new Blob([bytes], { type: mimeType ?? "image/png" });
     } catch (error) {
       lastError = error;
       const errorMessage = error instanceof Error ? error.message.toLowerCase() : "";

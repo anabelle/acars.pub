@@ -52,8 +52,28 @@ export function useAircraftImage(
 ): UseAircraftImageResult {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [localImageUrl, setLocalImageUrl] = useState<string | null>(null);
   const generationAttempted = useRef(false);
+  const localObjectUrlRef = useRef<string | null>(null);
   const updateAircraftLivery = useAirlineStore((s) => s.updateAircraftLivery);
+
+  useEffect(() => {
+    if (aircraft.liveryImageUrl && localObjectUrlRef.current) {
+      URL.revokeObjectURL(localObjectUrlRef.current);
+      localObjectUrlRef.current = null;
+      setLocalImageUrl(null);
+    }
+  }, [aircraft.liveryImageUrl]);
+
+  useEffect(
+    () => () => {
+      if (localObjectUrlRef.current) {
+        URL.revokeObjectURL(localObjectUrlRef.current);
+        localObjectUrlRef.current = null;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!airline || !model || !isOwner) return;
@@ -87,6 +107,13 @@ export function useAircraftImage(
           const prompt = buildLiveryPrompt(airline!, model!, hubIata);
           const imageBlob = await generateLiveryImage(prompt);
           if (cancelled) return;
+
+          // Show a local preview immediately even before remote persistence succeeds.
+          if (localObjectUrlRef.current) {
+            URL.revokeObjectURL(localObjectUrlRef.current);
+          }
+          localObjectUrlRef.current = URL.createObjectURL(imageBlob);
+          setLocalImageUrl(localObjectUrlRef.current);
 
           const filename = `aircraft-${aircraft.id}.png`;
           const imageUrl = await uploadToBlossom(imageBlob, filename, "image/png");
@@ -124,7 +151,7 @@ export function useAircraftImage(
   ]);
 
   return {
-    imageUrl: aircraft.liveryImageUrl ?? null,
+    imageUrl: aircraft.liveryImageUrl ?? localImageUrl ?? null,
     isGenerating,
     error,
   };

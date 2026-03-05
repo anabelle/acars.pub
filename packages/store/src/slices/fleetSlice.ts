@@ -1007,7 +1007,6 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     const { fleet } = get();
     const idx = fleet.findIndex((f) => f.id === aircraftId);
     if (idx === -1) return;
-    const previous = fleet[idx];
 
     const updatedFleet = [...fleet];
     updatedFleet[idx] = {
@@ -1033,14 +1032,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         set,
       });
     } catch (e) {
-      set((state) => {
-        const rollbackIdx = state.fleet.findIndex((ac) => ac.id === aircraftId);
-        if (rollbackIdx === -1) return state;
-        const rollbackFleet = [...state.fleet];
-        rollbackFleet[rollbackIdx] = previous;
-        return { fleet: rollbackFleet };
-      });
-      throw e;
+      console.warn("Failed to sync livery update to Nostr action chain:", e);
     }
   },
 });
