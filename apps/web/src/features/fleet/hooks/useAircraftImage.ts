@@ -110,6 +110,7 @@ export function useAircraftImage(
   const [error, setError] = useState<string | null>(null);
   const [localImageUrl, setLocalImageUrl] = useState<string | null>(null);
   const localObjectUrlRef = useRef<string | null>(null);
+  const isMountedRef = useRef(false);
   const updateAircraftLivery = useAirlineStore((s) => s.updateAircraftLivery);
 
   useEffect(() => {
@@ -120,15 +121,16 @@ export function useAircraftImage(
     }
   }, [aircraft.liveryImageUrl]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
       if (localObjectUrlRef.current) {
         URL.revokeObjectURL(localObjectUrlRef.current);
         localObjectUrlRef.current = null;
       }
-    },
-    [],
-  );
+    };
+  }, []);
 
   useEffect(() => {
     if (!airline || !model || !isOwner) return;
@@ -156,19 +158,24 @@ export function useAircraftImage(
       const cached = await getCachedImage(cacheKey);
       if (cached) {
         console.log(`[Livery] Cache hit for ${aircraft.id}`);
-        if (localObjectUrlRef.current) {
-          URL.revokeObjectURL(localObjectUrlRef.current);
+        const objectUrl = URL.createObjectURL(cached);
+        if (isMountedRef.current) {
+          if (localObjectUrlRef.current) {
+            URL.revokeObjectURL(localObjectUrlRef.current);
+          }
+          localObjectUrlRef.current = objectUrl;
+          setLocalImageUrl(localObjectUrlRef.current);
+        } else {
+          URL.revokeObjectURL(objectUrl);
         }
-        localObjectUrlRef.current = URL.createObjectURL(cached);
-        setLocalImageUrl(localObjectUrlRef.current);
 
         // Still try to persist to Blossom/Nostr if not already persisted
         try {
           const filename = `aircraft-${aircraft.id}.png`;
           const imageUrl = await uploadToBlossom(cached, filename, "image/png");
           await updateAircraftLivery(aircraft.id, imageUrl, currentHash);
-        } catch {
-          // Non-critical — local cache is the source of truth for now
+        } catch (uploadErr) {
+          console.warn(`[Livery] Cache upload failed for ${aircraft.id}:`, uploadErr);
         }
         return;
       }
@@ -191,11 +198,16 @@ export function useAircraftImage(
           await setCachedImage(cacheKey, imageBlob);
           console.log(`[Livery] Cached ${aircraft.id} in IndexedDB`);
 
-          if (localObjectUrlRef.current) {
-            URL.revokeObjectURL(localObjectUrlRef.current);
+          const objectUrl = URL.createObjectURL(imageBlob);
+          if (isMountedRef.current) {
+            if (localObjectUrlRef.current) {
+              URL.revokeObjectURL(localObjectUrlRef.current);
+            }
+            localObjectUrlRef.current = objectUrl;
+            setLocalImageUrl(localObjectUrlRef.current);
+          } else {
+            URL.revokeObjectURL(objectUrl);
           }
-          localObjectUrlRef.current = URL.createObjectURL(imageBlob);
-          setLocalImageUrl(localObjectUrlRef.current);
 
           // Best-effort Blossom upload + Nostr persistence
           try {
@@ -208,11 +220,15 @@ export function useAircraftImage(
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : "Image generation failed";
-          setError(message);
+          if (isMountedRef.current) {
+            setError(message);
+          }
           console.error(`[Livery] Generation failed for ${aircraft.id}:`, err);
         } finally {
           activeGenerations.delete(aircraft.id);
-          setIsGenerating(false);
+          if (isMountedRef.current) {
+            setIsGenerating(false);
+          }
           dequeue();
         }
       });
