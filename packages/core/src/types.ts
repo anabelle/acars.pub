@@ -186,6 +186,10 @@ export interface AircraftInstance {
 
   // Derived metrics (latest flight outcomes)
   lastKnownLoadFactor?: number; // 0.0 - 1.0
+
+  // AI-generated livery image (Nano Banana via Blossom)
+  liveryImageUrl?: string; // Blossom content-addressable URL
+  liveryPromptHash?: string; // Hash of prompt inputs for cache invalidation
 }
 
 export interface AirlineEntity {
@@ -410,7 +414,8 @@ export type GameActionType =
   | "AIRCRAFT_CANCEL_LIST"
   | "AIRCRAFT_BUY_USED"
   | "AIRCRAFT_MAINTENANCE"
-  | "AIRCRAFT_FERRY";
+  | "AIRCRAFT_FERRY"
+  | "AIRCRAFT_UPDATE_LIVERY";
 
 export type GameActionPayload = Record<string, unknown>;
 
