@@ -35,19 +35,21 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const apiKey =
-    context.env.GOOGLE_API ?? context.env.GEMINI_API_KEY ?? context.env.VITE_GEMINI_API_KEY;
+  const env = context.env ?? {};
+  const apiKey = env.GOOGLE_API ?? env.GEMINI_API_KEY ?? env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
-    const branch = context.env.CF_PAGES_BRANCH ?? "unknown";
+    const branch = env.CF_PAGES_BRANCH ?? "unknown";
+    const envKeys = Object.keys(env);
     return Response.json(
       {
-        error:
-          "Gemini API secret is not configured (expected GOOGLE_API, GEMINI_API_KEY, or VITE_GEMINI_API_KEY in this Pages environment)",
+        error: "Gemini API secret is not configured",
         branch,
+        envKeyCount: envKeys.length,
+        envKeys: envKeys.filter((k) => !k.startsWith("__")),
         keyPresence: {
-          GOOGLE_API: Boolean(context.env.GOOGLE_API),
-          GEMINI_API_KEY: Boolean(context.env.GEMINI_API_KEY),
-          VITE_GEMINI_API_KEY: Boolean(context.env.VITE_GEMINI_API_KEY),
+          GOOGLE_API: Boolean(env.GOOGLE_API),
+          GEMINI_API_KEY: Boolean(env.GEMINI_API_KEY),
+          VITE_GEMINI_API_KEY: Boolean(env.VITE_GEMINI_API_KEY),
         },
       },
       { status: 500 },
