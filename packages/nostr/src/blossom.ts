@@ -1,10 +1,19 @@
 import { createLogger } from "@acars/core";
-import NDKBlossom from "@nostr-dev-kit/ndk-blossom";
 import { getNDK } from "./ndk.js";
 
 const logger = createLogger("Blossom");
 
 const DEFAULT_BLOSSOM_SERVER = "https://blossom.primal.net";
+
+let ndkBlossomCtor: typeof import("@nostr-dev-kit/ndk-blossom")["default"] | null = null;
+
+async function getNDKBlossom() {
+  if (!ndkBlossomCtor) {
+    const mod = await import("@nostr-dev-kit/ndk-blossom");
+    ndkBlossomCtor = mod.default;
+  }
+  return ndkBlossomCtor;
+}
 
 /**
  * Uploads a Blob to a Blossom server and returns the content-addressable URL.
@@ -26,6 +35,7 @@ export async function uploadToBlossom(
     throw new Error("NDK has no signer — cannot authenticate Blossom upload");
   }
 
+  const NDKBlossom = await getNDKBlossom();
   const blossom = new NDKBlossom(ndk);
   const file = new File([imageBlob], filename, { type: mimeType });
 
