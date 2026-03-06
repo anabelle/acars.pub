@@ -1,4 +1,4 @@
-import type { AircraftInstance, AirlineEntity, FixedPoint } from "@acars/core";
+import type { AircraftInstance, AirlineEntity } from "@acars/core";
 import { fp } from "@acars/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
@@ -117,8 +117,8 @@ const makeAirline = (pubkey: string, lastTick: number): AirlineEntity => ({
   brandScore: 0.5,
   tier: 1,
   cumulativeRevenue: fp(0),
-  corporateBalance: 1000000000 as FixedPoint,
-  stockPrice: 0 as FixedPoint,
+  corporateBalance: fp(1000000000),
+  stockPrice: fp(0),
   fleetIds: [],
   routeIds: [],
   lastTick,
@@ -134,7 +134,7 @@ const makeAircraft = (id: string, ownerPubkey: string): AircraftInstance => ({
   assignedRouteId: null,
   baseAirportIata: "JFK",
   purchasedAtTick: 0,
-  purchasePrice: 1000000 as FixedPoint,
+  purchasePrice: fp(1000000),
   birthTick: 0,
   flight: null,
   purchaseType: "buy",
