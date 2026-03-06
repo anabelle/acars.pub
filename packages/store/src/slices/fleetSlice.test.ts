@@ -26,6 +26,10 @@ vi.mock("@acars/nostr", () => ({
   MARKETPLACE_KIND: 30079,
 }));
 
+vi.mock("../actionChain", () => ({
+  publishActionWithChain: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock("../engine", () => ({
   useEngineStore: {
     getState: () => ({
@@ -173,8 +177,8 @@ describe("sellAircraft", () => {
     const model = getAircraftById("atr72-600");
     expect(model).toBeTruthy();
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
@@ -200,8 +204,8 @@ describe("sellAircraft", () => {
     const model = getAircraftById("atr72-600");
     expect(model).toBeTruthy();
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
@@ -231,8 +235,8 @@ describe("sellAircraft", () => {
     const model = getAircraftById("atr72-600");
     expect(model).toBeTruthy();
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
@@ -260,8 +264,8 @@ describe("sellAircraft", () => {
     const model = getAircraftById("atr72-600");
     expect(model).toBeTruthy();
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
@@ -303,8 +307,8 @@ describe("buyoutAircraft", () => {
       timeline: [],
     });
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
@@ -342,8 +346,8 @@ describe("performMaintenance", () => {
       timeline: [],
     });
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);
@@ -385,8 +389,8 @@ describe("performMaintenance", () => {
       timeline: [existingEvent],
     });
 
-    const { publishAction } = await import("@acars/nostr");
-    vi.mocked(publishAction).mockImplementationOnce(
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockImplementationOnce(
       () =>
         new Promise((_, reject) => {
           setTimeout(() => reject(new Error("publish failed")), 0);

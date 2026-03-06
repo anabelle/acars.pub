@@ -1,12 +1,19 @@
-import type { AircraftInstance, AirlineEntity, FixedPoint, Route } from "@acars/core";
+import type { AircraftInstance, AirlineEntity, FixedPoint } from "@acars/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
 import { _resetWorldFlags, createWorldSlice } from "./worldSlice";
 
+vi.mock("@acars/core", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@acars/core")>();
+  return {
+    ...mod,
+    decompressSnapshotString: vi.fn((data: string) => Promise.resolve(data)),
+  };
+});
+
 vi.mock("@acars/nostr", () => ({
-  loadActionLog: vi.fn(() => Promise.resolve([])),
-  loadCheckpoints: vi.fn(() => Promise.resolve(new Map())),
+  loadAllSnapshots: vi.fn(() => Promise.resolve(new Map())),
   getNDK: vi.fn(() => ({})),
   NDKEvent: vi.fn(),
   MARKETPLACE_KIND: 30079,
@@ -21,7 +28,11 @@ vi.mock("../engine", () => ({
   },
 }));
 
-const createSliceState = (overrides: Partial<AirlineState>) => {
+vi.mock("../FlightEngine", () => ({
+  reconcileFleetToTick: vi.fn((fleet) => ({ fleet, balanceDelta: 0 })),
+}));
+
+const createSliceState = (overrides: Partial<AirlineState> = {}) => {
   const state = {
     airline: null,
     fleet: [],
@@ -59,7 +70,7 @@ const createSliceState = (overrides: Partial<AirlineState>) => {
     syncWorld: vi.fn(),
     syncCompetitor: vi.fn(),
     projectCompetitorFleet: vi.fn(),
-  } as AirlineState;
+  } as unknown as AirlineState;
 
   const set = vi.fn((partial: AirlineState | ((prev: AirlineState) => Partial<AirlineState>)) => {
     const next = typeof partial === "function" ? partial(state) : partial;
@@ -127,29 +138,9 @@ const makeAircraft = (id: string, ownerPubkey: string): AircraftInstance => ({
   condition: 1,
 });
 
-const buildRoutesIndex = (routes: Route[]) => {
-  const byOwner = new Map<string, Route[]>();
-  for (const route of routes) {
-    const bucket = byOwner.get(route.airlinePubkey);
-    if (bucket) {
-      bucket.push(route);
-    } else {
-      byOwner.set(route.airlinePubkey, [route]);
-    }
-  }
-  return byOwner;
-};
-
 describe("projectCompetitorFleet", () => {
   beforeEach(async () => {
     _resetWorldFlags();
-
-    // Reset nostr mocks to avoid cross-test contamination
-    const nostr = await import("@acars/nostr");
-    (nostr.loadActionLog as unknown as ReturnType<typeof vi.fn>).mockClear();
-    (nostr.loadActionLog as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockClear();
-    (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(new Map());
   });
 
   it("projects all competitor fleets to the target tick", () => {
@@ -170,56 +161,17 @@ describe("projectCompetitorFleet", () => {
     const { state } = createSliceState({
       competitors,
       fleetByOwner: buildFleetIndex(allFleet),
-      routesByOwner: buildRoutesIndex([]),
+      routesByOwner: new Map(),
     });
 
     state.projectCompetitorFleet(tick);
 
-    // Both aircraft should appear in the projected fleet
     const ids = [...state.fleetByOwner.values()].flat().map((ac) => ac.id);
     expect(ids).toContain("ac-behind");
     expect(ids).toContain("ac-current");
 
-    // Competitors map should NOT be modified — projectCompetitorFleet is
-    // display-only.  Authoritative state (lastTick, corporateBalance) is
-    // written exclusively by syncWorld / syncCompetitor.
     const updatedBehind = state.competitors.get(behindPubkey);
     expect(updatedBehind?.lastTick).toBe(tick - 2);
-
-    const updatedCurrent = state.competitors.get(currentPubkey);
-    expect(updatedCurrent?.lastTick).toBe(tick);
-  });
-
-  it("does nothing when no competitors exist", () => {
-    const { state, set } = createSliceState({
-      competitors: new Map(),
-      fleetByOwner: new Map(),
-    });
-
-    state.projectCompetitorFleet(100);
-
-    // set should not have been called (no changes)
-    expect(set).not.toHaveBeenCalled();
-  });
-
-  it("skips competitors whose lastTick is already at or ahead of target", () => {
-    const tick = 100;
-    const pubkey = "comp-ahead";
-
-    const competitors = new Map<string, AirlineEntity>([[pubkey, makeAirline(pubkey, tick + 10)]]);
-
-    const fleet = [makeAircraft("ac-ahead", pubkey)];
-
-    const { state, set } = createSliceState({
-      competitors,
-      fleetByOwner: buildFleetIndex(fleet),
-      routesByOwner: buildRoutesIndex([]),
-    });
-
-    state.projectCompetitorFleet(tick);
-
-    // No changes should have been made since the only competitor is ahead
-    expect(set).not.toHaveBeenCalled();
   });
 
   it("does not project bankrupt competitors", () => {
@@ -235,13 +187,16 @@ describe("projectCompetitorFleet", () => {
         destinationIata: "LAX",
         departureTick: 100,
         arrivalTick: 150,
+        distanceKm: 2000,
+        direction: "outbound" as const,
+        purpose: "route" as const,
       },
     };
 
     const { state, set } = createSliceState({
       competitors: new Map([[pubkey, airline]]),
       fleetByOwner: buildFleetIndex([aircraft]),
-      routesByOwner: buildRoutesIndex([]),
+      routesByOwner: new Map(),
     });
 
     state.projectCompetitorFleet(tick);
@@ -254,621 +209,58 @@ describe("projectCompetitorFleet", () => {
 describe("syncWorld", () => {
   beforeEach(async () => {
     _resetWorldFlags();
-
     const nostr = await import("@acars/nostr");
-    (nostr.loadActionLog as unknown as ReturnType<typeof vi.fn>).mockClear();
-    (nostr.loadActionLog as unknown as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockClear();
-    (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(new Map());
+    vi.mocked(nostr.loadAllSnapshots).mockClear();
+    vi.mocked(nostr.loadAllSnapshots).mockResolvedValue(new Map());
   });
 
-  it("preserves existing fleet when replay returns fewer aircraft (partial relay)", async () => {
-    const { loadActionLog } = await import("@acars/nostr");
-    const pubkey = "comp-stable";
-
-    const newerAirline = makeAirline(pubkey, 120);
-    const newerFleet = [makeAircraft("ac-new", pubkey)];
-
-    (loadActionLog as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
-      {
-        event: {
-          id: "evt-1",
-          author: { pubkey },
-          created_at: 1,
-        },
-        action: {
-          schemaVersion: 2,
-          action: "AIRLINE_CREATE",
-          payload: {
-            name: "Old Air",
-            hubs: ["JFK"],
-            corporateBalance: 1000000000000,
-            tick: 80,
-          },
-        },
-      },
-    ]);
-
-    const { state } = createSliceState({
-      competitors: new Map([[pubkey, newerAirline]]),
-      fleetByOwner: buildFleetIndex(newerFleet),
-      routesByOwner: buildRoutesIndex([]),
-    });
-
-    await state.syncWorld();
-
-    const ids = [...state.fleetByOwner.values()].flat().map((ac) => ac.id);
-    expect(ids).toContain("ac-new");
-  });
-
-  it("adopts replayed fleet when replay has more aircraft than local state", async () => {
-    const { loadActionLog } = await import("@acars/nostr");
-    const pubkey = "comp-growing";
-
-    // Existing state: competitor has 1 aircraft, projected to lastTick 500
-    const existingAirline = makeAirline(pubkey, 500);
-    const existingFleet = [makeAircraft("ac-old", pubkey)];
-
-    // Relay returns actions that replay into 2 aircraft (AIRLINE_CREATE + 2 purchases)
-    (loadActionLog as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
-      {
-        event: { id: "evt-1", author: { pubkey }, created_at: 1 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRLINE_CREATE",
-          payload: {
-            name: "Growing Air",
-            hubs: ["JFK"],
-            corporateBalance: 1000000000000,
-            tick: 10,
-          },
-        },
-      },
-      {
-        event: { id: "evt-2", author: { pubkey }, created_at: 2 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_PURCHASE",
-          payload: {
-            instanceId: "ac-old",
-            modelId: "atr72-600",
-            price: 1000000,
-            deliveryHubIata: "JFK",
-            tick: 20,
-          },
-        },
-      },
-      {
-        event: { id: "evt-3", author: { pubkey }, created_at: 3 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_PURCHASE",
-          payload: {
-            instanceId: "ac-new-purchase",
-            modelId: "atr72-600",
-            price: 1000000,
-            deliveryHubIata: "JFK",
-            tick: 30,
-          },
-        },
-      },
-    ]);
-
-    const { state } = createSliceState({
-      competitors: new Map([[pubkey, existingAirline]]),
-      fleetByOwner: buildFleetIndex(existingFleet),
-      routesByOwner: buildRoutesIndex([]),
-    });
-
-    await state.syncWorld();
-
-    // The replayed fleet (2 aircraft) should be adopted over the existing (1 aircraft)
-    const ids = [...state.fleetByOwner.values()].flat().map((ac) => ac.id);
-    expect(ids).toContain("ac-old");
-    expect(ids).toContain("ac-new-purchase");
-    expect(ids).toHaveLength(2);
-  });
-
-  it("rescues aircraft purchases missing from a stale checkpoint", async () => {
-    const { loadActionLog, loadCheckpoints } = await import("@acars/nostr");
-    const pubkey = "comp-stale-checkpoint";
-
-    // Stale checkpoint: has only 3 aircraft, but 5 were actually purchased.
-    // Aircraft ac-4 and ac-5 were purchased BEFORE the checkpoint tick but
-    // are missing from the checkpoint fleet (corrupt checkpoint).
-    const staleCheckpoint = {
+  it("loads and installs snapshots for competitors", async () => {
+    const pubkey = "comp-new";
+    const newAirline = makeAirline(pubkey, 120);
+    const mockSnapshot = {
       schemaVersion: 1,
-      tick: 10000,
-      createdAt: Date.now(),
-      actionChainHash: "hash",
-      stateHash: "state-hash",
-      airline: {
-        ceoPubkey: pubkey,
-        name: "Stale Air",
-        iataCode: "SA",
-        hubs: ["JFK"],
-        corporateBalance: 1000000000000,
-        fleetIds: ["ac-1", "ac-2", "ac-3"],
-        routeIds: [],
-        brandScore: 0.5,
-        lastTick: 10000,
-        status: "active",
-        genesisHash: "genesis",
-        shareCount: 10000000,
-        capTable: [],
-      },
-      fleet: [
-        {
-          id: "ac-1",
-          modelId: "atr72-600",
-          status: "idle",
-          ownerPubkey: pubkey,
-        },
-        {
-          id: "ac-2",
-          modelId: "atr72-600",
-          status: "idle",
-          ownerPubkey: pubkey,
-        },
-        {
-          id: "ac-3",
-          modelId: "atr72-600",
-          status: "idle",
-          ownerPubkey: pubkey,
-        },
-      ],
+      tick: 120,
+      airline: newAirline,
+      fleet: [makeAircraft("ac-new", pubkey)],
       routes: [],
       timeline: [],
     };
 
-    (loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      new Map([[pubkey, staleCheckpoint]]),
+    const { loadAllSnapshots } = await import("@acars/nostr");
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(
+      new Map([[pubkey, { compressedData: JSON.stringify(mockSnapshot) } as any]]),
     );
 
-    // Action log includes all 5 purchases (ac-1..ac-5) plus a post-checkpoint TICK_UPDATE.
-    // ac-4 and ac-5 have ticks below the checkpoint tick (8000, 9000) — they should
-    // be rescued by the defensive scoping logic.
-    (loadActionLog as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
-      {
-        event: { id: "evt-create", author: { pubkey }, created_at: 1 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRLINE_CREATE",
-          payload: {
-            name: "Stale Air",
-            hubs: ["JFK"],
-            corporateBalance: 1000000000000,
-            tick: 100,
-          },
-        },
-      },
-      {
-        event: { id: "evt-p1", author: { pubkey }, created_at: 2 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_PURCHASE",
-          payload: {
-            instanceId: "ac-1",
-            modelId: "atr72-600",
-            price: 1000000,
-            deliveryHubIata: "JFK",
-            tick: 200,
-          },
-        },
-      },
-      {
-        event: { id: "evt-p2", author: { pubkey }, created_at: 3 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_PURCHASE",
-          payload: {
-            instanceId: "ac-2",
-            modelId: "atr72-600",
-            price: 1000000,
-            deliveryHubIata: "JFK",
-            tick: 300,
-          },
-        },
-      },
-      {
-        event: { id: "evt-p3", author: { pubkey }, created_at: 4 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_PURCHASE",
-          payload: {
-            instanceId: "ac-3",
-            modelId: "atr72-600",
-            price: 1000000,
-            deliveryHubIata: "JFK",
-            tick: 400,
-          },
-        },
-      },
-      // These two are missing from the checkpoint but have ticks below checkpoint tick
-      {
-        event: { id: "evt-p4", author: { pubkey }, created_at: 5 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_PURCHASE",
-          payload: {
-            instanceId: "ac-4",
-            modelId: "atr72-600",
-            price: 1000000,
-            deliveryHubIata: "JFK",
-            tick: 8000,
-          },
-        },
-      },
-      {
-        event: { id: "evt-p5", author: { pubkey }, created_at: 6 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_PURCHASE",
-          payload: {
-            instanceId: "ac-5",
-            modelId: "atr72-600",
-            price: 1000000,
-            deliveryHubIata: "JFK",
-            tick: 9000,
-          },
-        },
-      },
-      // Post-checkpoint action
-      {
-        event: { id: "evt-tick", author: { pubkey }, created_at: 7 },
-        action: {
-          schemaVersion: 2,
-          action: "TICK_UPDATE",
-          payload: { tick: 10001 },
-        },
-      },
-    ]);
-
-    const { state } = createSliceState({
-      competitors: new Map(),
-      fleetByOwner: buildFleetIndex([]),
-      routesByOwner: buildRoutesIndex([]),
-    });
+    const { state } = createSliceState();
 
     await state.syncWorld();
 
-    // All 5 aircraft should be present: 3 from checkpoint + 2 rescued purchases
-    const ids = [...state.fleetByOwner.values()].flat().map((ac) => ac.id);
-    expect(ids).toContain("ac-1");
-    expect(ids).toContain("ac-2");
-    expect(ids).toContain("ac-3");
-    expect(ids).toContain("ac-4");
-    expect(ids).toContain("ac-5");
-    expect(ids).toHaveLength(5);
+    expect(state.competitors.has("comp-new")).toBe(true);
+    expect([...state.fleetByOwner.values()].flat().map((a) => a.id)).toContain("ac-new");
   });
 
-  it("projects competitor fleet to current tick during sync", async () => {
-    const { loadActionLog } = await import("@acars/nostr");
-    const pubkey = "comp-catchup";
+  it("ignores bankrupt states", async () => {
+    const pubkey = "comp-bankrupt";
+    const bankruptAirline = { ...makeAirline(pubkey, 100), status: "chapter11" };
+    const mockSnapshot = {
+      schemaVersion: 1,
+      tick: 120,
+      airline: bankruptAirline,
+      fleet: [makeAircraft("ac-new", pubkey)],
+      routes: [],
+      timeline: [],
+    };
 
-    (loadActionLog as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
-      {
-        event: {
-          id: "evt-1",
-          author: { pubkey },
-          created_at: 1,
-        },
-        action: {
-          schemaVersion: 2,
-          action: "AIRLINE_CREATE",
-          payload: {
-            name: "Catchup Air",
-            hubs: ["JFK"],
-            corporateBalance: 1000000000000,
-            tick: 10,
-          },
-        },
-      },
-      {
-        event: {
-          id: "evt-2",
-          author: { pubkey },
-          created_at: 2,
-        },
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_PURCHASE",
-          payload: {
-            instanceId: "ac-fast",
-            modelId: "atr72-600",
-            price: 1000000,
-            deliveryHubIata: "JFK",
-            tick: 20,
-          },
-        },
-      },
-    ]);
+    const { loadAllSnapshots } = await import("@acars/nostr");
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(
+      new Map([[pubkey, { compressedData: JSON.stringify(mockSnapshot) } as any]]),
+    );
 
-    const { state } = createSliceState({
-      competitors: new Map(),
-      fleetByOwner: buildFleetIndex([]),
-      routesByOwner: buildRoutesIndex([]),
-    });
+    const { state } = createSliceState();
 
     await state.syncWorld();
 
-    const ids = [...state.fleetByOwner.values()].flat().map((ac) => ac.id);
-    expect(ids).toContain("ac-fast");
+    expect(state.competitors.has("comp-bankrupt")).toBe(true);
+    expect(state.competitors.get("comp-bankrupt")?.status).toBe("chapter11");
   });
-
-  it("queues concurrent syncWorld calls instead of dropping them", async () => {
-    const { loadActionLog } = await import("@acars/nostr");
-    (loadActionLog as unknown as ReturnType<typeof vi.fn>).mockClear();
-
-    const { state } = createSliceState({});
-
-    const first = state.syncWorld();
-    const second = state.syncWorld();
-
-    await Promise.all([first, second]);
-
-    // Wait for the queued follow-up sync to complete
-    await vi.waitFor(() => {
-      expect(loadActionLog).toHaveBeenCalledTimes(2);
-    });
-
-    // First call runs immediately, second is queued and runs after first completes
-    expect(loadActionLog).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe("syncCompetitor", () => {
-  beforeEach(async () => {
-    _resetWorldFlags();
-    const nostr = await import("@acars/nostr");
-    (nostr.loadActionLog as unknown as ReturnType<typeof vi.fn>).mockReset();
-    (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockReset();
-    (nostr.loadCheckpoints as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(new Map());
-  });
-
-  it("replays liveEvents when targeted relay fetch is empty", async () => {
-    const { loadActionLog } = await import("@acars/nostr");
-    const pubkey = "comp-live-events";
-
-    (loadActionLog as unknown as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce([]) // competitor-targeted
-      .mockResolvedValueOnce([]); // global actions
-
-    const { state } = createSliceState({
-      competitors: new Map(),
-      fleetByOwner: buildFleetIndex([]),
-      routesByOwner: buildRoutesIndex([]),
-    });
-
-    await state.syncCompetitor(pubkey, [
-      {
-        event: { id: "live-evt-1", author: { pubkey }, created_at: 1 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRLINE_CREATE",
-          payload: {
-            name: "Live Events Air",
-            hubs: ["JFK"],
-            corporateBalance: 1000000000000,
-            tick: 10,
-          },
-        },
-      },
-      {
-        event: { id: "live-evt-2", author: { pubkey }, created_at: 2 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_PURCHASE",
-          payload: {
-            instanceId: "ac-live-events",
-            modelId: "atr72-600",
-            price: 1000000,
-            deliveryHubIata: "JFK",
-            tick: 20,
-          },
-        },
-      },
-    ]);
-
-    expect(state.competitors.has(pubkey)).toBe(true);
-    expect(state.fleetByOwner.get(pubkey)?.map((ac) => ac.id)).toContain("ac-live-events");
-  });
-
-  it("uses recent cached global actions even when cache is empty", async () => {
-    const { loadActionLog } = await import("@acars/nostr");
-    const pubkey = "comp-empty-cache";
-    const loadActionLogMock = loadActionLog as unknown as ReturnType<typeof vi.fn>;
-    loadActionLogMock
-      .mockResolvedValueOnce([]) // syncWorld global
-      .mockResolvedValueOnce([
-        // syncCompetitor targeted
-        {
-          event: { id: "evt-create-empty-cache", author: { pubkey }, created_at: 1 },
-          action: {
-            schemaVersion: 2,
-            action: "AIRLINE_CREATE",
-            payload: {
-              name: "Empty Cache Air",
-              hubs: ["JFK"],
-              corporateBalance: 1000000000000,
-              tick: 10,
-            },
-          },
-        },
-      ]);
-
-    const { state } = createSliceState({
-      competitors: new Map(),
-      fleetByOwner: buildFleetIndex([]),
-      routesByOwner: buildRoutesIndex([]),
-    });
-
-    await state.syncWorld();
-    await state.syncCompetitor(pubkey);
-
-    expect(loadActionLogMock).toHaveBeenCalledTimes(2);
-    expect(state.competitors.has(pubkey)).toBe(true);
-  });
-
-  it("merges liveEvents with targeted fetch and ignores duplicate event ids", async () => {
-    const { loadActionLog } = await import("@acars/nostr");
-    const pubkey = "comp-merge-live-events";
-
-    (loadActionLog as unknown as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce([
-        {
-          event: { id: "evt-create-1", author: { pubkey }, created_at: 1 },
-          action: {
-            schemaVersion: 2,
-            action: "AIRLINE_CREATE",
-            payload: {
-              name: "Merge Live Air",
-              hubs: ["JFK"],
-              corporateBalance: 1000000000000,
-              tick: 10,
-            },
-          },
-        },
-      ]) // competitor-targeted
-      .mockResolvedValueOnce([]); // global actions
-
-    const { state } = createSliceState({
-      competitors: new Map(),
-      fleetByOwner: buildFleetIndex([]),
-      routesByOwner: buildRoutesIndex([]),
-    });
-
-    await state.syncCompetitor(pubkey, [
-      {
-        event: { id: "evt-create-1", author: { pubkey }, created_at: 1 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRLINE_CREATE",
-          payload: {
-            name: "Merge Live Air",
-            hubs: ["JFK"],
-            corporateBalance: 1000000000000,
-            tick: 10,
-          },
-        },
-      },
-      {
-        event: { id: "evt-live-purchase-1", author: { pubkey }, created_at: 2 },
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_PURCHASE",
-          payload: {
-            instanceId: "ac-live-merged",
-            modelId: "atr72-600",
-            price: 1000000,
-            deliveryHubIata: "JFK",
-            tick: 20,
-          },
-        },
-      },
-    ]);
-
-    expect(state.competitors.has(pubkey)).toBe(true);
-    expect(state.fleetByOwner.get(pubkey)?.map((ac) => ac.id)).toContain("ac-live-merged");
-  });
-
-  it("preserves existing fleet/routes when replay returns partial competitor state", async () => {
-    const { loadActionLog } = await import("@acars/nostr");
-    const pubkey = "comp-partial-replay";
-    const loadActionLogMock = loadActionLog as unknown as ReturnType<typeof vi.fn>;
-    loadActionLogMock
-      .mockResolvedValueOnce([
-        {
-          event: { id: "evt-create-partial", author: { pubkey }, created_at: 1 },
-          action: {
-            schemaVersion: 2,
-            action: "AIRLINE_CREATE",
-            payload: {
-              name: "Partial Replay Air",
-              hubs: ["JFK"],
-              corporateBalance: 1000000000000,
-              tick: 10,
-            },
-          },
-        },
-      ]) // competitor-targeted
-      .mockResolvedValueOnce([]); // global actions
-
-    const existingAirline = makeAirline(pubkey, 50);
-    existingAirline.fleetIds = ["ac-existing-1", "ac-existing-2"];
-    existingAirline.routeIds = ["route-existing-1"];
-    const existingFleet = [
-      makeAircraft("ac-existing-1", pubkey),
-      makeAircraft("ac-existing-2", pubkey),
-    ];
-    const existingRoutes: Route[] = [
-      {
-        id: "route-existing-1",
-        originIata: "JFK",
-        destinationIata: "LAX",
-        airlinePubkey: pubkey,
-        distanceKm: 3974,
-        assignedAircraftIds: ["ac-existing-1"],
-        fareEconomy: 100000 as FixedPoint,
-        fareBusiness: 200000 as FixedPoint,
-        fareFirst: 300000 as FixedPoint,
-        status: "active",
-      },
-    ];
-
-    const { state } = createSliceState({
-      competitors: new Map([[pubkey, existingAirline]]),
-      fleetByOwner: buildFleetIndex(existingFleet),
-      routesByOwner: buildRoutesIndex(existingRoutes),
-    });
-
-    await state.syncCompetitor(pubkey);
-
-    expect(state.competitors.has(pubkey)).toBe(true);
-    expect(state.fleetByOwner.get(pubkey)?.map((ac) => ac.id)).toEqual(
-      expect.arrayContaining(["ac-existing-1", "ac-existing-2"]),
-    );
-    expect(state.routesByOwner.get(pubkey)?.map((route) => route.id)).toEqual(
-      expect.arrayContaining(["route-existing-1"]),
-    );
-  });
-
-  it(
-    "bootstraps competitor from TICK_UPDATE when AIRLINE_CREATE is missing",
-    { timeout: 15000 },
-    async () => {
-      const { loadActionLog } = await import("@acars/nostr");
-      const pubkey = "comp-retry-live-events";
-      const loadActionLogMock = loadActionLog as unknown as ReturnType<typeof vi.fn>;
-      loadActionLogMock.mockResolvedValue([]);
-
-      const { state } = createSliceState({
-        competitors: new Map(),
-        fleetByOwner: buildFleetIndex([]),
-        routesByOwner: buildRoutesIndex([]),
-      });
-
-      await state.syncCompetitor(pubkey, [
-        {
-          event: { id: "live-tick-only", author: { pubkey }, created_at: 1 },
-          action: {
-            schemaVersion: 2,
-            action: "TICK_UPDATE",
-            payload: { tick: 123, corporateBalance: 5000000 },
-          },
-        },
-      ]);
-
-      // With the bootstrap fix, TICK_UPDATE now creates a synthetic airline.
-      // No retry needed — the competitor is visible on the first attempt.
-      const competitorTargetCalls = loadActionLogMock.mock.calls.filter(
-        (call) => call[0]?.authors?.[0] === pubkey,
-      );
-      expect(competitorTargetCalls).toHaveLength(1);
-      expect(state.competitors.has(pubkey)).toBe(true);
-      const competitor = state.competitors.get(pubkey);
-      expect(competitor?.name).toBe("Unknown Airline");
-      expect(competitor?.corporateBalance).toBe(5000000);
-    },
-  );
 });

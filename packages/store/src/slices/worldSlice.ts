@@ -8,7 +8,6 @@ import type {
   TimelineEvent,
 } from "@acars/core";
 import {
-  computeCheckpointStateHash,
   computeRouteFrequency,
   createLogger,
   fp,
@@ -22,14 +21,11 @@ import {
   TICKS_PER_MONTH,
 } from "@acars/core";
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
-import { getNDK, loadActionLog, loadCheckpoints, MARKETPLACE_KIND, NDKEvent } from "@acars/nostr";
+import { getNDK, MARKETPLACE_KIND, NDKEvent } from "@acars/nostr";
 import type { ActionLogEntry } from "@acars/nostr";
 import type { StateCreator } from "zustand";
-import { replayActionLog } from "../actionReducer";
 import { useEngineStore } from "../engine";
 import { reconcileFleetToTick } from "../FlightEngine";
-import { computeRejectedBuyEventIds } from "../marketplaceReplay";
-import { scopeActionsToCheckpoint } from "../scopeActions";
 import type { AirlineState } from "../types";
 
 export interface WorldSlice {
@@ -55,45 +51,10 @@ let pendingSyncWorldOptions: { force?: boolean } | null = null;
 const MONTH_TICKS = TICKS_PER_MONTH;
 const worldLogger = createLogger("WorldSync");
 
-// Cached global actions from the last syncWorld() call.
-// Reused by syncCompetitor() to avoid redundant 10K-event fetches.
-let cachedGlobalActions: ActionLogEntry[] = [];
-let cachedGlobalActionsTimestamp = 0;
-const GLOBAL_ACTIONS_CACHE_TTL_MS = 60_000;
-
-/** @internal — test-only helper to reset module-level concurrency flags */
 export function _resetWorldFlags() {
   isSyncingWorld = false;
   pendingSyncWorldOptions = null;
-  cachedGlobalActions = [];
-  cachedGlobalActionsTimestamp = 0;
 }
-
-const buildFleetIndex = (fleet: AircraftInstance[]) => {
-  const byOwner = new Map<string, AircraftInstance[]>();
-  for (const aircraft of fleet) {
-    const bucket = byOwner.get(aircraft.ownerPubkey);
-    if (bucket) {
-      bucket.push(aircraft);
-    } else {
-      byOwner.set(aircraft.ownerPubkey, [aircraft]);
-    }
-  }
-  return byOwner;
-};
-
-const buildRoutesIndex = (routes: Route[]) => {
-  const byOwner = new Map<string, Route[]>();
-  for (const route of routes) {
-    const bucket = byOwner.get(route.airlinePubkey);
-    if (bucket) {
-      bucket.push(route);
-    } else {
-      byOwner.set(route.airlinePubkey, [route]);
-    }
-  }
-  return byOwner;
-};
 
 const applyMonthlyCosts = (
   balance: FixedPoint,
@@ -127,33 +88,6 @@ const applyMonthlyCosts = (
   const totalOpexCost = fpScale(fp(opexTotal), numCycles);
   const totalCost = fpAdd(totalLeaseCost, totalOpexCost);
   return fpSub(balance, totalCost);
-};
-
-const verifyCheckpointInternalConsistency = async (
-  checkpoint: Checkpoint | null,
-  ownerPubkey: string,
-): Promise<Checkpoint | null> => {
-  if (!checkpoint) return null;
-  try {
-    const recomputedHash = await computeCheckpointStateHash({
-      airline: checkpoint.airline,
-      fleet: checkpoint.fleet,
-      routes: checkpoint.routes,
-      timeline: checkpoint.timeline,
-    });
-    if (recomputedHash !== checkpoint.stateHash) {
-      console.warn(
-        `[WorldSlice] Competitor ${ownerPubkey.slice(0, 8)} checkpoint state hash mismatch — ignoring checkpoint`,
-      );
-      return null;
-    }
-    return checkpoint;
-  } catch {
-    console.warn(
-      `[WorldSlice] Failed to verify competitor ${ownerPubkey.slice(0, 8)} checkpoint — ignoring`,
-    );
-    return null;
-  }
 };
 
 export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = (set, get) => ({
@@ -217,8 +151,6 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
 
   syncWorld: async (options?: { force?: boolean }) => {
     if (isSyncingWorld) {
-      // Queue at most one follow-up sync instead of silently dropping.
-      // Preserve force if either the queued or current request uses it.
       if (options?.force || pendingSyncWorldOptions?.force) {
         pendingSyncWorldOptions = { force: true };
       } else {
@@ -230,416 +162,158 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
     try {
       try {
         const existingState = get();
-        const actions = await loadActionLog({ limit: 500, maxPages: 20 });
+        // Load completely from Snapshot Rollups! Wait...
+        const { loadAllSnapshots } = await import("@acars/nostr");
+        const { decompressSnapshotString } = await import("@acars/core");
 
-        // Cache global actions for syncCompetitor() reuse
-        cachedGlobalActions = actions;
-        cachedGlobalActionsTimestamp = Date.now();
+        const allSnapshots = await loadAllSnapshots();
 
-        const authorPubkeys = Array.from(
-          new Set(actions.map((entry) => entry.event.author.pubkey)),
-        );
-        const checkpoints = await loadCheckpoints(authorPubkeys);
-        // Seed from existing state so competitors not returned by this
-        // relay fetch are preserved instead of silently dropped.
-        const fetchedPubkeys = new Set<string>();
+        const currentTick = useEngineStore.getState().tick;
+        const myPubkey = existingState.pubkey;
+
         const competitors = new Map<string, AirlineEntity>(existingState.competitors);
         const registry = new Map<string, FlightOffer[]>();
-        const allCompetitorFleet: AircraftInstance[] = [];
-        const allCompetitorRoutes: Route[] = [];
-        /** Per-owner fleet index built during processing. */
-        const competitorFleetByOwner = new Map<string, AircraftInstance[]>();
-        /** Per-owner routes index built during processing. */
-        const competitorRoutesByOwner = new Map<string, Route[]>();
+        const updatedFleetByOwner = new Map<string, AircraftInstance[]>(existingState.fleetByOwner);
+        const updatedRoutesByOwner = new Map<string, Route[]>(existingState.routesByOwner);
+        const newTimelineEvents: TimelineEvent[] = [];
+        const myHubs = new Set(existingState.airline?.hubs || []);
 
-        const rejectedBuyEventIds = computeRejectedBuyEventIds(actions);
-
-        const actionsByPubkey = new Map<string, typeof actions>();
-        for (const entry of actions) {
-          const author = entry.event.author.pubkey;
-          const bucket = actionsByPubkey.get(author) || [];
-          bucket.push(entry);
-          actionsByPubkey.set(author, bucket);
+        // Seed player data into the unified maps
+        if (myPubkey) {
+          updatedFleetByOwner.set(myPubkey, existingState.fleet || []);
+          updatedRoutesByOwner.set(myPubkey, existingState.routes || []);
         }
 
-        for (const [authorPubkey, entries] of actionsByPubkey.entries()) {
-          if (authorPubkey === existingState.pubkey) continue;
+        for (const [pubkey, payload] of allSnapshots.entries()) {
+          if (pubkey === myPubkey) continue;
 
-          const checkpoint = await verifyCheckpointInternalConsistency(
-            checkpoints.get(authorPubkey) ?? null,
-            authorPubkey,
-          );
-          let scopedEntries = entries;
-          if (checkpoint) {
-            scopedEntries = scopeActionsToCheckpoint(entries, checkpoint);
-            // No fallback: if no actions are newer than checkpoint, checkpoint
-            // state is authoritative.  Replaying ALL actions would push lastTick
-            // ahead of the checkpoint fleet state, causing the synchronized-
-            // departure bug (all aircraft land/depart simultaneously on reload).
-          }
-          const replayed = await replayActionLog({
-            pubkey: authorPubkey,
-            actions: scopedEntries.map((entry) => ({
-              action: entry.action,
-              eventId: entry.event.id,
-              authorPubkey: entry.event.author.pubkey,
-              createdAt: entry.event.created_at ?? null,
-            })),
-            checkpoint,
-            rejectedEventIds: rejectedBuyEventIds,
-          });
+          try {
+            const decompressedStr = await decompressSnapshotString(payload.compressedData);
+            const { airline, fleet, routes } = JSON.parse(decompressedStr) as Checkpoint;
 
-          if (!replayed.airline) {
-            if (replayed.dissolved) {
-              competitors.delete(authorPubkey);
-              worldLogger.info(
-                `Competitor ${authorPubkey.slice(0, 8)}... dissolved — removed from world state`,
-              );
-            } else {
-              worldLogger.warn(
-                `Replay produced no airline for ${authorPubkey.slice(0, 8)}... ` +
-                  `(${scopedEntries.length} scoped actions, checkpoint: ${checkpoint ? "yes" : "no"})`,
-              );
-            }
-            continue;
-          }
-
-          const airline = replayed.airline;
-          let resolvedFleet = replayed.fleet;
-          const resolvedRoutes = replayed.routes;
-
-          // Merge strategy: always use the replayed airline entity (it has the
-          // latest name, hubs, balance, etc.) and use authoritative fleet/route
-          // IDs from TICK_UPDATE to guide object reconciliation.
-          //
-          // airline.fleetIds/routeIds now carry authoritative counts from the
-          // most recent TICK_UPDATE, so the leaderboard always shows correct
-          // counts.  For the actual fleet/route objects, we merge replayed and
-          // existing data: replayed objects are preferred (freshest state), but
-          // existing objects fill gaps for IDs the replay missed due to relay
-          // delivery issues.
-          const existingCompetitorFleet = existingState.fleetByOwner.get(authorPubkey) || [];
-          const existingCompetitorRoutes = existingState.routesByOwner.get(authorPubkey) || [];
-
-          const authoritativeFleetSet = new Set(airline.fleetIds);
-          const authoritativeRouteSet = new Set(airline.routeIds);
-
-          if (authoritativeFleetSet.size > 0) {
-            // Merge: start with replayed fleet, fill gaps from existing state,
-            // keep only IDs in the authoritative set.
-            const mergedFleetById = new Map<string, AircraftInstance>();
-            for (const ac of existingCompetitorFleet) {
-              if (authoritativeFleetSet.has(ac.id)) mergedFleetById.set(ac.id, ac);
-            }
-            // Replayed objects overwrite existing (they have fresher state).
-            for (const ac of resolvedFleet) {
-              if (authoritativeFleetSet.has(ac.id)) mergedFleetById.set(ac.id, ac);
-            }
-            resolvedFleet = Array.from(mergedFleetById.values());
-          } else if (
-            existingCompetitorFleet.length > 0 &&
-            resolvedFleet.length < existingCompetitorFleet.length
-          ) {
-            // Fallback for old TICK_UPDATEs without authoritative IDs:
-            // keep existing fleet if replay produced fewer objects.
-            resolvedFleet = existingCompetitorFleet;
-          }
-
-          let finalRoutes = resolvedRoutes;
-          if (authoritativeRouteSet.size > 0) {
-            const mergedRoutesById = new Map<string, Route>();
-            for (const r of existingCompetitorRoutes) {
-              if (authoritativeRouteSet.has(r.id)) mergedRoutesById.set(r.id, r);
-            }
-            for (const r of resolvedRoutes) {
-              if (authoritativeRouteSet.has(r.id)) mergedRoutesById.set(r.id, r);
-            }
-            finalRoutes = Array.from(mergedRoutesById.values());
-          } else {
-            finalRoutes =
-              existingCompetitorRoutes.length > resolvedRoutes.length
-                ? existingCompetitorRoutes
-                : resolvedRoutes;
-          }
-
-          // Reconcile fleet positions to lastTick — same fix as player identity.
-          // Without this, checkpoint fleet has stale arrivalTick/turnaroundEndTick
-          // values while lastTick was pushed ahead by TICK_UPDATE actions, causing
-          // all competitor aircraft to land and depart simultaneously on load.
-          if (
-            airline.status !== "chapter11" &&
-            airline.status !== "liquidated" &&
-            airline.lastTick != null &&
-            resolvedFleet.length > 0
-          ) {
-            const { fleet: reconciledFleet, balanceDelta } = reconcileFleetToTick(
-              resolvedFleet,
-              finalRoutes,
-              airline.lastTick,
-            );
-            resolvedFleet = reconciledFleet;
-            airline.corporateBalance = fpAdd(airline.corporateBalance, balanceDelta);
-          }
-
-          competitors.set(authorPubkey, airline);
-          fetchedPubkeys.add(authorPubkey);
-          allCompetitorFleet.push(...resolvedFleet);
-          allCompetitorRoutes.push(...finalRoutes);
-          competitorFleetByOwner.set(authorPubkey, resolvedFleet);
-          competitorRoutesByOwner.set(authorPubkey, finalRoutes);
-
-          for (const route of finalRoutes) {
-            if (route.status !== "active") continue;
-
-            const key = `${route.originIata}-${route.destinationIata}`;
-            const offers = registry.get(key) || [];
-
-            let avgSpeed = 800;
-            let avgTravelTime = 0;
-            if (route.assignedAircraftIds.length > 0) {
-              const models = route.assignedAircraftIds
-                .map((id: string) => {
-                  const ac = resolvedFleet.find((a: AircraftInstance) => a.id === id);
-                  return ac ? getAircraftById(ac.modelId) : null;
-                })
-                .filter(Boolean);
-              if (models.length > 0) {
-                avgSpeed = models.reduce((sum, m) => sum + (m!.speedKmh || 800), 0) / models.length;
-                avgTravelTime = (route.distanceKm / avgSpeed) * 60;
-              }
-            }
-
-            const frequency = computeRouteFrequency(
-              route.distanceKm,
-              route.assignedAircraftIds.length,
-              avgSpeed,
-            );
-            if (frequency === 0) continue;
-
-            const offer: FlightOffer = {
-              airlinePubkey: airline.ceoPubkey,
-              fareEconomy: route.fareEconomy,
-              fareBusiness: route.fareBusiness,
-              fareFirst: route.fareFirst,
-              frequencyPerWeek: frequency,
-              travelTimeMinutes: Math.round(avgTravelTime) || 480,
-              stops: 0,
-              serviceScore: 0.7,
-              brandScore: airline.brandScore || 0.5,
-            };
-
-            offers.push(offer);
-            registry.set(key, offers);
-          }
-        }
-
-        // Preserve fleet, routes, and registry entries for competitors
-        // that were NOT returned by this relay fetch.  Without this,
-        // a partial/empty relay response silently drops them from state.
-        for (const [pubkey, airline] of competitors) {
-          if (fetchedPubkeys.has(pubkey)) continue;
-          // This competitor was already in state but missing from the
-          // current fetch — carry forward its existing fleet & routes.
-          const preservedFleet = existingState.fleetByOwner.get(pubkey) || [];
-          const preservedRoutes = existingState.routesByOwner.get(pubkey) || [];
-          allCompetitorFleet.push(...preservedFleet);
-          allCompetitorRoutes.push(...preservedRoutes);
-          competitorFleetByOwner.set(pubkey, preservedFleet);
-          competitorRoutesByOwner.set(pubkey, preservedRoutes);
-
-          for (const route of preservedRoutes) {
-            if (route.status !== "active") continue;
-            const key = `${route.originIata}-${route.destinationIata}`;
-            const offers = registry.get(key) || [];
-
-            let avgSpeed = 800;
-            let avgTravelTime = 0;
-            if (route.assignedAircraftIds.length > 0) {
-              const models = route.assignedAircraftIds
-                .map((id: string) => {
-                  const ac = preservedFleet.find((a: AircraftInstance) => a.id === id);
-                  return ac ? getAircraftById(ac.modelId) : null;
-                })
-                .filter(Boolean);
-              if (models.length > 0) {
-                avgSpeed = models.reduce((sum, m) => sum + (m!.speedKmh || 800), 0) / models.length;
-                avgTravelTime = (route.distanceKm / avgSpeed) * 60;
-              }
-            }
-
-            const frequency = computeRouteFrequency(
-              route.distanceKm,
-              route.assignedAircraftIds.length,
-              avgSpeed,
-            );
-            if (frequency === 0) continue;
-
-            const offer: FlightOffer = {
-              airlinePubkey: airline.ceoPubkey,
-              fareEconomy: route.fareEconomy,
-              fareBusiness: route.fareBusiness,
-              fareFirst: route.fareFirst,
-              frequencyPerWeek: frequency,
-              travelTimeMinutes: Math.round(avgTravelTime) || 480,
-              stops: 0,
-              serviceScore: 0.7,
-              brandScore: airline.brandScore || 0.5,
-            };
-            offers.push(offer);
-            registry.set(key, offers);
-          }
-        }
-
-        // Project all competitor fleets to the current tick using the
-        // deterministic reconcile function, replacing the old tick-by-tick
-        // catch-up loop.  This is O(N) per aircraft instead of O(N*T).
-        const currentTick = useEngineStore.getState().tick;
-
-        // Include player's fleet & routes in the unified maps
-        const playerFleet = existingState.fleet || [];
-        const playerRoutes = existingState.routes || [];
-        const playerPubkey = existingState.pubkey;
-
-        if (currentTick > 0 && competitors.size > 0) {
-          const allFleetByOwner = buildFleetIndex(allCompetitorFleet);
-          const allRoutesByOwner = buildRoutesIndex(allCompetitorRoutes);
-          const updatedCompetitors = new Map(competitors);
-          const updatedFleetByOwner = new Map<string, AircraftInstance[]>();
-          const updatedRoutesByOwner = new Map<string, Route[]>();
-
-          // Seed player data into the unified maps
-          if (playerPubkey) {
-            updatedFleetByOwner.set(playerPubkey, playerFleet);
-            updatedRoutesByOwner.set(playerPubkey, playerRoutes);
-          }
-
-          for (const [competitorPubkey, airline] of competitors) {
-            const compFleet = allFleetByOwner.get(competitorPubkey) || [];
-            const compRoutes = allRoutesByOwner.get(competitorPubkey) || [];
-
-            // Match player semantics: bankrupt/liquidated airlines do not advance.
             if (airline.status === "chapter11" || airline.status === "liquidated") {
-              updatedFleetByOwner.set(competitorPubkey, compFleet);
-              updatedRoutesByOwner.set(competitorPubkey, compRoutes);
-              continue;
+              competitors.set(pubkey, airline);
+              updatedFleetByOwner.set(pubkey, fleet);
+              updatedRoutesByOwner.set(pubkey, routes);
+              continue; // Do not advance bankrupt airlines
             }
 
-            // Apply monthly costs even for competitors with zero aircraft.
-            // They may have hub opex that needs to be charged.
-            if (compFleet.length === 0) {
-              // Preserve entries in unified maps so routes aren't lost
-              updatedFleetByOwner.set(competitorPubkey, compFleet);
-              updatedRoutesByOwner.set(competitorPubkey, compRoutes);
-              if (airline.lastTick == null || airline.lastTick < currentTick) {
-                updatedCompetitors.set(competitorPubkey, {
-                  ...airline,
-                  corporateBalance: applyMonthlyCosts(
-                    airline.corporateBalance,
-                    airline.hubs,
-                    [],
-                    airline.lastTick ?? 0,
-                    currentTick,
-                  ),
-                  lastTick: currentTick,
-                });
-              }
-              continue;
-            }
-
-            if (airline.lastTick != null && airline.lastTick >= currentTick) {
-              updatedFleetByOwner.set(competitorPubkey, compFleet);
-              updatedRoutesByOwner.set(competitorPubkey, compRoutes);
-              continue;
-            }
-
-            const { fleet: projectedFleet, balanceDelta } = reconcileFleetToTick(
-              compFleet,
-              compRoutes,
-              currentTick,
-            );
-            updatedFleetByOwner.set(competitorPubkey, projectedFleet);
-            updatedRoutesByOwner.set(competitorPubkey, compRoutes);
-
-            const projectedBalance = applyMonthlyCosts(
-              fpAdd(airline.corporateBalance, balanceDelta),
-              airline.hubs,
-              projectedFleet,
-              airline.lastTick ?? 0,
-              currentTick,
-            );
-            updatedCompetitors.set(competitorPubkey, {
-              ...airline,
-              corporateBalance: projectedBalance,
-              lastTick: currentTick,
-            });
-          }
-
-          set({
-            competitors: updatedCompetitors,
-            fleetByOwner: updatedFleetByOwner,
-            routesByOwner: updatedRoutesByOwner,
-            globalRouteRegistry: registry,
-          });
-
-          await settleMarketplaceSales(get, set);
-        } else {
-          // No projection needed (tick === 0 or no competitors) — just store raw data
-          const finalFleetByOwner = new Map(competitorFleetByOwner);
-          const finalRoutesByOwner = new Map(competitorRoutesByOwner);
-          if (playerPubkey) {
-            finalFleetByOwner.set(playerPubkey, playerFleet);
-            finalRoutesByOwner.set(playerPubkey, playerRoutes);
-          }
-
-          set({
-            competitors,
-            globalRouteRegistry: registry,
-            fleetByOwner: finalFleetByOwner,
-            routesByOwner: finalRoutesByOwner,
-          });
-
-          await settleMarketplaceSales(get, set);
-        }
-
-        // --- Shared post-sync housekeeping (runs for both paths) ---
-        useEngineStore.setState({ catchupProgress: null });
-
-        // --- Competitor Alerts ---
-        const myAirline = existingState.airline;
-        if (myAirline) {
-          const myHubs = new Set(myAirline.hubs || []);
-          const newTimelineEvents: TimelineEvent[] = [];
-          const alertTick = useEngineStore.getState().tick;
-
-          for (const [alertPubkey, comp] of competitors) {
-            if (alertPubkey === existingState.pubkey) continue;
-            const prevComp = existingState.competitors.get(alertPubkey);
-            for (const hub of comp.hubs) {
+            // Alert if they opened a hub in our territory
+            const prevComp = existingState.competitors.get(pubkey);
+            for (const hub of airline.hubs) {
               if (myHubs.has(hub) && (!prevComp || !prevComp.hubs.includes(hub))) {
                 newTimelineEvents.push({
-                  id: `evt-comp-hub-${alertPubkey}-${hub}-${alertTick}`,
-                  tick: alertTick,
-                  timestamp: Date.now(),
+                  id: `evt-comp-hub-${pubkey}-${hub}-${currentTick}`,
+                  tick: currentTick,
+                  timestamp: GENESIS_TIME + currentTick * TICK_DURATION,
                   type: "competitor_hub",
-                  description: `Competitor ${comp.name} just opened a hub at ${hub}!`,
+                  description: `Competitor ${airline.name} just opened a hub at ${hub}!`,
                 });
               }
             }
-          }
 
-          if (newTimelineEvents.length > 0) {
-            set({
-              timeline: [...newTimelineEvents, ...existingState.timeline].slice(0, 1000),
-            });
+            let finalAirline = airline;
+            let finalFleet = fleet;
+
+            if (
+              currentTick > 0 &&
+              finalAirline.lastTick != null &&
+              currentTick > finalAirline.lastTick
+            ) {
+              const { fleet: projectedFleet, balanceDelta } = reconcileFleetToTick(
+                fleet,
+                routes,
+                currentTick,
+              );
+              finalFleet = projectedFleet;
+              finalAirline = {
+                ...finalAirline,
+                corporateBalance: applyMonthlyCosts(
+                  fpAdd(finalAirline.corporateBalance, balanceDelta),
+                  finalAirline.hubs,
+                  finalFleet,
+                  finalAirline.lastTick ?? 0,
+                  currentTick,
+                ),
+                lastTick: currentTick,
+              };
+            }
+
+            competitors.set(pubkey, finalAirline);
+            updatedFleetByOwner.set(pubkey, finalFleet);
+            updatedRoutesByOwner.set(pubkey, routes);
+
+            // Update global route registry
+            for (const route of routes) {
+              if (route.status !== "active") continue;
+
+              const key = `${route.originIata}-${route.destinationIata}`;
+              const offers = registry.get(key) || [];
+
+              let avgSpeed = 800;
+              let avgTravelTime = 0;
+              if (route.assignedAircraftIds.length > 0) {
+                const models = route.assignedAircraftIds
+                  .map((id: string) => {
+                    const ac = finalFleet.find((a: AircraftInstance) => a.id === id);
+                    return ac ? getAircraftById(ac.modelId) : null;
+                  })
+                  .filter(Boolean);
+                if (models.length > 0) {
+                  avgSpeed =
+                    models.reduce((sum, m) => sum + (m!.speedKmh || 800), 0) / models.length;
+                  avgTravelTime = (route.distanceKm / avgSpeed) * 60;
+                }
+              }
+
+              const frequency = computeRouteFrequency(
+                route.distanceKm,
+                route.assignedAircraftIds.length,
+                avgSpeed,
+              );
+              if (frequency === 0) continue;
+
+              const offer: FlightOffer = {
+                airlinePubkey: finalAirline.ceoPubkey,
+                fareEconomy: route.fareEconomy,
+                fareBusiness: route.fareBusiness,
+                fareFirst: route.fareFirst,
+                frequencyPerWeek: frequency,
+                travelTimeMinutes: Math.round(avgTravelTime) || 480,
+                stops: 0,
+                serviceScore: 0.7,
+                brandScore: finalAirline.brandScore || 0.5,
+              };
+
+              offers.push(offer);
+              registry.set(key, offers);
+            }
+          } catch (e) {
+            worldLogger.warn(`Failed parsing snapshot for competitor ${pubkey}`, e);
           }
         }
+
+        set({
+          competitors,
+          fleetByOwner: updatedFleetByOwner,
+          routesByOwner: updatedRoutesByOwner,
+          globalRouteRegistry: registry,
+        });
+
+        if (newTimelineEvents.length > 0 && myPubkey) {
+          set({
+            timeline: [...newTimelineEvents, ...existingState.timeline].slice(0, 1000),
+          });
+        }
+
+        await settleMarketplaceSales(get, set);
+        useEngineStore.setState({ catchupProgress: null });
       } catch (error) {
         console.error("[WorldSlice] Failed to sync world:", error);
         useEngineStore.setState({ catchupProgress: null });
       }
     } finally {
       isSyncingWorld = false;
-      // Drain the queue: if a sync was requested while we were busy, run it now.
       if (pendingSyncWorldOptions) {
         const queuedOptions = pendingSyncWorldOptions;
         pendingSyncWorldOptions = null;
@@ -648,281 +322,8 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
     }
   },
 
-  syncCompetitor: async (competitorPubkey: string, liveEvents?: ActionLogEntry[]) => {
-    const existingState = get();
-    if (competitorPubkey === existingState.pubkey) return;
-
-    const maxAttempts = liveEvents && liveEvents.length > 0 ? 2 : 1;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      if (attempt > 0) {
-        worldLogger.info(
-          `Retrying sync for ${competitorPubkey.slice(0, 8)}... (attempt ${attempt + 1})`,
-        );
-        await new Promise((r) => setTimeout(r, 3000));
-      }
-
-      try {
-        // Reuse cached global actions if recent enough, otherwise fetch fresh.
-        const useCachedGlobalActions =
-          cachedGlobalActionsTimestamp > 0 &&
-          Date.now() - cachedGlobalActionsTimestamp < GLOBAL_ACTIONS_CACHE_TTL_MS;
-        const globalActionsPromise = useCachedGlobalActions
-          ? Promise.resolve(cachedGlobalActions)
-          : loadActionLog({ limit: 500, maxPages: 20 });
-
-        // Targeted fetch for this competitor plus global marketplace buys for replay filtering.
-        const [fetchedActions, checkpoints, globalActions] = await Promise.all([
-          loadActionLog({
-            authors: [competitorPubkey],
-            limit: 500,
-            maxPages: 20,
-          }),
-          loadCheckpoints([competitorPubkey]),
-          globalActionsPromise,
-        ]);
-
-        if (!useCachedGlobalActions) {
-          cachedGlobalActions = globalActions;
-          cachedGlobalActionsTimestamp = Date.now();
-        }
-
-        // Merge live-received events into the fetched action log.
-        // This ensures events not yet indexed by relays are still replayed.
-        const seenIds = new Set(fetchedActions.map((e) => e.event.id));
-        const mergedActions = [...fetchedActions];
-        if (liveEvents) {
-          for (const entry of liveEvents) {
-            if (!seenIds.has(entry.event.id)) {
-              mergedActions.push(entry);
-              seenIds.add(entry.event.id);
-            }
-          }
-        }
-        // Sort by timestamp for deterministic replay
-        mergedActions.sort((a, b) => {
-          const aTime = a.event.created_at ?? 0;
-          const bTime = b.event.created_at ?? 0;
-          if (aTime !== bTime) return aTime - bTime;
-          return a.event.id.localeCompare(b.event.id);
-        });
-
-        if (mergedActions.length === 0 && checkpoints.size === 0) {
-          worldLogger.info(
-            `No actions or checkpoints found for ${competitorPubkey.slice(0, 8)}...` +
-              (liveEvents?.length ? ` (had ${liveEvents.length} live event(s))` : ""),
-          );
-          continue; // retry if we had live events
-        }
-
-        const checkpoint = await verifyCheckpointInternalConsistency(
-          checkpoints.get(competitorPubkey) ?? null,
-          competitorPubkey,
-        );
-        let scopedEntries = mergedActions;
-        if (checkpoint) {
-          scopedEntries = scopeActionsToCheckpoint(mergedActions, checkpoint);
-        }
-
-        const rejectedBuyEventIds = computeRejectedBuyEventIds(globalActions);
-
-        const replayed = await replayActionLog({
-          pubkey: competitorPubkey,
-          actions: scopedEntries.map((entry) => ({
-            action: entry.action,
-            eventId: entry.event.id,
-            authorPubkey: entry.event.author.pubkey,
-            createdAt: entry.event.created_at ?? null,
-          })),
-          checkpoint,
-          rejectedEventIds: rejectedBuyEventIds,
-        });
-
-        if (!replayed.airline) {
-          if (replayed.dissolved) {
-            // Competitor dissolved their airline — remove from state
-            const freshState = get();
-            const updatedCompetitors = new Map(freshState.competitors);
-            updatedCompetitors.delete(competitorPubkey);
-            const updatedFleetByOwner = new Map(freshState.fleetByOwner);
-            updatedFleetByOwner.delete(competitorPubkey);
-            const updatedRoutesByOwner = new Map(freshState.routesByOwner);
-            updatedRoutesByOwner.delete(competitorPubkey);
-            set({
-              competitors: updatedCompetitors,
-              fleetByOwner: updatedFleetByOwner,
-              routesByOwner: updatedRoutesByOwner,
-            });
-            worldLogger.info(
-              `Competitor ${competitorPubkey.slice(0, 8)}... dissolved — removed from world state`,
-            );
-            return;
-          }
-          worldLogger.warn(
-            `Replay produced no airline for ${competitorPubkey.slice(0, 8)}... ` +
-              `(${scopedEntries.length} scoped actions, checkpoint: ${checkpoint ? "yes" : "no"})` +
-              ` — existing competitor data preserved if available`,
-          );
-          continue; // retry if attempts remain
-        }
-
-        const freshState = get();
-        const existingAirline = freshState.competitors.get(competitorPubkey);
-        const existingFleet = freshState.fleetByOwner.get(competitorPubkey) || [];
-        const existingRoutes = freshState.routesByOwner.get(competitorPubkey) || [];
-
-        const airline =
-          existingAirline == null
-            ? replayed.airline
-            : {
-                ...existingAirline,
-                ...replayed.airline,
-              };
-        let resolvedFleet =
-          existingFleet.length === 0
-            ? replayed.fleet
-            : Array.from(
-                new Map<string, AircraftInstance>([
-                  ...existingFleet.map((ac) => [ac.id, ac] as const),
-                  ...replayed.fleet.map((ac) => [ac.id, ac] as const),
-                ]).values(),
-              );
-        const resolvedRoutes =
-          existingRoutes.length === 0
-            ? replayed.routes
-            : Array.from(
-                new Map<string, Route>([
-                  ...existingRoutes.map((route) => [route.id, route] as const),
-                  ...replayed.routes.map((route) => [route.id, route] as const),
-                ]).values(),
-              );
-
-        // Reconcile fleet positions to lastTick
-        if (
-          airline.status !== "chapter11" &&
-          airline.status !== "liquidated" &&
-          airline.lastTick != null &&
-          resolvedFleet.length > 0
-        ) {
-          const { fleet: reconciledFleet, balanceDelta } = reconcileFleetToTick(
-            resolvedFleet,
-            resolvedRoutes,
-            airline.lastTick,
-          );
-          resolvedFleet = reconciledFleet;
-          airline.corporateBalance = fpAdd(airline.corporateBalance, balanceDelta);
-        }
-
-        // Project fleet forward to the current tick so the stored state is
-        // up-to-date.  This replaces the old processGlobalTick catch-up.
-        const currentTick = useEngineStore.getState().tick;
-        if (
-          airline.status !== "chapter11" &&
-          airline.status !== "liquidated" &&
-          currentTick > 0 &&
-          (airline.lastTick == null || currentTick > airline.lastTick)
-        ) {
-          const { fleet: projectedFleet, balanceDelta } = reconcileFleetToTick(
-            resolvedFleet,
-            resolvedRoutes,
-            currentTick,
-          );
-          resolvedFleet = projectedFleet;
-          airline.corporateBalance = fpAdd(airline.corporateBalance, balanceDelta);
-          // Apply monthly recurring costs (hub opex, lease payments) for any
-          // month boundaries crossed during projection — mirrors syncWorld logic.
-          airline.corporateBalance = applyMonthlyCosts(
-            airline.corporateBalance,
-            airline.hubs,
-            resolvedFleet,
-            airline.lastTick ?? 0,
-            currentTick,
-          );
-          airline.lastTick = currentTick;
-        }
-
-        // Merge into existing state — only replace this competitor's data
-        const updatedCompetitors = new Map(freshState.competitors);
-        updatedCompetitors.set(competitorPubkey, airline);
-
-        // Update unified fleet/routes maps: replace this competitor's entry in-place
-        const updatedFleetByOwner = new Map(freshState.fleetByOwner);
-        updatedFleetByOwner.set(competitorPubkey, resolvedFleet);
-
-        const updatedRoutesByOwner = new Map(freshState.routesByOwner);
-        updatedRoutesByOwner.set(competitorPubkey, resolvedRoutes);
-
-        // Rebuild route registry: remove old offers from this competitor, add new ones
-        const updatedRegistry = new Map(freshState.globalRouteRegistry);
-        const ownerPubkey = airline.ceoPubkey;
-        // Remove all offers from this competitor
-        for (const [key, offers] of updatedRegistry) {
-          const filtered = offers.filter((o) => o.airlinePubkey !== ownerPubkey);
-          if (filtered.length > 0) {
-            updatedRegistry.set(key, filtered);
-          } else {
-            updatedRegistry.delete(key);
-          }
-        }
-        // Add new offers from this competitor
-        for (const route of resolvedRoutes) {
-          if (route.status !== "active") continue;
-
-          let avgSpeed = 800;
-          let avgTravelTime = 0;
-          if (route.assignedAircraftIds.length > 0) {
-            const models = route.assignedAircraftIds
-              .map((id: string) => {
-                const ac = resolvedFleet.find((a: AircraftInstance) => a.id === id);
-                return ac ? getAircraftById(ac.modelId) : null;
-              })
-              .filter(Boolean);
-            if (models.length > 0) {
-              avgSpeed = models.reduce((sum, m) => sum + (m!.speedKmh || 800), 0) / models.length;
-              avgTravelTime = (route.distanceKm / avgSpeed) * 60;
-            }
-          }
-
-          const frequency = computeRouteFrequency(
-            route.distanceKm,
-            route.assignedAircraftIds.length,
-            avgSpeed,
-          );
-          if (frequency === 0) continue;
-
-          const key = `${route.originIata}-${route.destinationIata}`;
-          const offers = updatedRegistry.get(key) || [];
-          const offer: FlightOffer = {
-            airlinePubkey: ownerPubkey,
-            fareEconomy: route.fareEconomy,
-            fareBusiness: route.fareBusiness,
-            fareFirst: route.fareFirst,
-            frequencyPerWeek: frequency,
-            travelTimeMinutes: Math.round(avgTravelTime) || 480,
-            stops: 0,
-            serviceScore: 0.7,
-            brandScore: airline.brandScore || 0.5,
-          };
-          offers.push(offer);
-          updatedRegistry.set(key, offers);
-        }
-
-        set({
-          competitors: updatedCompetitors,
-          fleetByOwner: updatedFleetByOwner,
-          routesByOwner: updatedRoutesByOwner,
-          globalRouteRegistry: updatedRegistry,
-        });
-
-        // Success — no need to retry
-        return;
-      } catch (error) {
-        worldLogger.warn(
-          `Failed to sync competitor ${competitorPubkey.slice(0, 8)}... (attempt ${attempt + 1}/${maxAttempts}):`,
-          error,
-        );
-      }
-    }
+  syncCompetitor: async () => {
+    return await get().syncWorld();
   },
 });
 

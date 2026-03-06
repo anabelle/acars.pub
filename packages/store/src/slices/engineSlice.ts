@@ -1,6 +1,5 @@
 import {
   CHAPTER11_BALANCE_THRESHOLD_USD,
-  computeCheckpointStateHash,
   fp,
   fpAdd,
   fpScale,
@@ -13,7 +12,7 @@ import {
   TICKS_PER_MONTH,
 } from "@acars/core";
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
-import { publishCheckpoint } from "@acars/nostr";
+// Removed legacy publishCheckpoint
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
@@ -30,8 +29,6 @@ export interface EngineSlice {
 }
 
 const tickMutex = new AsyncMutex();
-const CHECKPOINT_INTERVAL = 1200;
-const CHECKPOINT_TIMELINE_EVENTS = 1000;
 const TICK_UPDATE_TIMELINE_EVENTS = 200;
 const TICK_UPDATE_HEARTBEAT_TICKS = 20;
 let skippedTickLockCount = 0;
@@ -270,36 +267,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           // accumulate indefinitely when the slow-path is never reached.
           fleetDeletedDuringCatchup: [],
         });
-        const previousCheckpointTick = Math.floor(lastTick / CHECKPOINT_INTERVAL);
-        const nextCheckpointTick = Math.floor(tickUpdateTick / CHECKPOINT_INTERVAL);
-        if (nextCheckpointTick > previousCheckpointTick) {
-          void (async () => {
-            const checkpointState = get();
-            const checkpointAirline = checkpointState.airline;
-            if (!checkpointAirline) return;
-            const stateHash = await computeCheckpointStateHash({
-              airline: checkpointAirline,
-              fleet: checkpointState.fleet,
-              routes: checkpointState.routes,
-              timeline: checkpointState.timeline,
-            });
-            const { timeline: _omitTimeline, ...airlineWithoutTimeline } = checkpointAirline;
-            void _omitTimeline;
-            const checkpoint = {
-              schemaVersion: 1,
-              tick: checkpointAirline.lastTick ?? tickUpdateTick,
-              createdAt: Date.now(),
-              actionChainHash: checkpointState.actionChainHash,
-              stateHash,
-              airline: airlineWithoutTimeline,
-              fleet: checkpointState.fleet,
-              routes: checkpointState.routes,
-              timeline: checkpointState.timeline.slice(0, CHECKPOINT_TIMELINE_EVENTS),
-            };
-            await publishCheckpoint(checkpoint);
-            set({ latestCheckpoint: checkpoint });
-          })().catch((e) => console.error("Checkpoint publish failed", e));
-        }
+        // Removed legacy checkpointing
         // Only status changes (e.g. chapter 11) are truly material.
         // Routine flight events (landings, takeoffs, turnarounds) are
         // deterministic — other clients recompute them — so they ride
@@ -846,36 +814,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         ),
       });
       const tickUpdateTick = updatedAirline.lastTick ?? lastProcessedTick;
-      const previousCheckpointTick = Math.floor(lastTick / CHECKPOINT_INTERVAL);
-      const nextCheckpointTick = Math.floor(tickUpdateTick / CHECKPOINT_INTERVAL);
-      if (nextCheckpointTick > previousCheckpointTick) {
-        void (async () => {
-          const checkpointState = get();
-          const checkpointAirline = checkpointState.airline;
-          if (!checkpointAirline) return;
-          const stateHash = await computeCheckpointStateHash({
-            airline: checkpointAirline,
-            fleet: checkpointState.fleet,
-            routes: checkpointState.routes,
-            timeline: checkpointState.timeline,
-          });
-          const { timeline: _omitTimeline, ...airlineWithoutTimeline } = checkpointAirline;
-          void _omitTimeline;
-          const checkpoint = {
-            schemaVersion: 1,
-            tick: checkpointAirline.lastTick ?? tickUpdateTick,
-            createdAt: Date.now(),
-            actionChainHash: checkpointState.actionChainHash,
-            stateHash,
-            airline: airlineWithoutTimeline,
-            fleet: checkpointState.fleet,
-            routes: checkpointState.routes,
-            timeline: checkpointState.timeline.slice(0, CHECKPOINT_TIMELINE_EVENTS),
-          };
-          await publishCheckpoint(checkpoint);
-          set({ latestCheckpoint: checkpoint });
-        })().catch((e) => console.error("Checkpoint publish failed", e));
-      }
+      // Removed legacy checkpoint publishing logic
 
       // 4. Sync to Nostr on status changes or heartbeat cadence.
       // Routine flight events are deterministic and do not need
