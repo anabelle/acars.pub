@@ -6,6 +6,7 @@ import {
   fpScale,
   fpSub,
   GENESIS_TIME,
+  getMaxHubs,
   getSuggestedFares,
   ROUTE_SLOT_FEE,
   TICK_DURATION,
@@ -14,6 +15,7 @@ import { airports, getAircraftById, getHubPricingForIata, HUB_CLASSIFICATIONS } 
 
 /** Module-level O(1) airport lookup */
 const airportMap = new Map(airports.map((a) => [a.iata, a]));
+
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
@@ -56,6 +58,12 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     switch (action.type) {
       case "add": {
         if (currentHubs.includes(action.iata)) return;
+        const maxHubs = getMaxHubs(airline.tier);
+        if (currentHubs.length >= maxHubs) {
+          throw new Error(
+            `Tier ${airline.tier} airlines can operate a maximum of ${maxHubs} hub(s). Upgrade your tier to expand.`,
+          );
+        }
         newHubs = [...currentHubs, action.iata];
         hubFee = getHubTierCost(action.iata);
         description = `Opened new operations hub at ${action.iata}. Hub development fee: ${fpFormat(hubFee, 0)}.`;

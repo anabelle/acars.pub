@@ -16,6 +16,7 @@ import { airports, getAircraftById } from "@acars/data";
 
 /** Module-level O(1) airport lookup */
 const airportMap = new Map(airports.map((a) => [a.iata, a]));
+
 import {
   attachSigner,
   ensureConnected,
@@ -92,6 +93,12 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     if (airline.corporateBalance < upfrontCost) {
       const label = purchaseType === "buy" ? "purchase" : "lease deposit";
       throw new Error(`Insufficient corporate balance for ${label} of ${model.name}.`);
+    }
+
+    if (model.unlockTier > airline.tier) {
+      throw new Error(
+        `${model.name} requires Airline Tier ${model.unlockTier}. Your airline is Tier ${airline.tier}.`,
+      );
     }
 
     const engineStore = useEngineStore.getState();

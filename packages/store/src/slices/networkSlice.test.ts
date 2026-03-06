@@ -110,6 +110,7 @@ const makeAirline = (
   livery: { primary: "#000000", secondary: "#ffffff", accent: "#ffffff" },
   brandScore: 0.5,
   tier: 1,
+  cumulativeRevenue: 0 as FixedPoint,
   corporateBalance: balance,
   stockPrice: 0 as FixedPoint,
   fleetIds: [],

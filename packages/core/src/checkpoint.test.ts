@@ -29,6 +29,7 @@ describe("checkpoint hashing", () => {
       livery: { primary: "#000000", secondary: "#111111", accent: "#222222" },
       brandScore: 0.5,
       tier: 1,
+      cumulativeRevenue: 0 as FixedPoint,
       corporateBalance: 100000000,
       stockPrice: 100000,
       fleetIds: [],

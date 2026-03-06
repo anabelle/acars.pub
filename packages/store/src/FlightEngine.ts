@@ -45,6 +45,7 @@ export interface EngineTickResult {
   corporateBalance: FixedPoint;
   hasChanges: boolean;
   events: TimelineEvent[];
+  tickRevenue: FixedPoint;
 }
 
 /**
@@ -61,9 +62,11 @@ export function processFlightEngine(
   globalRouteRegistry: Map<string, FlightOffer[]> = new Map(),
   playerPubkey: string = "",
   playerBrandScore: number = 0.5,
+  distanceLimitKm: number = Number.POSITIVE_INFINITY,
 ): EngineTickResult {
   let hasChanges = false;
   let corporateBalance = initialBalance;
+  let tickRevenue = fp(0);
   const events: TimelineEvent[] = [];
   const simulatedTimestamp = GENESIS_TIME + tick * TICK_DURATION;
 
@@ -356,7 +359,16 @@ export function processFlightEngine(
             }
           }
 
-          const addressableDemand = scaleToAddressableMarket(weeklyDemandResult);
+          let addressableDemand = scaleToAddressableMarket(weeklyDemandResult);
+          if (route && route.distanceKm > distanceLimitKm) {
+            addressableDemand = {
+              origin: addressableDemand.origin,
+              destination: addressableDemand.destination,
+              economy: Math.floor(addressableDemand.economy * 0.5),
+              business: Math.floor(addressableDemand.business * 0.5),
+              first: Math.floor(addressableDemand.first * 0.5),
+            };
+          }
           const allocations = allocatePassengers(allOffers, addressableDemand);
           const ourWeeklyAllocation = allocations.get(playerPubkey) ?? {
             economy: 0,
@@ -429,6 +441,7 @@ export function processFlightEngine(
             fareFirst,
             seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first,
           });
+          tickRevenue = fpAdd(tickRevenue, rev.revenueTotal);
 
           ac.lastKnownLoadFactor = rev.loadFactor;
         }
@@ -608,6 +621,7 @@ export function processFlightEngine(
     corporateBalance,
     hasChanges,
     events,
+    tickRevenue,
   };
 }
 

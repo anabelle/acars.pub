@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { fp } from "@acars/core";
 import type { AircraftInstance, AirlineEntity, Route } from "@acars/core";
+import { fp } from "@acars/core";
+import { describe, expect, it } from "vitest";
 import { getAircraftBaseHub } from "./aircraftBaseHub";
 
 const makeAircraft = (overrides: Partial<AircraftInstance> = {}): AircraftInstance => ({
@@ -37,6 +37,7 @@ const makeAirline = (overrides: Partial<AirlineEntity> = {}): AirlineEntity => (
   livery: { primary: "#111111", secondary: "#222222", accent: "#333333" },
   brandScore: 0.7,
   tier: 1,
+  cumulativeRevenue: fp(0),
   corporateBalance: fp(1000000),
   stockPrice: fp(0),
   fleetIds: [],
@@ -60,7 +61,10 @@ const makeRoute = (overrides: Partial<Route> = {}): Route => ({
 
 describe("getAircraftBaseHub", () => {
   it("prefers assigned route origin over current location", () => {
-    const aircraft = makeAircraft({ assignedRouteId: "route-1", baseAirportIata: "BOG" });
+    const aircraft = makeAircraft({
+      assignedRouteId: "route-1",
+      baseAirportIata: "BOG",
+    });
     const routes = [makeRoute({ id: "route-1", originIata: "PTY" })];
     const airline = makeAirline({ hubs: ["PTY"] });
 
@@ -68,7 +72,10 @@ describe("getAircraftBaseHub", () => {
   });
 
   it("falls back to airline primary hub when unassigned", () => {
-    const aircraft = makeAircraft({ assignedRouteId: null, baseAirportIata: "BOG" });
+    const aircraft = makeAircraft({
+      assignedRouteId: null,
+      baseAirportIata: "BOG",
+    });
     const routes: Route[] = [];
     const airline = makeAirline({ hubs: ["PTY"] });
 
@@ -76,7 +83,10 @@ describe("getAircraftBaseHub", () => {
   });
 
   it("falls back to aircraft location when airline is missing", () => {
-    const aircraft = makeAircraft({ assignedRouteId: null, baseAirportIata: "BOG" });
+    const aircraft = makeAircraft({
+      assignedRouteId: null,
+      baseAirportIata: "BOG",
+    });
     const routes: Route[] = [];
 
     expect(getAircraftBaseHub(aircraft, routes, null)).toBe("BOG");

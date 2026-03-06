@@ -31,7 +31,12 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
   const [isLoadingUsed, setIsLoadingUsed] = useState(false);
   const purchaseUsed = useAirlineStore((state) => state.purchaseUsedAircraft);
   const fleet = useAirlineStore((state) => state.fleet);
+  const airlineTier = useAirlineStore((state) => state.airline?.tier ?? 1);
   const confirm = useConfirm();
+  const skeletonKeys = useMemo(
+    () => Array.from({ length: 6 }, (_, index) => `skeleton-${index}`),
+    [],
+  );
 
   const handleBuyUsed = async (listing: MarketplaceListing) => {
     const approved = await confirm({
@@ -132,6 +137,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
       {/* Mode Switcher */}
       <div className="flex items-center gap-2 border-b border-border/40 pb-4">
         <button
+          type="button"
           onClick={() => setMode("factory")}
           className={`flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold transition-all ${mode === "factory" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:bg-accent/40"}`}
         >
@@ -139,6 +145,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
           Factory New
         </button>
         <button
+          type="button"
           onClick={() => {
             setMode("marketplace");
             fetchUsed();
@@ -166,6 +173,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
           </div>
           {mode === "marketplace" && (
             <button
+              type="button"
               onClick={fetchUsed}
               disabled={isLoadingUsed}
               className="h-10 px-4 rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 transition-all font-bold text-xs flex items-center gap-2 disabled:opacity-50"
@@ -179,6 +187,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
         {mode === "factory" && (
           <div className="flex items-center space-x-2 bg-background p-1 rounded-xl border border-border/50">
             <button
+              type="button"
               onClick={() => setSelectedTier("all")}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 selectedTier === "all"
@@ -191,6 +200,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
             {[1, 2, 3, 4].map((tier) => (
               <button
                 key={tier}
+                type="button"
                 onClick={() => setSelectedTier(tier)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
                   selectedTier === tier
@@ -213,6 +223,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
               <AircraftCard
                 key={aircraft.id}
                 aircraft={aircraft}
+                airlineTier={airlineTier}
                 onSelect={() => setSelectedModel(aircraft)}
               />
             ))}
@@ -220,9 +231,9 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
             {isLoadingUsed ? (
-              Array.from({ length: 6 }).map((_, i) => (
+              skeletonKeys.map((key) => (
                 <div
-                  key={i}
+                  key={key}
                   className="h-64 rounded-2xl bg-card animate-pulse border border-border/40"
                 />
               ))
@@ -258,7 +269,15 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
   );
 }
 
-function AircraftCard({ aircraft, onSelect }: { aircraft: AircraftModel; onSelect: () => void }) {
+function AircraftCard({
+  aircraft,
+  airlineTier,
+  onSelect,
+}: {
+  aircraft: AircraftModel;
+  airlineTier: number;
+  onSelect: () => void;
+}) {
   const gradientMap: Record<string, string> = {
     Airbus: "from-blue-500/20 via-blue-900/10 to-transparent",
     Boeing: "from-indigo-500/20 via-purple-900/10 to-transparent",
@@ -270,9 +289,14 @@ function AircraftCard({ aircraft, onSelect }: { aircraft: AircraftModel; onSelec
     gradientMap[aircraft.manufacturer] || "from-zinc-500/20 via-zinc-900/10 to-transparent";
   const totalCapacity =
     aircraft.capacity.economy + aircraft.capacity.business + aircraft.capacity.first;
+  const isLocked = aircraft.unlockTier > airlineTier;
 
   return (
-    <div className="group relative flex flex-col rounded-2xl bg-card border border-border overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.5)] hover:border-border/80">
+    <div
+      className={`group relative flex flex-col rounded-2xl bg-card border border-border overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.5)] hover:border-border/80 ${
+        isLocked ? "opacity-60" : ""
+      }`}
+    >
       {/* Top Image Splash */}
       <div
         className={`h-32 w-full bg-gradient-to-br ${bgGradient} relative flex items-center justify-center border-b border-border/30`}
@@ -345,10 +369,18 @@ function AircraftCard({ aircraft, onSelect }: { aircraft: AircraftModel; onSelec
           </div>
 
           <button
+            type="button"
             onClick={onSelect}
-            className="relative overflow-hidden rounded-xl bg-primary/10 px-4 py-2 text-sm font-bold text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
+            disabled={isLocked}
+            className={`relative overflow-hidden rounded-xl px-4 py-2 text-sm font-bold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background ${
+              isLocked
+                ? "bg-muted/40 text-muted-foreground cursor-not-allowed"
+                : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] focus:ring-primary"
+            }`}
           >
-            <span className="relative flex items-center gap-2">Configure & Buy</span>
+            <span className="relative flex items-center gap-2">
+              {isLocked ? `Requires Tier ${aircraft.unlockTier}` : "Configure & Buy"}
+            </span>
           </button>
         </div>
       </div>
@@ -436,6 +468,7 @@ function UsedAircraftCard({ listing, onBuy }: UsedListingCardProps) {
           </div>
 
           <button
+            type="button"
             onClick={onBuy}
             className="rounded-lg bg-orange-500 px-4 py-2 text-xs font-bold text-white hover:bg-orange-600 transition-all hover:shadow-[0_0_15px_rgba(249,115,22,0.4)]"
           >
@@ -467,6 +500,11 @@ function PurchaseModal({
 
   const [busSeats, setBusSeats] = useState(aircraft.capacity.business);
   const [firstSeats, setFirstSeats] = useState(aircraft.capacity.first);
+  const modalKey = aircraft.id.replace(/[^a-zA-Z0-9-_]/g, "");
+  const nameInputId = `aircraft-name-${modalKey}`;
+  const hubSelectId = `aircraft-hub-${modalKey}`;
+  const firstSliderId = `aircraft-first-${modalKey}`;
+  const businessSliderId = `aircraft-business-${modalKey}`;
 
   // Calculate space dynamics based on fleet manager plan
   const baseEconSpace =
@@ -536,6 +574,7 @@ function PurchaseModal({
           <Plane className="h-24 w-24 text-foreground/10 rotate-[-15deg] absolute right-6 top-4" />
 
           <button
+            type="button"
             onClick={onClose}
             className="absolute top-4 right-4 p-2 rounded-full bg-background/20 hover:bg-background/40 backdrop-blur-md transition-colors z-20"
           >
@@ -552,10 +591,14 @@ function PurchaseModal({
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 border border-border/50 rounded-xl p-3 bg-background/50 focus-within:border-primary/50 transition-colors">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase block">
+                <label
+                  htmlFor={nameInputId}
+                  className="text-[10px] font-semibold text-muted-foreground uppercase block"
+                >
                   Registration / Name (Optional)
                 </label>
                 <input
+                  id={nameInputId}
                   type="text"
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
@@ -566,10 +609,14 @@ function PurchaseModal({
 
               {hubs.length > 0 && (
                 <div className="space-y-1.5 border border-border/50 rounded-xl p-3 bg-background/50 focus-within:border-primary/50 transition-colors">
-                  <label className="text-[10px] font-semibold text-muted-foreground uppercase block flex items-center gap-1">
+                  <label
+                    htmlFor={hubSelectId}
+                    className="text-[10px] font-semibold text-muted-foreground uppercase block flex items-center gap-1"
+                  >
                     <MapPin className="h-3 w-3" /> Delivery Hub
                   </label>
                   <select
+                    id={hubSelectId}
                     value={selectedHub}
                     onChange={(e) => setSelectedHub(e.target.value)}
                     className="w-full bg-transparent text-sm font-medium outline-none cursor-pointer"
@@ -593,6 +640,7 @@ function PurchaseModal({
             </h4>
             <div className="flex p-1 bg-background/50 border border-border/50 rounded-xl w-full">
               <button
+                type="button"
                 onClick={() => setPurchaseType("buy")}
                 className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold transition-all ${
                   purchaseType === "buy"
@@ -603,6 +651,7 @@ function PurchaseModal({
                 Cash Purchase
               </button>
               <button
+                type="button"
                 onClick={() => setPurchaseType("lease")}
                 className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold transition-all ${
                   purchaseType === "lease"
@@ -632,11 +681,15 @@ function PurchaseModal({
 
             <div className="border border-border/50 rounded-xl p-5 bg-background/50 space-y-6">
               <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase flex justify-between">
+                <label
+                  htmlFor={firstSliderId}
+                  className="text-[10px] font-semibold text-muted-foreground uppercase flex justify-between"
+                >
                   <span>First Class (4x space)</span>
                   <span className={firstSeats > 0 ? "text-primary" : ""}>{firstSeats} seats</span>
                 </label>
                 <input
+                  id={firstSliderId}
                   type="range"
                   min="0"
                   max={maxFirstClass}
@@ -656,11 +709,15 @@ function PurchaseModal({
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase flex justify-between">
+                <label
+                  htmlFor={businessSliderId}
+                  className="text-[10px] font-semibold text-muted-foreground uppercase flex justify-between"
+                >
                   <span>Business Class (2.5x space)</span>
                   <span className={busSeats > 0 ? "text-primary" : ""}>{busSeats} seats</span>
                 </label>
                 <input
+                  id={businessSliderId}
                   type="range"
                   min="0"
                   max={maxBusinessClass}
@@ -731,6 +788,7 @@ function PurchaseModal({
           </div>
 
           <button
+            type="button"
             onClick={handlePurchase}
             disabled={isPurchasing || !canAfford || (hubs.length > 0 && !selectedHub)}
             className={`relative overflow-hidden rounded-xl px-8 py-3 text-base font-bold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${
