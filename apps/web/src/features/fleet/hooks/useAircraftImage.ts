@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from "react";
 import type { AircraftInstance, AircraftModel, AirlineEntity } from "@acars/core";
+import { uploadToBlossom } from "@acars/nostr";
 import { useAirlineStore } from "@acars/store";
+import { useEffect, useRef, useState } from "react";
 import {
   buildLiveryPrompt,
   computePromptHash,
   generateLiveryImage,
   isLiveryApiUnavailable,
 } from "../services/aircraftImageService";
-import { uploadToBlossom } from "@acars/nostr";
 
 // ---------------------------------------------------------------------------
 // IndexedDB cache for generated livery images (survives page reloads)
@@ -145,7 +145,7 @@ export function useAircraftImage(
       if (!airline || !model) return;
 
       const hubIata = airline.hubs[0] ?? aircraft.baseAirportIata;
-      const currentHash = await computePromptHash(airline, model, hubIata);
+      const currentHash = await computePromptHash(airline, model, hubIata, aircraft.id);
 
       // Bailed by StrictMode cleanup while computing hash
       if (cancelled) return;
@@ -201,7 +201,7 @@ export function useAircraftImage(
       // Do NOT check `cancelled` inside — parent re-renders must not abort queued work.
       enqueue(async () => {
         try {
-          const prompt = buildLiveryPrompt(airline!, model!, hubIata);
+          const prompt = buildLiveryPrompt(airline!, model!, hubIata, aircraft.id);
           console.log(`[Livery] Generating for ${aircraft.id}…`);
           const imageBlob = await generateLiveryImage(prompt);
           console.log(`[Livery] Got blob: ${imageBlob.size} bytes, ${imageBlob.type}`);
