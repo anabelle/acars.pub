@@ -4,23 +4,15 @@ import {
   fpAdd,
   fpScale,
   fpSub,
-  fpToNumber,
-  getCyclePhase,
   GENESIS_TIME,
   TICK_DURATION,
-  TICKS_PER_HOUR,
   TICKS_PER_MONTH,
 } from "@acars/core";
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
-// Removed legacy publishCheckpoint
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
-import {
-  estimateLandingFinancials,
-  processFlightEngine,
-  reconcileFleetToTick,
-} from "../FlightEngine";
+import { processFlightEngine, reconcileFleetToTick } from "../FlightEngine";
 import type { AirlineState } from "../types";
 import { AsyncMutex } from "../utils/asyncMutex";
 
@@ -135,7 +127,11 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           routes,
           timeline: get().timeline,
         };
-        set({ airline: updatedAirline, fleet: groundedFleet, timeline: updatedTimeline });
+        set({
+          airline: updatedAirline,
+          fleet: groundedFleet,
+          timeline: updatedTimeline,
+        });
         publishActionWithChain({
           action: {
             schemaVersion: 2,
@@ -417,132 +413,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
         currentFleet = currentFleet.filter((ac) => !deletedFleetIds.has(ac.id));
       }
 
-      const simulatedTimestamp = GENESIS_TIME + targetTick * TICK_DURATION;
       const deliveryEvents: typeof currentTimeline = [];
-      const recoveryEvents: typeof currentTimeline = [];
-
-      // Deterministic timeline backfill: reconstruct landing events for all
-      // completed round-trips using cycle algebra.  This runs for EVERY
-      // aircraft with an assigned route regardless of its current status,
-      // because reconcileFleetToTick (run earlier during identity load) may
-      // have already changed idle→enroute/turnaround.
-      //
-      // These events are DISPLAY-ONLY — the balance was already adjusted by
-      // reconcileFleetToTick and will be further adjusted by the tick loop.
-      // Event IDs use the same format as processFlightEngine so duplicates
-      // produced later by the tick loop are automatically filtered out.
-      const MAX_BACKFILL_PER_AIRCRAFT = 40;
-      const routeById = new Map(routes.map((route) => [route.id, route]));
-      for (const ac of currentFleet) {
-        if (!ac.assignedRouteId) continue;
-        const route = routeById.get(ac.assignedRouteId);
-        const model = getAircraftById(ac.modelId);
-        if (!route || route.status !== "active" || !model) continue;
-        if (route.distanceKm > (model.rangeKm || 0)) continue;
-        const cycleAnchor = ac.routeAssignedAtTick ?? ac.purchasedAtTick;
-        if (cycleAnchor == null || cycleAnchor >= targetTick) continue;
-
-        const hours = route.distanceKm / (model.speedKmh || 800);
-        const durationTicks = Math.max(1, Math.ceil(hours * TICKS_PER_HOUR));
-        const turnaroundTicks = Math.max(
-          1,
-          Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR),
-        );
-        const roundTripTicks = durationTicks * 2 + turnaroundTicks * 2;
-        const flightHoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
-
-        // Two landing offsets per cycle: outbound at durationTicks,
-        // inbound at 2*durationTicks + turnaroundTicks
-        const legInfos = [
-          {
-            offset: durationTicks,
-            originIata: route.originIata,
-            destinationIata: route.destinationIata,
-          },
-          {
-            offset: durationTicks * 2 + turnaroundTicks,
-            originIata: route.destinationIata,
-            destinationIata: route.originIata,
-          },
-        ];
-
-        const historicalLandings: Array<{
-          tick: number;
-          originIata: string;
-          destinationIata: string;
-        }> = [];
-
-        for (const leg of legInfos) {
-          const firstLandingTick = cycleAnchor + leg.offset;
-          if (firstLandingTick > targetTick) continue;
-
-          // Walk backwards from the most recent landing to collect up to
-          // MAX_BACKFILL_PER_AIRCRAFT events per aircraft.
-          const totalCompleted = Math.floor((targetTick - firstLandingTick) / roundTripTicks) + 1;
-          const startIdx = Math.max(0, totalCompleted - MAX_BACKFILL_PER_AIRCRAFT);
-          for (let idx = totalCompleted - 1; idx >= startIdx; idx--) {
-            const landingTick = firstLandingTick + idx * roundTripTicks;
-            if (landingTick > targetTick) continue;
-            historicalLandings.push({
-              tick: landingTick,
-              originIata: leg.originIata,
-              destinationIata: leg.destinationIata,
-            });
-          }
-        }
-
-        // Process oldest → newest so load-factor state evolves forward in time.
-        historicalLandings.sort((a, b) => a.tick - b.tick);
-        const capped = historicalLandings.slice(-MAX_BACKFILL_PER_AIRCRAFT);
-
-        for (const landing of capped) {
-          // Use the same ID format as processFlightEngine so the tick loop's
-          // duplicate events are automatically deduplicated.
-          const eventId = `evt-landing-${ac.id}-${landing.tick}`;
-          if (timelineEventIds.has(eventId)) continue;
-
-          const landingResult = estimateLandingFinancials(
-            ac,
-            route,
-            model,
-            flightHoursPerLeg,
-            ac.lastKnownLoadFactor ?? 0.65,
-          );
-
-          ac.lastKnownLoadFactor = landingResult.revenue.loadFactor;
-
-          recoveryEvents.push({
-            id: eventId,
-            tick: landing.tick,
-            timestamp: GENESIS_TIME + landing.tick * TICK_DURATION,
-            type: "landing",
-            aircraftId: ac.id,
-            aircraftName: ac.name,
-            routeId: route.id,
-            originIata: landing.originIata,
-            destinationIata: landing.destinationIata,
-            revenue: landingResult.revenue.revenueTotal,
-            cost: landingResult.cost.costTotal,
-            profit: landingResult.profit,
-            description: `${ac.name} landed at ${landing.destinationIata}. Net Profit: ${fpToNumber(landingResult.profit) > 0 ? "+" : ""}${fpToNumber(landingResult.profit)}`,
-            details: landingResult.details,
-          });
-        }
-      }
-
-      // Merge backfill events into timeline AFTER the tick loop catch-up work;
-      // processFlightEngine duplicate landing events are deduplicated by ID.
-      if (recoveryEvents.length > 0) {
-        const newEvents = recoveryEvents.filter((e) => !timelineEventIds.has(e.id));
-        if (newEvents.length > 0) {
-          currentTimeline = [...newEvents, ...currentTimeline]
-            .sort((a, b) => b.tick - a.tick)
-            .slice(0, 1000);
-          timelineEventIds.clear();
-          for (const event of currentTimeline) timelineEventIds.add(event.id);
-        }
-        recoveryEvents.length = 0;
-      }
 
       for (const ac of currentFleet) {
         if (ac.status !== "delivery") continue;
@@ -562,233 +433,6 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
 
       if (deliveryEvents.length > 0) {
         const newEvents = deliveryEvents.filter((e) => !timelineEventIds.has(e.id));
-        if (newEvents.length > 0) {
-          currentTimeline = [...newEvents, ...currentTimeline].slice(0, 1000);
-          timelineEventIds.clear();
-          for (const event of currentTimeline) timelineEventIds.add(event.id);
-        }
-      }
-
-      for (const ac of currentFleet) {
-        if (ac.status === "idle" && ac.assignedRouteId) {
-          const route = routeById.get(ac.assignedRouteId);
-          const model = getAircraftById(ac.modelId);
-          if (!route || route.status !== "active" || !model) continue;
-          const isGrounded = ac.condition < 0.2 || ac.flightHoursSinceCheck > 600;
-          if (isGrounded) continue;
-          if (route.distanceKm > (model.rangeKm || 0)) continue;
-
-          const hours = route.distanceKm / (model.speedKmh || 800);
-          const durationTicks = Math.max(1, Math.ceil(hours * TICKS_PER_HOUR));
-          const turnaroundTicks = Math.max(
-            1,
-            Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR),
-          );
-          const roundTripTicks = durationTicks * 2 + turnaroundTicks * 2;
-
-          // Use deterministic cycle algebra to place the aircraft at the correct
-          // round-trip position rather than forcing every idle aircraft to depart
-          // at the same targetTick (which causes the synchronized-departure bug).
-          const cycleAnchor = ac.routeAssignedAtTick ?? ac.purchasedAtTick;
-          if (cycleAnchor != null && cycleAnchor > targetTick) {
-            // Assignment is in the future relative to this recovery tick — skip.
-            continue;
-          }
-          if (cycleAnchor != null && cycleAnchor < targetTick) {
-            const elapsed = targetTick - cycleAnchor;
-            // If the aircraft was at the destination when assigned, offset by
-            // half a round-trip so the cycle starts with an inbound leg.
-            const assignedAtAirportIata = ac.routeAssignedAtIata ?? ac.baseAirportIata;
-            const assignedAtDest =
-              assignedAtAirportIata != null && assignedAtAirportIata === route.destinationIata;
-            const sweepPhaseOffset = assignedAtDest ? durationTicks + turnaroundTicks : 0;
-            const rawSweepPos = elapsed % roundTripTicks;
-            const positionInCycle = (rawSweepPos + sweepPhaseOffset) % roundTripTicks;
-            const cycleStartTick = targetTick - positionInCycle;
-            const phase = getCyclePhase(
-              cycleStartTick,
-              targetTick,
-              durationTicks,
-              turnaroundTicks,
-              route,
-            );
-            ac.status = phase.status;
-            ac.flight = {
-              originIata: phase.originIata,
-              destinationIata: phase.destinationIata,
-              departureTick: phase.departureTick,
-              arrivalTick: phase.arrivalTick,
-              direction: phase.direction,
-            };
-            ac.turnaroundEndTick = phase.turnaroundEndTick ?? undefined;
-            ac.arrivalTickProcessed = phase.status === "turnaround" ? phase.arrivalTick : undefined;
-            ac.baseAirportIata = phase.baseAirportIata;
-          } else {
-            // No cycle anchor yet (brand-new assignment): depart from current
-            // position using the legacy isAtOrigin safety check.
-            const isAtOrigin = ac.baseAirportIata === route.originIata;
-            const isAtDestination = ac.baseAirportIata === route.destinationIata;
-            if (!isAtOrigin && !isAtDestination) continue;
-            const originIata = isAtOrigin ? route.originIata : route.destinationIata;
-            const destinationIata = isAtOrigin ? route.destinationIata : route.originIata;
-            ac.status = "enroute";
-            ac.flight = {
-              originIata,
-              destinationIata,
-              departureTick: targetTick,
-              arrivalTick: targetTick + durationTicks,
-              direction: isAtOrigin ? "outbound" : "inbound",
-            };
-            ac.arrivalTickProcessed = undefined;
-            ac.turnaroundEndTick = undefined;
-          }
-          if (ac.status === "enroute" && ac.flight) {
-            recoveryEvents.push({
-              id: `evt-recovery-takeoff-${ac.id}-${ac.flight.departureTick}`,
-              tick: ac.flight.departureTick,
-              timestamp: GENESIS_TIME + ac.flight.departureTick * TICK_DURATION,
-              type: "takeoff",
-              aircraftId: ac.id,
-              aircraftName: ac.name,
-              routeId: route.id,
-              originIata: ac.flight.originIata,
-              destinationIata: ac.flight.destinationIata,
-              description: `${ac.name} recovery takeoff: ${ac.flight.originIata} → ${ac.flight.destinationIata}`,
-            });
-          }
-        }
-
-        if (ac.status === "enroute" && ac.flight && ac.flight.arrivalTick <= targetTick) {
-          const model = getAircraftById(ac.modelId);
-          if (!model) continue;
-          const turnaroundTicks = Math.max(
-            1,
-            Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR),
-          );
-          const durationTicks = ac.flight.arrivalTick - ac.flight.departureTick;
-          const flightHoursData = Math.min(24, durationTicks / TICKS_PER_HOUR);
-          if (flightHoursData > 0) {
-            ac.flightHoursTotal += flightHoursData;
-            ac.flightHoursSinceCheck += flightHoursData;
-            ac.condition = Math.max(0, ac.condition - 0.00005 * flightHoursData);
-          }
-
-          // Look up the route to calculate full financial breakdown
-          const isFerry = ac.flight?.purpose === "ferry";
-          const route = !isFerry && ac.assignedRouteId ? routeById.get(ac.assignedRouteId) : null;
-
-          // Calculate financials BEFORE mutating aircraft state so ac.flight is intact
-          let landingResult: ReturnType<typeof estimateLandingFinancials> | null = null;
-          if (route && !isFerry) {
-            landingResult = estimateLandingFinancials(
-              ac,
-              route,
-              model,
-              flightHoursData,
-              ac.lastKnownLoadFactor ?? 0.65,
-            );
-          }
-
-          ac.status = "turnaround";
-          ac.baseAirportIata = ac.flight.destinationIata;
-          ac.arrivalTickProcessed = ac.flight.arrivalTick;
-          ac.turnaroundEndTick = ac.flight.arrivalTick + turnaroundTicks;
-
-          if (landingResult) {
-            // Full financial breakdown using recovery helper
-            currentBalance = fpAdd(currentBalance, landingResult.profit);
-            ac.lastKnownLoadFactor = landingResult.revenue.loadFactor;
-
-            // Skip the timeline event if the backfill already generated one
-            // for this exact landing (same aircraft + arrival tick).
-            const backfillId = `evt-landing-${ac.id}-${ac.flight.arrivalTick}`;
-            if (!timelineEventIds.has(backfillId)) {
-              const arrivalTick = ac.flight.arrivalTick;
-              recoveryEvents.push({
-                id: `evt-recovery-landing-${ac.id}-${arrivalTick}`,
-                tick: arrivalTick,
-                timestamp: GENESIS_TIME + arrivalTick * TICK_DURATION,
-                type: "landing",
-                aircraftId: ac.id,
-                aircraftName: ac.name,
-                routeId: route!.id,
-                originIata: ac.flight.originIata,
-                destinationIata: ac.flight.destinationIata,
-                revenue: landingResult.revenue.revenueTotal,
-                cost: landingResult.cost.costTotal,
-                profit: landingResult.profit,
-                description: `${ac.name} landed at ${ac.flight.destinationIata}. Net Profit: ${fpToNumber(landingResult.profit) > 0 ? "+" : ""}${fpToNumber(landingResult.profit)}`,
-                details: landingResult.details,
-              });
-            }
-          } else {
-            // Ferry or no route — bare event (no financials to calculate)
-            const arrivalTick = ac.flight.arrivalTick;
-            recoveryEvents.push({
-              id: `evt-recovery-landing-${ac.id}-${arrivalTick}`,
-              tick: arrivalTick,
-              timestamp: GENESIS_TIME + arrivalTick * TICK_DURATION,
-              type: isFerry ? "ferry" : "landing",
-              aircraftId: ac.id,
-              aircraftName: ac.name,
-              originIata: ac.flight.originIata,
-              destinationIata: ac.flight.destinationIata,
-              description: `${ac.name} ${isFerry ? "ferried" : "recovery landing"} at ${ac.flight.destinationIata}.`,
-            });
-          }
-        }
-
-        if (ac.status === "turnaround" && (ac.turnaroundEndTick || 0) <= targetTick) {
-          const route = ac.assignedRouteId ? routeById.get(ac.assignedRouteId) : undefined;
-          const model = getAircraftById(ac.modelId);
-          if (route && ac.flight && model) {
-            const hours = route.distanceKm / (model.speedKmh || 800);
-            const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
-            const isReturning = ac.flight.direction === "outbound";
-            // Use the actual turnaround-end tick as the departure time so that
-            // aircraft with different turnaround schedules do not all depart at
-            // the same targetTick (which causes the synchronized-departure bug).
-            const actualDeparture = ac.turnaroundEndTick ?? targetTick;
-
-            ac.status = "enroute";
-            ac.arrivalTickProcessed = undefined;
-            ac.flight = {
-              originIata: isReturning ? route.destinationIata : route.originIata,
-              destinationIata: isReturning ? route.originIata : route.destinationIata,
-              departureTick: actualDeparture,
-              arrivalTick: actualDeparture + Math.max(1, durationTicks),
-              direction: isReturning ? "inbound" : "outbound",
-            };
-            recoveryEvents.push({
-              id: `evt-recovery-takeoff-rtn-${ac.id}-${actualDeparture}`,
-              tick: actualDeparture,
-              timestamp: GENESIS_TIME + actualDeparture * TICK_DURATION,
-              type: "takeoff",
-              aircraftId: ac.id,
-              aircraftName: ac.name,
-              routeId: route.id,
-              originIata: ac.flight.originIata,
-              destinationIata: ac.flight.destinationIata,
-              description: `${ac.name} recovery return: ${ac.flight.originIata} → ${ac.flight.destinationIata}`,
-            });
-          } else {
-            ac.status = "idle";
-            ac.flight = null;
-            recoveryEvents.push({
-              id: `evt-recovery-idle-${ac.id}-${targetTick}`,
-              tick: targetTick,
-              timestamp: simulatedTimestamp,
-              type: "maintenance",
-              aircraftId: ac.id,
-              aircraftName: ac.name,
-              description: `${ac.name} recovery transition to idle (route missing).`,
-            });
-          }
-        }
-      }
-
-      if (recoveryEvents.length > 0) {
-        const newEvents = recoveryEvents.filter((e) => !timelineEventIds.has(e.id));
         if (newEvents.length > 0) {
           currentTimeline = [...newEvents, ...currentTimeline].slice(0, 1000);
           timelineEventIds.clear();
