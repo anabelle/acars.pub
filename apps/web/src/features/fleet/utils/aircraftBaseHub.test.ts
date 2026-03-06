@@ -82,7 +82,7 @@ describe("getAircraftBaseHub", () => {
     expect(getAircraftBaseHub(aircraft, routes, airline)).toBe("BOG");
   });
 
-  it("falls back to airline primary hub when location is missing", () => {
+  it("falls back to airline primary hub when location is blank", () => {
     const aircraft = makeAircraft({
       assignedRouteId: null,
       baseAirportIata: "",

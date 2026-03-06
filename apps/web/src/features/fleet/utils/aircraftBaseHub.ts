@@ -9,5 +9,7 @@ export const getAircraftBaseHub = (
     ? routes.find((route) => route.id === aircraft.assignedRouteId)
     : null;
 
-  return assignedRoute?.originIata ?? aircraft.baseAirportIata ?? airline?.hubs[0];
+  const baseIata = aircraft.baseAirportIata?.trim();
+
+  return assignedRoute?.originIata ?? (baseIata ? baseIata : airline?.hubs[0]);
 };
