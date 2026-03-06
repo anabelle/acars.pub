@@ -41,6 +41,9 @@ export interface NetworkSlice {
   ) => Promise<void>;
 }
 
+/**
+ * Network slice manages hubs, routes, and fare updates.
+ */
 export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice> = (set, get) => ({
   routes: [],
 

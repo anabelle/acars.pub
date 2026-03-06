@@ -23,6 +23,9 @@ export const TIER_THRESHOLDS: Record<number, TierThreshold> = {
 
 const MAX_TIER = 4;
 
+/**
+ * Computes the next tier based on cumulative revenue and active routes.
+ */
 export function evaluateTier(
   currentTier: number,
   cumulativeRevenue: FixedPoint,
@@ -39,12 +42,18 @@ export function evaluateTier(
   return nextTier;
 }
 
+/**
+ * Returns the maximum allowed route distance by tier.
+ */
 export function getMaxRouteDistanceKm(tier: number): number {
   if (tier <= 1) return 3000;
   if (tier === 2) return 7000;
   return Number.POSITIVE_INFINITY;
 }
 
+/**
+ * Returns the maximum allowed hub count by tier.
+ */
 export function getMaxHubs(tier: number): number {
   if (tier <= 1) return 1;
   if (tier === 2) return 3;
@@ -52,6 +61,9 @@ export function getMaxHubs(tier: number): number {
   return Number.MAX_SAFE_INTEGER;
 }
 
+/**
+ * Estimates legacy revenue to seed tier progression for existing airlines.
+ */
 export function estimateHistoricRevenue(fleet: AircraftInstance[], routes: Route[]): FixedPoint {
   if (fleet.length === 0) return fp(0);
   const fleetValue = fpSum(

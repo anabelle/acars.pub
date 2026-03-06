@@ -53,6 +53,9 @@ export interface EngineTickResult {
  * Separated from Zustand/Nostr to allow for headless simulation,
  * future worker-offloading, and easier testing.
  */
+/**
+ * Advances the deterministic flight engine for a single tick.
+ */
 export function processFlightEngine(
   tick: number,
   fleet: AircraftInstance[],
@@ -728,6 +731,9 @@ export interface LandingFinancialResult {
   details: NonNullable<TimelineEvent["details"]>;
 }
 
+/**
+ * Estimates revenue and costs for a landing without full demand simulation.
+ */
 export function estimateLandingFinancials(
   ac: AircraftInstance,
   route: Route,
@@ -883,6 +889,9 @@ export function estimateLandingFinancials(
  * Returns synthetic timeline events (takeoff/landing) for the reconciled
  * period so the activity log is populated even when the tick-by-tick engine
  * loop is skipped (e.g. after an overnight absence).
+ */
+/**
+ * Reconciles aircraft positions and generates synthetic events for offline gaps.
  */
 export function reconcileFleetToTick(
   fleet: AircraftInstance[],

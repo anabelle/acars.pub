@@ -156,6 +156,9 @@ export async function buildActionChainHashFromRecords(
   return hash;
 }
 
+/**
+ * Replays the action log to rebuild airline state.
+ */
 export async function replayActionLog(params: {
   pubkey: string;
   actions: ActionRecord[];

@@ -63,6 +63,9 @@ const logger = createLogger("Fleet");
 // modelId:purchaseType so the same model can't be bought twice in flight.
 const purchasesInFlight = new Set<string>();
 
+/**
+ * Fleet slice manages aircraft purchases, listings, and maintenance actions.
+ */
 export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = (set, get) => ({
   fleet: [],
   fleetDeletedDuringCatchup: [],

@@ -22,6 +22,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "@/shared/lib/useConfirm";
 
+/**
+ * Renders the aircraft dealer with factory and marketplace listings.
+ */
 export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () => void }) {
   const logger = useMemo(() => createLogger("AircraftDealer"), []);
   const [mode, setMode] = useState<"factory" | "marketplace">("factory");
@@ -342,6 +345,9 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
   );
 }
 
+/**
+ * Shows a factory aircraft card with tier gating.
+ */
 function AircraftCard({
   aircraft,
   airlineTier,
@@ -468,6 +474,9 @@ type UsedListingCardProps = {
   onBuy: () => void;
 };
 
+/**
+ * Shows a used aircraft listing with tier gating.
+ */
 function UsedAircraftCard({ listing, airlineTier, onBuy }: UsedListingCardProps) {
   const model = getAircraftById(listing.modelId);
   if (!model) return null;
@@ -560,6 +569,9 @@ function UsedAircraftCard({ listing, airlineTier, onBuy }: UsedListingCardProps)
   );
 }
 
+/**
+ * Captures configuration and confirms aircraft purchase.
+ */
 function PurchaseModal({
   aircraft,
   onClose,

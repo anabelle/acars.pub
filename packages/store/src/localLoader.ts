@@ -7,6 +7,9 @@ import type { AirlineState } from "./types.js";
 
 const MAX_PLAYER_CATCHUP = 50000;
 
+/**
+ * Loads and reconciles identity state from local storage and snapshots.
+ */
 export async function hydrateIdentityFromStorage(
   pubkey: string,
   set: (state: Partial<AirlineState>) => void,

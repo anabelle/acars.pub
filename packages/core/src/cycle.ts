@@ -92,6 +92,9 @@ export function getCyclePhase(
  *   but a landing exactly at `toTick` IS counted.
  * - Returns 0 when `toTick <= fromTick`, `durationTicks <= 0`, or `turnaroundTicks < 0`.
  */
+/**
+ * Counts landings between ticks using cycle algebra.
+ */
 export function countLandingsBetween(
   cycleStartTick: number,
   fromTick: number,
@@ -143,6 +146,9 @@ const DEFAULT_MAX_EVENTS = 200;
  *
  * Events are returned sorted by tick ascending.  A safety cap (`maxEvents`,
  * default 200) prevents runaway allocation for extremely long offline gaps.
+ */
+/**
+ * Enumerates takeoff/landing events within (fromTick, toTick].
  */
 export function enumerateFlightEvents(
   cycleStartTick: number,

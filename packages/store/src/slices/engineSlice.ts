@@ -61,6 +61,9 @@ export function _resetTickLockDiagnostics(): void {
   tickMutex.reset();
 }
 
+/**
+ * Engine slice handles tick processing, tier progression, and sync cadence.
+ */
 export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> = (set, get) => ({
   processTick: async (tick: number) => {
     if (!tickMutex.tryLock()) {
