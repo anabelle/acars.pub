@@ -70,6 +70,8 @@ const timerStyleMap = {
   },
 } as const;
 
+export const FLEET_TWO_COLUMN_BREAKPOINT = 640;
+
 function AircraftSilhouette({ familyId, className }: { familyId: string; className?: string }) {
   const svg = (FAMILY_ICONS[familyId] || FAMILY_ICONS["a320"]).body;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -140,11 +142,29 @@ export function FleetManager() {
     );
 
   useEffect(() => {
+    const mediaQuery =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia(`(min-width: ${FLEET_TWO_COLUMN_BREAKPOINT}px)`)
+        : null;
     const updateColumns = () => {
-      const width = fleetListRef.current?.clientWidth ?? 0;
-      setFleetColumns(width >= 640 ? 2 : 1);
+      if (mediaQuery) {
+        setFleetColumns(mediaQuery.matches ? 2 : 1);
+        return;
+      }
+      setFleetColumns(window.innerWidth >= FLEET_TWO_COLUMN_BREAKPOINT ? 2 : 1);
     };
     updateColumns();
+
+    if (mediaQuery) {
+      if (typeof mediaQuery.addEventListener === "function") {
+        mediaQuery.addEventListener("change", updateColumns);
+        return () => mediaQuery.removeEventListener("change", updateColumns);
+      }
+
+      mediaQuery.addListener(updateColumns);
+      return () => mediaQuery.removeListener(updateColumns);
+    }
+
     window.addEventListener("resize", updateColumns);
     return () => window.removeEventListener("resize", updateColumns);
   }, []);
@@ -284,6 +304,7 @@ export function FleetManager() {
               return (
                 <div
                   key={virtualRow.key}
+                  data-testid="fleet-row"
                   className={
                     isVirtualized ? "absolute left-0 right-0 pb-4 sm:pb-6" : "pb-4 sm:pb-6"
                   }
