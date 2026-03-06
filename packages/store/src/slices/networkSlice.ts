@@ -788,8 +788,26 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
           assignedRouteId: routeId,
           routeAssignedAtTick: currentTick,
           routeAssignedAtIata: ac.baseAirportIata,
+          lastKnownLoadFactor: undefined,
         };
         if (nextAircraft.flight && currentTick >= nextAircraft.flight.departureTick) {
+          nextAircraft.status = "idle";
+          nextAircraft.flight = null;
+          nextAircraft.turnaroundEndTick = undefined;
+          nextAircraft.arrivalTickProcessed = undefined;
+        }
+        return nextAircraft;
+      }
+
+      if (!routeId) {
+        const nextAircraft: AircraftInstance = {
+          ...ac,
+          assignedRouteId: null,
+          routeAssignedAtTick: undefined,
+          routeAssignedAtIata: undefined,
+          lastKnownLoadFactor: undefined,
+        };
+        if (nextAircraft.status === "turnaround") {
           nextAircraft.status = "idle";
           nextAircraft.flight = null;
           nextAircraft.turnaroundEndTick = undefined;
@@ -819,7 +837,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       id: `evt-assign-${aircraftId}-${currentTick}`,
       tick: currentTick,
       timestamp: simulatedTimestamp,
-      type: "maintenance",
+      type: "route_change",
       aircraftId,
       aircraftName,
       routeId: routeId || undefined,
