@@ -861,6 +861,7 @@ export async function replayActionLog(params: {
         aircraft.assignedRouteId = routeId;
         aircraft.routeAssignedAtTick = actionTick;
         aircraft.routeAssignedAtIata = aircraft.baseAirportIata;
+        aircraft.lastKnownLoadFactor = undefined;
         // Clear stale flight state from a previous cycle so reconcileFleetToTick
         // uses routeAssignedAtTick as the new cycle anchor instead of old departureTick.
         if (aircraft.flight && actionTick >= aircraft.flight.departureTick) {
@@ -890,7 +891,18 @@ export async function replayActionLog(params: {
         const routeId = resolveRouteId(clampString(payload.routeId, 64));
         if (!aircraftId) break;
         const aircraft = fleetById.get(aircraftId);
-        if (aircraft) aircraft.assignedRouteId = null;
+        if (aircraft) {
+          aircraft.assignedRouteId = null;
+          aircraft.routeAssignedAtTick = undefined;
+          aircraft.routeAssignedAtIata = undefined;
+          aircraft.lastKnownLoadFactor = undefined;
+          if (aircraft.status === "turnaround") {
+            aircraft.status = "idle";
+            aircraft.flight = null;
+            aircraft.turnaroundEndTick = undefined;
+            aircraft.arrivalTickProcessed = undefined;
+          }
+        }
         if (routeId) {
           const route = routesById.get(routeId);
           if (route) {
