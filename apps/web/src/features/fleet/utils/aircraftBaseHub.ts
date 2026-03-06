@@ -11,5 +11,7 @@ export const getAircraftBaseHub = (
 
   const baseIata = aircraft.baseAirportIata?.trim();
 
-  return assignedRoute?.originIata ?? baseIata ?? airline?.hubs[0] ?? "";
+  const resolvedBase = baseIata && baseIata.length > 0 ? baseIata : (airline?.hubs[0] ?? "");
+
+  return assignedRoute?.originIata ?? resolvedBase;
 };
