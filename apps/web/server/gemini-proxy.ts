@@ -87,12 +87,6 @@ function isRateLimited(ip: string): boolean {
   }
 
   bucket.timestamps.push(now);
-
-  // Cleanup empty buckets
-  if (bucket.timestamps.length === 0) {
-    rateLimitMap.delete(ip);
-  }
-
   return false;
 }
 
