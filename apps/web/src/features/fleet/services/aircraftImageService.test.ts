@@ -76,6 +76,24 @@ describe("buildSceneDescriptor", () => {
     expect(scene.timeOfDay.length).toBeGreaterThan(0);
     expect(scene.weather.length).toBeGreaterThan(0);
   });
+
+  it("produces high variety across dimensions with per-dimension hashing", () => {
+    const activities = new Set<string>();
+    const times = new Set<string>();
+    const weathers = new Set<string>();
+    // Generate scenes for 100 different aircraft IDs
+    for (let i = 0; i < 100; i++) {
+      const scene = buildSceneDescriptor(`aircraft-${i}`, "JFK");
+      activities.add(scene.activity);
+      times.add(scene.timeOfDay);
+      weathers.add(scene.weather);
+    }
+    // With 7 activities, 7 times, and ~6 weather options for JFK,
+    // 100 aircraft should hit at least 4 unique values in each dimension
+    expect(activities.size).toBeGreaterThanOrEqual(4);
+    expect(times.size).toBeGreaterThanOrEqual(4);
+    expect(weathers.size).toBeGreaterThanOrEqual(3);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -181,6 +199,32 @@ describe("deriveWeather", () => {
     const hasMountain = [...weathers].some((w) => w.toLowerCase().includes("mountain"));
     expect(hasMountain).toBe(true);
   });
+
+  it("can produce haze for a beach airport above 30° latitude", () => {
+    const niceBeach = makeAirport({
+      latitude: 43.66, // Nice, France — well above 30°
+      country: "FR",
+      tags: ["beach"],
+    });
+    const weathers = new Set<string>();
+    for (let seed = 0; seed < 200; seed++) {
+      weathers.add(deriveWeather(niceBeach, seed));
+    }
+    const hasHaze = [...weathers].some((w) => w.toLowerCase().includes("haz"));
+    expect(hasHaze).toBe(true);
+  });
+
+  it("does not produce haze for a non-beach airport above 30° latitude", () => {
+    const inland = makeAirport({
+      latitude: 48.0, // Paris-area, no beach tag
+      country: "FR",
+      tags: ["business"],
+    });
+    for (let seed = 0; seed < 200; seed++) {
+      const weather = deriveWeather(inland, seed);
+      expect(weather.toLowerCase()).not.toContain("humid hazy");
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -188,7 +232,7 @@ describe("deriveWeather", () => {
 // ---------------------------------------------------------------------------
 
 describe("SCENE_VERSION", () => {
-  it("is set to 2 for the diverse scene update", () => {
-    expect(SCENE_VERSION).toBe(2);
+  it("is set to 3 after the per-dimension hashing and beach-haze fix", () => {
+    expect(SCENE_VERSION).toBe(3);
   });
 });

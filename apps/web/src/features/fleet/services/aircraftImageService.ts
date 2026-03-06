@@ -10,7 +10,7 @@ const LIVERY_PROXY_ENDPOINTS = ["/api/generate-livery"];
  * Bump this constant to force regeneration of all livery images.
  * It is included in the prompt hash, so changing it invalidates every cache entry.
  */
-export const SCENE_VERSION = 2;
+export const SCENE_VERSION = 3;
 
 /** Circuit breaker: once the API reports a missing secret we stop retrying. */
 let apiSecretMissing = false;
@@ -277,8 +277,8 @@ export function deriveWeather(airport: Airport | undefined, seed: number): strin
     }
   }
 
-  // Haze/humidity — tropical and subtropical
-  if (absLat < 30 && !isArid) {
+  // Haze/humidity — tropical, subtropical, and coastal beach airports
+  if ((absLat < 30 || isBeach) && !isArid) {
     pool.push("in humid hazy conditions, warm tropical atmosphere");
   }
 
@@ -315,13 +315,12 @@ export function deriveWeather(airport: Airport | undefined, seed: number): strin
  * different scenes.
  */
 export function buildSceneDescriptor(aircraftId: string, hubIata: string): SceneDescriptor {
-  const seed = fnv1aHash(aircraftId);
   const airport = getAirport(hubIata);
 
-  // Use different bits of the seed for each dimension to avoid correlation
-  const activitySeed = seed;
-  const timeSeed = seed >>> 8;
-  const weatherSeed = seed >>> 16;
+  // Hash distinct salted strings per dimension so each gets full 32-bit entropy
+  const activitySeed = fnv1aHash(aircraftId + ":activity");
+  const timeSeed = fnv1aHash(aircraftId + ":time");
+  const weatherSeed = fnv1aHash(aircraftId + ":weather");
 
   return {
     activity: pickFromSeed(AIRCRAFT_ACTIVITIES, activitySeed),
