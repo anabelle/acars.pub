@@ -6,8 +6,9 @@ import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plane, Route as RouteIcon, Wrench, X } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
+import { AircraftLiveryImage } from "@/features/fleet/components/AircraftLiveryImage";
 import { getAircraftTimer } from "@/features/fleet/utils/aircraftTimers";
-import { navigateToAirport, navigateToAircraft } from "@/shared/lib/permalinkNavigation";
+import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
 
 type AircraftInfoPanelProps = {
   aircraft: AircraftInstance;
@@ -228,7 +229,7 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
 
   return (
     <aside
-      className="pointer-events-auto fixed z-30 w-[min(480px,calc(100vw-2rem))] max-h-[80vh] rounded-2xl border border-border bg-background/90 shadow-[0_30px_90px_rgba(0,0,0,0.65)] backdrop-blur-2xl overflow-hidden left-4 right-4 bottom-4 sm:left-auto sm:right-4 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2"
+      className="pointer-events-auto fixed z-30 flex flex-col w-[min(480px,calc(100vw-2rem))] max-h-[80vh] rounded-2xl border border-border bg-background/90 shadow-[0_30px_90px_rgba(0,0,0,0.65)] backdrop-blur-2xl overflow-hidden left-4 right-4 bottom-4 sm:left-auto sm:right-4 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2"
       aria-live="polite"
     >
       {/* Header */}
@@ -277,8 +278,26 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
         </button>
       </div>
 
+      {/* Livery hero image */}
+      {model ? (
+        <div className="relative w-full overflow-hidden bg-zinc-900/40 h-56">
+          <AircraftLiveryImage
+            aircraft={aircraft}
+            airline={ownerAirline}
+            model={model}
+            isOwner={isPlayerAircraft}
+            objectFit="object-contain"
+            fallback={
+              <div className="absolute inset-0 flex items-center justify-center text-zinc-800/20 select-none">
+                <AircraftSilhouette familyId={familyId} className="h-32 w-32 rotate-12" />
+              </div>
+            }
+          />
+        </div>
+      ) : null}
+
       {/* Content */}
-      <div className="max-h-[70vh] overflow-y-auto overscroll-contain px-5 py-4 space-y-5">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-5">
         {/* Status badge */}
         <div className="flex flex-wrap items-center gap-2">
           <span
