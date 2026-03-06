@@ -45,12 +45,16 @@ export interface EngineTickResult {
   corporateBalance: FixedPoint;
   hasChanges: boolean;
   events: TimelineEvent[];
+  tickRevenue: FixedPoint;
 }
 
 /**
  * PURE ENGINE LOGIC
  * Separated from Zustand/Nostr to allow for headless simulation,
  * future worker-offloading, and easier testing.
+ */
+/**
+ * Advances the deterministic flight engine for a single tick.
  */
 export function processFlightEngine(
   tick: number,
@@ -61,9 +65,11 @@ export function processFlightEngine(
   globalRouteRegistry: Map<string, FlightOffer[]> = new Map(),
   playerPubkey: string = "",
   playerBrandScore: number = 0.5,
+  distanceLimitKm: number = Number.POSITIVE_INFINITY,
 ): EngineTickResult {
   let hasChanges = false;
   let corporateBalance = initialBalance;
+  let tickRevenue = fp(0);
   const events: TimelineEvent[] = [];
   const simulatedTimestamp = GENESIS_TIME + tick * TICK_DURATION;
 
@@ -356,7 +362,16 @@ export function processFlightEngine(
             }
           }
 
-          const addressableDemand = scaleToAddressableMarket(weeklyDemandResult);
+          let addressableDemand = scaleToAddressableMarket(weeklyDemandResult);
+          if (route && route.distanceKm > distanceLimitKm) {
+            addressableDemand = {
+              origin: addressableDemand.origin,
+              destination: addressableDemand.destination,
+              economy: Math.floor(addressableDemand.economy * 0.5),
+              business: Math.floor(addressableDemand.business * 0.5),
+              first: Math.floor(addressableDemand.first * 0.5),
+            };
+          }
           const allocations = allocatePassengers(allOffers, addressableDemand);
           const ourWeeklyAllocation = allocations.get(playerPubkey) ?? {
             economy: 0,
@@ -429,6 +444,7 @@ export function processFlightEngine(
             fareFirst,
             seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first,
           });
+          tickRevenue = fpAdd(tickRevenue, rev.revenueTotal);
 
           ac.lastKnownLoadFactor = rev.loadFactor;
         }
@@ -608,6 +624,7 @@ export function processFlightEngine(
     corporateBalance,
     hasChanges,
     events,
+    tickRevenue,
   };
 }
 
@@ -714,6 +731,9 @@ export interface LandingFinancialResult {
   details: NonNullable<TimelineEvent["details"]>;
 }
 
+/**
+ * Estimates revenue and costs for a landing without full demand simulation.
+ */
 export function estimateLandingFinancials(
   ac: AircraftInstance,
   route: Route,
@@ -869,6 +889,9 @@ export function estimateLandingFinancials(
  * Returns synthetic timeline events (takeoff/landing) for the reconciled
  * period so the activity log is populated even when the tick-by-tick engine
  * loop is skipped (e.g. after an overnight absence).
+ */
+/**
+ * Reconciles aircraft positions and generates synthetic events for offline gaps.
  */
 export function reconcileFleetToTick(
   fleet: AircraftInstance[],
@@ -1222,6 +1245,7 @@ export function reconcileFleetToTick(
   const events: TimelineEvent[] = [];
   for (const params of eventGenQueue) {
     if (params.cappedLandings <= 0) continue;
+    let remainingLandings = params.cappedLandings;
 
     // For phase-offset routes (aircraft starting at destination), we need to
     // adjust the effective cycle start so that enumerateFlightEvents (which
@@ -1239,10 +1263,12 @@ export function reconcileFleetToTick(
     );
 
     for (const evt of rawEvents) {
+      if (remainingLandings <= 0) break;
       const simulatedTimestamp = GENESIS_TIME + evt.tick * TICK_DURATION;
       const idSuffix = evt.direction === "outbound" ? "" : "-rtn";
 
       if (evt.type === "takeoff") {
+        if (remainingLandings <= 0) break;
         events.push({
           id: `evt-takeoff${idSuffix}-${params.ac.id}-${evt.tick}`,
           tick: evt.tick,
@@ -1259,6 +1285,7 @@ export function reconcileFleetToTick(
               : `${params.ac.name} returning: ${evt.originIata} → ${evt.destinationIata}`,
         });
       } else {
+        remainingLandings -= 1;
         // Landing — include estimated financial details
         const model = getAircraftById(params.ac.modelId);
         const hoursPerLeg = Math.min(24, params.durationTicks / TICKS_PER_HOUR);

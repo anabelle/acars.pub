@@ -86,6 +86,14 @@ export {
   getSolarDeclination,
   getSubsolarPoint,
 } from "./solar.js";
+// Tier
+export {
+  estimateHistoricRevenue,
+  evaluateTier,
+  getMaxHubs,
+  getMaxRouteDistanceKm,
+  TIER_THRESHOLDS,
+} from "./tier.js";
 export type {
   AircraftInstance,
   AircraftModel,
