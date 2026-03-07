@@ -108,7 +108,7 @@ export function MobileNav() {
   const badges = useNavBadges();
 
   return (
-    <nav className="pointer-events-auto flex shrink-0 items-center justify-around border-t border-border bg-background/90 px-2 py-1.5 backdrop-blur-xl pb-[calc(0.375rem+env(safe-area-inset-bottom))] sm:hidden">
+    <nav className="pointer-events-auto grid shrink-0 grid-cols-6 items-stretch border-t border-border bg-background/90 px-2 py-1.5 backdrop-blur-xl pb-[calc(0.375rem+env(safe-area-inset-bottom))] sm:hidden">
       {navItems.map((item) => {
         const isDisabled = item.requiresAirline && !hasAirlineContext;
         const badge = resolveNavBadge(item.to, badges);
@@ -116,7 +116,7 @@ export function MobileNav() {
           <Link
             key={item.to}
             to={item.to}
-            className={`flex min-w-[3.75rem] touch-manipulation flex-col items-center gap-0.5 rounded-lg px-2 py-1 transition-all ${isDisabled ? "pointer-events-none opacity-40" : ""}`}
+            className={`flex min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 transition-all ${isDisabled ? "pointer-events-none opacity-40" : ""}`}
             activeProps={{
               className: "text-primary",
             }}
@@ -136,7 +136,7 @@ export function MobileNav() {
                 />
               )}
             </span>
-            <span className="text-[9px] font-semibold uppercase tracking-wider leading-none">
+            <span className="text-center text-[8px] font-semibold uppercase tracking-[0.12em] leading-none">
               {item.label}
             </span>
           </Link>
@@ -144,7 +144,7 @@ export function MobileNav() {
       })}
       <Link
         to="/about"
-        className="flex min-w-[3.75rem] touch-manipulation flex-col items-center gap-0.5 rounded-lg px-2 py-1 transition-all"
+        className="flex min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 transition-all"
         activeProps={{
           className: "text-primary",
         }}
@@ -155,7 +155,7 @@ export function MobileNav() {
         <span className="relative">
           <Info className="h-5 w-5" />
         </span>
-        <span className="text-[9px] font-semibold uppercase tracking-wider leading-none">
+        <span className="text-center text-[8px] font-semibold uppercase tracking-[0.12em] leading-none">
           About
         </span>
       </Link>
