@@ -1,6 +1,6 @@
 import { useAirlineStore } from "@acars/store";
 import { Link } from "@tanstack/react-router";
-import { Building2, Globe, Map as MapIcon, Plane, Trophy } from "lucide-react";
+import { Building2, Globe, Info, Map as MapIcon, Plane, Trophy } from "lucide-react";
 import { useNavBadges } from "@/shared/hooks/useNavBadges";
 import { NavBadge } from "./NavBadge";
 
@@ -81,7 +81,23 @@ export function Sidebar() {
         })}
       </div>
 
-      <div className="flex flex-col space-y-4">{/* Future status or settings icons here */}</div>
+      <div className="flex flex-col space-y-4">
+        <Link
+          to="/about"
+          className="group relative flex h-12 w-12 items-center justify-center rounded-xl transition-all"
+          activeProps={{
+            className: "bg-primary/20 text-primary shadow-[inset_0_0_15px_rgba(16,185,129,0.2)]",
+          }}
+          inactiveProps={{
+            className: "text-muted-foreground hover:bg-muted hover:text-foreground",
+          }}
+        >
+          <Info className="h-6 w-6" />
+          <span className="absolute left-14 z-50 rounded-md bg-popover px-2 py-1 text-xs font-semibold text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 pointer-events-none whitespace-nowrap">
+            About
+          </span>
+        </Link>
+      </div>
     </div>
   );
 }
@@ -126,6 +142,23 @@ export function MobileNav() {
           </Link>
         );
       })}
+      <Link
+        to="/about"
+        className="flex min-w-[3.75rem] touch-manipulation flex-col items-center gap-0.5 rounded-lg px-2 py-1 transition-all"
+        activeProps={{
+          className: "text-primary",
+        }}
+        inactiveProps={{
+          className: "text-muted-foreground active:text-foreground",
+        }}
+      >
+        <span className="relative">
+          <Info className="h-5 w-5" />
+        </span>
+        <span className="text-[9px] font-semibold uppercase tracking-wider leading-none">
+          About
+        </span>
+      </Link>
     </nav>
   );
 }
