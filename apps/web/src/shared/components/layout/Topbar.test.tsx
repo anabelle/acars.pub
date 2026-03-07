@@ -142,16 +142,12 @@ describe("Topbar", () => {
 
     render(<Topbar />);
 
-    expect(
-      screen.queryByRole("dialog", { name: /airline command center/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /flight deck/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /open airline command center/i }));
-    expect(screen.getByRole("dialog", { name: /airline command center/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /open flight deck/i }));
+    expect(screen.getByRole("dialog", { name: /flight deck/i })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /close airline command center/i }));
-    expect(
-      screen.queryByRole("dialog", { name: /airline command center/i }),
-    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /close flight deck/i }));
+    expect(screen.queryByRole("dialog", { name: /flight deck/i })).not.toBeInTheDocument();
   });
 });

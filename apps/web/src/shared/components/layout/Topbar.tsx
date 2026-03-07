@@ -23,8 +23,8 @@ export function Topbar() {
   const [nsecInputError, setNsecInputError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const mobileToggleLabel = airline ? "airline command center" : "identity controls";
   const mobilePanelTitle = airline ? "Flight deck" : "Identity";
+  const mobilePanelLabel = mobilePanelTitle.toLowerCase();
 
   function renderMobileToggle(summary: React.ReactNode) {
     return (
@@ -33,7 +33,7 @@ export function Topbar() {
           type="button"
           aria-expanded={mobileMenuOpen}
           aria-controls="mobile-topbar-panel"
-          aria-label={`${mobileMenuOpen ? "Close" : "Open"} ${mobileToggleLabel}`}
+          aria-label={`${mobileMenuOpen ? "Close" : "Open"} ${mobilePanelLabel}`}
           onClick={() => setMobileMenuOpen((open) => !open)}
           className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/88 px-4 py-3 text-left shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-2xl"
         >
@@ -92,7 +92,7 @@ export function Topbar() {
             <div
               id="mobile-topbar-panel"
               role="dialog"
-              aria-label="Identity controls"
+              aria-label={mobilePanelTitle}
               className="rounded-[24px] border border-border/80 bg-background/92 px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
             >
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -368,7 +368,7 @@ export function Topbar() {
           className="pointer-events-auto absolute top-[4.75rem] left-3 right-3 z-30 rounded-[24px] border border-border/80 bg-background/92 px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:hidden"
           id="mobile-topbar-panel"
           role="dialog"
-          aria-label="Airline command center"
+          aria-label={mobilePanelTitle}
         >
           {renderBankruptcyBanner()}
           <div className="flex w-full flex-col gap-3 md:h-14 md:flex-row md:items-center md:justify-between">
