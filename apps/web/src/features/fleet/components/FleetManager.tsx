@@ -32,6 +32,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getRouteDemandSnapshot } from "@/features/network/hooks/useRouteDemand";
+import { usePanelScrollRef } from "@/shared/components/layout/PanelLayout";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { useConfirm } from "@/shared/lib/useConfirm";
 import { cn } from "@/shared/lib/utils";
@@ -124,6 +125,7 @@ export function FleetManager() {
   const [listingError, setListingError] = useState<string | null>(null);
   const [isListing, setIsListing] = useState(false);
   const [ferryTargets, setFerryTargets] = useState<Record<string, string>>({});
+  const panelScrollRef = usePanelScrollRef();
   const fleetListRef = useRef<HTMLDivElement | null>(null);
   const [fleetColumns, setFleetColumns] = useState(1);
   const minListingPrice = fp(1000);
@@ -173,10 +175,11 @@ export function FleetManager() {
   const fleetRows = Math.ceil(filteredFleet.length / fleetColumns);
   const fleetVirtualizer = useVirtualizer({
     count: fleetRows,
-    getScrollElement: () => fleetListRef.current,
+    getScrollElement: () => panelScrollRef.current,
     estimateSize: () => 730,
     initialRect: { width: 1024, height: 1200 },
     overscan: 2,
+    scrollMargin: fleetListRef.current?.offsetTop ?? 0,
   });
   const virtualRows = fleetVirtualizer.getVirtualItems();
   const isVirtualized = virtualRows.length > 0;
@@ -275,7 +278,7 @@ export function FleetManager() {
         </div>
       </div>
 
-      <div ref={fleetListRef} className="custom-scrollbar h-[70vh] overflow-y-auto pb-8">
+      <div ref={fleetListRef} className="pb-8">
         {fleet.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-border/50 rounded-2xl bg-card/10">
             <Plane className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
@@ -314,7 +317,11 @@ export function FleetManager() {
                     isVirtualized ? "absolute left-0 right-0 pb-4 sm:pb-6" : "pb-4 sm:pb-6"
                   }
                   style={
-                    isVirtualized ? { transform: `translateY(${virtualRow.start}px)` } : undefined
+                    isVirtualized
+                      ? {
+                          transform: `translateY(${virtualRow.start - fleetVirtualizer.options.scrollMargin}px)`,
+                        }
+                      : undefined
                   }
                 >
                   <div

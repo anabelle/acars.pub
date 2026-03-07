@@ -2,6 +2,12 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FLEET_TWO_COLUMN_BREAKPOINT, FleetManager } from "./FleetManager";
 
+vi.mock("@/shared/components/layout/PanelLayout", () => ({
+  PanelHeader: ({ title }: { title: string }) => <div>{title}</div>,
+  PanelBody: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  usePanelScrollRef: () => ({ current: null }),
+}));
+
 type Selector<T> = (state: T) => unknown;
 type AirlineStoreState = {
   airline: { hubs: string[] } | null;
@@ -29,6 +35,7 @@ vi.mock("@tanstack/react-virtual", () => {
       getVirtualItems: () => mockVirtualItems,
       getTotalSize: () => (mockVirtualItems.length > 0 ? 730 : 0),
       measureElement: mockMeasureElement,
+      options: { scrollMargin: 0 },
     }),
   };
 });

@@ -7,6 +7,7 @@ vi.mock("@/shared/components/layout/PanelLayout", () => {
     PanelLayout: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     PanelHeader: ({ title }: { title: string }) => <div>{title}</div>,
     PanelBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    usePanelScrollRef: () => ({ current: null }),
   };
 });
 

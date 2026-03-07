@@ -1,14 +1,35 @@
 import { useNavigate } from "@tanstack/react-router";
 import { X } from "lucide-react";
+import { createContext, useContext, useRef } from "react";
 import { cn } from "@/shared/lib/utils";
 
+const PanelScrollContext = createContext<React.RefObject<HTMLDivElement | null> | null>(null);
+
+/**
+ * Returns a ref to the PanelLayout scroll container.
+ * Use this as `getScrollElement` in useVirtualizer to share
+ * a single scroll surface with the panel header.
+ */
+export function usePanelScrollRef() {
+  const ref = useContext(PanelScrollContext);
+  if (!ref) throw new Error("usePanelScrollRef must be used inside a PanelLayout");
+  return ref;
+}
+
 export function PanelLayout({ children }: { children: React.ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   return (
-    <div className="pointer-events-auto relative flex h-full w-full min-w-0 max-w-2xl flex-col overflow-hidden rounded-[24px] border border-border/80 bg-background/85 shadow-[0_0_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl duration-300 animate-in fade-in slide-in-from-left-4 sm:rounded-[28px]">
-      <div className="custom-scrollbar flex h-full w-full min-h-0 flex-col overflow-y-auto">
-        {children}
+    <PanelScrollContext.Provider value={scrollRef}>
+      <div className="pointer-events-auto relative flex h-full w-full min-w-0 max-w-2xl flex-col overflow-hidden rounded-[24px] border border-border/80 bg-background/85 shadow-[0_0_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl duration-300 animate-in fade-in slide-in-from-left-4 sm:rounded-[28px]">
+        <div
+          ref={scrollRef}
+          className="custom-scrollbar flex h-full w-full min-h-0 flex-col overflow-y-auto"
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </PanelScrollContext.Provider>
   );
 }
 

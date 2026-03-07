@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { usePanelScrollRef } from "@/shared/components/layout/PanelLayout";
 import { useConfirm } from "@/shared/lib/useConfirm";
 
 /**
@@ -41,12 +42,13 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
     () => Array.from({ length: 6 }, (_, index) => `skeleton-${index}`),
     [],
   );
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const panelScrollRef = usePanelScrollRef();
+  const measureRef = useRef<HTMLDivElement>(null);
   const [gridColumns, setGridColumns] = useState(1);
 
   useEffect(() => {
     const updateColumns = () => {
-      const width = scrollRef.current?.clientWidth ?? 0;
+      const width = measureRef.current?.clientWidth ?? 0;
       if (width >= 1536) {
         setGridColumns(3);
       } else if (width >= 1280) {
@@ -188,9 +190,10 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
           : 320;
   const virtualizer = useVirtualizer({
     count: rowCount,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => panelScrollRef.current,
     estimateSize: () => rowHeight,
     overscan: 2,
+    scrollMargin: measureRef.current?.offsetTop ?? 0,
   });
 
   return (
@@ -279,10 +282,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
       </div>
 
       {/* Grid */}
-      <div
-        ref={scrollRef}
-        className="custom-scrollbar h-[70vh] overflow-y-auto overflow-x-hidden pb-8 sm:pr-2 sm:pb-10"
-      >
+      <div ref={measureRef} className="overflow-x-hidden pb-8 sm:pr-2 sm:pb-10">
         {displayMode === "used-empty" ? (
           <div className="py-20 text-center flex flex-col items-center border border-dashed border-border/50 rounded-2xl bg-card/20">
             <History className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
@@ -342,7 +342,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
                     left: 0,
                     width: "100%",
                     height: `${row.size}px`,
-                    transform: `translateY(${row.start}px)`,
+                    transform: `translateY(${row.start - virtualizer.options.scrollMargin}px)`,
                     gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
                   }}
                 >

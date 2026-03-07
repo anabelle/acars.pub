@@ -16,6 +16,7 @@ vi.mock("@acars/store", () => {
 vi.mock("@/shared/components/layout/PanelLayout", () => {
   return {
     PanelLayout: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    usePanelScrollRef: () => ({ current: null }),
   };
 });
 

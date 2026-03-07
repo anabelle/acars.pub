@@ -2,6 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Leaderboard } from "./Leaderboard";
 
+vi.mock("@/shared/components/layout/PanelLayout", () => ({
+  usePanelScrollRef: () => ({ current: null }),
+}));
+
 type Selector<T> = (state: T) => unknown;
 type AirlineStoreState = {
   competitors: Map<string, unknown>;
@@ -59,6 +63,7 @@ vi.mock("@tanstack/react-virtual", () => {
           size: 84,
         })),
       measureElement: () => {},
+      options: { scrollMargin: 0 },
     }),
   };
 });
@@ -93,7 +98,9 @@ describe("Leaderboard", () => {
     render(<Leaderboard />);
     expect(screen.getByText("Test Air")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "fleet" } });
+    fireEvent.change(screen.getByRole("combobox"), {
+      target: { value: "fleet" },
+    });
     expect(screen.getAllByText("Fleet Size").length).toBeGreaterThan(0);
   });
 });
