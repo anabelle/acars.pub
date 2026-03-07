@@ -2,7 +2,7 @@ import type { Airport } from "@acars/core";
 import { airports as AIRPORTS, findPreferredHub } from "@acars/data";
 import type { UserLocation } from "@acars/store";
 import { useAirlineStore, useEngineStore } from "@acars/store";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /** Fallback: estimate location from UTC offset */
 function estimateLocationFromOffset(): UserLocation {
@@ -13,19 +13,26 @@ function estimateLocationFromOffset(): UserLocation {
 }
 
 /** IANA timezone detection */
-function findAirportByTimezone(): Airport | null {
+function findAirportByTimezone(occupiedIatas?: ReadonlySet<string>): Airport | null {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const matches = AIRPORTS.filter((a) => a.timezone === tz);
     if (matches.length > 0) {
-      return [...matches].sort((a, b) => (b.population || 0) - (a.population || 0))[0];
+      const sorted = [...matches].sort((a, b) => (b.population || 0) - (a.population || 0));
+      const available = occupiedIatas ? sorted.find((a) => !occupiedIatas.has(a.iata)) : sorted[0];
+      if (available) return available;
+      // All timezone matches occupied — fall through to city match
     }
 
     const tzCity = tz.split("/").pop()?.replace(/_/g, " ").toLowerCase();
     if (tzCity) {
       const cityMatches = AIRPORTS.filter((a) => a.city.toLowerCase() === tzCity);
       if (cityMatches.length > 0) {
-        return [...cityMatches].sort((a, b) => (b.population || 0) - (a.population || 0))[0];
+        const sorted = [...cityMatches].sort((a, b) => (b.population || 0) - (a.population || 0));
+        const available = occupiedIatas
+          ? sorted.find((a) => !occupiedIatas.has(a.iata))
+          : sorted[0];
+        if (available) return available;
       }
     }
     return null;
@@ -34,12 +41,28 @@ function findAirportByTimezone(): Airport | null {
   }
 }
 
+/** Collect all IATA codes used as hubs by competitor airlines. */
+function collectOccupiedHubs(competitors: Map<string, { hubs: string[] }>): Set<string> {
+  const occupied = new Set<string>();
+  competitors.forEach((airline) => {
+    for (const hub of airline.hubs) {
+      occupied.add(hub);
+    }
+  });
+  return occupied;
+}
+
 export function AppInitializer({ children }: { children: React.ReactNode }) {
   const { airline, initializeIdentity } = useAirlineStore();
   const identityStatus = useAirlineStore((s) => s.identityStatus);
+  const competitors = useAirlineStore((s) => s.competitors);
   const homeAirport = useEngineStore((s) => s.homeAirport);
   const setHub = useEngineStore((s) => s.setHub);
   const startEngine = useEngineStore((s) => s.startEngine);
+
+  // Track whether the user has manually picked a hub via HubPicker.
+  // When they do, we must not override their choice.
+  const userManuallyPickedHub = useRef(false);
 
   useEffect(() => {
     initializeIdentity();
@@ -109,6 +132,35 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
       fallbackLocate();
     }
   }, [homeAirport, identityStatus, airline, setHub, startEngine]);
+
+  // Re-evaluate the suggested hub once competitor data loads from Nostr.
+  // This only fires for new users who haven't created an airline yet and
+  // haven't manually selected a hub via the HubPicker.
+  useEffect(() => {
+    if (airline) return; // Returning user — don't touch their hub
+    if (competitors.size === 0) return; // No competitor data yet
+
+    // Check if the user manually picked a hub (source === "manual")
+    const { userLocation } = useEngineStore.getState();
+    if (!userLocation || userLocation.source === "manual") {
+      userManuallyPickedHub.current = true;
+      return;
+    }
+    if (userManuallyPickedHub.current) return;
+
+    const occupied = collectOccupiedHubs(competitors);
+    if (occupied.size === 0) return;
+
+    const currentHome = useEngineStore.getState().homeAirport;
+    if (!currentHome || !occupied.has(currentHome.iata)) return; // Current suggestion is fine
+
+    // Re-run hub suggestion with competitor awareness
+    const { latitude, longitude } = userLocation;
+    const better = findPreferredHub(latitude, longitude, undefined, occupied);
+    if (better.iata !== currentHome.iata) {
+      setHub(better, { latitude, longitude, source: userLocation.source }, "auto-distributed");
+    }
+  }, [airline, competitors, setHub]);
 
   return <>{children}</>;
 }

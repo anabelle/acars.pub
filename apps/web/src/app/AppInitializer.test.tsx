@@ -10,6 +10,7 @@ type AirlineStoreState = {
   airline: unknown;
   identityStatus: string;
   initializeIdentity: () => void;
+  competitors: Map<string, unknown>;
 };
 type EngineStoreState = {
   homeAirport: unknown;
@@ -25,10 +26,13 @@ vi.mock("@acars/store", () => {
     },
     { getState: () => mockUseAirlineStore() as AirlineStoreState },
   );
+  const useEngineStore = Object.assign(
+    (selector: Selector<EngineStoreState>) => selector(mockUseEngineStore() as EngineStoreState),
+    { getState: () => mockUseEngineStore() as EngineStoreState },
+  );
   return {
     useAirlineStore,
-    useEngineStore: (selector: Selector<EngineStoreState>) =>
-      selector(mockUseEngineStore() as EngineStoreState),
+    useEngineStore,
   };
 });
 
@@ -49,6 +53,7 @@ describe("AppInitializer", () => {
       airline: null,
       identityStatus: "ready",
       initializeIdentity: vi.fn(),
+      competitors: new Map(),
     });
     mockUseEngineStore.mockReturnValue({
       homeAirport: null,
@@ -69,6 +74,7 @@ describe("AppInitializer", () => {
       airline: null,
       identityStatus: "ready",
       initializeIdentity,
+      competitors: new Map(),
     });
 
     (navigator as unknown as { geolocation?: Geolocation }).geolocation = {
