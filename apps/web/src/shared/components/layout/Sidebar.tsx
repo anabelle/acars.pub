@@ -5,18 +5,20 @@ import { useNavBadges } from "@/shared/hooks/useNavBadges";
 import { NavBadge } from "./NavBadge";
 
 const navItems = [
-  { icon: MapIcon, label: "Map", to: "/", requiresAirline: false },
-  { icon: Plane, label: "Fleet", to: "/fleet", requiresAirline: true },
-  { icon: Globe, label: "Network", to: "/network", requiresAirline: false },
+  { icon: MapIcon, label: "Map", mobileLabel: "Map", to: "/", requiresAirline: false },
+  { icon: Plane, label: "Fleet", mobileLabel: "Fleet", to: "/fleet", requiresAirline: true },
+  { icon: Globe, label: "Network", mobileLabel: "Net", to: "/network", requiresAirline: false },
   {
     icon: Trophy,
     label: "Leaderboard",
+    mobileLabel: "Rank",
     to: "/leaderboard",
     requiresAirline: false,
   },
   {
     icon: Building2,
     label: "Corporate",
+    mobileLabel: "Corp",
     to: "/corporate",
     requiresAirline: true,
   },
@@ -137,7 +139,7 @@ export function MobileNav() {
               )}
             </span>
             <span className="text-center text-[8px] font-semibold uppercase tracking-[0.12em] leading-none">
-              {item.label}
+              {item.mobileLabel}
             </span>
           </Link>
         );
@@ -156,7 +158,7 @@ export function MobileNav() {
           <Info className="h-5 w-5" />
         </span>
         <span className="text-center text-[8px] font-semibold uppercase tracking-[0.12em] leading-none">
-          About
+          Info
         </span>
       </Link>
     </nav>
