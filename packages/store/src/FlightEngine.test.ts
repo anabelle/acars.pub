@@ -489,6 +489,37 @@ describe("FlightEngine — Multiplayer scenarios", () => {
 });
 
 describe("FlightEngine — Edge cases", () => {
+  it("maintenance aircraft remain grounded until downtime expires, then return to idle", () => {
+    const aircraft = makeAircraft({
+      id: "ac-maint",
+      modelId: "a320neo",
+      status: "maintenance",
+      assignedRouteId: "route-maint",
+      maintenanceStartTick: 100,
+      turnaroundEndTick: 100 + 8 * TICKS_PER_HOUR,
+      baseAirportIata: "JFK",
+    });
+    const route = makeRoute({
+      id: "route-maint",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: [aircraft.id],
+    });
+
+    const beforeReady = runTick(initState([aircraft], [route]), 100 + 4 * TICKS_PER_HOUR);
+    expect(beforeReady.fleet[0].status).toBe("maintenance");
+
+    const afterReady = runTick(beforeReady, 100 + 8 * TICKS_PER_HOUR);
+    expect(afterReady.fleet[0].status).toBe("idle");
+    expect(afterReady.fleet[0].turnaroundEndTick).toBeUndefined();
+    expect(
+      afterReady.events.some(
+        (e) => e.id === `evt-maint-complete-ac-maint-${100 + 8 * TICKS_PER_HOUR}`,
+      ),
+    ).toBe(true);
+  });
+
   it("safety grounding blocks takeoff when condition is low", () => {
     const aircraft = makeAircraft({
       id: "ac-ground",
@@ -923,6 +954,28 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
     const { fleet: result } = reconcileFleetToTick([aircraft], [], 50000);
     expect(result[0].status).toBe("idle");
     expect(result[0].flight).toBeNull();
+  });
+
+  it("reconcileFleetToTick releases maintenance aircraft whose downtime elapsed", () => {
+    const aircraft = makeAircraft({
+      id: "ac-maint-reconcile",
+      status: "maintenance",
+      assignedRouteId: "route-r5b",
+      maintenanceStartTick: 100,
+      turnaroundEndTick: 200,
+    });
+    const route = makeRoute({
+      id: "route-r5b",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: ["ac-maint-reconcile"],
+    });
+
+    const { fleet: result } = reconcileFleetToTick([aircraft], [route], 250);
+    expect(result[0].status).toBe("idle");
+    expect(result[0].maintenanceStartTick).toBeUndefined();
+    expect(result[0].turnaroundEndTick).toBeUndefined();
   });
 
   it("reconciles idle aircraft WITH assigned route to correct cycle phase", () => {

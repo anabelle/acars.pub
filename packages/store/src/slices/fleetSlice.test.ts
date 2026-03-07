@@ -1,5 +1,5 @@
 import type { AircraftInstance, AirlineEntity, FixedPoint, TimelineEvent } from "@acars/core";
-import { fp, fpAdd } from "@acars/core";
+import { fp, fpAdd, fpScale, getMaintenanceDowntimeTicks } from "@acars/core";
 import { getAircraftById } from "@acars/data";
 import { describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
@@ -333,6 +333,74 @@ describe("buyoutAircraft", () => {
 });
 
 describe("performMaintenance", () => {
+  it("applies maintenance successfully with correct cost and downtime", async () => {
+    const airline = makeAirline(["BOG"]);
+    const wornAc = {
+      ...makeAircraft("ac-worn", "BOG"),
+      modelId: "a320neo",
+      condition: 0.5,
+      flightHoursSinceCheck: 250,
+    };
+    const { state } = createSliceState({
+      airline,
+      fleet: [wornAc],
+      timeline: [],
+    });
+
+    await state.performMaintenance("ac-worn");
+
+    const updated = state.fleet.find((ac) => ac.id === "ac-worn");
+    const model = getAircraftById("a320neo");
+    expect(model).toBeTruthy();
+    const expectedCost = fpAdd(fp(15000), fpScale(model!.price, 0.05));
+
+    expect(updated?.condition).toBe(1);
+    expect(updated?.flightHoursSinceCheck).toBe(0);
+    expect(updated?.status).toBe("maintenance");
+    expect(updated?.maintenanceStartTick).toBe(100);
+    expect(updated?.turnaroundEndTick).toBe(100 + getMaintenanceDowntimeTicks(model!));
+    expect(state.airline?.corporateBalance).toBe(
+      fpAdd(airline.corporateBalance, -expectedCost as FixedPoint),
+    );
+    expect(state.timeline.some((evt) => evt.id === "evt-maint-ac-worn-100")).toBe(true);
+  });
+
+  it("rejects maintenance when aircraft is enroute", async () => {
+    const airline = makeAirline(["BOG"]);
+    const enrouteAc = {
+      ...makeAircraft("ac-enroute", "BOG"),
+      status: "enroute" as const,
+    };
+    const { state } = createSliceState({
+      airline,
+      fleet: [enrouteAc],
+      timeline: [],
+    });
+
+    await expect(state.performMaintenance("ac-enroute")).rejects.toThrow(
+      "Cannot perform maintenance while aircraft is enroute.",
+    );
+  });
+
+  it("rejects maintenance when funds are insufficient", async () => {
+    const lowBalance = fp(1000);
+    const airline = makeAirline(["BOG"], lowBalance);
+    const wornAc = {
+      ...makeAircraft("ac-worn", "BOG"),
+      modelId: "a320neo",
+      condition: 0.1,
+    };
+    const { state } = createSliceState({
+      airline,
+      fleet: [wornAc],
+      timeline: [],
+    });
+
+    await expect(state.performMaintenance("ac-worn")).rejects.toThrow(
+      "Insufficient funds for maintenance.",
+    );
+  });
+
   it("rollback restores only the maintained aircraft fields", async () => {
     const airline = makeAirline(["BOG"]);
     const wornAc = {

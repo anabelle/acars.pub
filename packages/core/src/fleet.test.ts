@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fp, fpScale, fpToNumber } from "./fixed-point.js";
-import { calculateBookValue, computeRouteFrequency } from "./fleet.js";
+import { calculateBookValue, computeRouteFrequency, getMaintenanceDowntimeTicks } from "./fleet.js";
 
 const mockModel = {
   id: "a320-neo",
@@ -136,6 +136,23 @@ describe("fleet", () => {
       const condValue = fpScale(depValue, 1 - (1 - 0.7) * 0.3);
       const utilValue = fpScale(condValue, 0.9);
       expect(fpToNumber(value)).toBeCloseTo(fpToNumber(utilValue), 0);
+    });
+  });
+
+  describe("getMaintenanceDowntimeTicks", () => {
+    it("returns scaled downtime by aircraft type", () => {
+      expect(getMaintenanceDowntimeTicks({ ...mockModel, type: "turboprop" })).toBe(
+        4 * TICKS_PER_HOUR,
+      );
+      expect(getMaintenanceDowntimeTicks({ ...mockModel, type: "regional" })).toBe(
+        6 * TICKS_PER_HOUR,
+      );
+      expect(getMaintenanceDowntimeTicks({ ...mockModel, type: "narrowbody" })).toBe(
+        8 * TICKS_PER_HOUR,
+      );
+      expect(getMaintenanceDowntimeTicks({ ...mockModel, type: "widebody" })).toBe(
+        12 * TICKS_PER_HOUR,
+      );
     });
   });
 });

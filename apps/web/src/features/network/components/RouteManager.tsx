@@ -48,6 +48,7 @@ import {
   getPrimaryAssignedAircraft,
 } from "@/features/network/utils/routeEconomics";
 import { PanelHeader } from "@/shared/components/layout/PanelLayout";
+import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { useConfirm } from "@/shared/lib/useConfirm";
 
@@ -544,6 +545,7 @@ export function RouteManager() {
   };
 
   // --- Virtualization (hooks must come before any conditional return) ---
+  const panelScrollRef = usePanelScrollRef();
   const listParentRef = useRef<HTMLDivElement>(null);
 
   const displayedOpportunities = useMemo(() => {
@@ -557,16 +559,18 @@ export function RouteManager() {
 
   const activeRoutesVirtualizer = useVirtualizer({
     count: activeRoutes.length,
-    getScrollElement: () => listParentRef.current,
+    getScrollElement: () => panelScrollRef.current,
     estimateSize: () => 420,
     overscan: 3,
+    scrollMargin: listParentRef.current?.offsetTop ?? 0,
   });
 
   const opportunitiesVirtualizer = useVirtualizer({
     count: displayedOpportunities.length,
-    getScrollElement: () => listParentRef.current,
+    getScrollElement: () => panelScrollRef.current,
     estimateSize: () => 220,
     overscan: 5,
+    scrollMargin: listParentRef.current?.offsetTop ?? 0,
   });
 
   if (!airline || !homeAirport || !planningOriginAirport) return null;
@@ -794,7 +798,7 @@ export function RouteManager() {
                 )}
               </div>
             ) : (
-              <div ref={listParentRef} className="h-[70vh] overflow-y-auto custom-scrollbar">
+              <div ref={listParentRef}>
                 <div
                   style={{
                     height: `${activeRoutesVirtualizer.getTotalSize()}px`,
@@ -884,7 +888,7 @@ export function RouteManager() {
                           top: 0,
                           left: 0,
                           width: "100%",
-                          transform: `translateY(${virtualItem.start}px)`,
+                          transform: `translateY(${virtualItem.start - activeRoutesVirtualizer.options.scrollMargin}px)`,
                         }}
                       >
                         <div className="group relative rounded-2xl bg-card border border-border overflow-hidden p-4 sm:p-5 transition-all hover:border-primary/50 hover:shadow-md mb-3">
@@ -1344,7 +1348,7 @@ export function RouteManager() {
               </div>
             )
           ) : (
-            <div ref={listParentRef} className="h-[70vh] overflow-y-auto custom-scrollbar">
+            <div ref={listParentRef}>
               <div
                 style={{
                   height: `${opportunitiesVirtualizer.getTotalSize()}px`,
@@ -1386,7 +1390,7 @@ export function RouteManager() {
                         top: 0,
                         left: 0,
                         width: "100%",
-                        transform: `translateY(${virtualItem.start}px)`,
+                        transform: `translateY(${virtualItem.start - opportunitiesVirtualizer.options.scrollMargin}px)`,
                       }}
                     >
                       <div className="group relative rounded-2xl bg-card border border-border overflow-hidden p-5 transition-all hover:border-primary/50 mb-4">

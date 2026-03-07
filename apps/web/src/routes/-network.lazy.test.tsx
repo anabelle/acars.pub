@@ -19,6 +19,10 @@ vi.mock("@/shared/components/layout/PanelLayout", () => {
   };
 });
 
+vi.mock("@/shared/components/layout/panelScrollContext", () => ({
+  usePanelScrollRef: () => ({ current: null }),
+}));
+
 vi.mock("@/features/network/components/RouteManager", () => {
   return {
     RouteManager: () => <div>Route Manager</div>,

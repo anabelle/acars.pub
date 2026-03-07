@@ -32,6 +32,10 @@ vi.mock("@/shared/components/layout/PanelLayout", () => {
   };
 });
 
+vi.mock("@/shared/components/layout/panelScrollContext", () => ({
+  usePanelScrollRef: () => ({ current: null }),
+}));
+
 vi.mock("@/features/fleet/components/FleetManager", () => {
   return {
     FleetManager: () => <div>Fleet Manager</div>,

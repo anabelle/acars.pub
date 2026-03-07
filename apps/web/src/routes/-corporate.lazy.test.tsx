@@ -12,6 +12,10 @@ vi.mock("@/shared/components/layout/PanelLayout", () => {
   };
 });
 
+vi.mock("@/shared/components/layout/panelScrollContext", () => ({
+  usePanelScrollRef: () => ({ current: null }),
+}));
+
 vi.mock("@/features/airline/components/Timeline", () => {
   return {
     AirlineTimeline: () => <div data-testid="full-timeline">Timeline</div>,

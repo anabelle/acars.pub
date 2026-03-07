@@ -16,6 +16,7 @@ import {
   fpScale,
   fpSub,
   GENESIS_TIME,
+  getMaintenanceDowntimeTicks,
   getSuggestedFares,
   ROUTE_SLOT_FEE,
   TICK_DURATION,
@@ -1223,6 +1224,7 @@ export async function replayActionLog(params: {
         aircraft.flightHoursSinceCheck = 0;
         aircraft.status = "maintenance";
         aircraft.maintenanceStartTick = actionTick;
+        aircraft.turnaroundEndTick = actionTick + getMaintenanceDowntimeTicks(model);
         applyBalanceDelta(fpSub(fpZero, cost));
         updateLastTick(actionTick);
         pushTimelineEvent({

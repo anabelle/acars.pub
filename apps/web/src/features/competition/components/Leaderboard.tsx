@@ -12,6 +12,7 @@ import {
   buildLeaderboardRows,
   sortLeaderboardRows,
 } from "@/features/competition/leaderboardMetrics";
+import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { useNostrProfile } from "@/shared/hooks/useNostrProfile";
 import { cn } from "@/shared/lib/utils";
 
@@ -231,13 +232,15 @@ export function Leaderboard() {
   }, [competitors, airline, aircraftById, routeById, currentTick, metric]);
 
   const ownId = airline?.id ?? null;
+  const panelScrollRef = usePanelScrollRef();
   const parentRef = useRef<HTMLDivElement | null>(null);
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => panelScrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 6,
+    scrollMargin: parentRef.current?.offsetTop ?? 0,
   });
 
   return (
@@ -274,7 +277,7 @@ export function Leaderboard() {
         </div>
       </div>
 
-      <div ref={parentRef} className="custom-scrollbar h-[70vh] overflow-y-auto">
+      <div ref={parentRef}>
         <div className="relative" style={{ height: `${virtualizer.getTotalSize()}px` }}>
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const row = rows[virtualRow.index];
@@ -298,7 +301,9 @@ export function Leaderboard() {
                 data-index={virtualRow.index}
                 ref={virtualizer.measureElement}
                 className="absolute left-0 right-0 pb-2"
-                style={{ transform: `translateY(${virtualRow.start}px)` }}
+                style={{
+                  transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
+                }}
               >
                 <LeaderboardRow
                   row={row}

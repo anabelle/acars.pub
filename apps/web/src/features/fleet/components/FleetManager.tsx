@@ -3,12 +3,14 @@ import {
   type FixedPoint,
   FP_ZERO,
   fp,
+  fpAdd,
   fpDiv,
   fpFormat,
   fpMul,
   fpScale,
   fpSub,
   fpToNumber,
+  getMaintenanceDowntimeTicks,
   TICKS_PER_HOUR,
 } from "@acars/core";
 import { getAircraftById } from "@acars/data";
@@ -32,6 +34,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getRouteDemandSnapshot } from "@/features/network/hooks/useRouteDemand";
+import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { useConfirm } from "@/shared/lib/useConfirm";
 import { cn } from "@/shared/lib/utils";
@@ -101,6 +104,7 @@ export function FleetManager() {
     assignAircraftToRoute,
     listAircraft,
     cancelListing,
+    performMaintenance,
     ferryAircraft,
   } = useAirlineStore((state) => state);
   const { tick, tickProgress } = useEngineStore((state) => state);
@@ -124,6 +128,7 @@ export function FleetManager() {
   const [listingError, setListingError] = useState<string | null>(null);
   const [isListing, setIsListing] = useState(false);
   const [ferryTargets, setFerryTargets] = useState<Record<string, string>>({});
+  const panelScrollRef = usePanelScrollRef();
   const fleetListRef = useRef<HTMLDivElement | null>(null);
   const [fleetColumns, setFleetColumns] = useState(1);
   const minListingPrice = fp(1000);
@@ -173,10 +178,11 @@ export function FleetManager() {
   const fleetRows = Math.ceil(filteredFleet.length / fleetColumns);
   const fleetVirtualizer = useVirtualizer({
     count: fleetRows,
-    getScrollElement: () => fleetListRef.current,
+    getScrollElement: () => panelScrollRef.current,
     estimateSize: () => 730,
     initialRect: { width: 1024, height: 1200 },
     overscan: 2,
+    scrollMargin: fleetListRef.current?.offsetTop ?? 0,
   });
   const virtualRows = fleetVirtualizer.getVirtualItems();
   const isVirtualized = virtualRows.length > 0;
@@ -275,7 +281,7 @@ export function FleetManager() {
         </div>
       </div>
 
-      <div ref={fleetListRef} className="custom-scrollbar h-[70vh] overflow-y-auto pb-8">
+      <div ref={fleetListRef} className="pb-8">
         {fleet.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-border/50 rounded-2xl bg-card/10">
             <Plane className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
@@ -314,7 +320,11 @@ export function FleetManager() {
                     isVirtualized ? "absolute left-0 right-0 pb-4 sm:pb-6" : "pb-4 sm:pb-6"
                   }
                   style={
-                    isVirtualized ? { transform: `translateY(${virtualRow.start}px)` } : undefined
+                    isVirtualized
+                      ? {
+                          transform: `translateY(${virtualRow.start - fleetVirtualizer.options.scrollMargin}px)`,
+                        }
+                      : undefined
                   }
                 >
                   <div
@@ -336,7 +346,20 @@ export function FleetManager() {
                       const timerStyle = timer ? timerStyleMap[timer.kind] : null;
                       const isAssignmentLocked = ac.status === "enroute";
                       const isScrapLocked = ac.status !== "idle";
+                      const isMaintenanceLocked =
+                        ac.status === "enroute" ||
+                        ac.status === "maintenance" ||
+                        ac.status === "delivery";
                       const baseHub = getAircraftBaseHub(ac, routes, airline);
+                      const maintenanceBaseFee = fp(15000);
+                      const maintenanceRepairCost = fpScale(model.price, (1 - ac.condition) * 0.1);
+                      const maintenanceCost = fpAdd(
+                        maintenanceBaseFee,
+                        maintenanceRepairCost,
+                      ) as FixedPoint;
+                      const maintenanceDowntimeHours = Math.round(
+                        getMaintenanceDowntimeTicks(model) / TICKS_PER_HOUR,
+                      );
 
                       return (
                         <div
@@ -823,6 +846,46 @@ export function FleetManager() {
                               )}
 
                               <div className="flex gap-2 mt-1 w-full">
+                                {!isViewingOther && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (isMaintenanceLocked) return;
+                                      confirm({
+                                        title: "Perform maintenance?",
+                                        description: `Ground ${ac.name} for ${maintenanceDowntimeHours}h and spend ${fpFormat(maintenanceCost, 0)} to restore condition to 100%.`,
+                                        confirmLabel: "Maintain",
+                                        cancelLabel: "Cancel",
+                                      }).then(async (approved: boolean) => {
+                                        if (!approved) return;
+                                        try {
+                                          await performMaintenance(ac.id);
+                                        } catch (err) {
+                                          const message =
+                                            err instanceof Error ? err.message : "Unknown error";
+                                          toast.error("Maintenance failed", {
+                                            description: message,
+                                          });
+                                        }
+                                      });
+                                    }}
+                                    aria-label={`Perform maintenance on ${ac.name}`}
+                                    className={`flex items-center justify-center rounded-lg border p-2 transition-all ${isMaintenanceLocked ? "cursor-not-allowed border-border/50 bg-muted/20 text-muted-foreground" : "border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500 hover:text-white"}`}
+                                    title={
+                                      isMaintenanceLocked
+                                        ? ac.status === "maintenance"
+                                          ? "Aircraft is already in maintenance."
+                                          : ac.status === "delivery"
+                                            ? "Maintenance unavailable during delivery."
+                                            : "Maintenance unavailable while enroute."
+                                        : `Perform maintenance for ${fpFormat(maintenanceCost, 0)}`
+                                    }
+                                    disabled={isMaintenanceLocked}
+                                  >
+                                    <Wrench className="h-4 w-4" />
+                                  </button>
+                                )}
+
                                 <button
                                   type="button"
                                   onClick={() => {

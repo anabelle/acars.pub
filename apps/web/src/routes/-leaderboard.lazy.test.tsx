@@ -10,6 +10,10 @@ vi.mock("@/shared/components/layout/PanelLayout", () => {
   };
 });
 
+vi.mock("@/shared/components/layout/panelScrollContext", () => ({
+  usePanelScrollRef: () => ({ current: null }),
+}));
+
 vi.mock("@/features/competition/components/Leaderboard", () => {
   return {
     Leaderboard: () => <div>Leaderboard</div>,

@@ -8,6 +8,7 @@ import {
   fpScale,
   fpSub,
   GENESIS_TIME,
+  getMaintenanceDowntimeTicks,
   haversineDistance,
   TICK_DURATION,
   TICKS_PER_HOUR,
@@ -936,7 +937,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
       flightHoursSinceCheck: 0,
       status: "maintenance",
       maintenanceStartTick: useEngineStore.getState().tick,
-      turnaroundEndTick: useEngineStore.getState().tick + (6 * 60) / 10, // 6 hour downtime
+      turnaroundEndTick: useEngineStore.getState().tick + getMaintenanceDowntimeTicks(model),
     };
 
     const updatedAirline = {
