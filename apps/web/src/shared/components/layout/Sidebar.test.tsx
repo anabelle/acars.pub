@@ -23,7 +23,19 @@ vi.mock("@acars/store", () => {
 
 vi.mock("@tanstack/react-router", () => {
   return {
-    Link: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    Link: ({
+      children,
+      className,
+      to,
+    }: {
+      children: ReactNode;
+      className?: string;
+      to?: string;
+    }) => (
+      <a className={className} href={to}>
+        {children}
+      </a>
+    ),
   };
 });
 
@@ -48,5 +60,20 @@ describe("MobileNav", () => {
     render(<MobileNav />);
     expect(screen.getByText("Map")).toBeInTheDocument();
     expect(screen.getByText("Fleet")).toBeInTheDocument();
+  });
+
+  it("uses evenly sized slots for mobile navigation items", () => {
+    const { container } = render(<MobileNav />);
+
+    const nav = container.querySelector("nav");
+    expect(nav).toHaveClass("grid", "grid-cols-6");
+
+    const links = container.querySelectorAll("a");
+    expect(links).toHaveLength(6);
+
+    for (const link of links) {
+      expect(link).toHaveClass("min-w-0", "justify-center");
+      expect(link).not.toHaveClass("min-w-[3.75rem]");
+    }
   });
 });
