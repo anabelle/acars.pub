@@ -34,7 +34,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getRouteDemandSnapshot } from "@/features/network/hooks/useRouteDemand";
-import { usePanelScrollRef } from "@/shared/components/layout/PanelLayout";
+import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { useConfirm } from "@/shared/lib/useConfirm";
 import { cn } from "@/shared/lib/utils";

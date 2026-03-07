@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { usePanelScrollRef } from "@/shared/components/layout/PanelLayout";
+import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { useConfirm } from "@/shared/lib/useConfirm";
 
 /**

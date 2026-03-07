@@ -12,7 +12,7 @@ import {
   buildLeaderboardRows,
   sortLeaderboardRows,
 } from "@/features/competition/leaderboardMetrics";
-import { usePanelScrollRef } from "@/shared/components/layout/PanelLayout";
+import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { useNostrProfile } from "@/shared/hooks/useNostrProfile";
 import { cn } from "@/shared/lib/utils";
 

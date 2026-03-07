@@ -1,20 +1,8 @@
 import { useNavigate } from "@tanstack/react-router";
 import { X } from "lucide-react";
-import { createContext, useContext, useRef } from "react";
+import { useRef } from "react";
 import { cn } from "@/shared/lib/utils";
-
-const PanelScrollContext = createContext<React.RefObject<HTMLDivElement | null> | null>(null);
-
-/**
- * Returns a ref to the PanelLayout scroll container.
- * Use this as `getScrollElement` in useVirtualizer to share
- * a single scroll surface with the panel header.
- */
-export function usePanelScrollRef() {
-  const ref = useContext(PanelScrollContext);
-  if (!ref) throw new Error("usePanelScrollRef must be used inside a PanelLayout");
-  return ref;
-}
+import { PanelScrollContext } from "./panelScrollContext";
 
 export function PanelLayout({ children }: { children: React.ReactNode }) {
   const scrollRef = useRef<HTMLDivElement>(null);

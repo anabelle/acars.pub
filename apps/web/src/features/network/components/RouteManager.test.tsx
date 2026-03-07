@@ -6,6 +6,9 @@ import { RouteManager } from "./RouteManager";
 vi.mock("@/shared/components/layout/PanelLayout", () => ({
   PanelHeader: ({ title }: { title: string }) => <div>{title}</div>,
   PanelBody: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock("@/shared/components/layout/panelScrollContext", () => ({
   usePanelScrollRef: () => ({ current: null }),
 }));
 

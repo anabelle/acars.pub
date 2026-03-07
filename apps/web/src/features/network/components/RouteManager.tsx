@@ -47,7 +47,8 @@ import {
   estimateRouteEconomics,
   getPrimaryAssignedAircraft,
 } from "@/features/network/utils/routeEconomics";
-import { PanelHeader, usePanelScrollRef } from "@/shared/components/layout/PanelLayout";
+import { PanelHeader } from "@/shared/components/layout/PanelLayout";
+import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { useConfirm } from "@/shared/lib/useConfirm";
 

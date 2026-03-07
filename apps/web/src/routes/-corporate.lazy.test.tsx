@@ -9,9 +9,12 @@ vi.mock("@/shared/components/layout/PanelLayout", () => {
     PanelLayout: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     PanelHeader: ({ title }: { title: string }) => <div>{title}</div>,
     PanelBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-    usePanelScrollRef: () => ({ current: null }),
   };
 });
+
+vi.mock("@/shared/components/layout/panelScrollContext", () => ({
+  usePanelScrollRef: () => ({ current: null }),
+}));
 
 vi.mock("@/features/airline/components/Timeline", () => {
   return {
