@@ -307,6 +307,8 @@ export function FleetManager() {
               return (
                 <div
                   key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={isVirtualized ? fleetVirtualizer.measureElement : undefined}
                   data-testid="fleet-row"
                   className={
                     isVirtualized ? "absolute left-0 right-0 pb-4 sm:pb-6" : "pb-4 sm:pb-6"

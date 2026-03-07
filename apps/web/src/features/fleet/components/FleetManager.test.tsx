@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { FleetManager, FLEET_TWO_COLUMN_BREAKPOINT } from "./FleetManager";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FLEET_TWO_COLUMN_BREAKPOINT, FleetManager } from "./FleetManager";
 
 type Selector<T> = (state: T) => unknown;
 type AirlineStoreState = {
@@ -20,6 +20,18 @@ type EngineStoreState = { tick: number; tickProgress: number };
 const mockUseAirlineStore = vi.fn();
 const mockUseEngineStore = vi.fn();
 const mockUseActiveAirline = vi.fn();
+const mockMeasureElement = vi.fn();
+let mockVirtualItems: Array<{ key: string; index: number; start: number }> = [];
+
+vi.mock("@tanstack/react-virtual", () => {
+  return {
+    useVirtualizer: () => ({
+      getVirtualItems: () => mockVirtualItems,
+      getTotalSize: () => (mockVirtualItems.length > 0 ? 730 : 0),
+      measureElement: mockMeasureElement,
+    }),
+  };
+});
 
 vi.mock("@acars/store", () => {
   return {
@@ -57,8 +69,20 @@ vi.mock("@/shared/lib/useConfirm", () => {
 vi.mock("@/features/network/hooks/useRouteDemand", () => {
   return {
     getRouteDemandSnapshot: vi.fn(() => ({
-      totalDemand: { origin: "JFK", destination: "LAX", economy: 0, business: 0, first: 0 },
-      addressableDemand: { origin: "JFK", destination: "LAX", economy: 0, business: 0, first: 0 },
+      totalDemand: {
+        origin: "JFK",
+        destination: "LAX",
+        economy: 0,
+        business: 0,
+        first: 0,
+      },
+      addressableDemand: {
+        origin: "JFK",
+        destination: "LAX",
+        economy: 0,
+        business: 0,
+        first: 0,
+      },
       pressureMultiplier: 0.7,
       totalWeeklySeats: 0,
       suggestedFleetDelta: 0,
@@ -81,6 +105,69 @@ vi.mock("./AircraftLiveryImage", () => {
 });
 
 describe("FleetManager", () => {
+  beforeEach(() => {
+    mockMeasureElement.mockClear();
+    mockVirtualItems = [];
+  });
+
+  it("measures virtual rows so taller cards expand the row height", () => {
+    mockVirtualItems = [{ key: "row-0", index: 0, start: 0 }];
+
+    mockUseAirlineStore.mockReturnValue({
+      sellAircraft: vi.fn(),
+      buyoutAircraft: vi.fn(),
+      assignAircraftToRoute: vi.fn(),
+      listAircraft: vi.fn(),
+      cancelListing: vi.fn(),
+      ferryAircraft: vi.fn(),
+    });
+    mockUseActiveAirline.mockReturnValue({
+      airline: { hubs: ["JFK"] },
+      fleet: [
+        {
+          id: "ac-1",
+          name: "Tall Card Jet",
+          modelId: "a320neo",
+          status: "idle",
+          assignedRouteId: null,
+          baseAirportIata: "JFK",
+          configuration: { economy: 120, business: 0, first: 0, cargoKg: 0 },
+          condition: 1,
+          flightHoursTotal: 0,
+          flightHoursSinceCheck: 0,
+          purchaseType: "buy",
+          purchasedAtTick: 0,
+          birthTick: 0,
+          purchasePrice: 100000,
+          flight: null,
+        },
+      ],
+      routes: [],
+      timeline: [
+        {
+          type: "landing",
+          aircraftId: "ac-1",
+          originIata: "JFK",
+          destinationIata: "LAX",
+          profit: 1000,
+          details: {
+            flightDurationTicks: 1200,
+            loadFactor: 0.9,
+            passengers: { total: 100, economy: 100, business: 0, first: 0 },
+            spilledPassengers: 0,
+          },
+        },
+      ],
+      isViewingOther: false,
+    });
+    mockUseEngineStore.mockReturnValue({ tick: 0, tickProgress: 0 });
+
+    render(<FleetManager />);
+
+    expect(mockMeasureElement).toHaveBeenCalled();
+    expect(screen.getByText("Last Flight Outcome")).toBeInTheDocument();
+  });
+
   it("renders empty state when fleet is empty", () => {
     mockUseAirlineStore.mockReturnValue({
       sellAircraft: vi.fn(),
@@ -100,8 +187,10 @@ describe("FleetManager", () => {
     mockUseEngineStore.mockReturnValue({ tick: 0, tickProgress: 0 });
 
     render(<FleetManager />);
+
+    expect(mockMeasureElement).not.toHaveBeenCalled();
     expect(screen.getByText("Your hangar is empty")).toBeInTheDocument();
-    expect(screen.getByText("Purchase Aircraft")).toBeInTheDocument();
+    expect(screen.getByText("Open Global Marketplace")).toBeInTheDocument();
   });
 
   it("uses elasticity-adjusted load factor in route options", () => {
