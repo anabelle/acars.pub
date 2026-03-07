@@ -27,6 +27,10 @@ export function findPreferredHub(
   lat: number,
   lon: number,
   airports: Airport[] = AIRPORTS,
+  /** IATA codes of airports that already serve as a competitor airline's hub.
+   *  When provided, the algorithm prefers unoccupied airports so that new
+   *  players are distributed across cities instead of clustering at the
+   *  biggest airport. */
   occupiedIatas?: ReadonlySet<string>,
 ): Airport {
   let nearest = airports[0];
