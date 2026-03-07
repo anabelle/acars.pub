@@ -60,6 +60,12 @@ describe("MobileNav", () => {
     render(<MobileNav />);
     expect(screen.getByText("Map")).toBeInTheDocument();
     expect(screen.getByText("Fleet")).toBeInTheDocument();
+    expect(screen.getByText("Net")).toBeInTheDocument();
+    expect(screen.getByText("Rank")).toBeInTheDocument();
+    expect(screen.getByText("Corp")).toBeInTheDocument();
+    expect(screen.getByText("Info")).toBeInTheDocument();
+    expect(screen.queryByText("Leaderboard")).not.toBeInTheDocument();
+    expect(screen.queryByText("Corporate")).not.toBeInTheDocument();
   });
 
   it("uses evenly sized slots for mobile navigation items", () => {
