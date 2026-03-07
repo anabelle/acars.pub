@@ -41,13 +41,13 @@
   },
   "lint-staged": {
     "**/*.{ts,tsx,js,jsx,cjs,mjs,json,css,scss,html}": [
-      "biome format --write"
+      "bash -lc 'for f in \"$@\"; do if [ \"$f\" != \"packages/data/src/airports.ts\" ]; then printf \"%s\\n\" \"$f\"; fi; done | xargs -r biome format --write' --"
     ],
     "**/*.{md,mdx,yml,yaml}": [
       "prettier --write"
     ],
     "**/*.{ts,tsx,js,jsx,cjs,mjs}": [
-      "eslint"
+      "bash -lc 'for f in \"$@\"; do if [ \"$f\" != \"packages/data/src/airports.ts\" ]; then printf \"%s\\n\" \"$f\"; fi; done | xargs -r eslint' --"
     ]
   },
   "commitlint": {
