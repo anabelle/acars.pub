@@ -2,6 +2,21 @@ import { fpScale } from "./fixed-point.js";
 import type { AircraftModel, FixedPoint } from "./types.js";
 import { TICKS_PER_HOUR } from "./types.js";
 
+export function getMaintenanceDowntimeTicks(model: AircraftModel): number {
+  switch (model.type) {
+    case "turboprop":
+      return 4 * TICKS_PER_HOUR;
+    case "regional":
+      return 6 * TICKS_PER_HOUR;
+    case "narrowbody":
+      return 8 * TICKS_PER_HOUR;
+    case "widebody":
+      return 12 * TICKS_PER_HOUR;
+    default:
+      return 6 * TICKS_PER_HOUR;
+  }
+}
+
 /**
  * Computes the realistic weekly flight frequency for a route given the number of
  * assigned aircraft, route distance, aircraft speed and turnaround time.

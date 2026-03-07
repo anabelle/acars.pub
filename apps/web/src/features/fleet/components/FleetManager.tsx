@@ -3,12 +3,14 @@ import {
   type FixedPoint,
   FP_ZERO,
   fp,
+  fpAdd,
   fpDiv,
   fpFormat,
   fpMul,
   fpScale,
   fpSub,
   fpToNumber,
+  getMaintenanceDowntimeTicks,
   TICKS_PER_HOUR,
 } from "@acars/core";
 import { getAircraftById } from "@acars/data";
@@ -102,6 +104,7 @@ export function FleetManager() {
     assignAircraftToRoute,
     listAircraft,
     cancelListing,
+    performMaintenance,
     ferryAircraft,
   } = useAirlineStore((state) => state);
   const { tick, tickProgress } = useEngineStore((state) => state);
@@ -343,7 +346,20 @@ export function FleetManager() {
                       const timerStyle = timer ? timerStyleMap[timer.kind] : null;
                       const isAssignmentLocked = ac.status === "enroute";
                       const isScrapLocked = ac.status !== "idle";
+                      const isMaintenanceLocked =
+                        ac.status === "enroute" ||
+                        ac.status === "maintenance" ||
+                        ac.status === "delivery";
                       const baseHub = getAircraftBaseHub(ac, routes, airline);
+                      const maintenanceBaseFee = fp(15000);
+                      const maintenanceRepairCost = fpScale(model.price, (1 - ac.condition) * 0.1);
+                      const maintenanceCost = fpAdd(
+                        maintenanceBaseFee,
+                        maintenanceRepairCost,
+                      ) as FixedPoint;
+                      const maintenanceDowntimeHours = Math.round(
+                        getMaintenanceDowntimeTicks(model) / TICKS_PER_HOUR,
+                      );
 
                       return (
                         <div
@@ -830,6 +846,46 @@ export function FleetManager() {
                               )}
 
                               <div className="flex gap-2 mt-1 w-full">
+                                {!isViewingOther && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (isMaintenanceLocked) return;
+                                      confirm({
+                                        title: "Perform maintenance?",
+                                        description: `Ground ${ac.name} for ${maintenanceDowntimeHours}h and spend ${fpFormat(maintenanceCost, 0)} to restore condition to 100%.`,
+                                        confirmLabel: "Maintain",
+                                        cancelLabel: "Cancel",
+                                      }).then(async (approved: boolean) => {
+                                        if (!approved) return;
+                                        try {
+                                          await performMaintenance(ac.id);
+                                        } catch (err) {
+                                          const message =
+                                            err instanceof Error ? err.message : "Unknown error";
+                                          toast.error("Maintenance failed", {
+                                            description: message,
+                                          });
+                                        }
+                                      });
+                                    }}
+                                    aria-label={`Perform maintenance on ${ac.name}`}
+                                    className={`flex items-center justify-center rounded-lg border p-2 transition-all ${isMaintenanceLocked ? "cursor-not-allowed border-border/50 bg-muted/20 text-muted-foreground" : "border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500 hover:text-white"}`}
+                                    title={
+                                      isMaintenanceLocked
+                                        ? ac.status === "maintenance"
+                                          ? "Aircraft is already in maintenance."
+                                          : ac.status === "delivery"
+                                            ? "Maintenance unavailable during delivery."
+                                            : "Maintenance unavailable while enroute."
+                                        : `Perform maintenance for ${fpFormat(maintenanceCost, 0)}`
+                                    }
+                                    disabled={isMaintenanceLocked}
+                                  >
+                                    <Wrench className="h-4 w-4" />
+                                  </button>
+                                )}
+
                                 <button
                                   type="button"
                                   onClick={() => {

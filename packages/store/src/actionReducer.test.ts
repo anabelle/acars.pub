@@ -1,4 +1,5 @@
-import { fp } from "@acars/core";
+import { fp, fpAdd, fpScale, getMaintenanceDowntimeTicks } from "@acars/core";
+import { getAircraftById } from "@acars/data";
 import { describe, expect, it } from "vitest";
 import { replayActionLog } from "./actionReducer";
 
@@ -100,7 +101,12 @@ describe("replayActionLog", () => {
         action: {
           schemaVersion: 2,
           action: "AIRLINE_CREATE",
-          payload: { name: "Status Air", hubs: ["SEA"], corporateBalance: fp(50000000), tick: 1 },
+          payload: {
+            name: "Status Air",
+            hubs: ["SEA"],
+            corporateBalance: fp(50000000),
+            tick: 1,
+          },
         },
       },
       {
@@ -131,7 +137,12 @@ describe("replayActionLog", () => {
         action: {
           schemaVersion: 2,
           action: "AIRLINE_CREATE",
-          payload: { name: "Dup Air", hubs: ["PTY"], corporateBalance: fp(500000000), tick: 1 },
+          payload: {
+            name: "Dup Air",
+            hubs: ["PTY"],
+            corporateBalance: fp(500000000),
+            tick: 1,
+          },
         },
       },
       {
@@ -613,7 +624,12 @@ describe("replayActionLog", () => {
         action: {
           schemaVersion: 2,
           action: "AIRLINE_CREATE" as const,
-          payload: { name: "Auth Air", hubs: ["LAX"], corporateBalance: fp(50000000), tick: 1 },
+          payload: {
+            name: "Auth Air",
+            hubs: ["LAX"],
+            corporateBalance: fp(50000000),
+            tick: 1,
+          },
         },
       },
       {
@@ -644,7 +660,12 @@ describe("replayActionLog", () => {
         action: {
           schemaVersion: 2,
           action: "AIRLINE_CREATE" as const,
-          payload: { name: "Est Air", hubs: ["SFO"], corporateBalance: initialBalance, tick: 1 },
+          payload: {
+            name: "Est Air",
+            hubs: ["SFO"],
+            corporateBalance: initialBalance,
+            tick: 1,
+          },
         },
       },
       {
@@ -664,6 +685,67 @@ describe("replayActionLog", () => {
     // (no fleet to generate revenue, so reconcileFleetToTick delta is 0)
     expect(result.airline?.corporateBalance).toBe(initialBalance);
     expect(result.airline?.lastTick).toBe(100);
+  });
+
+  it("replays AIRCRAFT_MAINTENANCE with deterministic cost and downtime", async () => {
+    const pubkey = "pubkey-maint";
+    const actions = [
+      {
+        eventId: "evt-1",
+        authorPubkey: pubkey,
+        createdAt: 1,
+        action: {
+          schemaVersion: 2,
+          action: "AIRLINE_CREATE" as const,
+          payload: {
+            name: "Maint Air",
+            hubs: ["JFK"],
+            corporateBalance: fp(500000000),
+            tick: 1,
+          },
+        },
+      },
+      {
+        eventId: "evt-2",
+        authorPubkey: pubkey,
+        createdAt: 2,
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_PURCHASE" as const,
+          payload: {
+            instanceId: "ac-1",
+            modelId: "a320neo",
+            deliveryHubIata: "JFK",
+            tick: 2,
+          },
+        },
+      },
+      {
+        eventId: "evt-3",
+        authorPubkey: pubkey,
+        createdAt: 3,
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_MAINTENANCE" as const,
+          payload: { instanceId: "ac-1", tick: 100 },
+        },
+      },
+    ];
+
+    const result = await replayActionLog({ pubkey, actions });
+    const aircraft = result.fleet.find((ac) => ac.id === "ac-1");
+    const model = getAircraftById("a320neo");
+    expect(aircraft).toBeTruthy();
+    expect(model).toBeTruthy();
+
+    const purchasePrice = model!.price;
+    const maintenanceCost = fpAdd(fp(15000), fpScale(model!.price, 0));
+    expect(aircraft?.status).toBe("maintenance");
+    expect(aircraft?.maintenanceStartTick).toBe(100);
+    expect(aircraft?.turnaroundEndTick).toBe(100 + getMaintenanceDowntimeTicks(model!));
+    expect(result.airline?.corporateBalance).toBe(
+      fpAdd(fp(500000000), -(purchasePrice + maintenanceCost) as any),
+    );
   });
 
   it("bootstraps missing corporateBalance from TICK_UPDATE to default starting balance", async () => {

@@ -62,7 +62,11 @@ export {
   fpToNumber,
 } from "./fixed-point.js";
 // Fleet
-export { calculateBookValue, computeRouteFrequency } from "./fleet.js";
+export {
+  calculateBookValue,
+  computeRouteFrequency,
+  getMaintenanceDowntimeTicks,
+} from "./fleet.js";
 // Geography
 export { haversineDistance } from "./geo.js";
 // Hubs

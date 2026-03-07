@@ -145,7 +145,24 @@ export function processFlightEngine(
     }
 
     // Handle Maintenance (Placeholders for now)
-    if (ac.status === "maintenance") continue;
+    if (ac.status === "maintenance") {
+      if (ac.turnaroundEndTick !== undefined && tick >= ac.turnaroundEndTick) {
+        ac.status = "idle";
+        ac.maintenanceStartTick = undefined;
+        ac.turnaroundEndTick = undefined;
+        hasChanges = true;
+        events.push({
+          id: `evt-maint-complete-${ac.id}-${tick}`,
+          tick,
+          timestamp: simulatedTimestamp,
+          type: "maintenance",
+          aircraftId: ac.id,
+          aircraftName: ac.name,
+          description: `${ac.name} cleared maintenance and is ready for operations.`,
+        });
+      }
+      continue;
+    }
 
     const model = getAircraftById(ac.modelId);
     if (!model) continue;
@@ -956,6 +973,19 @@ export function reconcileFleetToTick(
         return {
           ...ac,
           status: "idle" as const,
+          lastTickProcessed: targetTick,
+        };
+      }
+      return ac;
+    }
+
+    if (ac.status === "maintenance") {
+      if (ac.turnaroundEndTick != null && ac.turnaroundEndTick <= targetTick) {
+        return {
+          ...ac,
+          status: "idle",
+          maintenanceStartTick: undefined,
+          turnaroundEndTick: undefined,
           lastTickProcessed: targetTick,
         };
       }
