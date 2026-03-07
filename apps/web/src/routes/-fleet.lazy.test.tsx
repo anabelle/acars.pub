@@ -56,4 +56,23 @@ describe("Fleet route", () => {
     render(<FleetRoute />);
     expect(screen.getAllByText("Fleet Manager").length).toBeGreaterThan(0);
   });
+
+  it("renders beginner-friendly locked state when no airline is connected", () => {
+    mockUseAirlineStore.mockReturnValue({
+      airline: null,
+      initializeIdentity: vi.fn(),
+      isLoading: false,
+      viewedPubkey: null,
+      fleet: [],
+    });
+    render(<FleetRoute />);
+    expect(screen.getByText("Fleet access locked")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Continue with browser wallet/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("What is Nostr?").closest("a")).toHaveAttribute(
+      "href",
+      "https://nostr.com",
+    );
+  });
 });

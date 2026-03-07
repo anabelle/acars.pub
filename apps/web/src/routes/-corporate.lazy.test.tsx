@@ -97,6 +97,14 @@ const mockAirline = {
   cumulativeRevenue: fp(0),
 };
 
+const corporateRouteState = {
+  airline: mockAirline as typeof mockAirline | null,
+  modifyHubs: vi.fn(),
+  initializeIdentity: vi.fn(),
+  isLoading: false,
+  viewedPubkey: null as string | null,
+};
+
 const mockTimeline = [
   {
     id: "evt-1",
@@ -116,17 +124,11 @@ const mockTimeline = [
 vi.mock("@acars/store", () => {
   return {
     useAirlineStore: (selector?: (s: unknown) => unknown) => {
-      const state = {
-        airline: mockAirline,
-        modifyHubs: vi.fn(),
-        initializeIdentity: vi.fn(),
-        isLoading: false,
-        viewedPubkey: null,
-      };
+      const state = corporateRouteState;
       return selector ? selector(state) : state;
     },
     useActiveAirline: () => ({
-      airline: mockAirline,
+      airline: corporateRouteState.airline,
       timeline: mockTimeline,
       routes: [],
       fleet: [],
@@ -150,11 +152,29 @@ describe("Corporate route", () => {
     cleanup();
     routePerformanceMock.length = 0;
     useVirtualizerMock.mockClear();
+    corporateRouteState.airline = mockAirline;
+    corporateRouteState.modifyHubs = vi.fn();
+    corporateRouteState.initializeIdentity = vi.fn();
+    corporateRouteState.isLoading = false;
+    corporateRouteState.viewedPubkey = null;
   });
 
   it("renders financial pulse with corporate balance", () => {
     render(<CorporateRoute />);
     expect(screen.getByText("Corporate Balance")).toBeInTheDocument();
+  });
+
+  it("renders beginner-friendly locked state when no airline is connected", () => {
+    corporateRouteState.airline = null;
+    render(<CorporateRoute />);
+    expect(screen.getByText("Corporate access locked")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Continue with browser wallet/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("What is Nostr?").closest("a")).toHaveAttribute(
+      "href",
+      "https://nostr.com",
+    );
   });
 
   it("renders company profile with airline name and ICAO", () => {

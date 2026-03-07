@@ -42,6 +42,7 @@ import {
   estimateRouteEconomics,
   getPrimaryAssignedAircraft,
 } from "@/features/network/utils/routeEconomics";
+import { NostrAccessCard } from "@/shared/components/identity/NostrAccessCard";
 import { PanelBody, PanelHeader, PanelLayout } from "@/shared/components/layout/PanelLayout";
 import { useNostrProfile } from "@/shared/hooks/useNostrProfile";
 
@@ -1083,23 +1084,13 @@ export default function CorporateDashboard() {
   if (!airline && !isViewingOther) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <div className="max-w-md space-y-4 rounded-2xl border border-border/60 bg-background/70 p-6 text-center shadow-2xl backdrop-blur-xl">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Building2 className="h-6 w-6 text-primary" />
-          </div>
-          <h2 className="text-lg font-semibold">Corporate access locked</h2>
-          <p className="text-sm text-muted-foreground">
-            Connect a Nostr wallet to create an airline and manage corporate strategy.
-          </p>
-          <button
-            type="button"
-            onClick={initializeIdentity}
-            disabled={isLoading}
-            className="w-full rounded-md border border-border bg-background/70 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-60"
-          >
-            {isLoading ? "Connecting…" : "Connect Wallet"}
-          </button>
-        </div>
+        <NostrAccessCard
+          icon={Building2}
+          title="Corporate access locked"
+          description="Connect a Nostr wallet to create your airline and unlock balance sheets, hubs, and strategy tools."
+          onConnect={initializeIdentity}
+          isLoading={isLoading}
+        />
       </div>
     );
   }

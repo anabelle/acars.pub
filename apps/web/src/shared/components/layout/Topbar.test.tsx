@@ -42,7 +42,11 @@ describe("Topbar", () => {
     });
     render(<Topbar />);
     expect(screen.getByText("ACARS")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Connect Wallet/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Continue with browser wallet/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /I already have an nsec key/i })).toBeInTheDocument();
+    expect(screen.getByText(/New to Nostr\? Start with a browser wallet/i)).toBeInTheDocument();
   });
 
   it("renders airline metrics when available", () => {
@@ -86,6 +90,8 @@ describe("Topbar", () => {
     render(<Topbar />);
     expect(screen.getByText("Test Air")).toBeInTheDocument();
     expect(screen.getByText("TEST")).toBeInTheDocument();
+    expect(screen.getByText("Corporate Balance")).toBeInTheDocument();
     expect(screen.getByText(/T2/)).toBeInTheDocument();
+    expect(screen.getByTestId("topbar-metrics").className).not.toMatch(/\bhidden\b/);
   });
 });

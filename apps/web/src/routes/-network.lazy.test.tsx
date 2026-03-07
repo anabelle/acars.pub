@@ -42,4 +42,22 @@ describe("Network route", () => {
     render(<NetworkRoute />);
     expect(screen.getByText("Route Manager")).toBeInTheDocument();
   });
+
+  it("renders beginner-friendly locked state when no airline is connected", () => {
+    mockUseAirlineStore.mockReturnValue({
+      airline: null,
+      initializeIdentity: vi.fn(),
+      isLoading: false,
+      viewedPubkey: null,
+    });
+    render(<NetworkRoute />);
+    expect(screen.getByText("Network access locked")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Continue with browser wallet/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("What is Nostr?").closest("a")).toHaveAttribute(
+      "href",
+      "https://nostr.com",
+    );
+  });
 });

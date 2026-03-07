@@ -1,7 +1,7 @@
 import { fpFormat } from "@acars/core";
 import { useActiveAirline, useAirlineStore } from "@acars/store";
 import { useNavigate } from "@tanstack/react-router";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CircleHelp, KeyRound, Wallet, X } from "lucide-react";
 import { useState } from "react";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
@@ -24,96 +24,126 @@ export function Topbar() {
 
   if (!airline) {
     return (
-      <div className="pointer-events-auto flex h-14 w-full items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-xl">
-        <div className="flex items-center space-x-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/20 text-xs font-bold text-primary">
-            AT
+      <div className="pointer-events-auto w-full border-b border-border bg-background/80 px-4 py-3 backdrop-blur-xl sm:px-6">
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/20 text-xs font-bold text-primary">
+              AT
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-sm leading-none font-bold tracking-tight text-foreground">
+                ACARS
+              </h1>
+              <p className="mt-0.5 hidden text-[10px] uppercase tracking-widest text-muted-foreground sm:block">
+                Aircraft Communication Addressing and Relay System
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground sm:hidden">
+                Build your airline on Nostr. New here? Start with a browser wallet.
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-tight text-foreground leading-none">ACARS</h1>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
-              Aircraft Communication Addressing and Relay System
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {showNsecInput ? (
-            <form
-              className="flex flex-col items-end gap-1"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const normalized = (
-                  e.currentTarget.elements.namedItem("nsec") as HTMLInputElement | null
-                )?.value
-                  ?.trim()
-                  ?.toLowerCase();
-                if (!normalized?.startsWith("nsec1")) {
-                  setNsecInputError("Enter a valid nsec1 key.");
-                  return;
-                }
-                setNsecInputError(null);
-                await loginWithNsec(normalized);
-                if (useAirlineStore.getState().airline) {
-                  setShowNsecInput(false);
-                }
-              }}
-            >
-              <div className="flex items-center gap-2">
+
+          <div className="w-full sm:w-auto">
+            {showNsecInput ? (
+              <form
+                className="flex w-full flex-col gap-2 sm:max-w-sm sm:items-end"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const normalized = (
+                    e.currentTarget.elements.namedItem("nsec") as HTMLInputElement | null
+                  )?.value
+                    ?.trim()
+                    ?.toLowerCase();
+                  if (!normalized?.startsWith("nsec1")) {
+                    setNsecInputError("Enter a valid nsec1 key.");
+                    return;
+                  }
+                  setNsecInputError(null);
+                  await loginWithNsec(normalized);
+                  if (useAirlineStore.getState().airline) {
+                    setShowNsecInput(false);
+                  }
+                }}
+              >
+                <label
+                  htmlFor="topbar-nsec"
+                  className="text-[11px] text-muted-foreground sm:max-w-xs sm:text-right"
+                >
+                  Already have a Nostr secret key? Paste your nsec1 to sign in.
+                </label>
                 <input
+                  id="topbar-nsec"
                   name="nsec"
                   type="password"
-                  placeholder="nsec1…"
+                  placeholder="Paste your nsec1 key"
                   autoComplete="off"
-                  className="w-48 rounded-md border border-border bg-background/70 px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none"
+                  className="min-h-11 w-full rounded-md border border-border bg-background/70 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none"
                 />
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="rounded-md border border-primary/40 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-primary transition hover:bg-primary/20 disabled:opacity-60"
-                >
-                  {isLoading ? "Loading…" : "Login"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNsecInputError(null);
-                    setShowNsecInput(false);
-                  }}
-                  aria-label="Cancel nsec login"
-                  className="text-[11px] text-muted-foreground hover:text-foreground"
-                >
-                  ✕
-                </button>
-              </div>
-              {(nsecInputError || authError) && (
-                <p className="text-[10px] font-medium text-rose-400">
-                  {nsecInputError ?? authError}
+                <div className="flex w-full gap-2 sm:justify-end">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="flex min-h-11 flex-1 items-center justify-center rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/20 disabled:opacity-60 sm:flex-none"
+                  >
+                    {isLoading ? "Loading…" : "Sign in"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNsecInputError(null);
+                      setShowNsecInput(false);
+                    }}
+                    aria-label="Cancel nsec login"
+                    className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground transition hover:border-border hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {(nsecInputError || authError) && (
+                  <p className="text-[11px] font-medium text-rose-400">
+                    {nsecInputError ?? authError}
+                  </p>
+                )}
+              </form>
+            ) : (
+              <div className="flex w-full flex-col gap-2 sm:items-end">
+                <p className="text-[11px] text-muted-foreground sm:max-w-xs sm:text-right">
+                  New to Nostr? Start with a browser wallet. Already have a key? Import it directly.
                 </p>
-              )}
-            </form>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setNsecInputError(null);
-                  setShowNsecInput(true);
-                }}
-                className="rounded-md border border-border/50 bg-background/50 px-2 py-1.5 text-[10px] font-medium text-muted-foreground/70 transition hover:border-border hover:text-muted-foreground"
-                title="Login with nsec key"
-              >
-                nsec
-              </button>
-              <button
-                type="button"
-                onClick={initializeIdentity}
-                disabled={isLoading}
-                className="rounded-md border border-border bg-background/70 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-60"
-              >
-                {isLoading ? "Connecting…" : "Connect Wallet"}
-              </button>
-            </>
-          )}
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={initializeIdentity}
+                    disabled={isLoading}
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/20 disabled:opacity-60 sm:w-auto"
+                  >
+                    <Wallet className="h-4 w-4 shrink-0" />
+                    {isLoading ? "Connecting…" : "Continue with browser wallet"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNsecInputError(null);
+                      setShowNsecInput(true);
+                    }}
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground sm:w-auto"
+                    title="Sign in with an existing nsec key"
+                  >
+                    <KeyRound className="h-4 w-4 shrink-0" />I already have an nsec key
+                  </button>
+                </div>
+                <a
+                  href="https://nostr.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center gap-2 self-start rounded-md border border-border/60 bg-background/50 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-border hover:text-foreground sm:self-end"
+                >
+                  <CircleHelp className="h-4 w-4 shrink-0" />
+                  What is Nostr?
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -142,101 +172,98 @@ export function Topbar() {
           </button>
         </div>
       )}
-      <div className="pointer-events-auto flex h-14 w-full items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-xl sm:px-6">
-        <div className="flex items-center space-x-4">
-          {/* Livery Box */}
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded uppercase text-[10px] font-bold shadow-sm"
-            style={{
-              backgroundColor: activeAirline.livery.primary,
-              color: activeAirline.livery.secondary,
-              border: `1px solid ${activeAirline.livery.secondary}40`,
-            }}
-          >
-            {activeAirline.icaoCode}
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-sm font-bold tracking-tight text-foreground leading-none">
-              {activeAirline.name}
-            </h1>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
-              {activeAirline.callsign}
-            </p>
-          </div>
-          {isViewingOther && (
-            <button
-              type="button"
-              onClick={() => {
-                viewAs(null);
-                navigate({ to: "/" });
+      <div className="pointer-events-auto w-full border-b border-border bg-background/80 px-4 py-3 backdrop-blur-xl sm:px-6 md:py-2">
+        <div className="flex w-full flex-col gap-3 md:h-14 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded uppercase text-[10px] font-bold shadow-sm"
+              style={{
+                backgroundColor: activeAirline.livery.primary,
+                color: activeAirline.livery.secondary,
+                border: `1px solid ${activeAirline.livery.secondary}40`,
               }}
-              className="ml-4 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:border-primary/40 hover:text-foreground"
             >
-              Back to Your Airline
-            </button>
-          )}
-        </div>
-
-        {/* Critical Macro Metrics */}
-        <div className="hidden items-center space-x-8 md:flex">
-          {/* Relay health indicator */}
-          <output
-            className="flex items-center gap-1.5"
-            aria-live="polite"
-            title={
-              isConnected
-                ? `${relayCount} relay${relayCount !== 1 ? "s" : ""} connected`
-                : "Disconnected from Nostr — changes may not save"
-            }
-          >
-            <span
-              className={`inline-block h-2 w-2 rounded-full ${isConnected ? "bg-emerald-400" : "bg-rose-500 animate-pulse"}`}
-            />
-            {!isConnected && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-rose-400">
-                Offline
-              </span>
+              {activeAirline.icaoCode}
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-sm leading-none font-bold tracking-tight text-foreground">
+                {activeAirline.name}
+              </h1>
+              <p className="mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                {activeAirline.callsign}
+              </p>
+            </div>
+            {isViewingOther && (
+              <button
+                type="button"
+                onClick={() => {
+                  viewAs(null);
+                  navigate({ to: "/" });
+                }}
+                className="rounded-full border border-border/60 bg-background/60 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              >
+                Back to Your Airline
+              </button>
             )}
-            <span className="sr-only">
-              {isConnected
-                ? `${relayCount} relay${relayCount !== 1 ? "s" : ""} connected`
-                : "Relay offline"}
-            </span>
-          </output>
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] uppercase font-semibold text-muted-foreground leading-none">
-              Corporate Balance
-            </span>
-            <span className="font-mono text-sm font-bold text-green-400 mt-1">
-              {fpFormat(activeAirline.corporateBalance)}
-            </span>
           </div>
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] uppercase font-semibold text-muted-foreground leading-none">
-              Stock Price
-            </span>
-            <span className="font-mono text-sm font-bold text-primary mt-1">
-              {fpFormat(activeAirline.stockPrice)}
-            </span>
-          </div>
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] uppercase font-semibold text-muted-foreground leading-none">
-              Brand / Tier
-            </span>
-            <span className="font-mono text-sm font-bold text-foreground mt-1 text-right">
-              {(activeAirline.brandScore * 10).toFixed(1)}{" "}
-              <span className="text-muted-foreground">T{activeAirline.tier}</span>
-            </span>
-          </div>
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] uppercase font-semibold text-muted-foreground leading-none">
-              Avg Load Factor
-            </span>
-            <span
-              className={`font-mono text-sm font-bold mt-1 ${avgLoadFactor >= 0.8 ? "text-emerald-400" : avgLoadFactor >= 0.6 ? "text-amber-400" : "text-rose-400"}`}
+
+          <div
+            data-testid="topbar-metrics"
+            className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:items-center md:space-x-6"
+          >
+            <output
+              className="col-span-2 flex min-h-11 items-center gap-2 rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:border-0 md:bg-transparent md:p-0"
+              aria-live="polite"
+              title={
+                isConnected
+                  ? `${relayCount} relay${relayCount !== 1 ? "s" : ""} connected`
+                  : "Disconnected from Nostr — changes may not save"
+              }
             >
-              {Math.round(avgLoadFactor * 100)}%
-            </span>
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${isConnected ? "bg-emerald-400" : "animate-pulse bg-rose-500"}`}
+              />
+              <span className="text-[11px] font-medium text-muted-foreground">
+                {isConnected
+                  ? `${relayCount} relay${relayCount !== 1 ? "s" : ""} online`
+                  : "Nostr relays offline"}
+              </span>
+            </output>
+            <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
+              <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
+                Corporate Balance
+              </span>
+              <span className="mt-1 font-mono text-sm font-bold text-green-400">
+                {fpFormat(activeAirline.corporateBalance)}
+              </span>
+            </div>
+            <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
+              <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
+                Stock Price
+              </span>
+              <span className="mt-1 font-mono text-sm font-bold text-primary">
+                {fpFormat(activeAirline.stockPrice)}
+              </span>
+            </div>
+            <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
+              <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
+                Brand / Tier
+              </span>
+              <span className="mt-1 font-mono text-sm font-bold text-foreground md:text-right">
+                {(activeAirline.brandScore * 10).toFixed(1)}{" "}
+                <span className="text-muted-foreground">T{activeAirline.tier}</span>
+              </span>
+            </div>
+            <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
+              <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
+                Avg Load Factor
+              </span>
+              <span
+                className={`mt-1 font-mono text-sm font-bold ${avgLoadFactor >= 0.8 ? "text-emerald-400" : avgLoadFactor >= 0.6 ? "text-amber-400" : "text-rose-400"}`}
+              >
+                {Math.round(avgLoadFactor * 100)}%
+              </span>
+            </div>
           </div>
         </div>
       </div>
