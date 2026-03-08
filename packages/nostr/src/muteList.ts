@@ -3,6 +3,7 @@ import { NDKEvent, type NDKFilter } from "@nostr-dev-kit/ndk";
 import { ensureConnected, getNDK } from "./ndk.js";
 
 export const MUTE_LIST_KIND: NDKKind = 10000 as NDKKind;
+const MUTE_LIST_LOAD_TIMEOUT_MS = 6000;
 
 function parseMuteListTags(tags: string[][]): string[] {
   const muted = new Set<string>();
@@ -27,10 +28,10 @@ export async function publishMuteList(pubkeys: Iterable<string>): Promise<NDKEve
 
   const event = new NDKEvent(ndk);
   event.kind = MUTE_LIST_KIND;
-  event.tags = parseMuteListTags(Array.from(pubkeys, (pubkey) => ["p", pubkey])).map((pubkey) => [
-    "p",
-    pubkey,
-  ]);
+  const trimmedPubkeys = Array.from(pubkeys, (pubkey) => pubkey.trim());
+  const validPubkeys = trimmedPubkeys.filter((pubkey) => pubkey.length > 0);
+  const uniquePubkeys = new Set(validPubkeys);
+  event.tags = Array.from(uniquePubkeys, (pubkey) => ["p", pubkey]);
   event.content = "";
 
   await event.publish();
@@ -55,12 +56,12 @@ export async function loadMuteList(pubkey: string): Promise<Set<string> | null> 
     const timeout = setTimeout(() => {
       sub.stop();
       resolve();
-    }, 6000);
+    }, MUTE_LIST_LOAD_TIMEOUT_MS);
 
     sub.on("event", (event: NDKEvent) => {
       if (event.kind !== MUTE_LIST_KIND) return;
       if (event.author.pubkey !== pubkey) return;
-      const createdAt = event.created_at ?? 0;
+      const createdAt = event.created_at === undefined ? -1 : event.created_at;
       if (createdAt < latestCreatedAt) return;
       latestTags = event.tags;
       latestCreatedAt = createdAt;

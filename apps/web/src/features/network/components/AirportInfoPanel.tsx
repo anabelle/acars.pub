@@ -191,8 +191,8 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
   );
 
   const competitorHubNames = useMemo(
-    () => buildCompetitorHubEntries(visibleCompetitors, airport.iata),
-    [visibleCompetitors, airport.iata],
+    () => buildCompetitorHubEntries(competitors, airport.iata),
+    [competitors, airport.iata],
   );
 
   const canOpenHub = airline && !isPlayerHub;
@@ -286,7 +286,7 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
     toast.success(muted ? "Competitor unblocked" : "Competitor blocked", {
       description: synced
         ? "Your mute list was synced to Nostr."
-        : "Saved locally and will remain available offline until relays are reachable.",
+        : "Saved locally for offline startup, but this change was not broadcast to relays.",
     });
   };
 
@@ -475,7 +475,16 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                       key={entry.ceoPubkey}
                       className="flex items-center gap-2 rounded-full border border-border/50 bg-background/60 px-2.5 py-1 text-[11px] text-muted-foreground"
                     >
-                      <span>
+                      <span
+                        className={
+                          mutedPubkeys.has(entry.ceoPubkey) ? "line-through opacity-60" : undefined
+                        }
+                        aria-label={
+                          mutedPubkeys.has(entry.ceoPubkey)
+                            ? `${entry.name} blocked`
+                            : `${entry.name} visible`
+                        }
+                      >
                         {entry.name}
                         {entry.icaoCode ? ` (${entry.icaoCode})` : ""}
                       </span>
@@ -483,10 +492,10 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                         type="button"
                         onClick={() => handleToggleCompetitorMute(entry.ceoPubkey)}
                         className="inline-flex items-center gap-1 rounded-full border border-border/50 px-2 py-0.5 text-[10px] uppercase tracking-widest hover:border-primary/40 hover:text-foreground"
-                        aria-label={`Block competitor ${entry.name}`}
+                        aria-label={`${mutedPubkeys.has(entry.ceoPubkey) ? "Unblock" : "Block"} competitor ${entry.name}`}
                       >
                         <Ban className="h-3 w-3" />
-                        Block
+                        {mutedPubkeys.has(entry.ceoPubkey) ? "Unblock" : "Block"}
                       </button>
                     </div>
                   ))}

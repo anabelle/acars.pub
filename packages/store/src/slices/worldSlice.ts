@@ -102,9 +102,13 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
   routesByOwner: new Map(),
   setCompetitorMuted: async (competitorPubkey, muted) => {
     const targetPubkey = competitorPubkey.trim();
-    if (!targetPubkey || targetPubkey === get().pubkey) return true;
+    if (!targetPubkey || targetPubkey === get().pubkey) return false;
+    const currentMutedPubkeys = get().mutedPubkeys;
+    if (muted === currentMutedPubkeys.has(targetPubkey)) {
+      return true;
+    }
 
-    const nextMutedPubkeys = new Set(get().mutedPubkeys);
+    const nextMutedPubkeys = new Set(currentMutedPubkeys);
     if (muted) {
       nextMutedPubkeys.add(targetPubkey);
     } else {
@@ -126,7 +130,10 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
       await publishMuteList(nextMutedPubkeys);
       return true;
     } catch (error) {
-      worldLogger.warn("Failed to publish mute list update; local cache retained.", error);
+      worldLogger.warn(
+        "Failed to publish mute list update to Nostr. Local cache was retained, but this specific change was not broadcast to relays.",
+        error,
+      );
       return false;
     }
   },
