@@ -68,6 +68,7 @@ vi.mock("@acars/data", () => {
 
 describe("AppInitializer", () => {
   const originalGeolocation = navigator.geolocation;
+  const originalResolvedOptions = Intl.DateTimeFormat.prototype.resolvedOptions;
   let airlineState: AirlineStoreState;
   let engineState: EngineStoreState;
 
@@ -91,11 +92,21 @@ describe("AppInitializer", () => {
       latitude: 0,
       longitude: 0,
     });
+    Intl.DateTimeFormat.prototype.resolvedOptions = vi.fn(() => ({
+      locale: "en-US",
+      calendar: "gregory",
+      numberingSystem: "latn",
+      timeZone: "Etc/GMT+5",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    })) as typeof Intl.DateTimeFormat.prototype.resolvedOptions;
     (navigator as unknown as { geolocation?: Geolocation }).geolocation = undefined;
   });
 
   afterEach(() => {
     (navigator as unknown as { geolocation?: Geolocation }).geolocation = originalGeolocation;
+    Intl.DateTimeFormat.prototype.resolvedOptions = originalResolvedOptions;
     vi.restoreAllMocks();
   });
 
@@ -141,6 +152,15 @@ describe("AppInitializer", () => {
     engineState.setHub = setHub;
     engineState.startEngine = startEngine;
     airlineState.competitors = new Map([["comp-1", { hubs: ["JFK"] }]]);
+    Intl.DateTimeFormat.prototype.resolvedOptions = vi.fn(() => ({
+      locale: "en-US",
+      calendar: "gregory",
+      numberingSystem: "latn",
+      timeZone: "UTC",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    })) as typeof Intl.DateTimeFormat.prototype.resolvedOptions;
     delete (navigator as unknown as { geolocation?: Geolocation }).geolocation;
 
     render(
@@ -150,9 +170,9 @@ describe("AppInitializer", () => {
     );
 
     expect(setHub).toHaveBeenCalledWith(
-      expect.objectContaining({ iata: "JFK" }),
-      { latitude: 30, longitude: -75, source: "timezone" },
-      "UTC offset",
+      expect.objectContaining({ iata: "EWR" }),
+      { latitude: 1, longitude: 1, source: "timezone" },
+      "timezone (UTC)",
     );
     expect(startEngine).toHaveBeenCalled();
   });
