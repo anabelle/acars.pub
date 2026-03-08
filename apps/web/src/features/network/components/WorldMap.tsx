@@ -1,9 +1,14 @@
-import type { AircraftInstance, Airport, Route } from "@acars/core";
+import type { AircraftInstance, Airport } from "@acars/core";
 import { TICK_DURATION } from "@acars/core";
 import { airports as AIRPORTS } from "@acars/data";
 import { Globe as CoreGlobe, getGreatCircleInterpolation } from "@acars/map";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  buildVisibleCompetitorFleet,
+  buildVisibleCompetitorRoutes,
+  filterVisibleCompetitors,
+} from "@/features/moderation/utils/visibleCompetitors";
 import { AircraftInfoPanel } from "@/features/network/components/AircraftInfoPanel";
 import { AirportInfoPanel } from "@/features/network/components/AirportInfoPanel";
 import { buildGroundPresenceByAirport } from "@/features/network/utils/groundTraffic";
@@ -15,7 +20,11 @@ const airportByIata = new Map<string, Airport>(AIRPORTS.map((a) => [a.iata, a]))
  * on a given aircraft. For grounded aircraft, returns the base airport.
  * For enroute aircraft, returns a virtual Airport at the interpolated position.
  */
-function getAircraftFocusPoint(ac: AircraftInstance, tick: number, tickProgress: number): Airport | null {
+function getAircraftFocusPoint(
+  ac: AircraftInstance,
+  tick: number,
+  tickProgress: number,
+): Airport | null {
   if (ac.status === "enroute" && ac.flight) {
     const origin = airportByIata.get(ac.flight.originIata);
     const dest = airportByIata.get(ac.flight.destinationIata);
@@ -33,7 +42,7 @@ function getAircraftFocusPoint(ac: AircraftInstance, tick: number, tickProgress:
     }
     return dest ?? null;
   }
-  return ac.baseAirportIata ? airportByIata.get(ac.baseAirportIata) ?? null : null;
+  return ac.baseAirportIata ? (airportByIata.get(ac.baseAirportIata) ?? null) : null;
 }
 
 export function WorldMap() {
@@ -42,7 +51,7 @@ export function WorldMap() {
   const tickProgress = useEngineStore((s) => s.tickProgress);
   const permalinkAirportIata = useEngineStore((s) => s.permalinkAirportIata);
   const permalinkAircraftId = useEngineStore((s) => s.permalinkAircraftId);
-  const { airline, fleet, fleetByOwner, routesByOwner, competitors, routes, pubkey } =
+  const { airline, fleet, fleetByOwner, routesByOwner, competitors, mutedPubkeys, routes, pubkey } =
     useAirlineStore();
   const [inspectedAirport, setInspectedAirport] = useState<Airport | null>(null);
   const [inspectedAircraft, setInspectedAircraft] = useState<AircraftInstance | null>(null);
@@ -64,9 +73,14 @@ export function WorldMap() {
     }
   }, [permalinkAirportIata]);
 
+  const visibleCompetitors = useMemo(
+    () => filterVisibleCompetitors(competitors, mutedPubkeys),
+    [competitors, mutedPubkeys],
+  );
+
   const competitorLiveries = useMemo(() => {
     const map = new Map<string, { primary: string; secondary: string }>();
-    competitors.forEach((value, key) => {
+    visibleCompetitors.forEach((value, key) => {
       if (value.livery?.primary && value.livery?.secondary) {
         map.set(key, {
           primary: value.livery.primary,
@@ -75,13 +89,13 @@ export function WorldMap() {
       }
     });
     return map;
-  }, [competitors]);
+  }, [visibleCompetitors]);
 
   const playerHubs = useMemo(() => airline?.hubs ?? [], [airline?.hubs]);
 
   const competitorHubColors = useMemo(() => {
     const map = new Map<string, string>();
-    competitors.forEach((value) => {
+    visibleCompetitors.forEach((value) => {
       if (!value.livery?.primary || !value.hubs?.length) return;
       for (const hubIata of value.hubs) {
         if (!map.has(hubIata)) {
@@ -90,7 +104,7 @@ export function WorldMap() {
       }
     });
     return map;
-  }, [competitors]);
+  }, [visibleCompetitors]);
 
   const playerRouteDestinations = useMemo(() => {
     const destinations = new Set<string>();
@@ -122,13 +136,8 @@ export function WorldMap() {
   };
 
   const competitorFleet = useMemo(() => {
-    const playerPubkey = pubkey ?? null;
-    const result: AircraftInstance[] = [];
-    fleetByOwner.forEach((ownerFleet, key) => {
-      if (key !== playerPubkey) result.push(...ownerFleet);
-    });
-    return result;
-  }, [pubkey, fleetByOwner]);
+    return buildVisibleCompetitorFleet(fleetByOwner, pubkey ?? null, mutedPubkeys);
+  }, [fleetByOwner, mutedPubkeys, pubkey]);
 
   // Permalink deep-link: when permalinkAircraftId is set (e.g. /aircraft/abc123),
   // automatically inspect that aircraft on the map and center on its position.
@@ -155,13 +164,8 @@ export function WorldMap() {
   }, [permalinkAircraftId, fleet, competitorFleet]);
 
   const competitorRoutes = useMemo(() => {
-    const playerPubkey = pubkey ?? null;
-    const result: Route[] = [];
-    routesByOwner.forEach((ownerRoutes, key) => {
-      if (key !== playerPubkey) result.push(...ownerRoutes);
-    });
-    return result;
-  }, [pubkey, routesByOwner]);
+    return buildVisibleCompetitorRoutes(routesByOwner, pubkey ?? null, mutedPubkeys);
+  }, [routesByOwner, mutedPubkeys, pubkey]);
 
   const handleAircraftSelect = useCallback(
     (aircraftId: string) => {
@@ -184,8 +188,8 @@ export function WorldMap() {
   };
 
   const { presence: groundPresence } = useMemo(
-    () => buildGroundPresenceByAirport(fleet, competitorFleet, airline ?? null, competitors),
-    [fleet, competitorFleet, airline, competitors],
+    () => buildGroundPresenceByAirport(fleet, competitorFleet, airline ?? null, visibleCompetitors),
+    [fleet, competitorFleet, airline, visibleCompetitors],
   );
 
   if (!homeAirport) return null;

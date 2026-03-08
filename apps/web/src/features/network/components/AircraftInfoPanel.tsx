@@ -6,6 +6,7 @@ import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plane, Route as RouteIcon, Wrench, X } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
+import { filterVisibleCompetitors } from "@/features/moderation/utils/visibleCompetitors";
 import { AircraftLiveryImage } from "@/features/fleet/components/AircraftLiveryImage";
 import { getAircraftTimer } from "@/features/fleet/utils/aircraftTimers";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
@@ -138,11 +139,16 @@ function FlightStrip({
 export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps) {
   const navigate = useNavigate();
   const search = useSearch({ from: "__root__" });
-  const { airline, fleet, routesByOwner, competitors } = useAirlineStore();
+  const { airline, fleet, mutedPubkeys, routesByOwner, competitors } = useAirlineStore();
   const tick = useEngineStore((s) => s.tick);
   const tickProgress = useEngineStore((s) => s.tickProgress);
 
   const activeTab = search.aircraftTab === "route" ? "route" : "info";
+
+  const visibleCompetitors = useMemo(
+    () => filterVisibleCompetitors(competitors, mutedPubkeys),
+    [competitors, mutedPubkeys],
+  );
 
   const setActiveTab = (newTab: "info" | "route") => {
     navigate({
@@ -199,8 +205,9 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
 
   const ownerAirline = useMemo(() => {
     if (isPlayerAircraft) return airline;
-    return competitors.get(aircraft.ownerPubkey) ?? null;
-  }, [isPlayerAircraft, airline, competitors, aircraft.ownerPubkey]);
+    if (mutedPubkeys.has(aircraft.ownerPubkey)) return null;
+    return visibleCompetitors.get(aircraft.ownerPubkey) ?? null;
+  }, [isPlayerAircraft, airline, mutedPubkeys, visibleCompetitors, aircraft.ownerPubkey]);
 
   const assignedRoute = useMemo((): Route | null => {
     if (!aircraft.assignedRouteId) return null;

@@ -1,5 +1,5 @@
 import { type Checkpoint, decompressSnapshotString, fpAdd } from "@acars/core";
-import { loadSnapshot } from "@acars/nostr";
+import { loadMuteList, loadSnapshot } from "@acars/nostr";
 import { db } from "./db.js";
 import { useEngineStore } from "./engine.js";
 import { reconcileFleetToTick } from "./FlightEngine.js";
@@ -18,10 +18,12 @@ export async function hydrateIdentityFromStorage(
   const localAirline = await db.airline.where({ ceoPubkey: pubkey }).first();
   const localFleet = await db.fleet.where({ ownerPubkey: pubkey }).toArray();
   const localRoutes = await db.routes.where({ airlinePubkey: pubkey }).toArray();
+  const localMutedPubkeys = await db.mutedPubkeys.get(pubkey);
 
   let currentAirline = localAirline ?? null;
   let currentFleet = localFleet;
   let currentRoutes = localRoutes;
+  let currentMutedPubkeys = new Set(localMutedPubkeys?.pubkeys ?? []);
   let currentActionChainHash = "";
   const currentActionSeq = 0;
 
@@ -61,6 +63,20 @@ export async function hydrateIdentityFromStorage(
     console.error("[Identity] Failed to sync remote snapshot:", err);
   }
 
+  try {
+    const remoteMutedPubkeys = await loadMuteList(pubkey);
+    if (remoteMutedPubkeys) {
+      currentMutedPubkeys = remoteMutedPubkeys;
+      await db.mutedPubkeys.put({
+        ownerPubkey: pubkey,
+        pubkeys: Array.from(remoteMutedPubkeys),
+        updatedAt: Date.now(),
+      });
+    }
+  } catch (err) {
+    console.error("[Identity] Failed to sync remote mute list:", err);
+  }
+
   // 3. Reconcile loaded state (catchup)
   if (!currentAirline) {
     set({
@@ -71,6 +87,7 @@ export async function hydrateIdentityFromStorage(
       timeline: [],
       actionChainHash: "",
       actionSeq: 0,
+      mutedPubkeys: currentMutedPubkeys,
       fleetDeletedDuringCatchup: [],
       latestCheckpoint: null,
       identityStatus: "ready",
@@ -128,6 +145,7 @@ export async function hydrateIdentityFromStorage(
     timeline: reconciledTimeline,
     actionChainHash: currentActionChainHash,
     actionSeq: currentActionSeq,
+    mutedPubkeys: currentMutedPubkeys,
     fleetDeletedDuringCatchup: [],
     identityStatus: "ready",
     isLoading: false,

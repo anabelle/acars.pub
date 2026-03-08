@@ -11,10 +11,11 @@ import {
 import { airports as AIRPORTS, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { Building2, MapPin, Plane, PlaneTakeoff, Users, X } from "lucide-react";
+import { Ban, Building2, MapPin, Plane, PlaneTakeoff, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { FlightBoard } from "@/features/network/components/FlightBoard";
+import { filterVisibleCompetitors } from "@/features/moderation/utils/visibleCompetitors";
 import { buildCompetitorHubEntries } from "@/features/network/utils/competitorHubs";
 import { buildGroundTraffic } from "@/features/network/utils/groundTraffic";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
@@ -55,8 +56,18 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const search = useSearch({ from: "__root__" });
-  const { airline, routes, fleet, fleetByOwner, competitors, modifyHubs, openRoute, pubkey } =
-    useAirlineStore();
+  const {
+    airline,
+    routes,
+    fleet,
+    fleetByOwner,
+    competitors,
+    modifyHubs,
+    mutedPubkeys,
+    openRoute,
+    pubkey,
+    setCompetitorMuted,
+  } = useAirlineStore();
   const setHub = useEngineStore((s) => s.setHub);
 
   // Default to 'info' if no valid tab is in search params
@@ -159,23 +170,29 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
     [fleet, airport.iata],
   );
 
+  const visibleCompetitors = useMemo(
+    () => filterVisibleCompetitors(competitors, mutedPubkeys),
+    [competitors, mutedPubkeys],
+  );
+
   const competitorFleet = useMemo(() => {
     const playerPubkey = pubkey ?? null;
     const result: AircraftInstance[] = [];
     fleetByOwner.forEach((ownerFleet, key) => {
-      if (key !== playerPubkey) result.push(...ownerFleet);
+      if (key !== playerPubkey && !mutedPubkeys.has(key)) result.push(...ownerFleet);
     });
     return result;
-  }, [pubkey, fleetByOwner]);
+  }, [pubkey, fleetByOwner, mutedPubkeys]);
 
   const groundTraffic = useMemo(
-    () => buildGroundTraffic(airport.iata, fleet, competitorFleet, airline ?? null, competitors),
-    [airport.iata, fleet, competitorFleet, airline, competitors],
+    () =>
+      buildGroundTraffic(airport.iata, fleet, competitorFleet, airline ?? null, visibleCompetitors),
+    [airport.iata, fleet, competitorFleet, airline, visibleCompetitors],
   );
 
   const competitorHubNames = useMemo(
-    () => buildCompetitorHubEntries(competitors, airport.iata),
-    [competitors, airport.iata],
+    () => buildCompetitorHubEntries(visibleCompetitors, airport.iata),
+    [visibleCompetitors, airport.iata],
   );
 
   const canOpenHub = airline && !isPlayerHub;
@@ -261,6 +278,16 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
       "manual selection",
     );
     onClose();
+  };
+
+  const handleToggleCompetitorMute = async (competitorPubkey: string) => {
+    const muted = mutedPubkeys.has(competitorPubkey);
+    const synced = await setCompetitorMuted(competitorPubkey, !muted);
+    toast.success(muted ? "Competitor unblocked" : "Competitor blocked", {
+      description: synced
+        ? "Your mute list was synced to Nostr."
+        : "Saved locally and will remain available offline until relays are reachable.",
+    });
   };
 
   return (
@@ -444,13 +471,24 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {competitorHubNames.slice(0, 4).map((entry) => (
-                    <span
+                    <div
                       key={entry.ceoPubkey}
-                      className="rounded-full border border-border/50 bg-background/60 px-2.5 py-1 text-[11px] text-muted-foreground"
+                      className="flex items-center gap-2 rounded-full border border-border/50 bg-background/60 px-2.5 py-1 text-[11px] text-muted-foreground"
                     >
-                      {entry.name}
-                      {entry.icaoCode ? ` (${entry.icaoCode})` : ""}
-                    </span>
+                      <span>
+                        {entry.name}
+                        {entry.icaoCode ? ` (${entry.icaoCode})` : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCompetitorMute(entry.ceoPubkey)}
+                        className="inline-flex items-center gap-1 rounded-full border border-border/50 px-2 py-0.5 text-[10px] uppercase tracking-widest hover:border-primary/40 hover:text-foreground"
+                        aria-label={`Block competitor ${entry.name}`}
+                      >
+                        <Ban className="h-3 w-3" />
+                        Block
+                      </button>
+                    </div>
                   ))}
                   {competitorHubNames.length > 4 ? (
                     <span className="rounded-full border border-border/50 bg-background/60 px-2.5 py-1 text-[11px] text-muted-foreground">

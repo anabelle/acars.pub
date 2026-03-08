@@ -22,20 +22,23 @@ import {
   TICKS_PER_MONTH,
 } from "@acars/core";
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
-import { getNDK, MARKETPLACE_KIND, NDKEvent } from "@acars/nostr";
+import { getNDK, MARKETPLACE_KIND, NDKEvent, publishMuteList } from "@acars/nostr";
 import type { ActionLogEntry } from "@acars/nostr";
 import type { StateCreator } from "zustand";
+import { db } from "../db.js";
 import { useEngineStore } from "../engine";
 import { reconcileFleetToTick } from "../FlightEngine";
 import type { AirlineState } from "../types";
 
 export interface WorldSlice {
   competitors: Map<string, AirlineEntity>;
+  mutedPubkeys: Set<string>;
   globalRouteRegistry: Map<string, FlightOffer[]>;
   /** Unified fleet index: ALL players (including self) keyed by pubkey. */
   fleetByOwner: Map<string, AircraftInstance[]>;
   /** Unified routes index: ALL players (including self) keyed by pubkey. */
   routesByOwner: Map<string, Route[]>;
+  setCompetitorMuted: (competitorPubkey: string, muted: boolean) => Promise<boolean>;
   viewAs: (pubkey: string | null) => void;
   syncWorld: (options?: { force?: boolean }) => Promise<void>;
   syncCompetitor: (competitorPubkey: string, liveEvents?: ActionLogEntry[]) => Promise<void>;
@@ -93,9 +96,40 @@ const applyMonthlyCosts = (
 
 export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = (set, get) => ({
   competitors: new Map(),
+  mutedPubkeys: new Set(),
   globalRouteRegistry: new Map(),
   fleetByOwner: new Map(),
   routesByOwner: new Map(),
+  setCompetitorMuted: async (competitorPubkey, muted) => {
+    const targetPubkey = competitorPubkey.trim();
+    if (!targetPubkey || targetPubkey === get().pubkey) return true;
+
+    const nextMutedPubkeys = new Set(get().mutedPubkeys);
+    if (muted) {
+      nextMutedPubkeys.add(targetPubkey);
+    } else {
+      nextMutedPubkeys.delete(targetPubkey);
+    }
+
+    set({ mutedPubkeys: nextMutedPubkeys });
+
+    const ownerPubkey = get().pubkey;
+    if (!ownerPubkey) return false;
+
+    await db.mutedPubkeys.put({
+      ownerPubkey,
+      pubkeys: Array.from(nextMutedPubkeys),
+      updatedAt: Date.now(),
+    });
+
+    try {
+      await publishMuteList(nextMutedPubkeys);
+      return true;
+    } catch (error) {
+      worldLogger.warn("Failed to publish mute list update; local cache retained.", error);
+      return false;
+    }
+  },
   viewAs: (pubkey) => set({ viewedPubkey: pubkey }),
 
   /**

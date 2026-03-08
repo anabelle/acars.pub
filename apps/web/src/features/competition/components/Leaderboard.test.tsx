@@ -9,6 +9,7 @@ vi.mock("@/shared/components/layout/panelScrollContext", () => ({
 type Selector<T> = (state: T) => unknown;
 type AirlineStoreState = {
   competitors: Map<string, unknown>;
+  mutedPubkeys: Set<string>;
   airline: { id: string } | null;
   fleet: unknown[];
   routes: unknown[];
@@ -86,6 +87,7 @@ describe("Leaderboard", () => {
   it("renders rows and toggles metrics", () => {
     mockUseAirlineStore.mockReturnValue({
       competitors: new Map(),
+      mutedPubkeys: new Set(),
       airline: { id: "airline-1" },
       fleet: [],
       routes: [],

@@ -63,7 +63,7 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
 
   initializeIdentity: async () => {
     const prevStatus = get().identityStatus;
-    set({ isLoading: true, error: null, airline: null, pubkey: null });
+    set({ isLoading: true, error: null, airline: null, pubkey: null, mutedPubkeys: new Set() });
 
     const extensionReady = await waitForNip07();
     if (!extensionReady) {
@@ -105,7 +105,7 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
   },
 
   loginWithNsec: async (nsec: string) => {
-    set({ isLoading: true, error: null, airline: null, pubkey: null });
+    set({ isLoading: true, error: null, airline: null, pubkey: null, mutedPubkeys: new Set() });
 
     try {
       const pubkey = await loginWithNsecNostr(nsec);
