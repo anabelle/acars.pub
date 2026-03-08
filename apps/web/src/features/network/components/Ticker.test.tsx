@@ -12,6 +12,7 @@ type EngineStoreState = {
 };
 type AirlineStoreState = {
   competitors: Map<string, unknown>;
+  mutedPubkeys: Set<string>;
   fleetByOwner: Map<string, unknown[]>;
   routesByOwner: Map<string, unknown[]>;
   fleet: unknown[];
@@ -54,6 +55,7 @@ describe("Ticker", () => {
     });
     mockUseAirlineStore.mockReturnValue({
       competitors: new Map(),
+      mutedPubkeys: new Set(),
       fleetByOwner: new Map(),
       routesByOwner: new Map(),
       fleet: [],
@@ -73,6 +75,7 @@ describe("Ticker", () => {
     });
     mockUseAirlineStore.mockReturnValue({
       competitors: new Map(),
+      mutedPubkeys: new Set(),
       fleetByOwner: new Map(),
       routesByOwner: new Map(),
       fleet: [],

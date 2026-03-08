@@ -1,5 +1,7 @@
 import { getProsperityIndex } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
+import { useMemo } from "react";
+import { filterVisibleCompetitors } from "@/features/moderation/utils/visibleCompetitors";
 
 /**
  * A global ticker component that displays live macroeconomic and network status.
@@ -12,7 +14,30 @@ export function Ticker() {
   const progress = useEngineStore((s) => s.tickProgress);
   const catchup = useEngineStore((s) => s.catchupProgress);
 
-  const { competitors, fleetByOwner, routesByOwner } = useAirlineStore();
+  const { competitors, fleetByOwner, mutedPubkeys, routesByOwner } = useAirlineStore();
+
+  const visibleCompetitors = useMemo(
+    () => filterVisibleCompetitors(competitors, mutedPubkeys),
+    [competitors, mutedPubkeys],
+  );
+  const visiblePlaneCount = useMemo(
+    () =>
+      Array.from(fleetByOwner.entries()).reduce(
+        (sum, [ownerPubkey, ownerFleet]) =>
+          mutedPubkeys.has(ownerPubkey) ? sum : sum + ownerFleet.length,
+        0,
+      ),
+    [fleetByOwner, mutedPubkeys],
+  );
+  const visibleRouteCount = useMemo(
+    () =>
+      Array.from(routesByOwner.entries()).reduce(
+        (sum, [ownerPubkey, ownerRoutes]) =>
+          mutedPubkeys.has(ownerPubkey) ? sum : sum + ownerRoutes.length,
+        0,
+      ),
+    [routesByOwner, mutedPubkeys],
+  );
 
   const prosperity = getProsperityIndex(tick);
 
@@ -42,21 +67,17 @@ export function Ticker() {
 
       <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
         <span>Airlines</span>
-        <span className="text-foreground font-bold">{1 + competitors.size}</span>
+        <span className="text-foreground font-bold">{1 + visibleCompetitors.size}</span>
       </div>
 
       <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
         <span>Planes</span>
-        <span className="text-foreground font-bold">
-          {Array.from(fleetByOwner.values()).reduce((sum, f) => sum + f.length, 0)}
-        </span>
+        <span className="text-foreground font-bold">{visiblePlaneCount}</span>
       </div>
 
       <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
         <span>Routes</span>
-        <span className="text-foreground font-bold">
-          {Array.from(routesByOwner.values()).reduce((sum, r) => sum + r.length, 0)}
-        </span>
+        <span className="text-foreground font-bold">{visibleRouteCount}</span>
       </div>
 
       <div className="hidden md:flex items-center space-x-2 border-r border-border pr-6">

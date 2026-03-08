@@ -18,6 +18,17 @@ vi.mock("@acars/nostr", () => ({
   getNDK: vi.fn(() => ({})),
   NDKEvent: vi.fn(),
   MARKETPLACE_KIND: 30079,
+  publishMuteList: vi.fn(() => Promise.resolve({})),
+}));
+
+const mutedPubkeysPut = vi.fn(() => Promise.resolve());
+
+vi.mock("../db.js", () => ({
+  db: {
+    mutedPubkeys: {
+      put: (...args: unknown[]) => mutedPubkeysPut(...args),
+    },
+  },
 }));
 
 vi.mock("../engine", () => ({
@@ -69,9 +80,11 @@ const createSliceState = (overrides: Partial<AirlineState> = {}) => {
     updateHub: vi.fn(),
     processTick: vi.fn(),
     competitors: new Map(),
+    mutedPubkeys: new Set(),
     globalRouteRegistry: new Map(),
     fleetByOwner: new Map(),
     routesByOwner: new Map(),
+    setCompetitorMuted: vi.fn(),
     syncWorld: vi.fn(),
     syncCompetitor: vi.fn(),
     projectCompetitorFleet: vi.fn(),
@@ -147,6 +160,7 @@ const makeAircraft = (id: string, ownerPubkey: string): AircraftInstance => ({
 describe("projectCompetitorFleet", () => {
   beforeEach(async () => {
     _resetWorldFlags();
+    mutedPubkeysPut.mockClear();
   });
 
   it("projects all competitor fleets to the target tick", () => {
@@ -274,5 +288,46 @@ describe("syncWorld", () => {
 
     expect(state.competitors.has("comp-bankrupt")).toBe(true);
     expect(state.competitors.get("comp-bankrupt")?.status).toBe("chapter11");
+  });
+});
+
+describe("setCompetitorMuted", () => {
+  beforeEach(() => {
+    mutedPubkeysPut.mockClear();
+  });
+
+  it("updates local muted pubkeys and persists the cache before publishing", async () => {
+    const { publishMuteList } = await import("@acars/nostr");
+    const { state } = createSliceState({
+      pubkey: "player-pubkey",
+      mutedPubkeys: new Set(["comp-existing"]),
+    });
+
+    const synced = await state.setCompetitorMuted("comp-new", true);
+
+    expect(synced).toBe(true);
+    expect(Array.from(state.mutedPubkeys)).toEqual(["comp-existing", "comp-new"]);
+    expect(mutedPubkeysPut).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerPubkey: "player-pubkey",
+        pubkeys: ["comp-existing", "comp-new"],
+      }),
+    );
+    expect(vi.mocked(publishMuteList)).toHaveBeenCalledWith(new Set(["comp-existing", "comp-new"]));
+  });
+
+  it("retains the local mute change when publish fails", async () => {
+    const { publishMuteList } = await import("@acars/nostr");
+    vi.mocked(publishMuteList).mockRejectedValueOnce(new Error("offline"));
+    const { state } = createSliceState({
+      pubkey: "player-pubkey",
+      mutedPubkeys: new Set(),
+    });
+
+    const synced = await state.setCompetitorMuted("comp-offline", true);
+
+    expect(synced).toBe(false);
+    expect(Array.from(state.mutedPubkeys)).toEqual(["comp-offline"]);
+    expect(mutedPubkeysPut).toHaveBeenCalled();
   });
 });

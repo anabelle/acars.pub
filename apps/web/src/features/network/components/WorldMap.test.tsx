@@ -19,6 +19,7 @@ type AirlineStoreState = {
   routesByOwner: Map<string, unknown[]>;
   pubkey: string | null;
   competitors: Map<string, unknown>;
+  mutedPubkeys: Set<string>;
   routes: unknown[];
 };
 
@@ -38,9 +39,11 @@ vi.mock("@acars/map", () => {
     Globe: (props: {
       airports: Array<{ iata: string }>;
       onAirportSelect: (airport: { iata: string }) => void;
+      competitorFleet?: Array<{ id: string }>;
     }) => (
       <div>
         <button onClick={() => props.onAirportSelect(props.airports[0])}>Select Airport</button>
+        <div>Competitor Fleet {props.competitorFleet?.length ?? 0}</div>
       </div>
     ),
   };
@@ -74,6 +77,7 @@ describe("WorldMap", () => {
       routesByOwner: new Map(),
       pubkey: null,
       competitors: new Map(),
+      mutedPubkeys: new Set(),
       routes: [],
     });
 
@@ -98,6 +102,7 @@ describe("WorldMap", () => {
       routesByOwner: new Map(),
       pubkey: "test-pubkey",
       competitors: new Map(),
+      mutedPubkeys: new Set(),
       routes: [],
     });
 
@@ -105,5 +110,51 @@ describe("WorldMap", () => {
     fireEvent.click(screen.getByText("Select Airport"));
     expect(screen.getByText(`Focus: ${homeAirport.iata}`)).toBeInTheDocument();
     expect(screen.getByText(`Airport Panel ${homeAirport.iata}`)).toBeInTheDocument();
+  });
+
+  it("filters muted competitors from globe props", () => {
+    const homeAirport = AIRPORTS[0];
+    mockUseEngineStore.mockReturnValue({
+      homeAirport,
+      tick: 0,
+      tickProgress: 0,
+    });
+    mockUseAirlineStore.mockReturnValue({
+      airline: {
+        hubs: [homeAirport.iata],
+        livery: { primary: "#111", secondary: "#222" },
+      },
+      fleet: [],
+      fleetByOwner: new Map([
+        ["test-pubkey", []],
+        ["visible-comp", [{ id: "visible-ac", ownerPubkey: "visible-comp" }]],
+        ["muted-comp", [{ id: "muted-ac", ownerPubkey: "muted-comp" }]],
+      ]),
+      routesByOwner: new Map(),
+      pubkey: "test-pubkey",
+      competitors: new Map([
+        [
+          "visible-comp",
+          {
+            ceoPubkey: "visible-comp",
+            hubs: [homeAirport.iata],
+            livery: { primary: "#333", secondary: "#444" },
+          },
+        ],
+        [
+          "muted-comp",
+          {
+            ceoPubkey: "muted-comp",
+            hubs: [homeAirport.iata],
+            livery: { primary: "#555", secondary: "#666" },
+          },
+        ],
+      ]),
+      mutedPubkeys: new Set(["muted-comp"]),
+      routes: [],
+    });
+
+    render(<WorldMap />);
+    expect(screen.getByText("Competitor Fleet 1")).toBeInTheDocument();
   });
 });

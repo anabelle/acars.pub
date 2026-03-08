@@ -106,6 +106,8 @@ function buildActionDTag(action: GameActionEnvelope, seq?: number): string;
 function loadCheckpoint(pubkey: string): Promise<Checkpoint | null>;
 function loadCheckpoints(pubkeys: string[]): Promise<Map<string, Checkpoint>>;
 function publishCheckpoint(checkpoint: Checkpoint): Promise<NDKEvent>;
+function loadMuteList(pubkey: string): Promise<Set<string> | null>;
+function publishMuteList(pubkeys: Iterable<string>): Promise<NDKEvent>;
 
 // Marketplace (kind 30079)
 function loadMarketplace(

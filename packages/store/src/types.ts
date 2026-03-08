@@ -56,11 +56,7 @@ export interface AirlineState {
   cancelListing: (aircraftId: string) => Promise<void>;
   performMaintenance: (aircraftId: string) => Promise<void>;
   ferryAircraft: (aircraftId: string, destinationIata: string) => Promise<void>;
-  updateAircraftLivery: (
-    aircraftId: string,
-    imageUrl: string,
-    promptHash: string,
-  ) => Promise<void>;
+  updateAircraftLivery: (aircraftId: string, imageUrl: string, promptHash: string) => Promise<void>;
   openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;
   rebaseRoute: (routeId: string, newOriginIata: string) => Promise<void>;
   closeRoute: (routeId: string) => Promise<void>;
@@ -73,11 +69,13 @@ export interface AirlineState {
   processTick: (tick: number) => Promise<void>;
   // World / Multi-player
   competitors: Map<string, AirlineEntity>;
+  mutedPubkeys: Set<string>;
   globalRouteRegistry: Map<string, FlightOffer[]>;
   /** Unified fleet index: ALL players (including self) keyed by pubkey. */
   fleetByOwner: Map<string, AircraftInstance[]>;
   /** Unified routes index: ALL players (including self) keyed by pubkey. */
   routesByOwner: Map<string, Route[]>;
+  setCompetitorMuted: (competitorPubkey: string, muted: boolean) => Promise<boolean>;
   viewAs: (pubkey: string | null) => void;
   syncWorld: (options?: { force?: boolean }) => Promise<void>;
   syncCompetitor: (competitorPubkey: string, liveEvents?: ActionLogEntry[]) => Promise<void>;

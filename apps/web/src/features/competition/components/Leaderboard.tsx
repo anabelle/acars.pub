@@ -8,6 +8,7 @@ import type {
   LeaderboardMetric,
   LeaderboardRow as LeaderboardRowData,
 } from "@/features/competition/leaderboardMetrics";
+import { filterVisibleCompetitors } from "@/features/moderation/utils/visibleCompetitors";
 import {
   buildLeaderboardRows,
   sortLeaderboardRows,
@@ -186,6 +187,7 @@ function LeaderboardRow({
 
 export function Leaderboard() {
   const competitors = useAirlineStore((s) => s.competitors);
+  const mutedPubkeys = useAirlineStore((s) => s.mutedPubkeys);
   const airline = useAirlineStore((s) => s.airline);
   const fleetByOwner = useAirlineStore((s) => s.fleetByOwner);
   const routesByOwner = useAirlineStore((s) => s.routesByOwner);
@@ -195,6 +197,11 @@ export function Leaderboard() {
   const handleMetricChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => setMetric(e.target.value as LeaderboardMetric),
     [],
+  );
+
+  const visibleCompetitors = useMemo(
+    () => filterVisibleCompetitors(competitors, mutedPubkeys),
+    [competitors, mutedPubkeys],
   );
 
   // Build lookup maps separately so toggling metric doesn't rebuild them
@@ -215,7 +222,7 @@ export function Leaderboard() {
   }, [fleetByOwner, routesByOwner]);
 
   const rows = useMemo(() => {
-    const entries = Array.from(competitors.values());
+    const entries = Array.from(visibleCompetitors.values());
     if (airline) {
       entries.push(airline);
     }
@@ -229,7 +236,7 @@ export function Leaderboard() {
     );
 
     return sortLeaderboardRows(scored, metric);
-  }, [competitors, airline, aircraftById, routeById, currentTick, metric]);
+  }, [visibleCompetitors, airline, aircraftById, routeById, currentTick, metric]);
 
   const ownId = airline?.id ?? null;
   const panelScrollRef = usePanelScrollRef();
