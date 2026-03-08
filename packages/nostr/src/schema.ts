@@ -52,6 +52,13 @@ export interface MarketplaceListing {
   };
 }
 
+export interface CatalogImageRecord {
+  modelId: string;
+  promptHash: string;
+  imageUrl: string;
+  updatedAt: number;
+}
+
 export type ActionEnvelope = import("@acars/core").GameActionEnvelope;
 
 export interface ActionLogEntry {
@@ -64,6 +71,8 @@ export const WORLD_ID = "v6-beta";
 const ACARS_SCHEMA_VERSION = 1;
 const ACTION_D_PREFIX = `airtr:world:${WORLD_ID}:action:`;
 const CHECKPOINT_D_TAG = `airtr:world:${WORLD_ID}:checkpoint`;
+export const CATALOG_IMAGE_KIND: NDKKind = 30080 as NDKKind;
+export const CATALOG_IMAGE_D_PREFIX = `airtr:world:${WORLD_ID}:catalog-image:`;
 
 const MAX_FUTURE_SKEW_SEC = 5 * 60;
 const MAX_EVENT_AGE_SEC = 365 * 24 * 60 * 60;
@@ -181,6 +190,94 @@ export const MARKETPLACE_D_PREFIX = `airtr:world:${WORLD_ID}:marketplace:`;
  */
 export async function publishAirline(): Promise<never> {
   throw new Error("Snapshot publishing is disabled for action-log worlds.");
+}
+
+export async function publishCatalogImage(record: CatalogImageRecord): Promise<NDKEvent> {
+  await ensureConnected();
+  const ndk = getNDK();
+
+  if (!ndk.signer) {
+    throw new Error("No signer available. Call attachSigner() first.");
+  }
+
+  const event = new NDKEvent(ndk);
+  event.kind = CATALOG_IMAGE_KIND;
+  event.tags = [
+    ["d", `${CATALOG_IMAGE_D_PREFIX}${record.modelId}`],
+    ["model", record.modelId],
+    ["prompt_hash", record.promptHash],
+    ["world", WORLD_ID],
+  ];
+  event.content = JSON.stringify({
+    schemaVersion: ACARS_SCHEMA_VERSION,
+    modelId: record.modelId,
+    promptHash: record.promptHash,
+    imageUrl: record.imageUrl,
+    updatedAt: record.updatedAt,
+  });
+
+  await event.publish();
+  return event;
+}
+
+function parseCatalogImageRecord(data: unknown): CatalogImageRecord | null {
+  if (!isRecord(data)) return null;
+  const modelId = typeof data.modelId === "string" ? data.modelId : null;
+  const promptHash = typeof data.promptHash === "string" ? data.promptHash : null;
+  const imageUrl = typeof data.imageUrl === "string" ? data.imageUrl : null;
+  const updatedAt = clampInt(data.updatedAt, 0, Number.MAX_SAFE_INTEGER);
+
+  if (!modelId || !promptHash || !imageUrl || updatedAt == null) {
+    return null;
+  }
+
+  return { modelId, promptHash, imageUrl, updatedAt };
+}
+
+export async function loadCatalogImages(): Promise<Map<string, CatalogImageRecord>> {
+  await ensureConnected();
+  const ndk = getNDK();
+
+  const filter: NDKFilter = {
+    kinds: [CATALOG_IMAGE_KIND],
+    limit: 100,
+  };
+
+  const latestByModel = new Map<string, CatalogImageRecord>();
+
+  await new Promise<void>((resolve) => {
+    const sub = ndk.subscribe(filter, { closeOnEose: true });
+    const timeout = setTimeout(() => {
+      sub.stop();
+      resolve();
+    }, 6000);
+
+    sub.on("event", (event: NDKEvent) => {
+      if (!hasWorldTag(event, WORLD_ID)) return;
+      if (!isValidEventTimestamp(event.created_at ?? 0)) return;
+      const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
+      if (!dTag?.startsWith(CATALOG_IMAGE_D_PREFIX)) return;
+      if (!event.content.trim().startsWith("{")) return;
+
+      try {
+        const parsed = parseCatalogImageRecord(JSON.parse(event.content));
+        if (!parsed) return;
+        const existing = latestByModel.get(parsed.modelId);
+        if (!existing || parsed.updatedAt >= existing.updatedAt) {
+          latestByModel.set(parsed.modelId, parsed);
+        }
+      } catch {
+        // Ignore malformed catalog image records
+      }
+    });
+
+    sub.on("eose", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
+
+  return latestByModel;
 }
 
 /**

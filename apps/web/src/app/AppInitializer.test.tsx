@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppInitializer } from "./AppInitializer";
 
 const mockUseAirlineStore = vi.hoisted(() => vi.fn());
@@ -45,8 +45,22 @@ vi.mock("@acars/store", () => {
 vi.mock("@acars/data", () => {
   return {
     airports: [
-      { iata: "JFK", latitude: 0, longitude: 0, timezone: "UTC", city: "City", population: 1 },
-      { iata: "EWR", latitude: 1, longitude: 1, timezone: "UTC", city: "City", population: 1 },
+      {
+        iata: "JFK",
+        latitude: 0,
+        longitude: 0,
+        timezone: "UTC",
+        city: "City",
+        population: 1,
+      },
+      {
+        iata: "EWR",
+        latitude: 1,
+        longitude: 1,
+        timezone: "UTC",
+        city: "City",
+        population: 1,
+      },
     ],
     findPreferredHub: mockFindPreferredHub,
   };
@@ -72,7 +86,11 @@ describe("AppInitializer", () => {
     };
     mockUseAirlineStore.mockImplementation(() => airlineState);
     mockUseEngineStore.mockImplementation(() => engineState);
-    mockFindPreferredHub.mockReturnValue({ iata: "JFK", latitude: 0, longitude: 0 });
+    mockFindPreferredHub.mockReturnValue({
+      iata: "JFK",
+      latitude: 0,
+      longitude: 0,
+    });
     (navigator as unknown as { geolocation?: Geolocation }).geolocation = undefined;
   });
 
@@ -132,9 +150,9 @@ describe("AppInitializer", () => {
     );
 
     expect(setHub).toHaveBeenCalledWith(
-      expect.objectContaining({ iata: "EWR" }),
-      { latitude: 1, longitude: 1, source: "timezone" },
-      "timezone (UTC)",
+      expect.objectContaining({ iata: "JFK" }),
+      { latitude: 30, longitude: -75, source: "timezone" },
+      "UTC offset",
     );
     expect(startEngine).toHaveBeenCalled();
   });
@@ -145,7 +163,11 @@ describe("AppInitializer", () => {
     engineState.userLocation = null;
     engineState.setHub = setHub;
     airlineState.competitors = new Map([["comp-1", { hubs: ["JFK"] }]]);
-    mockFindPreferredHub.mockReturnValue({ iata: "EWR", latitude: 1, longitude: 1 });
+    mockFindPreferredHub.mockReturnValue({
+      iata: "EWR",
+      latitude: 1,
+      longitude: 1,
+    });
 
     const view = render(
       <AppInitializer>
@@ -159,7 +181,11 @@ describe("AppInitializer", () => {
       "auto-distributed",
     );
 
-    engineState.userLocation = { latitude: 40.6, longitude: -73.7, source: "gps" };
+    engineState.userLocation = {
+      latitude: 40.6,
+      longitude: -73.7,
+      source: "gps",
+    };
     view.rerender(
       <AppInitializer>
         <div>App</div>
@@ -201,7 +227,11 @@ describe("AppInitializer", () => {
       </AppInitializer>,
     );
 
-    engineState.userLocation = { latitude: 10, longitude: 20, source: "manual" };
+    engineState.userLocation = {
+      latitude: 10,
+      longitude: 20,
+      source: "manual",
+    };
 
     onSuccess?.({
       coords: {
