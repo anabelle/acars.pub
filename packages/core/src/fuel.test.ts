@@ -62,3 +62,33 @@ describe("fuel market", () => {
     );
   });
 });
+
+describe("getFuelPriceHistory", () => {
+  it("appends a final sample when spacing does not land on currentTick", () => {
+    // startTick clamps to 0 (gap too large), so the loop emits ticks that stop
+    // before currentTick, triggering the final append branch.
+    const samples = getFuelPriceHistory(100, 3, 120);
+    const ticks = samples.map((s) => s.tick);
+    expect(ticks[ticks.length - 1]).toBe(100);
+    expect(samples.length).toBe(2);
+    expect(ticks).toEqual([0, 100]);
+  });
+
+  it("does not duplicate the current tick when spacing lands on it", () => {
+    const samples = getFuelPriceHistory(240, 3, 120);
+    const ticks = samples.map((s) => s.tick);
+    expect(ticks[ticks.length - 1]).toBe(240);
+    expect(ticks).toEqual([0, 120, 240]);
+  });
+
+  it("clamps sample count and spacing to safe minimums", () => {
+    const samples = getFuelPriceHistory(100, 0, 0);
+    expect(samples.length).toBeGreaterThanOrEqual(2);
+    expect(samples[0].tick).toBeGreaterThanOrEqual(0);
+  });
+
+  it("clamps a negative current tick to zero", () => {
+    const samples = getFuelPriceHistory(-50, 2, 10);
+    expect(samples.every((s) => s.tick >= 0)).toBe(true);
+  });
+});

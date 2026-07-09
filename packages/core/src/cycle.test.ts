@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countLandingsBetween, enumerateFlightEvents } from "./cycle.js";
+import { countLandingsBetween, enumerateFlightEvents, getCyclePhase } from "./cycle.js";
 import type { Route } from "./types.js";
 
 const makeRoute = (overrides: Partial<Route> = {}): Route =>
@@ -276,5 +276,98 @@ describe("enumerateFlightEvents", () => {
       const expected = countLandingsBetween(cycleStart, from, to, durationTicks, turnaroundTicks);
       expect(landingCount).toBe(expected);
     }
+  });
+});
+
+describe("getCyclePhase", () => {
+  const route = makeRoute({ originIata: "JFK", destinationIata: "LAX" });
+  const durationTicks = 1000;
+  const turnaroundTicks = 200;
+  const roundTrip = durationTicks * 2 + turnaroundTicks * 2; // 2400
+
+  it("throws on invalid durationTicks", () => {
+    expect(() => getCyclePhase(0, 10, 0, turnaroundTicks, route)).toThrow();
+    expect(() => getCyclePhase(0, 10, -1, turnaroundTicks, route)).toThrow();
+  });
+
+  it("throws on negative turnaroundTicks", () => {
+    expect(() => getCyclePhase(0, 10, durationTicks, -1, route)).toThrow();
+  });
+
+  it("reports outbound enroute during the first leg", () => {
+    const phase = getCyclePhase(0, 500, durationTicks, turnaroundTicks, route);
+    expect(phase.status).toBe("enroute");
+    expect(phase.direction).toBe("outbound");
+    expect(phase.baseAirportIata).toBe("JFK");
+    expect(phase.originIata).toBe("JFK");
+    expect(phase.destinationIata).toBe("LAX");
+    expect(phase.turnaroundEndTick).toBeNull();
+    expect(phase.positionInCycle).toBe(500);
+    expect(phase.departureTick).toBe(0);
+    expect(phase.arrivalTick).toBe(durationTicks);
+  });
+
+  it("reports outbound turnaround at the destination", () => {
+    const positionInCycle = durationTicks + 50;
+    const phase = getCyclePhase(0, positionInCycle, durationTicks, turnaroundTicks, route);
+    expect(phase.status).toBe("turnaround");
+    expect(phase.direction).toBe("outbound");
+    expect(phase.baseAirportIata).toBe("LAX");
+    expect(phase.originIata).toBe("JFK");
+    expect(phase.destinationIata).toBe("LAX");
+    expect(phase.turnaroundEndTick).toBe(durationTicks + turnaroundTicks);
+  });
+
+  it("reports inbound enroute during the return leg", () => {
+    const inboundStart = durationTicks + turnaroundTicks; // 1200
+    const positionInCycle = inboundStart + 10;
+    const phase = getCyclePhase(0, positionInCycle, durationTicks, turnaroundTicks, route);
+    expect(phase.status).toBe("enroute");
+    expect(phase.direction).toBe("inbound");
+    expect(phase.baseAirportIata).toBe("LAX");
+    expect(phase.originIata).toBe("LAX");
+    expect(phase.destinationIata).toBe("JFK");
+    expect(phase.turnaroundEndTick).toBeNull();
+  });
+
+  it("reports inbound turnaround back at the origin base", () => {
+    const inboundArrival = durationTicks * 2 + turnaroundTicks; // 2200
+    const positionInCycle = inboundArrival + 30;
+    const phase = getCyclePhase(0, positionInCycle, durationTicks, turnaroundTicks, route);
+    expect(phase.status).toBe("turnaround");
+    expect(phase.direction).toBe("inbound");
+    expect(phase.baseAirportIata).toBe("JFK");
+    expect(phase.originIata).toBe("LAX");
+    expect(phase.destinationIata).toBe("JFK");
+    expect(phase.turnaroundEndTick).toBe(positionInCycle + turnaroundTicks - 30);
+  });
+
+  it("wraps around correctly across multiple cycles (negative elapsed)", () => {
+    // target far beyond one cycle — verify modulo wrapping lands in outbound leg.
+    const phase = getCyclePhase(0, roundTrip + 10, durationTicks, turnaroundTicks, route);
+    expect(phase.status).toBe("enroute");
+    expect(phase.direction).toBe("outbound");
+    expect(phase.positionInCycle).toBe(10);
+  });
+});
+
+describe("countLandingsBetween — direct edge cases", () => {
+  const durationTicks = 1000;
+  const turnaroundTicks = 200;
+
+  it("returns 0 when toTick <= fromTick", () => {
+    expect(countLandingsBetween(0, 100, 100, durationTicks, turnaroundTicks)).toBe(0);
+    expect(countLandingsBetween(0, 200, 100, durationTicks, turnaroundTicks)).toBe(0);
+  });
+
+  it("returns 0 for invalid duration/turnaround", () => {
+    expect(countLandingsBetween(0, 0, 1000, 0, turnaroundTicks)).toBe(0);
+    expect(countLandingsBetween(0, 0, 1000, -1, turnaroundTicks)).toBe(0);
+    expect(countLandingsBetween(0, 0, 1000, durationTicks, -1)).toBe(0);
+  });
+
+  it("returns 0 (skip) when toTick is before the first landing offset", () => {
+    // First landing at cycleStart + durationTicks = 1000. Query (0, 500] → skip both offsets.
+    expect(countLandingsBetween(0, 0, 500, durationTicks, turnaroundTicks)).toBe(0);
   });
 });

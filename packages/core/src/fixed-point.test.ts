@@ -163,4 +163,59 @@ describe("fixed-point arithmetic", () => {
       expect(fpSum([fp(900_000_000), fp(900_000_000), fp(-900_000_000)])).toBe(fp(900_000_000));
     });
   });
+
+  describe("input validation & edge branches", () => {
+    it("fp() rejects non-finite input (NaN/Infinity)", () => {
+      expect(() => fp(Number.NaN)).toThrow(RangeError);
+      expect(() => fp(Number.POSITIVE_INFINITY)).toThrow(RangeError);
+      expect(() => fp(Number.NEGATIVE_INFINITY)).toThrow(RangeError);
+    });
+
+    it("fpScale() rejects a non-finite scalar", () => {
+      expect(() => fpScale(fp(10), Number.NaN)).toThrow(RangeError);
+      expect(() => fpScale(fp(10), Number.POSITIVE_INFINITY)).toThrow(RangeError);
+    });
+
+    it("fpDiv() throws on division by zero", () => {
+      expect(() => fpDiv(fp(10), fp(0))).toThrow("Division by zero");
+    });
+
+    it("fpDiv() handles a negative denominator via roundDiv recursion", () => {
+      // 10 / -2 = -5 → fp(-5) = -50000
+      expect(fpDiv(fp(10), fp(-2))).toBe(-50_000);
+      // -10 / -2 = 5
+      expect(fpDiv(fp(-10), fp(-2))).toBe(50_000);
+    });
+
+    it("roundDiv handles negative numerators via the negative-tie branch", () => {
+      // Positive path, doubleRemainder >= denominator → quotient + 1 (line 43 true):
+      // 2/3 → 0.6667
+      expect(fpDiv(fp(2), fp(3))).toBe(6_667);
+      // Positive path (line 43): 1/3 → 0.3333
+      expect(fpDiv(fp(1), fp(3))).toBe(3_333);
+      // Negative path, doubleRemainder <= denominator → quotient kept (line 47 false):
+      // -1/3 → -0.3333
+      expect(fpDiv(fp(-1), fp(3))).toBe(-3_333);
+      // Negative path, doubleRemainder > denominator → quotient - 1 (line 47 true):
+      // -2/3 → -0.6667
+      expect(fpDiv(fp(-2), fp(3))).toBe(-6_667);
+      // Negative denominator recurses through roundDiv before the above:
+      expect(fpDiv(fp(1), fp(-3))).toBe(-3_333);
+      expect(fpDiv(fp(-1), fp(-3))).toBe(3_333);
+    });
+
+    it("fpRaw() returns FP_ZERO for non-number / non-finite input", () => {
+      expect(fpRaw(undefined)).toBe(FP_ZERO);
+      expect(fpRaw(null)).toBe(FP_ZERO);
+      expect(fpRaw("abc")).toBe(FP_ZERO);
+      expect(fpRaw(Number.NaN)).toBe(FP_ZERO);
+      expect(fpRaw(Number.POSITIVE_INFINITY)).toBe(FP_ZERO);
+    });
+
+    it("fpRaw() rounds a finite number to a safe fixed-point integer", () => {
+      expect(fpRaw(10000)).toBe(10000);
+      expect(fpRaw(10000.4)).toBe(10000);
+      expect(fpRaw(10000.6)).toBe(10001);
+    });
+  });
 });

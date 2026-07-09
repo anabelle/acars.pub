@@ -64,63 +64,59 @@ export function findPreferredHub(
 
   const occupied = occupiedIatas ?? new Set<string>();
   const countryAirports = airports.filter((a) => a.country === country);
-  if (countryAirports.length > 0) {
-    let bestInCountry = countryAirports[0];
-    let bestInCountryDistance = haversineDistance(
-      lat,
-      lon,
-      bestInCountry.latitude,
-      bestInCountry.longitude,
-    );
-    let bestAvailable = occupied.has(countryAirports[0].iata) ? null : countryAirports[0];
-    let bestAvailableDistance = bestAvailable ? bestInCountryDistance : Infinity;
+  // `nearest` is always a member of `airports`, so countryAirports always
+  // contains at least `nearest` — the list is never empty here.
+  let bestInCountry = countryAirports[0];
+  let bestInCountryDistance = haversineDistance(
+    lat,
+    lon,
+    bestInCountry.latitude,
+    bestInCountry.longitude,
+  );
+  let bestAvailable = occupied.has(countryAirports[0].iata) ? null : countryAirports[0];
+  let bestAvailableDistance = bestAvailable ? bestInCountryDistance : Infinity;
 
-    for (let index = 1; index < countryAirports.length; index += 1) {
-      const airport = countryAirports[index];
-      const distance = haversineDistance(lat, lon, airport.latitude, airport.longitude);
+  for (let index = 1; index < countryAirports.length; index += 1) {
+    const airport = countryAirports[index];
+    const distance = haversineDistance(lat, lon, airport.latitude, airport.longitude);
 
-      if (isBetterHubCandidate(airport, distance, bestInCountry, bestInCountryDistance)) {
-        bestInCountry = airport;
-        bestInCountryDistance = distance;
-      }
-
-      if (occupied.has(airport.iata)) continue;
-      if (!bestAvailable) {
-        bestAvailable = airport;
-        bestAvailableDistance = distance;
-        continue;
-      }
-
-      if (isBetterHubCandidate(airport, distance, bestAvailable, bestAvailableDistance)) {
-        bestAvailable = airport;
-        bestAvailableDistance = distance;
-      }
+    if (isBetterHubCandidate(airport, distance, bestInCountry, bestInCountryDistance)) {
+      bestInCountry = airport;
+      bestInCountryDistance = distance;
     }
 
-    if (bestAvailable) return bestAvailable;
-
-    // All in-country airports occupied — expand globally
-    const globalCandidates = airports.filter(
-      (a) => (a.population || 0) > 0 && !occupied.has(a.iata),
-    );
-
-    if (globalCandidates.length > 0) {
-      let bestScore = -Infinity;
-      let best = globalCandidates[0];
-      for (const airport of globalCandidates) {
-        const dist = haversineDistance(lat, lon, airport.latitude, airport.longitude);
-        const score = (airport.population || 0) / (1 + dist / DISTANCE_REF_KM);
-        if (score > bestScore) {
-          bestScore = score;
-          best = airport;
-        }
-      }
-      return best;
+    if (occupied.has(airport.iata)) continue;
+    if (!bestAvailable) {
+      bestAvailable = airport;
+      bestAvailableDistance = distance;
+      continue;
     }
 
-    // Every airport worldwide is occupied — fall back to biggest in-country
-    return bestInCountry;
+    if (isBetterHubCandidate(airport, distance, bestAvailable, bestAvailableDistance)) {
+      bestAvailable = airport;
+      bestAvailableDistance = distance;
+    }
   }
 
-  return nearest;
+  if (bestAvailable) return bestAvailable;
+
+  // All in-country airports occupied — expand globally
+  const globalCandidates = airports.filter((a) => (a.population || 0) > 0 && !occupied.has(a.iata));
+
+  if (globalCandidates.length > 0) {
+    let bestScore = -Infinity;
+    let best = globalCandidates[0];
+    for (const airport of globalCandidates) {
+      const dist = haversineDistance(lat, lon, airport.latitude, airport.longitude);
+      const score = (airport.population || 0) / (1 + dist / DISTANCE_REF_KM);
+      if (score > bestScore) {
+        bestScore = score;
+        best = airport;
+      }
+    }
+    return best;
+  }
+
+  // Every airport worldwide is occupied — fall back to biggest in-country
+  return bestInCountry;
 }

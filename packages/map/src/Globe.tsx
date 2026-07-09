@@ -271,7 +271,7 @@ const NIGHT_CANVAS_LAYER = "night-canvas-layer";
  * At low zooms, arcs are small on screen and need fewer segments.
  * At high zooms, arcs are large and need more segments for smooth curves.
  */
-function getSegmentCount(zoom: number): number {
+export function getSegmentCount(zoom: number): number {
   if (zoom < 2) return 8;
   if (zoom < 4) return 16;
   if (zoom < 6) return 24;
@@ -289,7 +289,7 @@ type AirportClass =
 
 const MAJOR_HUB_TIERS = new Set<HubTier>(["global", "international"]);
 
-function isMajorAirport(airport: Airport): boolean {
+export function isMajorAirport(airport: Airport): boolean {
   const tier = HUB_CLASSIFICATIONS[airport.iata]?.tier;
   if (tier && MAJOR_HUB_TIERS.has(tier)) return true;
   return airport.population >= 5_000_000;
@@ -303,7 +303,7 @@ function isMajorAirport(airport: Airport): boolean {
  * Cache key for a route arc. We use origin+dest IATA since the geometry
  * is purely a function of the two endpoints and the segment count.
  */
-function arcCacheKey(originIata: string, destIata: string, segments: number): string {
+export function arcCacheKey(originIata: string, destIata: string, segments: number): string {
   return `${originIata}-${destIata}-${segments}`;
 }
 

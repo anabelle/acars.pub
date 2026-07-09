@@ -41,6 +41,74 @@ describe("engine store", () => {
     expect(routes.length).toBeGreaterThanOrEqual(4);
   });
 
+  it("setActiveHubIata is a no-op when already the home airport", () => {
+    vi.setSystemTime(GENESIS_TIME + 5 * TICK_DURATION);
+    const hub = AIRPORTS[0];
+    useEngineStore.getState().setHub(hub, { latitude: 0, longitude: 0, source: "manual" }, "x");
+    const before = useEngineStore.getState().homeAirport;
+    useEngineStore.getState().setActiveHubIata(hub.iata);
+    expect(useEngineStore.getState().homeAirport).toBe(before);
+  });
+
+  it("setActiveHubIata is a no-op for an unknown IATA", () => {
+    vi.setSystemTime(GENESIS_TIME + 5 * TICK_DURATION);
+    useEngineStore.getState().setActiveHubIata("ZZZZ-NONEXISTENT");
+    // No home airport set, no crash.
+    expect(useEngineStore.getState().homeAirport).toBeNull();
+  });
+
+  it("setActiveHubIata switches the hub and synthesizes a location from the airport", () => {
+    vi.setSystemTime(GENESIS_TIME + 5 * TICK_DURATION);
+    const target = AIRPORTS.find((a) => a.iata !== AIRPORTS[0].iata)!;
+    useEngineStore.getState().setActiveHubIata(target.iata, "hub selection");
+    const state = useEngineStore.getState();
+    expect(state.homeAirport?.iata).toBe(target.iata);
+    expect(state.userLocation?.latitude).toBe(target.latitude);
+    expect(state.userLocation?.longitude).toBe(target.longitude);
+    expect(state.locationMethod).toBe("hub selection");
+    expect(state.routes.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("setActiveHubIata preserves an existing userLocation when present", () => {
+    vi.setSystemTime(GENESIS_TIME + 5 * TICK_DURATION);
+    const first = AIRPORTS[0];
+    useEngineStore
+      .getState()
+      .setHub(first, { latitude: 12.34, longitude: 56.78, source: "manual" }, "manual");
+    const target = AIRPORTS.find((a) => a.iata !== first.iata)!;
+    useEngineStore.getState().setActiveHubIata(target.iata);
+    expect(useEngineStore.getState().userLocation).toEqual({
+      latitude: 12.34,
+      longitude: 56.78,
+      source: "manual",
+    });
+  });
+
+  it("startEngine fires syncTick on the scheduled tick boundary", () => {
+    vi.setSystemTime(GENESIS_TIME + TICK_DURATION + 500);
+    try {
+      useEngineStore.getState().startEngine();
+      const tickBefore = useEngineStore.getState().tick;
+      // Advance far enough to fire the scheduled engine timeout, which calls
+      // syncTick + reschedules (covers the inner callback).
+      vi.advanceTimersByTime(TICK_DURATION * 3);
+      expect(useEngineStore.getState().tick).toBeGreaterThan(tickBefore);
+    } finally {
+      useEngineStore.getState().stopEngine();
+    }
+  });
+
+  it("startEngine is a no-op when already running", () => {
+    vi.setSystemTime(GENESIS_TIME + TICK_DURATION);
+    useEngineStore.getState().startEngine();
+    const timeoutCountBefore = vi.getTimerCount ? vi.getTimerCount() : 0;
+    useEngineStore.getState().startEngine(); // should bail
+    // Still running, no duplicate setup crash.
+    expect(useEngineStore.getState().isEngineRunning).toBe(true);
+    void timeoutCountBefore;
+    useEngineStore.getState().stopEngine();
+  });
+
   it("startEngine and stopEngine toggle running state", () => {
     const store = useEngineStore.getState();
     store.startEngine();

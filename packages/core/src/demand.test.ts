@@ -8,6 +8,8 @@ import {
   calculateDemand,
   calculatePriceElasticity,
   calculateSupplyPressure,
+  getHubCongestionModifier,
+  getHubDemandModifier,
   getProsperityIndex,
   MAX_PRICE_ELASTICITY_MULTIPLIER,
   MIN_ADDRESSABLE_WEEKLY,
@@ -482,5 +484,126 @@ describe("calculateBidirectionalDemand()", () => {
     const outTotal = result.outbound.economy + result.outbound.business + result.outbound.first;
     const inTotal = result.inbound.economy + result.inbound.business + result.inbound.first;
     expect(outTotal).not.toBe(inTotal);
+  });
+});
+
+describe("getHubDemandModifier", () => {
+  it("returns baseline 1.0 with no tiers or states", () => {
+    expect(getHubDemandModifier(null, null, null, null)).toBe(1.0);
+  });
+
+  it("adds a tier bonus scaled by tier value (regional→1, national→2, international→3, else 4)", () => {
+    const regional = getHubDemandModifier("regional", "regional", null, null);
+    const national = getHubDemandModifier("national", "national", null, null);
+    const intl = getHubDemandModifier("international", "international", null, null);
+    const unknown = getHubDemandModifier("mega", "mega", null, null);
+    expect(regional).toBeCloseTo(1 + (1 + 1) * 0.08, 10);
+    expect(national).toBeCloseTo(1 + (2 + 2) * 0.08, 10);
+    expect(intl).toBeCloseTo(1 + (3 + 3) * 0.08, 10);
+    expect(unknown).toBeCloseTo(1 + (4 + 4) * 0.08, 10);
+    expect(unknown).toBeGreaterThan(intl);
+  });
+
+  it("adds a spoke-density feed bonus when both states are present", () => {
+    const state = { spokeCount: 9, avgFrequency: 0 };
+    const base = getHubDemandModifier("national", "national", null, null);
+    const withFeed = getHubDemandModifier("national", "national", state as never, state as never);
+    expect(withFeed).toBeGreaterThan(base);
+  });
+
+  it("adds an origin density bonus capped at 0.25", () => {
+    const origin = { spokeCount: 9, avgFrequency: 1000 };
+    const maxBonus = getHubDemandModifier("national", "national", origin as never, null);
+    // density = min(1000/20, 0.25) = 0.25
+    expect(maxBonus - getHubDemandModifier("national", "national", null, null)).toBeCloseTo(
+      0.25,
+      10,
+    );
+  });
+
+  it("does not add origin density bonus when spokeCount is zero", () => {
+    const origin = { spokeCount: 0, avgFrequency: 1000 };
+    expect(getHubDemandModifier("national", "national", origin as never, null)).toBe(
+      getHubDemandModifier("national", "national", null, null),
+    );
+  });
+});
+
+describe("getHubCongestionModifier", () => {
+  it("returns 1.0 when base capacity is non-positive", () => {
+    expect(getHubCongestionModifier(0, 10)).toBe(1.0);
+    expect(getHubCongestionModifier(-5, 10)).toBe(1.0);
+  });
+
+  it("returns 1.0 below the 0.85 utilization threshold", () => {
+    expect(getHubCongestionModifier(100, 50)).toBe(1.0);
+    expect(getHubCongestionModifier(100, 85)).toBe(1.0);
+  });
+
+  it("ramps linearly from 1.0 to 0.75 between 0.85 and 1.0", () => {
+    expect(getHubCongestionModifier(100, 90)).toBeCloseTo(1.0 - 0.25 * ((0.9 - 0.85) / 0.15), 10);
+    expect(getHubCongestionModifier(100, 100)).toBeCloseTo(0.75, 10);
+  });
+
+  it("applies exponential penalty above 1.0, floored at 0.3", () => {
+    const at100pct = getHubCongestionModifier(100, 100); // boundary → 0.75
+    const overloaded = getHubCongestionModifier(100, 200);
+    expect(overloaded).toBeLessThan(at100pct);
+    expect(overloaded).toBeGreaterThanOrEqual(0.3);
+    // Extreme overload hits the 0.3 floor.
+    expect(getHubCongestionModifier(10, 1_000_000)).toBe(0.3);
+  });
+});
+
+describe("calculatePriceElasticity — edge branches", () => {
+  it("returns 1.0 when reference fare is zero", () => {
+    expect(calculatePriceElasticity(fp(100), fp(0), PRICE_ELASTICITY_ECONOMY)).toBe(1.0);
+  });
+
+  it("returns the max multiplier when actual fare is zero", () => {
+    expect(calculatePriceElasticity(fp(0), fp(100), PRICE_ELASTICITY_ECONOMY)).toBe(
+      MAX_PRICE_ELASTICITY_MULTIPLIER,
+    );
+  });
+
+  it("clamps an overflow (non-finite) ratio to the min multiplier when ratio > 1", () => {
+    // A ratio so large that ratio^elasticity overflows to Infinity must be
+    // clamped.  FixedPoint values are safe integers, so we use a large actual
+    // fare, a tiny reference fare, and a positive elasticity exponent to push
+    // Math.pow past Number.MAX_VALUE.
+    const result = calculatePriceElasticity(fp(900_000_000_000), fp(0.0001), 20);
+    expect(result).toBe(MIN_PRICE_ELASTICITY_MULTIPLIER);
+  });
+});
+
+describe("demand — defensive branches", () => {
+  it("falls back to the 'general' tag when destination has no tags", () => {
+    // Destination with an empty tags array → getSeasonalMultiplier("general", season).
+    const noTagDest: Airport = {
+      ...BOG,
+      iata: "NOTAG",
+      tags: [],
+    };
+    const withTag = calculateDemand(BOG, MAD, "summer", 1.0);
+    const noTag = calculateDemand(BOG, noTagDest, "summer", 1.0);
+    // Both compute; the no-tag path simply uses the "general" seasonal multiplier.
+    expect(noTag.destination).toBe("NOTAG");
+    expect(withTag.destination).toBe("MAD");
+    expect(typeof noTag.economy).toBe("number");
+  });
+
+  it("scaleToAddressableMarket returns zeros when raw demand is all zero", () => {
+    const zero: DemandResult = {
+      origin: "JFK",
+      destination: "LAX",
+      economy: 0,
+      business: 0,
+      first: 0,
+    };
+    const scaled = scaleToAddressableMarket(zero);
+    // totalRaw === 0 → ratio === 0 → economy floor is 1, business/first 0.
+    expect(scaled.economy).toBe(1);
+    expect(scaled.business).toBe(0);
+    expect(scaled.first).toBe(0);
   });
 });

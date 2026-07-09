@@ -8,11 +8,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary", "html"],
-      exclude: ["src/**/*.test.ts", "dist/**"],
-      lines: 70,
-      functions: 70,
-      branches: 65,
-      statements: 70,
+      exclude: ["src/**/*.test.ts", "dist/**", "vitest.config.ts", "scripts/**", "src/index.ts"],
+      thresholds: { lines: 95, functions: 100, branches: 95, statements: 95 },
     },
   },
 });

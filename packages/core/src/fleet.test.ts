@@ -43,6 +43,13 @@ describe("fleet", () => {
     it("returns zero when no aircraft are assigned", () => {
       expect(computeRouteFrequency(1000, 0, 800, 35, 16)).toBe(0);
     });
+
+    it("falls back to assignedAircraft * 7 when distance or speed is non-positive", () => {
+      expect(computeRouteFrequency(0, 3, 800, 35, 16)).toBe(3 * 7);
+      expect(computeRouteFrequency(1000, 3, 0, 35, 16)).toBe(3 * 7);
+      expect(computeRouteFrequency(-5, 3, 800, 35, 16)).toBe(3 * 7);
+      expect(computeRouteFrequency(1000, 3, -1, 35, 16)).toBe(3 * 7);
+    });
   });
 
   describe("calculateBookValue", () => {
@@ -152,6 +159,12 @@ describe("fleet", () => {
       );
       expect(getMaintenanceDowntimeTicks({ ...mockModel, type: "widebody" })).toBe(
         12 * TICKS_PER_HOUR,
+      );
+    });
+
+    it("falls back to 6 * TICKS_PER_HOUR for an unknown type", () => {
+      expect(getMaintenanceDowntimeTicks({ ...mockModel, type: "zeppelin" as never })).toBe(
+        6 * TICKS_PER_HOUR,
       );
     });
   });

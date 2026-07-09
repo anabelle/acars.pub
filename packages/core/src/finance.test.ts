@@ -59,6 +59,25 @@ describe("calculateFlightRevenue()", () => {
     // Total ticket: 44000
     expect(fpToNumber(result.revenueTicket)).toBe(44000);
   });
+
+  it("reports zero load factor and full spill when no seats are offered", () => {
+    const result = calculateFlightRevenue({
+      passengersEconomy: 100,
+      passengersBusiness: 20,
+      passengersFirst: 5,
+      fareEconomy: fp(100),
+      fareBusiness: fp(500),
+      fareFirst: fp(1000),
+      seatsOffered: 0,
+    });
+    expect(result.loadFactor).toBe(0);
+    expect(result.actualPassengers).toBe(0);
+    expect(result.actualEconomy).toBe(0);
+    expect(result.actualBusiness).toBe(0);
+    expect(result.actualFirst).toBe(0);
+    expect(result.spilledPassengers).toBe(125);
+    expect(fpToNumber(result.revenueTotal)).toBe(0);
+  });
 });
 
 describe("calculateFlightCost()", () => {
@@ -134,11 +153,71 @@ describe("calculateFlightCost()", () => {
     // Total: base + overhead
     expect(fpToNumber(result.costTotal)).toBeCloseTo(totalBase + overhead, 1);
   });
+
+  it("applies a custom fuel price and default airport multiplier when omitted", () => {
+    const aircraft: AircraftModel = {
+      id: "a320neo",
+      manufacturer: "Airbus",
+      name: "A320neo",
+      type: "narrowbody",
+      generation: "nextgen",
+      rangeKm: 6300,
+      speedKmh: 830,
+      maxTakeoffWeight: 79000,
+      capacity: { economy: 180, business: 0, first: 0, cargoKg: 2000 },
+      fuelBurnKgPerHour: 2075,
+      fuelBurnKgPerKm: 2.5,
+      blockHoursPerDay: 13,
+      turnaroundTimeMinutes: 35,
+      price: fp(110000000),
+      monthlyLease: fp(380000),
+      casm: fp(0.08),
+      maintCostPerHour: fp(850),
+      crewRequired: { cockpit: 2, cabin: 4 },
+      economicLifeYears: 20,
+      residualValuePercent: 15,
+      unlockTier: 1,
+      familyId: "a320",
+      deliveryTimeTicks: 120,
+    };
+    // Omit airportFeesMultiplier (→ default 1) and pass an explicit fuelPricePerKg.
+    const result = calculateFlightCost({
+      distanceKm: 4000,
+      aircraft,
+      actualPassengers: 150,
+      blockHours: 5,
+      fuelPricePerKg: fp(2.0),
+    });
+    // Fuel: 4000 * 2.5 * 2.0 = 20000
+    expect(fpToNumber(result.costFuel)).toBe(20000);
+    // Airport uses the default multiplier (1) → same 5996 as the baseline test.
+    expect(fpToNumber(result.costAirport)).toBe(5996);
+  });
 });
 
 describe("calculateHubLandingFee()", () => {
   it("caps extreme congestion multipliers to keep fees safe", () => {
     expect(fpToNumber(calculateHubLandingFee(fp(1_000), 1, 1_000_000))).toBe(10_000);
+  });
+
+  it("returns the base fee (ratio=0) when base capacity is non-positive", () => {
+    // ratio clamps to 0 when baseCapacityPerHour <= 0, so multiplier = 1+0 = 1.
+    expect(fpToNumber(calculateHubLandingFee(fp(1_000), 0, 50))).toBe(1_000);
+    expect(fpToNumber(calculateHubLandingFee(fp(1_000), -5, 50))).toBe(1_000);
+  });
+
+  it("scales linearly at or below the congestion threshold (ratio <= 0.8)", () => {
+    // ratio = 40/100 = 0.4 → multiplier = 1 + 0.4 = 1.4 → 1400
+    expect(fpToNumber(calculateHubLandingFee(fp(1_000), 100, 40))).toBe(1_400);
+    // exactly at the 0.8 boundary → 1 + 0.8 = 1.8 → 1800
+    expect(fpToNumber(calculateHubLandingFee(fp(1_000), 100, 80))).toBe(1_800);
+  });
+
+  it("applies the exponential excess curve just above the threshold", () => {
+    // ratio = 0.9, excess = 0.1 → multiplier = 1 + 0.8 + (e^0.4 - 1)
+    const fee = calculateHubLandingFee(fp(1_000), 100, 90);
+    const expectedMultiplier = 1 + 0.8 + (Math.exp(0.1 * 4) - 1);
+    expect(fpToNumber(fee)).toBeCloseTo(1_000 * expectedMultiplier, 2);
   });
 });
 

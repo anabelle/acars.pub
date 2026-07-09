@@ -193,4 +193,113 @@ describe("allocatePassengers()", () => {
     expect(alloc.get("airlineA")!.economy).toBe(2);
     expect(alloc.get("airlineB")!.economy).toBe(1);
   });
+
+  it("handles empty offers (returns empty allocation map)", () => {
+    const shares = calculateShares([]);
+    expect(shares.economy.size).toBe(0);
+    expect(shares.business.size).toBe(0);
+    expect(shares.first.size).toBe(0);
+
+    const alloc = allocatePassengers([], {
+      origin: "JFK",
+      destination: "LAX",
+      economy: 100,
+      business: 50,
+      first: 10,
+    });
+    expect(alloc.size).toBe(0);
+  });
+
+  it("exercises the remainder-descending sort path with unequal remainders", () => {
+    // Three airlines with clearly unequal QSI shares → unequal remainders →
+    // the `b.remainder - a.remainder` branch of the sort comparator fires.
+    const offers: FlightOffer[] = [
+      {
+        airlinePubkey: "alpha",
+        fareEconomy: fp(100),
+        fareBusiness: fp(300),
+        fareFirst: fp(500),
+        frequencyPerWeek: 21,
+        travelTimeMinutes: 100,
+        stops: 0,
+        serviceScore: 0.9,
+        brandScore: 0.9,
+      },
+      {
+        airlinePubkey: "bravo",
+        fareEconomy: fp(400),
+        fareBusiness: fp(800),
+        fareFirst: fp(1200),
+        frequencyPerWeek: 7,
+        travelTimeMinutes: 400,
+        stops: 1,
+        serviceScore: 0.5,
+        brandScore: 0.4,
+      },
+      {
+        airlinePubkey: "charlie",
+        fareEconomy: fp(250),
+        fareBusiness: fp(600),
+        fareFirst: fp(900),
+        frequencyPerWeek: 14,
+        travelTimeMinutes: 250,
+        stops: 0,
+        serviceScore: 0.6,
+        brandScore: 0.5,
+      },
+    ];
+    const demand: DemandResult = {
+      origin: "JFK",
+      destination: "LAX",
+      economy: 10,
+      business: 5,
+      first: 2,
+    };
+    const alloc = allocatePassengers(offers, demand);
+    const total = [...alloc.values()].reduce((acc, v) => acc + v.economy + v.business + v.first, 0);
+    expect(total).toBe(17);
+    // Highest-QSI carrier (alpha) should get the most seats.
+    const alpha = alloc.get("alpha")!;
+    const bravo = alloc.get("bravo")!;
+    expect(alpha.economy + alpha.business + alpha.first).toBeGreaterThan(
+      bravo.economy + bravo.business + bravo.first,
+    );
+  });
+
+  it("handles offers with zero total frequency and multi-stop itineraries", () => {
+    // All-zero frequency triggers the totalFrequency===0 guard (→ 1).
+    // stops >= 2 triggers the 0.2 stops-score branch.
+    const offers: FlightOffer[] = [
+      {
+        airlinePubkey: "zerofreq",
+        fareEconomy: fp(100),
+        fareBusiness: fp(300),
+        fareFirst: fp(500),
+        frequencyPerWeek: 0,
+        travelTimeMinutes: 200,
+        stops: 2,
+        serviceScore: 0.7,
+        brandScore: 0.6,
+      },
+      {
+        airlinePubkey: "alsounused",
+        fareEconomy: fp(120),
+        fareBusiness: fp(320),
+        fareFirst: fp(520),
+        frequencyPerWeek: 0,
+        travelTimeMinutes: 220,
+        stops: 3,
+        serviceScore: 0.6,
+        brandScore: 0.5,
+      },
+    ];
+    const shares = calculateShares(offers);
+    // Both get a defined share (no NaN from divide-by-zero).
+    expect(shares.economy.get("zerofreq")).toBeTypeOf("number");
+    expect(Number.isFinite(shares.economy.get("zerofreq")!)).toBe(true);
+    expect(shares.economy.get("alsounused")).toBeTypeOf("number");
+    // Shares sum to ~1.0
+    const total = shares.economy.get("zerofreq")! + shares.economy.get("alsounused")!;
+    expect(total).toBeCloseTo(1.0, 6);
+  });
 });

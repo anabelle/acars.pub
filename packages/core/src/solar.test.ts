@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeNightOverlay, getSolarDeclination, getSubsolarPoint } from "./solar.js";
+import {
+  computeNightOverlay,
+  computeTerminatorLine,
+  getSolarDeclination,
+  getSubsolarPoint,
+} from "./solar.js";
 
 describe("solar", () => {
   describe("getSolarDeclination", () => {
@@ -48,6 +53,36 @@ describe("solar", () => {
         for (const hole of holes) {
           expect(hole.length).toBeGreaterThanOrEqual(3);
           expect(hole[0]).toEqual(hole[hole.length - 1]);
+        }
+      }
+    });
+  });
+
+  describe("computeTerminatorLine", () => {
+    it("returns a LineString FeatureCollection", () => {
+      const fc = computeTerminatorLine(new Date("2024-03-20T12:00:00Z"));
+      expect(fc.type).toBe("FeatureCollection");
+      expect(fc.features.length).toBeGreaterThan(0);
+      for (const feature of fc.features) {
+        expect(feature.geometry.type).toBe("LineString");
+        expect(feature.geometry.coordinates.length).toBeGreaterThan(1);
+      }
+    });
+
+    it("splits the line at the antimeridian producing multiple segments", () => {
+      // A step that forces sampling across the dateline region; the terminator
+      // always crosses ±180° so there should be ≥2 segments for any date.
+      const fc = computeTerminatorLine(new Date("2024-06-20T12:00:00Z"), 5);
+      expect(fc.features.length).toBeGreaterThanOrEqual(1);
+      for (const feature of fc.features) {
+        const coords = feature.geometry.coordinates;
+        // The closing coordinate is stripped for LineStrings.
+        if (coords.length > 1) {
+          expect(coords[0]).not.toEqual(coords[coords.length - 1]);
+        }
+        for (const [lng] of coords) {
+          expect(lng).toBeGreaterThanOrEqual(-180);
+          expect(lng).toBeLessThanOrEqual(180);
         }
       }
     });

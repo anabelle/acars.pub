@@ -7,9 +7,22 @@ vi.mock("./engine.js", () => {
       getState: vi.fn(() => ({
         tick: 0,
       })),
+      setState: vi.fn(),
+      getInitialState: vi.fn(() => ({ tick: 0 })),
     },
   };
 });
+
+// Hoisted no-op mock for the Nostr I/O layer so that importing airline.ts
+// does NOT trigger a real relay connection (ensureConnected) during tests.
+// The buffering/reconnect describe blocks override this per-test via vi.doMock
+// + vi.resetModules(), so this default only affects the basic smoke test below.
+vi.mock("@acars/nostr", () => ({
+  ensureConnected: vi.fn().mockResolvedValue(undefined),
+  connectedRelayCount: vi.fn().mockReturnValue(1),
+  reconnectIfNeeded: vi.fn().mockResolvedValue(false),
+  subscribeActions: vi.fn().mockResolvedValue(() => {}),
+}));
 
 describe("airline store", () => {
   it("creates a zustand store with slices", async () => {
