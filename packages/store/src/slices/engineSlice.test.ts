@@ -56,7 +56,6 @@ vi.mock("@acars/nostr", () => ({
       author: { pubkey: "player" },
     }),
   ),
-  publishCheckpoint: vi.fn(() => Promise.resolve()),
   publishSnapshot: vi.fn(() => Promise.resolve()),
 }));
 

@@ -26,6 +26,8 @@ export {
   CATALOG_IMAGE_D_PREFIX,
   CATALOG_IMAGE_KIND,
   type CatalogImageRecord,
+  deleteMarketplaceListing,
+  isTransientPublishError,
   loadActionLog,
   parseCheckpoint,
   loadCatalogImages,
@@ -36,9 +38,9 @@ export {
   type MarketplaceListing,
   publishAction,
   publishCatalogImage,
-  publishCheckpoint,
   publishUsedAircraft,
   type SellerFleetIndex,
   subscribeActions,
+  withPublishRetry,
 } from "./schema.js";
 export * from "./snapshot.js";

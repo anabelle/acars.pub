@@ -38,6 +38,13 @@ const mock = vi.hoisted(() => {
     }
   }
 
+  class MockNDKPublishError extends Error {
+    constructor(message = "Not enough relays received the event") {
+      super(message);
+      this.name = "NDKPublishError";
+    }
+  }
+
   const state = {
     pageQueue: [] as FakeEvent[][],
     publishImpl: async () => {},
@@ -51,7 +58,9 @@ const mock = vi.hoisted(() => {
       stop: () => void;
       _emit: (name: string, ...args: unknown[]) => void;
     },
+    subscribeCallCount: 0,
     subscribe: () => {
+      mock.ndkMock.subscribeCallCount += 1;
       const handlers: Record<string, Array<(...args: unknown[]) => void>> = {};
       const sub = {
         on(name: string, cb: (...args: unknown[]) => void) {
@@ -73,7 +82,7 @@ const mock = vi.hoisted(() => {
     },
   };
 
-  return { MockNDKEvent, state, ndkMock };
+  return { MockNDKEvent, MockNDKPublishError, state, ndkMock };
 });
 
 vi.mock("./ndk.js", () => ({
@@ -83,12 +92,15 @@ vi.mock("./ndk.js", () => ({
 
 vi.mock("@nostr-dev-kit/ndk", () => ({
   NDKEvent: mock.MockNDKEvent,
+  NDKPublishError: mock.MockNDKPublishError,
 }));
 
 import {
   ACTION_KIND,
   buildActionDTag,
   CATALOG_IMAGE_D_PREFIX,
+  deleteMarketplaceListing,
+  isTransientPublishError,
   loadActionLog,
   loadCatalogImages,
   loadCheckpoint,
@@ -98,11 +110,10 @@ import {
   publishAction,
   publishAirline,
   publishCatalogImage,
-  publishCheckpoint,
   publishUsedAircraft,
   subscribeActions,
 } from "./schema.js";
-import type { CatalogImageRecord, Checkpoint } from "./schema.js";
+import type { CatalogImageRecord } from "./schema.js";
 
 const NOW = Math.floor(Date.now() / 1000);
 
@@ -128,6 +139,7 @@ beforeEach(() => {
   mock.state.publishedEvents.length = 0;
   mock.ndkMock.signer = {};
   mock.ndkMock.lastSub = null;
+  mock.ndkMock.subscribeCallCount = 0;
 });
 
 describe("schema I/O — publish paths", () => {
@@ -174,30 +186,87 @@ describe("schema I/O — publish paths", () => {
     );
   });
 
-  it("publishCheckpoint succeeds on first try", async () => {
-    mock.state.publishImpl = async () => {};
-    const ev = await publishCheckpoint({} as Checkpoint);
+  it("publishAction retries transient errors then succeeds", async () => {
+    let calls = 0;
+    mock.state.publishImpl = async () => {
+      calls++;
+      if (calls < 3) throw new Error("network timeout");
+    };
+    const ev = await publishAction({ action: "TICK_UPDATE", payload: {} });
+    expect(calls).toBe(3);
     expect(ev.kind).toBe(ACTION_KIND);
   });
 
-  it("publishCheckpoint retries on transient errors then throws after exhausting", async () => {
+  it("publishAction retries transient errors then throws after exhausting retries", async () => {
     let calls = 0;
     mock.state.publishImpl = async () => {
       calls++;
       throw new Error("network timeout");
     };
-    await expect(publishCheckpoint({} as Checkpoint)).rejects.toThrow("network timeout");
+    await expect(publishAction({ action: "TICK_UPDATE", payload: {} })).rejects.toThrow(
+      "network timeout",
+    );
     expect(calls).toBe(3); // initial + 2 retries
   });
 
-  it("publishCheckpoint does not retry non-transient errors", async () => {
+  it("publishAction does not retry non-transient errors", async () => {
     let calls = 0;
     mock.state.publishImpl = async () => {
       calls++;
       throw new Error("invalid signature");
     };
-    await expect(publishCheckpoint({} as Checkpoint)).rejects.toThrow("invalid signature");
+    await expect(publishAction({ action: "TICK_UPDATE", payload: {} })).rejects.toThrow(
+      "invalid signature",
+    );
     expect(calls).toBe(1);
+  });
+
+  it("publishAction treats NDKPublishError instances as transient (instanceof, not constructor.name)", async () => {
+    let calls = 0;
+    // Simulate a minified build: the error class name is mangled.
+    const { NDKPublishError } = await import("@nostr-dev-kit/ndk");
+    const mangled = new (NDKPublishError as unknown as new () => Error)();
+    Object.defineProperty(mangled, "constructor", {
+      value: function MinifiedX() {},
+    });
+    mock.state.publishImpl = async () => {
+      calls++;
+      if (calls === 1) throw mangled;
+    };
+    await publishAction({ action: "TICK_UPDATE", payload: {} });
+    expect(calls).toBe(2); // retried once, then succeeded
+    expect(isTransientPublishError(mangled)).toBe(true);
+  });
+
+  it("structural actions (AIRLINE_CREATE / AIRLINE_DISSOLVE) publish WITHOUT expiration", async () => {
+    mock.state.publishImpl = async (ev) => {
+      mock.state.publishedEvents.push(ev);
+    };
+    for (const action of ["AIRLINE_CREATE", "AIRLINE_DISSOLVE"] as const) {
+      const ev = await publishAction({ action, payload: {} });
+      expect(ev.tags.some((t) => t[0] === "expiration")).toBe(false);
+    }
+  });
+
+  it("regular actions (TICK_UPDATE, purchases) publish WITH a ~14-day expiration", async () => {
+    mock.state.publishImpl = async (ev) => {
+      mock.state.publishedEvents.push(ev);
+    };
+    const now = Math.floor(Date.now() / 1000);
+    for (const action of ["TICK_UPDATE", "AIRCRAFT_PURCHASE"] as const) {
+      const ev = await publishAction({ action, payload: {} });
+      const expTag = ev.tags.find((t) => t[0] === "expiration")?.[1];
+      expect(expTag).toBeDefined();
+      const exp = Number(expTag);
+      // 14 days ± 1h of scheduling slack
+      expect(exp).toBeGreaterThan(now + 13 * 24 * 3600);
+      expect(exp).toBeLessThan(now + 15 * 24 * 3600);
+    }
+  });
+
+  it("publishCheckpoint no longer exists as public API (dead code removed)", async () => {
+    const schema = await import("./schema.js");
+    expect((schema as Record<string, unknown>).publishCheckpoint).toBeUndefined();
   });
 
   it("publishAirline / loadAirline / loadGlobalAirlines are disabled and throw", async () => {
@@ -244,6 +313,70 @@ describe("schema I/O — publishUsedAircraft validation", () => {
     expect(ev.kind).toBe(30079);
     expect(mock.state.publishedEvents).toHaveLength(1);
     expect(ev.tags.some((t) => t[0] === "price" && t[1] === "5000")).toBe(true);
+  });
+
+  it("serializes ONLY listing fields (no live flight/route state)", async () => {
+    let captured: string | undefined;
+    mock.state.publishImpl = async (ev) => {
+      captured = ev.content;
+    };
+    const fullAircraft = {
+      id: "a1",
+      modelId: "a320",
+      ownerPubkey: "seller",
+      name: "Nifty A320",
+      condition: 0.9,
+      flightHoursTotal: 1200,
+      flightHoursSinceCheck: 30,
+      birthTick: 100,
+      purchasedAtTick: 200,
+      purchasePrice: 9000000,
+      purchaseType: "buy",
+      baseAirportIata: "BOG",
+      configuration: { economy: 150, business: 20, first: 0, cargoKg: 0 },
+      // Live operational state that must NOT leak into the listing event:
+      flight: { departureTick: 1, arrivalTick: 2 },
+      assignedRouteId: "route-7",
+      status: "enroute",
+      turnaroundEndTick: 42,
+    };
+    await publishUsedAircraft(fullAircraft as never, 5000);
+    const payload = JSON.parse(captured!);
+    expect(payload).toMatchObject({
+      id: "a1",
+      modelId: "a320",
+      ownerPubkey: "seller",
+      baseAirportIata: "BOG",
+      condition: 0.9,
+      marketplacePrice: 5000,
+    });
+    expect(typeof payload.listedAt).toBe("number");
+    expect(payload.flight).toBeUndefined();
+    expect(payload.assignedRouteId).toBeUndefined();
+    expect(payload.status).toBeUndefined();
+    expect(payload.turnaroundEndTick).toBeUndefined();
+  });
+});
+
+describe("schema I/O — deleteMarketplaceListing (NIP-09)", () => {
+  it("publishes a kind-5 deletion with an `a` tag for the parameterized listing", async () => {
+    mock.state.publishImpl = async (ev) => {
+      mock.state.publishedEvents.push(ev);
+    };
+    const ev = await deleteMarketplaceListing("seller-pk", "ac-1");
+    expect(ev.kind).toBe(5);
+    expect(ev.tags).toContainEqual(["a", `30079:seller-pk:${MARKETPLACE_D_PREFIX}ac-1`]);
+    expect(ev.tags.some((t) => t[0] === "k" && t[1] === "30079")).toBe(true);
+  });
+
+  it("rejects invalid arguments", async () => {
+    await expect(deleteMarketplaceListing("", "ac-1")).rejects.toThrow("seller pubkey");
+    await expect(deleteMarketplaceListing("seller-pk", "")).rejects.toThrow("aircraftId");
+  });
+
+  it("rejects when no signer is attached", async () => {
+    mock.ndkMock.signer = undefined;
+    await expect(deleteMarketplaceListing("seller-pk", "ac-1")).rejects.toThrow("No signer");
   });
 });
 
@@ -309,6 +442,81 @@ describe("schema I/O — load paths", () => {
     mock.state.pageQueue = [[]];
     const log = await loadActionLog({ authors: ["abc"], since: NOW - 50 });
     expect(log).toEqual([]);
+  });
+
+  it("loadActionLog pages on RAW events — 60% garbage does not truncate the log", async () => {
+    // Page 1: 5 raw events (full page) but only 2 parse (60% garbage).
+    // The old post-filter break (pageResults.length < pageLimit) stopped here
+    // and hid older actions; pagination must continue on the raw count.
+    const valid = (id: string, created: number) =>
+      makeActionEvent({
+        id,
+        created_at: created,
+        content: JSON.stringify({ schemaVersion: 2, action: "TICK_UPDATE", payload: { tick: 1 } }),
+      });
+    const garbage = (created: number) =>
+      makeActionEvent({
+        created_at: created,
+        // Valid kind/world/d-tag but unparseable content → filtered post-fetch
+        content: "{garbage",
+      });
+    mock.state.pageQueue = [
+      [
+        valid("v1", NOW - 10),
+        garbage(NOW - 11),
+        garbage(NOW - 12),
+        garbage(NOW - 13),
+        valid("v2", NOW - 14),
+      ],
+      [
+        valid("v3", NOW - 50),
+        valid("v4", NOW - 51),
+        garbage(NOW - 52),
+        garbage(NOW - 53),
+        garbage(NOW - 54),
+      ],
+      [valid("v5", NOW - 100)], // short raw page → stop
+    ];
+    const log = await loadActionLog({ limit: 5, maxPages: 10 });
+    // Ascending by created_at: v5(-100) < v4(-51) < v3(-50) < v2(-14) < v1(-10)
+    expect(log.map((e) => e.event.id)).toEqual(["v5", "v4", "v3", "v2", "v1"]);
+  });
+
+  it("loadActionLog skips oversized payloads (>128KB) without dying", async () => {
+    const oversized = makeActionEvent({
+      id: "big",
+      content: JSON.stringify({
+        schemaVersion: 2,
+        action: "TICK_UPDATE",
+        payload: { pad: "x".repeat(140 * 1024) },
+      }),
+    });
+    const normal = makeActionEvent({
+      id: "ok",
+      content: JSON.stringify({ schemaVersion: 2, action: "TICK_UPDATE", payload: { tick: 1 } }),
+    });
+    mock.state.pageQueue = [[oversized, normal]];
+    const log = await loadActionLog();
+    expect(log.map((e) => e.event.id)).toEqual(["ok"]);
+  });
+
+  it("loadActionLog caps retained events per author at 2000", async () => {
+    const author = { pubkey: "spammer" };
+    const mk = (i: number) =>
+      makeActionEvent({
+        id: `s-${i}`,
+        created_at: NOW - i,
+        author,
+        content: JSON.stringify({ schemaVersion: 2, action: "TICK_UPDATE", payload: { tick: i } }),
+      });
+    // 3 pages × 1000 = 3000 valid events from one author → capped at 2000.
+    mock.state.pageQueue = [
+      Array.from({ length: 1000 }, (_, i) => mk(i)),
+      Array.from({ length: 1000 }, (_, i) => mk(1000 + i)),
+      Array.from({ length: 1000 }, (_, i) => mk(2000 + i)),
+    ];
+    const log = await loadActionLog({ limit: 1000, maxPages: 10 });
+    expect(log).toHaveLength(2000);
   });
 
   it("loadCatalogImages parses valid catalog records and filters mismatches", async () => {
@@ -500,6 +708,47 @@ describe("schema I/O — load paths", () => {
     expect(map.get("sellerB")?.tick).toBe(2);
   });
 
+  it("loadCheckpoints partitions authors into relay-safe batches of ≤200 with fan-in", async () => {
+    const cp = {
+      schemaVersion: 1,
+      tick: 1,
+      createdAt: NOW,
+      actionChainHash: "x",
+      stateHash: "y",
+      airline: { id: "a" },
+      fleet: [],
+      routes: [],
+      timeline: [],
+    };
+    const cpEvent = (pubkey: string, tick: number) => ({
+      id: `cp-${pubkey}`,
+      kind: ACTION_KIND,
+      created_at: NOW,
+      author: { pubkey },
+      tags: [
+        ["d", "airtr:world:v6-beta:checkpoint"],
+        ["world", "v6-beta"],
+      ],
+      content: JSON.stringify({ ...cp, tick }),
+    });
+
+    // 450 pubkeys → ceil(450/200) = 3 batches/subscriptions.
+    const pubkeys = Array.from({ length: 450 }, (_, i) => `pk-${i}`);
+    mock.state.pageQueue = [
+      [cpEvent("pk-0", 1), cpEvent("pk-199", 2)],
+      [cpEvent("pk-200", 3)],
+      [cpEvent("pk-449", 4)],
+    ];
+    const map = await loadCheckpoints(pubkeys);
+
+    expect(mock.ndkMock.subscribeCallCount).toBe(3);
+    expect(map.size).toBe(4);
+    expect(map.get("pk-0")?.tick).toBe(1);
+    expect(map.get("pk-199")?.tick).toBe(2);
+    expect(map.get("pk-200")?.tick).toBe(3);
+    expect(map.get("pk-449")?.tick).toBe(4);
+  });
+
   it("loadMarketplace parses, dedups, filters stale via ownership, and sorts", async () => {
     const baseListing = {
       id: "ac-1",
@@ -508,6 +757,8 @@ describe("schema I/O — load paths", () => {
       marketplacePrice: 5000,
       name: "A320",
       condition: 0.8,
+      baseAirportIata: "BOG",
+      listedAt: NOW,
       configuration: { economy: 150, business: 0, first: 0, cargoKg: 0 },
     };
     mock.state.pageQueue = [
@@ -554,12 +805,54 @@ describe("schema I/O — load paths", () => {
     expect(listings[0].instanceId).toBe("ac-1");
   });
 
-  it("loadMarketplace filters stale listings using the seller fleet index", async () => {
-    const listing = {
-      id: "ac-1",
+  it("loadMarketplace skips listings missing critical fields (strict parsing, no fabricated defaults)", async () => {
+    const valid = {
+      id: "ac-ok",
       modelId: "a320",
       ownerPubkey: "seller-pubkey",
       marketplacePrice: 5000,
+      name: "A320",
+      condition: 0.8,
+      baseAirportIata: "BOG",
+      listedAt: NOW,
+    };
+    const mk = (id: string, overrides: Record<string, unknown>) => ({
+      id,
+      kind: 30079,
+      created_at: NOW,
+      author: { pubkey: "seller-pubkey" },
+      tags: [
+        ["d", `${MARKETPLACE_D_PREFIX}${id}`],
+        ["world", "v6-beta"],
+      ],
+      content: JSON.stringify({ ...valid, id, ...overrides }),
+    });
+    mock.state.pageQueue = [
+      [
+        mk("ac-ok", {}),
+        mk("ac-no-name", { name: undefined }),
+        mk("ac-no-hub", { baseAirportIata: undefined }),
+        mk("ac-no-condition", { condition: undefined }),
+        mk("ac-no-listedat", { listedAt: undefined }),
+      ],
+    ];
+    const listings = await loadMarketplace();
+    expect(listings).toHaveLength(1);
+    expect(listings[0].instanceId).toBe("ac-ok");
+  });
+
+  it("loadMarketplace clamps flightHoursTotal and birthTick to 1e9", async () => {
+    const listing = {
+      id: "ac-clamp",
+      modelId: "a320",
+      ownerPubkey: "seller-pubkey",
+      marketplacePrice: 5000,
+      name: "A320",
+      condition: 0.8,
+      baseAirportIata: "BOG",
+      listedAt: NOW,
+      flightHoursTotal: Number.MAX_SAFE_INTEGER,
+      birthTick: 5e15,
     };
     mock.state.pageQueue = [
       [
@@ -569,32 +862,48 @@ describe("schema I/O — load paths", () => {
           created_at: NOW,
           author: { pubkey: "seller-pubkey" },
           tags: [
-            ["d", `${MARKETPLACE_D_PREFIX}ac-1`],
+            ["d", `${MARKETPLACE_D_PREFIX}ac-clamp`],
             ["world", "v6-beta"],
           ],
           content: JSON.stringify(listing),
         },
       ],
     ];
+    const [parsed] = await loadMarketplace();
+    expect(parsed.flightHoursTotal).toBe(1e9);
+    expect(parsed.birthTick).toBe(1e9);
+  });
+
+  it("loadMarketplace filters stale listings using the seller fleet index", async () => {
+    const listing = {
+      id: "ac-1",
+      modelId: "a320",
+      ownerPubkey: "seller-pubkey",
+      marketplacePrice: 5000,
+      name: "A320",
+      condition: 0.9,
+      baseAirportIata: "BOG",
+      listedAt: NOW,
+    };
+    const page = () => [
+      {
+        id: "l1",
+        kind: 30079,
+        created_at: NOW,
+        author: { pubkey: "seller-pubkey" },
+        tags: [
+          ["d", `${MARKETPLACE_D_PREFIX}ac-1`],
+          ["world", "v6-beta"],
+        ],
+        content: JSON.stringify(listing),
+      },
+    ];
+    mock.state.pageQueue = [page()];
     // seller no longer owns ac-1 → filtered out
     const stale = await loadMarketplace(new Map([["seller-pubkey", new Set(["other-ac"])]]));
     expect(stale).toHaveLength(0);
 
-    mock.state.pageQueue = [
-      [
-        {
-          id: "l1",
-          kind: 30079,
-          created_at: NOW,
-          author: { pubkey: "seller-pubkey" },
-          tags: [
-            ["d", `${MARKETPLACE_D_PREFIX}ac-1`],
-            ["world", "v6-beta"],
-          ],
-          content: JSON.stringify(listing),
-        },
-      ],
-    ];
+    mock.state.pageQueue = [page()];
     // another airline owns ac-1 now → filtered out
     const bought = await loadMarketplace(
       new Map([
@@ -604,24 +913,87 @@ describe("schema I/O — load paths", () => {
     );
     expect(bought).toHaveLength(0);
 
+    mock.state.pageQueue = [page()];
+    // seller still owns it → kept
+    const kept = await loadMarketplace(new Map([["seller-pubkey", new Set(["ac-1"])]]));
+    expect(kept).toHaveLength(1);
+  });
+
+  it("loadMarketplace flags old listings from unknown sellers as staleUnknownSeller", async () => {
+    const listing = {
+      id: "ac-old",
+      modelId: "a320",
+      ownerPubkey: "ghost-seller",
+      marketplacePrice: 5000,
+      name: "A320",
+      condition: 0.9,
+      baseAirportIata: "BOG",
+      listedAt: NOW - 7200,
+    };
     mock.state.pageQueue = [
       [
         {
-          id: "l1",
+          id: "l-old",
           kind: 30079,
-          created_at: NOW,
-          author: { pubkey: "seller-pubkey" },
+          created_at: NOW - 7200, // 2h old — past the 3600s TTL
+          author: { pubkey: "ghost-seller" },
           tags: [
-            ["d", `${MARKETPLACE_D_PREFIX}ac-1`],
+            ["d", `${MARKETPLACE_D_PREFIX}ac-old`],
             ["world", "v6-beta"],
           ],
           content: JSON.stringify(listing),
         },
+        {
+          id: "l-fresh",
+          kind: 30079,
+          created_at: NOW - 60, // 1min old — fresh, keep unflagged
+          author: { pubkey: "ghost-seller" },
+          tags: [
+            ["d", `${MARKETPLACE_D_PREFIX}ac-fresh`],
+            ["world", "v6-beta"],
+          ],
+          content: JSON.stringify({ ...listing, id: "ac-fresh", listedAt: NOW - 60 }),
+        },
       ],
     ];
-    // seller still owns it → kept
-    const kept = await loadMarketplace(new Map([["seller-pubkey", new Set(["ac-1"])]]));
-    expect(kept).toHaveLength(1);
+    // Fleet index exists (some other seller) but ghost-seller is unknown.
+    const results = await loadMarketplace(new Map([["other-seller", new Set(["x"])]]));
+    const old = results.find((l) => l.instanceId === "ac-old");
+    const fresh = results.find((l) => l.instanceId === "ac-fresh");
+    expect(old?.staleUnknownSeller).toBe(true);
+    expect(fresh?.staleUnknownSeller).toBeUndefined();
+  });
+
+  it("loadMarketplace paginates across full raw pages instead of a single 100-event window", async () => {
+    const mkListingEvent = (i: number) => ({
+      id: `mkt-${i}`,
+      kind: 30079,
+      created_at: NOW - i,
+      author: { pubkey: `seller-${i}` },
+      tags: [
+        ["d", `${MARKETPLACE_D_PREFIX}ac-${i}`],
+        ["world", "v6-beta"],
+      ],
+      content: JSON.stringify({
+        id: `ac-${i}`,
+        modelId: "a320",
+        ownerPubkey: `seller-${i}`,
+        marketplacePrice: 100 + i,
+        name: "A320",
+        condition: 0.8,
+        baseAirportIata: "BOG",
+        listedAt: NOW - i,
+      }),
+    });
+    // Page 1: exactly 100 raw events (full page → must paginate).
+    // Page 2: 2 events (short page → stop).
+    mock.state.pageQueue = [
+      Array.from({ length: 100 }, (_, i) => mkListingEvent(i)),
+      [mkListingEvent(100), mkListingEvent(101)],
+    ];
+    const listings = await loadMarketplace();
+    expect(listings.length).toBe(102);
+    expect(mock.ndkMock.subscribeCallCount).toBe(2);
   });
 });
 

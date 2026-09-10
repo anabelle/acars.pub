@@ -1,6 +1,6 @@
 import { type Checkpoint, createLogger, type FixedPoint, FP_ZERO, fpRaw } from "@acars/core";
 import type { NDKKind } from "@nostr-dev-kit/ndk";
-import { NDKEvent, type NDKFilter } from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKPublishError, type NDKFilter } from "@nostr-dev-kit/ndk";
 import { ensureConnected, getNDK } from "./ndk.js";
 
 const logger = createLogger("Nostr");
@@ -50,6 +50,12 @@ export interface MarketplaceListing {
     first: number;
     cargoKg: number;
   };
+  /**
+   * True when the seller's fleet is unknown to this client AND the listing is
+   * older than the unknown-seller TTL (1h): we cannot verify ownership, so
+   * callers may want to filter it out. Absent/undefined = verified fresh.
+   */
+  staleUnknownSeller?: boolean;
 }
 
 export interface CatalogImageRecord {
@@ -78,6 +84,32 @@ const MAX_FUTURE_SKEW_SEC = 5 * 60;
 const MAX_EVENT_AGE_SEC = 365 * 24 * 60 * 60;
 
 const ACTION_SCHEMA_VERSION = 2;
+
+/**
+ * Anti-inflation caps for relay-driven loaders:
+ * - per-payload content cap: events over 128KB are skipped (spam/oversized payloads)
+ * - per-author retention cap: at most 2000 action events retained per author
+ * - checkpoint author fan-out: relays cap filter `authors` lists (usually ~200-400),
+ *   so pubkeys are queried in batches of 200 and fan-in merged
+ * - marketplace listings from sellers with no known fleet older than the TTL
+ *   are flagged `staleUnknownSeller` instead of silently trusted
+ */
+const MAX_ACTION_CONTENT_CHARS = 128 * 1024;
+const MAX_EVENTS_PER_AUTHOR = 2000;
+const CHECKPOINT_AUTHOR_BATCH_SIZE = 200;
+const MARKETPLACE_PAGE_LIMIT = 100;
+const MARKETPLACE_PAGE_CAP = 10;
+const UNKNOWN_SELLER_STALE_TTL_SEC = 3600;
+
+/**
+ * Structural actions that must never expire from relays: AIRLINE_CREATE is the
+ * genesis event third parties need to bootstrap/replay an airline, and
+ * AIRLINE_DISSOLVE is its non-replaceable counterpart. Everything else
+ * (TICK_UPDATE, regular actions) keeps the 14-day expiration.
+ */
+const PERSISTENT_ACTION_TYPES = new Set(["AIRLINE_CREATE", "AIRLINE_DISSOLVE"]);
+
+const ACTION_EXPIRATION_SEC = 14 * 24 * 60 * 60;
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -128,8 +160,9 @@ export function parseActionContent(data: unknown): ActionEnvelope | null {
 export function isTransientPublishError(error: unknown): boolean {
   if (!error) return false;
 
-  // Treat NDK structured publish errors as transient
-  if (error instanceof Error && error.constructor.name === "NDKPublishError") return true;
+  // Treat NDK structured publish errors as transient. instanceof (not
+  // constructor.name, which minifiers mangle) survives production builds.
+  if (typeof NDKPublishError === "function" && error instanceof NDKPublishError) return true;
 
   const message =
     error instanceof Error
@@ -157,6 +190,33 @@ export function isTransientPublishError(error: unknown): boolean {
   ];
 
   return transientPatterns.some((p) => message.includes(p));
+}
+
+/**
+ * Runs a publish operation with bounded retries on transient errors
+ * (relay timeouts, disconnects, rate limits). Non-transient errors rethrow
+ * immediately. Shared by action, snapshot and deletion publishes.
+ */
+export async function withPublishRetry<T>(
+  fn: () => Promise<T>,
+  options?: { retries?: number; logger?: { warn: (...args: unknown[]) => void } },
+): Promise<T> {
+  const retries = options?.retries ?? 2;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isTransientPublishError(err) || attempt >= retries) {
+        throw err;
+      }
+      const delay = 1000 * 2 ** attempt; // 1s, 2s, ...
+      options?.logger?.warn(
+        `Publish attempt ${attempt + 1} failed, retrying in ${delay}ms...`,
+        err,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
 }
 
 export function buildActionDTag(action: ActionEnvelope, seq?: number): string {
@@ -333,6 +393,12 @@ export async function loadCatalogImages(): Promise<Map<string, CatalogImageRecor
 
 /**
  * Publishes a single game action event to Nostr.
+ *
+ * Expiration policy: regular actions (TICK_UPDATE, purchases, ...) expire from
+ * relays after 14 days, but structural actions (AIRLINE_CREATE,
+ * AIRLINE_DISSOLVE) are published WITHOUT expiration — they are the genesis
+ * events third parties need to bootstrap and replay an airline, and must never
+ * vanish from relays.
  */
 export async function publishAction(action: ActionEnvelope, seq?: number): Promise<NDKEvent> {
   await ensureConnected();
@@ -347,8 +413,13 @@ export async function publishAction(action: ActionEnvelope, seq?: number): Promi
   event.tags = [
     ["d", buildActionDTag(action, seq)],
     ["world", WORLD_ID],
-    ["expiration", Math.floor(Date.now() / 1000 + 14 * 24 * 60 * 60).toString()],
   ];
+  if (!PERSISTENT_ACTION_TYPES.has(action.action)) {
+    event.tags.push([
+      "expiration",
+      Math.floor(Date.now() / 1000 + ACTION_EXPIRATION_SEC).toString(),
+    ]);
+  }
 
   event.content = JSON.stringify({
     schemaVersion: ACTION_SCHEMA_VERSION,
@@ -356,49 +427,17 @@ export async function publishAction(action: ActionEnvelope, seq?: number): Promi
     payload: action.payload,
   });
 
-  await event.publish();
+  await withPublishRetry(() => event.publish(), { logger });
   return event;
-}
-
-export async function publishCheckpoint(checkpoint: Checkpoint): Promise<NDKEvent> {
-  await ensureConnected();
-  const ndk = getNDK();
-
-  if (!ndk.signer) {
-    throw new Error("No signer available. Call attachSigner() first.");
-  }
-
-  const event = new NDKEvent(ndk);
-  event.kind = ACTION_KIND;
-  event.tags = [
-    ["d", CHECKPOINT_D_TAG],
-    ["world", WORLD_ID],
-  ];
-  event.content = JSON.stringify(checkpoint);
-
-  const maxRetries = 2;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      await event.publish();
-      return event;
-    } catch (err) {
-      const shouldRetry = isTransientPublishError(err);
-      if (!shouldRetry || attempt >= maxRetries) {
-        throw err;
-      }
-      const delay = 1000 * 2 ** attempt; // 1s, 2s
-      console.warn(
-        `Checkpoint publish attempt ${attempt + 1} failed, retrying in ${delay}ms...`,
-        err,
-      );
-      await new Promise((r) => setTimeout(r, delay));
-    }
-  }
-  return event; // unreachable, satisfies TypeScript
 }
 
 /**
  * Loads recent game actions for the current world.
+ *
+ * Pagination is driven by the RAW page count (like loadCatalogImages): a flood
+ * of valid-but-garbage events must not truncate the log, so the loop only
+ * stops when a raw page comes back short, advancing `until` to the minimum
+ * created_at of the raw page.
  */
 export async function loadActionLog(options?: {
   authors?: string[];
@@ -412,6 +451,8 @@ export async function loadActionLog(options?: {
   const pageLimit = limit ?? 1000;
   const pageCap = maxPages ?? 10;
   const resultsById = new Map<string, ActionLogEntry>();
+  const perAuthorCount = new Map<string, number>();
+  const warnedAuthors = new Set<string>();
 
   let page = 0;
   let until: number | undefined;
@@ -425,7 +466,7 @@ export async function loadActionLog(options?: {
       ...(since ? { since } : {}),
     };
 
-    const pageResults: ActionLogEntry[] = [];
+    const pageEvents: NDKEvent[] = [];
 
     await new Promise<void>((resolve) => {
       const sub = ndk.subscribe(filter, { closeOnEose: true });
@@ -435,20 +476,7 @@ export async function loadActionLog(options?: {
       }, 8000);
 
       sub.on("event", (event: NDKEvent) => {
-        if (!hasWorldTag(event, WORLD_ID)) return;
-        if (!isValidEventTimestamp(event.created_at ?? 0)) return;
-        if (!isActionKind(event)) return;
-        const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
-        if (dTag === CHECKPOINT_D_TAG) return;
-        if (!event.content.trim().startsWith("{")) return;
-
-        try {
-          const parsed = parseActionContent(JSON.parse(event.content));
-          if (!parsed) return;
-          pageResults.push({ event, action: parsed });
-        } catch {
-          // Ignore malformed action payloads
-        }
+        pageEvents.push(event);
       });
 
       sub.on("eose", () => {
@@ -457,17 +485,52 @@ export async function loadActionLog(options?: {
       });
     });
 
-    for (const entry of pageResults) {
-      if (!resultsById.has(entry.event.id)) {
-        resultsById.set(entry.event.id, entry);
+    for (const event of pageEvents) {
+      if (!hasWorldTag(event, WORLD_ID)) continue;
+      if (!isValidEventTimestamp(event.created_at ?? 0)) continue;
+      if (!isActionKind(event)) continue;
+      const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
+      if (dTag === CHECKPOINT_D_TAG) continue;
+      if (event.content.length > MAX_ACTION_CONTENT_CHARS) {
+        logger.warn(`Skipping oversized action payload (${event.content.length} chars)`);
+        continue;
+      }
+      if (!event.content.trim().startsWith("{")) continue;
+
+      // Per-author retention cap: a spamming author must not be able to
+      // pin 10 pages × 1000 payloads in viewer memory. Every candidate event
+      // (post kind/world/size filters) consumes budget — garbage included.
+      const author = event.author?.pubkey;
+      if (author && typeof author === "string") {
+        const retained = perAuthorCount.get(author) ?? 0;
+        if (retained >= MAX_EVENTS_PER_AUTHOR) {
+          if (!warnedAuthors.has(author)) {
+            warnedAuthors.add(author);
+            logger.warn(
+              `Action log retention cap reached for author ${author.slice(0, 8)}… — skipping older events`,
+            );
+          }
+          continue;
+        }
+        perAuthorCount.set(author, retained + 1);
+      }
+
+      try {
+        const parsed = parseActionContent(JSON.parse(event.content));
+        if (!parsed) continue;
+        if (!resultsById.has(event.id)) {
+          resultsById.set(event.id, { event, action: parsed });
+        }
+      } catch {
+        // Ignore malformed action payloads
       }
     }
 
-    if (pageResults.length < pageLimit) break;
+    if (pageEvents.length < pageLimit) break;
 
-    const minCreatedAt = pageResults.reduce(
-      (min, entry) => {
-        const createdAt = entry.event.created_at ?? 0;
+    const minCreatedAt = pageEvents.reduce(
+      (min, event) => {
+        const createdAt = event.created_at ?? 0;
         if (createdAt <= 0) return min;
         return min === null ? createdAt : Math.min(min, createdAt);
       },
@@ -629,49 +692,60 @@ export async function loadCheckpoints(pubkeys: string[]): Promise<Map<string, Ch
   await ensureConnected();
   const ndk = getNDK();
 
-  const filter: NDKFilter = {
-    kinds: [ACTION_KIND],
-    authors: pubkeys,
-    "#d": [CHECKPOINT_D_TAG],
-    limit: Math.max(pubkeys.length, 100),
-  };
-
   const checkpoints = new Map<string, Checkpoint>();
   const latestByPubkey = new Map<string, number>();
 
-  await new Promise<void>((resolve) => {
-    const sub = ndk.subscribe(filter, { closeOnEose: true });
-    const timeout = setTimeout(() => {
-      sub.stop();
-      resolve();
-    }, 8000);
+  // Relays cap filter `authors` lists (commonly ~200-400 keys). A single
+  // oversized filter gets silently truncated, so partition into batches and
+  // fan-in the results (latest checkpoint per pubkey wins).
+  for (let i = 0; i < pubkeys.length; i += CHECKPOINT_AUTHOR_BATCH_SIZE) {
+    const batch = pubkeys.slice(i, i + CHECKPOINT_AUTHOR_BATCH_SIZE);
 
-    sub.on("event", (event: NDKEvent) => {
-      if (!hasWorldTag(event, WORLD_ID)) return;
-      const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
-      if (dTag !== CHECKPOINT_D_TAG) return;
-      if (!isValidEventTimestamp(event.created_at ?? 0)) return;
-      if (!event.content.trim().startsWith("{")) return;
+    const filter: NDKFilter = {
+      kinds: [ACTION_KIND],
+      authors: batch,
+      "#d": [CHECKPOINT_D_TAG],
+      limit: batch.length,
+    };
 
-      try {
-        const parsed = parseCheckpoint(JSON.parse(event.content));
-        if (!parsed) return;
-        const author = event.author.pubkey;
-        const lastSeen = latestByPubkey.get(author) ?? 0;
-        if (parsed.createdAt >= lastSeen) {
-          checkpoints.set(author, parsed);
-          latestByPubkey.set(author, parsed.createdAt);
+    await new Promise<void>((resolve) => {
+      const sub = ndk.subscribe(filter, { closeOnEose: true });
+      const timeout = setTimeout(() => {
+        sub.stop();
+        resolve();
+      }, 8000);
+
+      sub.on("event", (event: NDKEvent) => {
+        if (!hasWorldTag(event, WORLD_ID)) return;
+        const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
+        if (dTag !== CHECKPOINT_D_TAG) return;
+        if (!isValidEventTimestamp(event.created_at ?? 0)) return;
+        if (event.content.length > MAX_ACTION_CONTENT_CHARS) {
+          logger.warn(`Skipping oversized checkpoint payload (${event.content.length} chars)`);
+          return;
         }
-      } catch {
-        // Ignore malformed checkpoints
-      }
-    });
+        if (!event.content.trim().startsWith("{")) return;
 
-    sub.on("eose", () => {
-      clearTimeout(timeout);
-      resolve();
+        try {
+          const parsed = parseCheckpoint(JSON.parse(event.content));
+          if (!parsed) return;
+          const author = event.author.pubkey;
+          const lastSeen = latestByPubkey.get(author) ?? 0;
+          if (parsed.createdAt >= lastSeen) {
+            checkpoints.set(author, parsed);
+            latestByPubkey.set(author, parsed.createdAt);
+          }
+        } catch {
+          // Ignore malformed checkpoints
+        }
+      });
+
+      sub.on("eose", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
     });
-  });
+  }
 
   return checkpoints;
 }
@@ -721,9 +795,29 @@ export async function publishUsedAircraft(
     ["world", WORLD_ID],
   ];
 
+  // Serialize ONLY the listing-relevant fields. The full AircraftInstance
+  // carries live flight/route state that bloats the event and leaks stale
+  // operational data into the marketplace feed.
   const payload = {
-    ...aircraft,
     schemaVersion: ACARS_SCHEMA_VERSION,
+    id: aircraft.id,
+    modelId: aircraft.modelId,
+    ownerPubkey: aircraft.ownerPubkey,
+    name: typeof aircraft.name === "string" ? aircraft.name : aircraft.modelId,
+    condition: typeof aircraft.condition === "number" ? aircraft.condition : 1,
+    flightHoursTotal: typeof aircraft.flightHoursTotal === "number" ? aircraft.flightHoursTotal : 0,
+    flightHoursSinceCheck:
+      typeof aircraft.flightHoursSinceCheck === "number" ? aircraft.flightHoursSinceCheck : 0,
+    birthTick: typeof aircraft.birthTick === "number" ? aircraft.birthTick : 0,
+    purchasedAtTick: typeof aircraft.purchasedAtTick === "number" ? aircraft.purchasedAtTick : 0,
+    purchasePrice: typeof aircraft.purchasePrice === "number" ? aircraft.purchasePrice : 0,
+    purchaseType: aircraft.purchaseType === "lease" ? "lease" : "buy",
+    baseAirportIata:
+      typeof aircraft.baseAirportIata === "string" ? aircraft.baseAirportIata : "XXX",
+    configuration:
+      aircraft.configuration && typeof aircraft.configuration === "object"
+        ? aircraft.configuration
+        : { economy: 0, business: 0, first: 0, cargoKg: 0 },
     marketplacePrice: price,
     listedAt: Date.now(),
   };
@@ -737,8 +831,44 @@ export async function publishUsedAircraft(
 }
 
 /**
+ * Publishes a NIP-09 deletion request (kind 5) for a used-aircraft listing.
+ * Listings are parameterized replaceable events (kind 30079), so the deletion
+ * references them via an `a` tag (`30079:<author-pubkey>:<d-tag>`). Relays
+ * hide matching events; other clients additionally filter stale listings via
+ * ownership cross-referencing.
+ */
+export async function deleteMarketplaceListing(
+  pubkey: string,
+  aircraftId: string,
+): Promise<NDKEvent> {
+  if (!pubkey || typeof pubkey !== "string") {
+    throw new Error("deleteMarketplaceListing requires a seller pubkey");
+  }
+  if (!aircraftId || typeof aircraftId !== "string") {
+    throw new Error("deleteMarketplaceListing requires an aircraftId");
+  }
+
+  await ensureConnected();
+  const ndk = getNDK();
+  if (!ndk.signer) throw new Error("No signer available. Call attachSigner() first.");
+
+  const event = new NDKEvent(ndk);
+  event.kind = 5;
+  event.tags = [
+    ["a", `${MARKETPLACE_KIND}:${pubkey}:${MARKETPLACE_D_PREFIX}${aircraftId}`],
+    ["k", String(MARKETPLACE_KIND)],
+  ];
+  event.content = "marketplace listing removed";
+
+  await withPublishRetry(() => event.publish(), { logger });
+  return event;
+}
+
+/**
  * Validates and parses raw marketplace listing data from a Nostr event.
- * Returns null if the data fails validation.
+ * Returns null if the data fails validation or is missing critical fields —
+ * listings must be fully self-describing: no fabricated defaults (a made-up
+ * condition/hub/listedAt would poison ingest determinism and buyer decisions).
  */
 function parseMarketplaceListing(
   data: unknown,
@@ -753,41 +883,57 @@ function parseMarketplaceListing(
   const instanceId = typeof data.id === "string" ? data.id : null;
   if (!modelId || !instanceId) return null;
 
-  const name = typeof data.name === "string" ? data.name : "Unknown Aircraft";
+  // Critical display/listing fields: missing → invalid (no "Unknown Aircraft"
+  // / "XXX" placeholders, no Date.now() fabrication at ingest time).
+  const name = typeof data.name === "string" && data.name.trim() ? data.name : null;
   const ownerPubkey = typeof data.ownerPubkey === "string" ? data.ownerPubkey : authorPubkey;
-  const baseAirportIata = typeof data.baseAirportIata === "string" ? data.baseAirportIata : "XXX";
+  const baseAirportIata =
+    typeof data.baseAirportIata === "string" && data.baseAirportIata.trim()
+      ? data.baseAirportIata
+      : null;
 
   // Price: must be a positive finite number (already in FixedPoint scale from publishUsedAircraft)
   const rawPrice = data.marketplacePrice;
   if (typeof rawPrice !== "number" || !Number.isFinite(rawPrice) || rawPrice <= 0) return null;
   const marketplacePrice = fpRaw(rawPrice);
 
-  // Numeric fields with safe defaults (use ?? to handle 0 correctly)
+  // Condition is critical (drives valuation/maintenance math) — reject instead
+  // of defaulting to a fabricated 0.5.
   const condition =
     typeof data.condition === "number" && Number.isFinite(data.condition)
       ? Math.max(0, Math.min(1, data.condition))
-      : 0.5;
+      : null;
+
+  // listedAt must be declared by the publisher — defaulting to Date.now()
+  // made ingest non-deterministic.
+  const listedAt =
+    typeof data.listedAt === "number" && Number.isFinite(data.listedAt) ? data.listedAt : null;
+
+  if (!name || !baseAirportIata || condition === null || listedAt === null) return null;
+
+  // Numeric fields with safe defaults (use ?? to handle 0 correctly); upper
+  // clamps guard against absurd spam values (1e9 ≈ 31k years of ticks).
+  const MAX_HOURS = 1e9;
+  const MAX_TICK = 1e9;
 
   const flightHoursTotal =
     typeof data.flightHoursTotal === "number" && Number.isFinite(data.flightHoursTotal)
-      ? Math.max(0, data.flightHoursTotal)
+      ? Math.max(0, Math.min(MAX_HOURS, data.flightHoursTotal))
       : 0;
 
   const flightHoursSinceCheck =
     typeof data.flightHoursSinceCheck === "number" && Number.isFinite(data.flightHoursSinceCheck)
-      ? Math.max(0, data.flightHoursSinceCheck)
+      ? Math.max(0, Math.min(MAX_HOURS, data.flightHoursSinceCheck))
       : 0;
 
   const birthTick =
-    typeof data.birthTick === "number" && Number.isFinite(data.birthTick) ? data.birthTick : 0;
+    typeof data.birthTick === "number" && Number.isFinite(data.birthTick)
+      ? Math.max(0, Math.min(MAX_TICK, Math.floor(data.birthTick)))
+      : 0;
   const purchasedAtTick =
     typeof data.purchasedAtTick === "number" && Number.isFinite(data.purchasedAtTick)
-      ? data.purchasedAtTick
+      ? Math.max(0, Math.min(MAX_TICK, Math.floor(data.purchasedAtTick)))
       : 0;
-  const listedAt =
-    typeof data.listedAt === "number" && Number.isFinite(data.listedAt)
-      ? data.listedAt
-      : Date.now();
 
   const purchasePrice =
     typeof data.purchasePrice === "number" && Number.isFinite(data.purchasePrice)
@@ -856,29 +1002,49 @@ export async function loadMarketplace(
 
   logger.info("Fetching marketplace listings (Kind 30079) from relays...");
 
-  const filter: NDKFilter = {
-    kinds: [MARKETPLACE_KIND],
-    limit: 100,
-  };
-
   const listingsMap = new Map<string, MarketplaceListing>();
 
-  // We use a manual subscription to collect events as they stream in.
-  // This is more resilient than fetchEvents which can be unpredictable with slow relays.
-  await new Promise<void>((resolve) => {
-    const sub = ndk.subscribe(filter, { closeOnEose: true });
-    const timeout = setTimeout(() => {
-      sub.stop();
-      console.warn("[Nostr] Marketplace fetch reached 6s safety timeout.");
-      resolve();
-    }, 6000);
+  // Raw-event pagination (same pattern as loadCatalogImages): a global
+  // `limit: 100` truncates the marketplace once it grows; pages advance
+  // `until` on the raw page's minimum created_at until a short page or cap.
+  let page = 0;
+  let until: number | undefined;
 
-    sub.on("event", (event: NDKEvent) => {
+  while (page < MARKETPLACE_PAGE_CAP) {
+    const filter: NDKFilter = {
+      kinds: [MARKETPLACE_KIND],
+      limit: MARKETPLACE_PAGE_LIMIT,
+      ...(until ? { until } : {}),
+    };
+
+    const pageEvents: NDKEvent[] = [];
+
+    // We use a manual subscription to collect events as they stream in.
+    // This is more resilient than fetchEvents which can be unpredictable with slow relays.
+    await new Promise<void>((resolve) => {
+      const sub = ndk.subscribe(filter, { closeOnEose: true });
+      const timeout = setTimeout(() => {
+        sub.stop();
+        resolve();
+      }, 6000);
+
+      sub.on("event", (event: NDKEvent) => {
+        pageEvents.push(event);
+      });
+
+      sub.on("eose", () => {
+        logger.info("Marketplace fetch received EOSE");
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+
+    for (const event of pageEvents) {
       // Only attempt to parse if it's an ACARS marketplace entry
       const dTag = event.tags.find((t) => t[0] === "d")?.[1];
-      if (!dTag?.startsWith(MARKETPLACE_D_PREFIX)) return;
-      if (!hasWorldTag(event, WORLD_ID)) return;
-      if (!isValidEventTimestamp(event.created_at ?? 0)) return;
+      if (!dTag?.startsWith(MARKETPLACE_D_PREFIX)) continue;
+      if (!hasWorldTag(event, WORLD_ID)) continue;
+      if (!isValidEventTimestamp(event.created_at ?? 0)) continue;
 
       try {
         const data = JSON.parse(event.content);
@@ -888,7 +1054,7 @@ export async function loadMarketplace(
           event.author.pubkey,
           event.created_at ?? 0,
         );
-        if (!listing) return;
+        if (!listing) continue;
 
         // Dedup by instanceId:sellerPubkey, keeping latest
         const dedupKey = `${listing.instanceId}:${listing.sellerPubkey}`;
@@ -899,14 +1065,24 @@ export async function loadMarketplace(
       } catch {
         // Silently skip truly malformed events that match our prefix
       }
-    });
+    }
 
-    sub.on("eose", () => {
-      logger.info("Marketplace fetch received EOSE");
-      clearTimeout(timeout);
-      resolve();
-    });
-  });
+    if (pageEvents.length < MARKETPLACE_PAGE_LIMIT) break;
+
+    const minCreatedAt = pageEvents.reduce(
+      (min, event) => {
+        const createdAt = event.created_at ?? 0;
+        if (createdAt <= 0) return min;
+        return min === null ? createdAt : Math.min(min, createdAt);
+      },
+      null as number | null,
+    );
+
+    if (!minCreatedAt || minCreatedAt <= 0) break;
+
+    until = minCreatedAt - 1;
+    page += 1;
+  }
 
   let result = Array.from(listingsMap.values());
 
@@ -920,7 +1096,9 @@ export async function loadMarketplace(
       }
     }
 
-    const beforeCount = result.length;
+    const nowSec = Math.floor(Date.now() / 1000);
+    let staleUnknown = 0;
+
     result = result.filter((listing) => {
       const currentOwner = aircraftOwner.get(listing.instanceId);
 
@@ -944,11 +1122,28 @@ export async function loadMarketplace(
         return false;
       }
 
+      // Check 3: Unknown seller (no fleet data on this client) whose listing
+      // is older than the unknown-seller TTL — we cannot verify ownership and
+      // the listing is probably gone. Flag it so callers can filter; recent
+      // listings from not-yet-loaded sellers stay unflagged.
+      if (!sellerAircraftIds) {
+        const ageSec = nowSec - (listing.createdAt ?? 0);
+        if (ageSec > UNKNOWN_SELLER_STALE_TTL_SEC) {
+          listing.staleUnknownSeller = true;
+          staleUnknown += 1;
+        }
+      }
+
       return true;
     });
-    const filtered = beforeCount - result.length;
-    if (filtered > 0) {
-      logger.info(`Filtered ${filtered} stale marketplace listing(s) via ownership verification.`);
+    const filtered = result.length;
+    if (staleUnknown > 0) {
+      logger.info(`Flagged ${staleUnknown} listing(s) from unknown sellers as stale.`);
+    }
+    if (filtered < listingsMap.size) {
+      logger.info(
+        `Filtered ${listingsMap.size - filtered} stale marketplace listing(s) via ownership verification.`,
+      );
     }
   }
 

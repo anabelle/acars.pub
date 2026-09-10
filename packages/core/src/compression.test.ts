@@ -39,6 +39,35 @@ describe("compression round-trip", () => {
   });
 });
 
+describe("decompression limits (anti zip-bomb)", () => {
+  it("round-trips a payload just under the decompressed cap", async () => {
+    // 1MB of compressible content is well under the 8MB cap.
+    const input = "ACARS".repeat(200_000);
+    const restored = await decompressSnapshotString(await compressSnapshotString(input));
+    expect(restored).toBe(input);
+  });
+
+  it("rejects a high-ratio decompression bomb", async () => {
+    // 9MB of a single byte inflates from a tiny gzip payload (~10KB base64).
+    const bomb = "\u0000".repeat(9 * 1024 * 1024);
+    const compressed = await compressSnapshotString(bomb);
+    expect(compressed.length).toBeLessThan(512 * 1024);
+    await expect(decompressSnapshotString(compressed)).rejects.toThrow(/bomb|exceeds/i);
+  });
+
+  it("rejects compressed inputs over the input cap before decoding", async () => {
+    const oversized = "gz:" + "A".repeat(600 * 1024);
+    await expect(decompressSnapshotString(oversized)).rejects.toThrow(/input too large/i);
+  });
+
+  it("rejects an oversized raw: payload", async () => {
+    // 9MB raw → 12MB of base64 chars, so the 512KB input cap fires first —
+    // either rejection is correct: no multi-GB decode may happen.
+    const bigRaw = Buffer.from("\u0000".repeat(9 * 1024 * 1024)).toString("base64");
+    await expect(decompressSnapshotString(`raw:${bigRaw}`)).rejects.toThrow(/too large|exceeds/i);
+  });
+});
+
 describe("compression fallback (no CompressionStream)", () => {
   const originalCompression = (globalThis as { CompressionStream?: unknown }).CompressionStream;
   const originalDecompression = (globalThis as { DecompressionStream?: unknown })

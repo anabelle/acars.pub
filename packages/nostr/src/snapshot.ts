@@ -5,8 +5,8 @@ import {
   ACTION_KIND,
   WORLD_ID,
   hasWorldTag,
-  isTransientPublishError,
   isValidEventTimestamp,
+  withPublishRetry,
 } from "./schema.js";
 
 const logger = createLogger("NostrSnapshot");
@@ -36,21 +36,7 @@ export async function publishSnapshot(payload: SnapshotPayload): Promise<NDKEven
   ];
   event.content = JSON.stringify(payload);
 
-  const maxRetries = 2;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      await event.publish();
-      return event;
-    } catch (err) {
-      const shouldRetry = isTransientPublishError(err);
-      if (!shouldRetry || attempt >= maxRetries) {
-        throw err;
-      }
-      const delay = 1000 * 2 ** attempt;
-      logger.warn(`Snapshot publish attempt ${attempt + 1} failed, retrying in ${delay}ms...`, err);
-      await new Promise((r) => setTimeout(r, delay));
-    }
-  }
+  await withPublishRetry(() => event.publish(), { retries: 2, logger });
   return event;
 }
 

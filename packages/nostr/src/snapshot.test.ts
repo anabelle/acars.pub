@@ -20,6 +20,8 @@ const mock = vi.hoisted(() => {
     }
   }
 
+  class MockNDKPublishError extends Error {}
+
   const state = {
     pageQueue: [] as FakeEvent[][],
     publishImpl: async () => {},
@@ -45,7 +47,7 @@ const mock = vi.hoisted(() => {
     },
   };
 
-  return { MockNDKEvent, state, ndkMock };
+  return { MockNDKEvent, MockNDKPublishError, state, ndkMock };
 });
 
 vi.mock("./ndk.js", () => ({
@@ -53,7 +55,10 @@ vi.mock("./ndk.js", () => ({
   getNDK: () => mock.ndkMock,
 }));
 
-vi.mock("@nostr-dev-kit/ndk", () => ({ NDKEvent: mock.MockNDKEvent }));
+vi.mock("@nostr-dev-kit/ndk", () => ({
+  NDKEvent: mock.MockNDKEvent,
+  NDKPublishError: mock.MockNDKPublishError,
+}));
 
 // schema.js validators are used by snapshot.ts — delegate to the real module
 // (they are pure functions over the event shape).

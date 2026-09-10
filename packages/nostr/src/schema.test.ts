@@ -79,9 +79,14 @@ const mockParseMarketplaceListing = (
   const instanceId = typeof data.id === "string" ? data.id : null;
   if (!modelId || !instanceId) return null;
 
-  const name = typeof data.name === "string" ? data.name : "Unknown Aircraft";
+  // Critical fields are REQUIRED (mirrors the strict parser in schema.ts —
+  // no fabricated "Unknown Aircraft"/"XXX"/0.5/Date.now() defaults).
+  const name = typeof data.name === "string" && data.name.trim() ? data.name : null;
   const ownerPubkey = typeof data.ownerPubkey === "string" ? data.ownerPubkey : authorPubkey;
-  const baseAirportIata = typeof data.baseAirportIata === "string" ? data.baseAirportIata : "XXX";
+  const baseAirportIata =
+    typeof data.baseAirportIata === "string" && data.baseAirportIata.trim()
+      ? data.baseAirportIata
+      : null;
 
   const rawPrice = data.marketplacePrice;
   if (typeof rawPrice !== "number" || !Number.isFinite(rawPrice) || rawPrice <= 0) return null;
@@ -90,11 +95,16 @@ const mockParseMarketplaceListing = (
   const condition =
     typeof data.condition === "number" && Number.isFinite(data.condition)
       ? Math.max(0, Math.min(1, data.condition))
-      : 0.5;
+      : null;
+
+  const listedAt =
+    typeof data.listedAt === "number" && Number.isFinite(data.listedAt) ? data.listedAt : null;
+
+  if (!name || !baseAirportIata || condition === null || listedAt === null) return null;
 
   const flightHoursTotal =
     typeof data.flightHoursTotal === "number" && Number.isFinite(data.flightHoursTotal)
-      ? Math.max(0, data.flightHoursTotal)
+      ? Math.max(0, Math.min(1e9, data.flightHoursTotal))
       : 0;
 
   const flightHoursSinceCheck =
@@ -103,15 +113,13 @@ const mockParseMarketplaceListing = (
       : 0;
 
   const birthTick =
-    typeof data.birthTick === "number" && Number.isFinite(data.birthTick) ? data.birthTick : 0;
+    typeof data.birthTick === "number" && Number.isFinite(data.birthTick)
+      ? Math.max(0, Math.min(1e9, Math.floor(data.birthTick)))
+      : 0;
   const purchasedAtTick =
     typeof data.purchasedAtTick === "number" && Number.isFinite(data.purchasedAtTick)
       ? data.purchasedAtTick
       : 0;
-  const listedAt =
-    typeof data.listedAt === "number" && Number.isFinite(data.listedAt)
-      ? data.listedAt
-      : Date.now();
 
   const purchasePrice =
     typeof data.purchasePrice === "number" && Number.isFinite(data.purchasePrice)
@@ -262,6 +270,7 @@ describe("schema parsing", () => {
         purchasedAtTick: 5000,
         purchasePrice: fp(45000000),
         purchaseType: "buy",
+        listedAt: 1234567000,
         configuration: { economy: 150, business: 30, first: 0, cargoKg: 3000 },
       };
       const result = mockParseMarketplaceListing(data, "event-123", "pubkey123", 1234567890);
@@ -301,21 +310,85 @@ describe("schema parsing", () => {
         modelId: "a320neo",
         marketplacePrice: fp(50000000),
         condition: 1.5,
+        name: "My A320",
+        baseAirportIata: "JFK",
+        listedAt: 1234567000,
       };
       const result = mockParseMarketplaceListing(data, "event-123", "pubkey123", 1234567890);
       expect(result!.condition).toBe(1);
     });
 
-    it("defaults missing numeric fields", () => {
-      const data = { id: "aircraft-123", modelId: "a320neo", marketplacePrice: fp(50000000) };
+    it("returns null when critical fields are missing (strict parsing)", () => {
+      const base = {
+        id: "aircraft-123",
+        modelId: "a320neo",
+        marketplacePrice: fp(50000000),
+        name: "My A320",
+        baseAirportIata: "JFK",
+        condition: 0.8,
+        listedAt: 1234567000,
+      };
+      // Missing name → null (no "Unknown Aircraft" fabrication)
+      expect(
+        mockParseMarketplaceListing({ ...base, name: undefined }, "e", "pubkey123", 1),
+      ).toBeNull();
+      // Missing hub → null (no "XXX" fabrication)
+      expect(
+        mockParseMarketplaceListing({ ...base, baseAirportIata: undefined }, "e", "pubkey123", 1),
+      ).toBeNull();
+      // Missing condition → null (no fabricated 0.5)
+      expect(
+        mockParseMarketplaceListing({ ...base, condition: undefined }, "e", "pubkey123", 1),
+      ).toBeNull();
+      // Missing listedAt → null (no Date.now() at ingest)
+      expect(
+        mockParseMarketplaceListing({ ...base, listedAt: undefined }, "e", "pubkey123", 1),
+      ).toBeNull();
+    });
+
+    it("clamps flightHoursTotal and birthTick to 1e9", () => {
+      const data = {
+        id: "aircraft-123",
+        modelId: "a320neo",
+        marketplacePrice: fp(50000000),
+        name: "My A320",
+        baseAirportIata: "JFK",
+        condition: 0.8,
+        listedAt: 1234567000,
+        flightHoursTotal: 4e12,
+        birthTick: 9e15,
+      };
       const result = mockParseMarketplaceListing(data, "event-123", "pubkey123", 1234567890);
-      expect(result!.condition).toBe(0.5);
+      expect(result!.flightHoursTotal).toBe(1e9);
+      expect(result!.birthTick).toBe(1e9);
+    });
+
+    it("defaults non-critical numeric fields", () => {
+      const data = {
+        id: "aircraft-123",
+        modelId: "a320neo",
+        marketplacePrice: fp(50000000),
+        name: "My A320",
+        baseAirportIata: "JFK",
+        condition: 0.8,
+        listedAt: 1234567000,
+      };
+      const result = mockParseMarketplaceListing(data, "event-123", "pubkey123", 1234567890);
       expect(result!.flightHoursTotal).toBe(0);
+      expect(result!.flightHoursSinceCheck).toBe(0);
       expect(result!.configuration.economy).toBe(150);
     });
 
     it("defaults to buy when purchaseType missing", () => {
-      const data = { id: "aircraft-123", modelId: "a320neo", marketplacePrice: fp(50000000) };
+      const data = {
+        id: "aircraft-123",
+        modelId: "a320neo",
+        marketplacePrice: fp(50000000),
+        name: "My A320",
+        baseAirportIata: "JFK",
+        condition: 0.8,
+        listedAt: 1234567000,
+      };
       const result = mockParseMarketplaceListing(data, "event-123", "pubkey123", 1234567890);
       expect(result!.purchaseType).toBe("buy");
     });
@@ -326,13 +399,25 @@ describe("schema parsing", () => {
         modelId: "a320neo",
         marketplacePrice: fp(50000000),
         purchaseType: "lease",
+        name: "My A320",
+        baseAirportIata: "JFK",
+        condition: 0.8,
+        listedAt: 1234567000,
       };
       const result = mockParseMarketplaceListing(data, "event-123", "pubkey123", 1234567890);
       expect(result!.purchaseType).toBe("lease");
     });
 
     it("uses default configuration when not provided", () => {
-      const data = { id: "aircraft-123", modelId: "a320neo", marketplacePrice: fp(50000000) };
+      const data = {
+        id: "aircraft-123",
+        modelId: "a320neo",
+        marketplacePrice: fp(50000000),
+        name: "My A320",
+        baseAirportIata: "JFK",
+        condition: 0.8,
+        listedAt: 1234567000,
+      };
       const result = mockParseMarketplaceListing(data, "event-123", "pubkey123", 1234567890);
       expect(result!.configuration.economy).toBe(150);
       expect(result!.configuration.business).toBe(0);
