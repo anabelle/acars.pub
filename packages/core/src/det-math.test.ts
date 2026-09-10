@@ -248,3 +248,28 @@ describe("det-math edge cases", () => {
     expect(detPow(0.5, 10000)).toBe(0);
   });
 });
+
+describe("det-math subnormal paths", () => {
+  it("pow2 subnormal branch via detExp of very negative x", () => {
+    // exp(-760) underflows through the subnormal pow2 path
+    const r = detExp(-760);
+    expect(r === 0 || Number.isFinite(r)).toBe(true);
+    expect(detExp(760)).toBe(Infinity);
+  });
+
+  it("detLog handles subnormal input", () => {
+    const sub = 5e-324; // smallest subnormal
+    const r = detLog(sub);
+    // ln(5e-324) ~ -744.44; check ballpark and determinism
+    expect(r).toBeLessThan(-744);
+    expect(r).toBeGreaterThan(-745);
+    expect(detLog(sub)).toBe(r);
+  });
+
+  it("detPow with subnormal base stays finite/zero consistently", () => {
+    const r1 = detPow(1e-320, 0.5);
+    const r2 = detPow(1e-320, 0.5);
+    expect(r1).toBe(r2);
+    expect(r1 >= 0 && r1 < 1e-150).toBe(true);
+  });
+});
