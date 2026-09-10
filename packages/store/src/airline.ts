@@ -1,11 +1,5 @@
 import { createLogger } from "@acars/core";
 import type { ActionLogEntry } from "@acars/nostr";
-import {
-  connectedRelayCount,
-  ensureConnected,
-  reconnectIfNeeded,
-  subscribeActions,
-} from "@acars/nostr";
 import { create } from "zustand";
 import { useEngineStore } from "./engine.js";
 import { createEngineSlice } from "./slices/engineSlice.js";
@@ -227,18 +221,21 @@ useEngineStore.subscribe((state) => {
 
   // Relay health check every 100 ticks (~5 min).
   // If all relays disconnected, attempt reconnection and re-subscribe.
+  // The relay probe runs inside the async task (after the dynamic nostr
+  // import) since the tick callback itself must stay synchronous.
   if (state.tick % 100 === 0 && initialSyncComplete) {
-    if (connectedRelayCount() === 0) {
-      logger.warn("Relay health check: no relays connected — attempting recovery...");
-      void (async () => {
+    void (async () => {
+      const { connectedRelayCount, reconnectIfNeeded } = await import("@acars/nostr");
+      if (connectedRelayCount() === 0) {
+        logger.warn("Relay health check: no relays connected — attempting recovery...");
         const recovered = await reconnectIfNeeded();
         if (recovered && !unsubscribeActionStream) {
           await startActionSubscription(getResubscribeSince());
           void store.syncWorld({ force: true });
           logger.info("Relay health check: recovered — re-subscribed and resynced.");
         }
-      })();
-    }
+      }
+    })();
   }
 });
 
@@ -282,6 +279,7 @@ async function startActionSubscription(since: number): Promise<void> {
 
   logger.info(`Starting live action subscription (since=${since})`);
 
+  const { subscribeActions } = await import("@acars/nostr");
   unsubscribeActionStream = await subscribeActions({
     since,
     onEvent: (entry) => {
@@ -315,6 +313,7 @@ async function startActionSubscription(since: number): Promise<void> {
       unsubscribeActionStream = null;
       setTimeout(async () => {
         try {
+          const { ensureConnected } = await import("@acars/nostr");
           await ensureConnected();
           await startActionSubscription(getResubscribeSince());
           // Only trigger a full resync if we've completed the initial sync;
@@ -337,6 +336,7 @@ async function startActionSubscription(since: number): Promise<void> {
 
   // Wait for at least one Nostr relay to be connected before fetching
   // world state, instead of using an arbitrary delay.
+  const { ensureConnected } = await import("@acars/nostr");
   await ensureConnected();
 
   // Capture `since` BEFORE the initial sync starts so we don't miss events
@@ -390,6 +390,7 @@ if (typeof document !== "undefined") {
     // Re-subscribing is cheap and guarantees we're receiving events.
     void (async () => {
       try {
+        const { connectedRelayCount, ensureConnected } = await import("@acars/nostr");
         await ensureConnected();
         // Only re-subscribe if the connection looks dead or there's no
         // active subscription.  Checking connectedRelayCount avoids

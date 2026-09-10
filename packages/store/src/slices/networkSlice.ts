@@ -1,4 +1,4 @@
-import type { AircraftInstance, FixedPoint, Route, TimelineEvent } from "@acars/core";
+import type { AircraftInstance, Airport, FixedPoint, Route, TimelineEvent } from "@acars/core";
 import {
   fp,
   fpAdd,
@@ -11,10 +11,22 @@ import {
   ROUTE_SLOT_FEE,
   TICK_DURATION,
 } from "@acars/core";
-import { airports, getAircraftById, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@acars/data";
+import {
+  getAircraftById,
+  getAirports,
+  getHubPricingForIata,
+  HUB_CLASSIFICATIONS,
+} from "@acars/data";
 
-/** Module-level O(1) airport lookup */
-const airportMap = new Map(airports.map((a) => [a.iata, a]));
+/** Module-level O(1) airport lookup — built lazily on first use so importing
+ * this slice does not require the async airports catalog to be loaded yet. */
+let airportMap: Map<string, Airport> | null = null;
+function getAirportMap(): Map<string, Airport> {
+  if (!airportMap) {
+    airportMap = new Map(getAirports().map((a) => [a.iata, a]));
+  }
+  return airportMap;
+}
 
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
@@ -235,7 +247,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
 
     // Atomically sync engine homeAirport to hubs[0]
     const activeIata = newHubs[0];
-    const activeAirport = airportMap.get(activeIata);
+    const activeAirport = getAirportMap().get(activeIata);
     if (activeAirport) {
       useEngineStore.getState().setHub(
         activeAirport,
@@ -312,7 +324,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       });
       // Roll back engine hub too
       const rollbackIata = previousAirline.hubs[0];
-      const rollbackAirport = airportMap.get(rollbackIata);
+      const rollbackAirport = getAirportMap().get(rollbackIata);
       if (rollbackAirport) {
         useEngineStore.getState().setHub(
           rollbackAirport,

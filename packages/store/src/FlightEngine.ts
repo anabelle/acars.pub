@@ -1,5 +1,6 @@
 import type {
   AircraftInstance,
+  Airport,
   CycleFlightEvent,
   FixedPoint,
   FlightOffer,
@@ -42,10 +43,18 @@ import {
   TICKS_PER_HOUR,
   TICKS_PER_MONTH,
 } from "@acars/core";
-import { airports, getAircraftById, HUB_CLASSIFICATIONS } from "@acars/data";
+import { getAircraftById, getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
 
-/** Module-level O(1) airport lookup — avoids O(N) airports.find() on every landing. */
-const airportMap = new Map(airports.map((a) => [a.iata, a]));
+/** Module-level O(1) airport lookup — avoids O(N) airports.find() on every
+ * landing. Built lazily on first use: the airports catalog loads async, so
+ * module evaluation must not touch it directly. */
+let airportMap: Map<string, Airport> | null = null;
+function getAirportMap(): Map<string, Airport> {
+  if (!airportMap) {
+    airportMap = new Map(getAirports().map((a) => [a.iata, a]));
+  }
+  return airportMap;
+}
 const DEFAULT_HUB_CAPACITY_PER_HOUR = 80;
 const DEFAULT_LANDING_FEE = 250;
 
@@ -333,8 +342,8 @@ export function processFlightEngine(
             ? route.originIata
             : route.destinationIata
           : ac.flight?.destinationIata;
-        const origin = originIata ? (airportMap.get(originIata) ?? null) : null;
-        const destination = destinationIata ? (airportMap.get(destinationIata) ?? null) : null;
+        const origin = originIata ? (getAirportMap().get(originIata) ?? null) : null;
+        const destination = destinationIata ? (getAirportMap().get(destinationIata) ?? null) : null;
 
         let weeklyDemandResult = {
           economy: 350,

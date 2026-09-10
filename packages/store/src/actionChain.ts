@@ -1,19 +1,28 @@
 import {
-  type GameActionEnvelope,
   type Checkpoint,
-  computeCheckpointStateHash,
   compressSnapshotString,
+  computeCheckpointStateHash,
+  type GameActionEnvelope,
 } from "@acars/core";
-import { type ActionLogEntry, type NDKEvent, publishAction, publishSnapshot } from "@acars/nostr";
+import type { ActionLogEntry, NDKEvent } from "@acars/nostr";
+import { replayActionLog } from "./actionReducer.js";
+import { useEngineStore } from "./engine.js";
+import { computeRejectedBuyEventIds } from "./marketplaceReplay.js";
+import { dequeueOutbox, enqueueOutbox, storageAvailable } from "./outbox.js";
 import type { AirlineState } from "./types.js";
 import { enqueueSerialUpdate } from "./utils/asyncQueue.js";
-import { useEngineStore } from "./engine.js";
-import { replayActionLog } from "./actionReducer.js";
-import { computeRejectedBuyEventIds } from "./marketplaceReplay.js";
-import { db } from "./db.js";
-import { dequeueOutbox, enqueueOutbox, storageAvailable } from "./outbox.js";
 
 const actionSeqKey = (pubkey: string) => `actionSeq:${pubkey}`;
+
+// Memoized dynamic Dexie import: the module is loaded only on the first
+// guarded use (see storageAvailable()), so the publish hot path never pays
+// the Dexie module load (or its async failure cycles) when IndexedDB is
+// unavailable.
+let dbModule: Promise<typeof import("./db.js")> | null = null;
+function loadDb(): Promise<typeof import("./db.js")> {
+  dbModule ??= import("./db.js");
+  return dbModule;
+}
 
 export async function publishActionWithChain(params: {
   action: GameActionEnvelope;
@@ -69,6 +78,7 @@ export async function publishActionWithChain(params: {
     }
 
     // 2. Publish (entry stays in the outbox on failure for later retry).
+    const { publishAction } = await import("@acars/nostr");
     const event = await publishAction(action, seq);
     if (outboxId != null) {
       await dequeueOutbox(outboxId).catch((e) =>
@@ -83,7 +93,9 @@ export async function publishActionWithChain(params: {
     //    must reject the new buy exactly like a relay-side duplicate would).
     let pendingOutboxLog: ActionLogEntry[] = [];
     try {
-      const pending = storageAvailable() ? await db.outbox.toArray() : [];
+      const pending = storageAvailable()
+        ? await loadDb().then(({ db }) => db.outbox.toArray())
+        : [];
       pendingOutboxLog = pending
         .filter((entry) => entry.pubkey === authorPubkey)
         .map((entry) => ({
@@ -137,6 +149,7 @@ export async function publishActionWithChain(params: {
       const ownerPubkey = airline.ceoPubkey;
       try {
         if (storageAvailable()) {
+          const { db } = await loadDb();
           await db.transaction("rw", db.airline, db.fleet, db.routes, async () => {
             await db.airline.put(airline);
             await db.fleet.where({ ownerPubkey }).delete();
@@ -151,6 +164,7 @@ export async function publishActionWithChain(params: {
       // Persist the action counter so the next hydrate restores a
       // monotonic seq (feeds deterministic instance/route id generation).
       if (authorPubkey && storageAvailable()) {
+        const { db } = await loadDb();
         await db.meta
           .put({ key: actionSeqKey(authorPubkey), value: seq + 1 })
           .catch((e) => console.warn("[ActionChain] Failed to persist actionSeq", e));
@@ -195,6 +209,7 @@ export async function publishCurrentStateSnapshot(
   };
   const str = JSON.stringify(payload);
   const compressedData = await compressSnapshotString(str);
+  const { publishSnapshot } = await import("@acars/nostr");
   await publishSnapshot({
     compressedData,
     stateHash,
@@ -216,6 +231,7 @@ export async function publishCurrentStateSnapshot(
   };
   set?.({ latestCheckpoint: checkpoint });
   if (state.pubkey && storageAvailable()) {
+    const { db } = await import("./db.js");
     await db.meta
       .put({ key: actionSeqKey(state.pubkey), value: state.actionSeq })
       .catch(() => undefined);

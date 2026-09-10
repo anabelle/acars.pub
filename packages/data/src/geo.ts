@@ -1,6 +1,6 @@
 import type { Airport } from "@acars/core";
 import { haversineDistance } from "@acars/core";
-import { airports as AIRPORTS } from "./airports.js";
+import { getAirports } from "./catalog.js";
 
 /**
  * Reference distance (km) used to normalise the distance penalty when
@@ -40,7 +40,7 @@ function isBetterHubCandidate(
 export function findPreferredHub(
   lat: number,
   lon: number,
-  airports: Airport[] = AIRPORTS,
+  airports: Airport[] = getAirports(),
   /** IATA codes of airports that already serve as a competitor airline's hub.
    *  When provided, the algorithm prefers unoccupied airports so that new
    *  players are distributed across cities instead of clustering at the

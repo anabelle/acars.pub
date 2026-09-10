@@ -6,10 +6,16 @@ import type {
   TimelineEvent,
 } from "@acars/core";
 import { fp, fpAdd } from "@acars/core";
-import { describe, expect, it, vi } from "vitest";
+import { setAirportsCatalog } from "@acars/data";
+import { airports } from "@acars/data/airports";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
 import { createNetworkSlice } from "./networkSlice";
+
+beforeAll(() => {
+  setAirportsCatalog(airports);
+});
 
 vi.mock("@acars/nostr", () => ({
   publishAction: vi.fn(() =>

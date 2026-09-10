@@ -4,6 +4,7 @@ import type {
   Checkpoint,
   FixedPoint,
   FlightOffer,
+  GameActionEnvelope,
   Route,
   TimelineEvent,
 } from "@acars/core";
@@ -21,9 +22,7 @@ import {
   TICK_DURATION,
   TICKS_PER_MONTH,
 } from "@acars/core";
-import type { GameActionEnvelope } from "@acars/core";
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
-import { deleteMarketplaceListing } from "@acars/nostr";
 import type { ActionLogEntry } from "@acars/nostr";
 import type { StateCreator } from "zustand";
 import { replayActionLog } from "../actionReducer";
@@ -74,6 +73,17 @@ const competitorLastFullSync = new Map<string, number>();
  */
 const rejectedSnapshotSig = new Map<string, string>();
 
+/**
+ * Per-owner projection memo for projectCompetitorFleet: records the tick an
+ * owner's fleet was last projected to AND the fleet array reference that was
+ * produced. Competitor `airline.lastTick` only advances on sync (~60s), so
+ * without this the slice re-projected every competitor fleet (O(worldFleet)
+ * clones + landing financials) and installed a fresh `fleetByOwner` Map on
+ * EVERY tick. The fleetRef check self-heals: when syncWorld/syncCompetitor
+ * replaces an owner's fleet, the ref mismatch forces a fresh projection.
+ */
+const ownerProjection = new Map<string, { tick: number; fleetRef: AircraftInstance[] }>();
+
 function snapshotPayloadSig(payload: {
   tick: number;
   stateHash: string;
@@ -87,6 +97,7 @@ export function _resetWorldFlags() {
   pendingSyncWorldOptions = null;
   competitorLastFullSync.clear();
   rejectedSnapshotSig.clear();
+  ownerProjection.clear();
 }
 
 const applyMonthlyCosts = (
@@ -231,9 +242,17 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         continue;
       }
 
+      // Already projected to this (or a later) tick from this exact fleet
+      // state — identical deterministic outcome, skip the O(fleet) work.
+      const prev = ownerProjection.get(pubkey);
+      if (prev && prev.tick >= tick && fleetByOwner.get(pubkey) === prev.fleetRef) {
+        continue;
+      }
+
       // Project fleet positions and update the per-owner index.
       const { fleet: projectedFleet } = reconcileFleetToTick(compFleet, compRoutes, tick);
       updatedFleetByOwner.set(pubkey, projectedFleet);
+      ownerProjection.set(pubkey, { tick, fleetRef: projectedFleet });
       anyChanges = true;
     }
 
@@ -599,6 +618,7 @@ async function settleMarketplaceSales(
 
   // Delete marketplace listings (seller-signed, NIP-09 compliant)
   try {
+    const { deleteMarketplaceListing } = await import("@acars/nostr");
     for (const sold of soldAircraft) {
       try {
         await deleteMarketplaceListing(pubkey, sold.id);

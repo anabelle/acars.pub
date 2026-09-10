@@ -1,6 +1,5 @@
 import { createLogger } from "@acars/core";
-import { publishAction } from "@acars/nostr";
-import { db, type OutboxRecord } from "./db.js";
+import type { OutboxRecord } from "./db.js";
 
 const logger = createLogger("Outbox");
 
@@ -29,12 +28,14 @@ export function storageAvailable(): boolean {
  */
 export async function enqueueOutbox(record: Omit<OutboxRecord, "id">): Promise<number | undefined> {
   if (!storageAvailable()) return undefined;
+  const { db } = await import("./db.js");
   return await db.outbox.add(record as OutboxRecord);
 }
 
 /** Remove an outbox entry after its publish succeeded. */
 export async function dequeueOutbox(id: number): Promise<void> {
   if (!storageAvailable()) return;
+  const { db } = await import("./db.js");
   await db.outbox.delete(id);
 }
 
@@ -49,6 +50,7 @@ export async function flushOutbox(): Promise<void> {
   if (flushInFlight) return flushInFlight;
   if (!storageAvailable()) return;
   flushInFlight = (async () => {
+    const { db } = await import("./db.js");
     let entries: OutboxRecord[] = [];
     try {
       entries = await db.outbox.toArray();
@@ -58,6 +60,7 @@ export async function flushOutbox(): Promise<void> {
     }
     if (entries.length === 0) return;
 
+    const { publishAction } = await import("@acars/nostr");
     const now = Date.now();
     for (const entry of entries) {
       if (entry.id == null) continue;

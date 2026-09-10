@@ -192,43 +192,45 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       const MAX_CATCHUP = 50000;
       const CATCHUP_CHUNK = 2000;
       const targetTick = Math.min(tick, lastTick + MAX_CATCHUP);
-      useEngineStore.setState({
-        catchupProgress: {
-          current: lastTick,
-          target: targetTick,
-          phase: "player",
-        },
-      });
+      // The catchup progress UI only matters for big jumps. Writing it (and
+      // clearing it) on every single-tick step caused 2 extra store
+      // notifications per tick for nothing.
+      const needsCatchupUI = targetTick - lastTick > CATCHUP_CHUNK;
+      const clearCatchup = () => {
+        if (useEngineStore.getState().catchupProgress) {
+          useEngineStore.setState({ catchupProgress: null });
+        }
+      };
+      if (needsCatchupUI) {
+        useEngineStore.setState({
+          catchupProgress: {
+            current: lastTick,
+            target: targetTick,
+            phase: "player",
+          },
+        });
+      }
 
-      let currentFleet = [...fleet];
-      let currentBalance = airline.corporateBalance;
-      let currentBrandScore = airline.brandScore || 0.5;
-      let currentCumulativeRevenue = airline.cumulativeRevenue ?? fp(0);
       const currentHubs = airline.hubs || [];
-      let currentTimeline = [...get().timeline];
-      const timelineEventIds = new Set(currentTimeline.map((event) => event.id));
       const initialAirlineStatus = airline.status;
-      let evaluatedTier = airline.tier;
       const distanceLimitKm = getMaxRouteDistanceKm(airline.tier);
       const brandScorePerTick = 0.002 / TICKS_PER_HOUR;
       const brandPenaltyPerTick = 0.003 / TICKS_PER_HOUR;
 
-      if (airline.cumulativeRevenue == null) {
-        currentCumulativeRevenue = estimateHistoricRevenue(currentFleet, routes);
-      }
-
-      let consumedDeletedFleetIds = new Set<string>();
-
       const ticksPerMonth = TICKS_PER_MONTH;
 
       const hasActiveRoutes = routes.some((route) => route.status === "active");
-      const hasAssignedRoutes = currentFleet.some((ac) => !!ac.assignedRouteId);
-      const hasNonIdleAircraft = currentFleet.some((ac) => ac.status !== "idle");
+      const hasAssignedRoutes = fleet.some((ac) => !!ac.assignedRouteId);
+      const hasNonIdleAircraft = fleet.some((ac) => ac.status !== "idle");
       const canFastPath = !hasActiveRoutes && !hasAssignedRoutes && !hasNonIdleAircraft;
 
       if (canFastPath) {
         const cyclesPrevious = Math.floor(lastTick / ticksPerMonth);
         const cyclesCurrent = Math.floor(targetTick / ticksPerMonth);
+        let fastBalance = airline.corporateBalance;
+        // Preserve timeline identity unless an idle-catchup event is added.
+        let fastTimeline = get().timeline;
+
         if (cyclesCurrent > cyclesPrevious) {
           const numCycles = cyclesCurrent - cyclesPrevious;
           let opexTotal = 0;
@@ -237,7 +239,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           }
 
           let leaseCost = fp(0);
-          for (const ac of currentFleet) {
+          for (const ac of fleet) {
             if (ac.purchaseType !== "lease") continue;
             const model = getAircraftById(ac.modelId);
             if (model) {
@@ -249,7 +251,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             const totalLeaseCost = fpScale(leaseCost, numCycles);
             const totalOpexCost = fpScale(fp(opexTotal), numCycles);
             const totalCost = fpAdd(totalLeaseCost, totalOpexCost);
-            currentBalance = fpSub(currentBalance, totalCost);
+            fastBalance = fpSub(fastBalance, totalCost);
 
             const simulatedTimestamp = GENESIS_TIME + targetTick * TICK_DURATION;
             const newEvent = {
@@ -260,29 +262,52 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
               description: `Idle catchup applied ${numCycles} monthly cycle(s) of lease and hub OPEX.`,
               cost: totalCost,
             };
-            currentTimeline = [newEvent, ...currentTimeline].slice(0, 1000);
+            fastTimeline = [newEvent, ...fastTimeline].slice(0, 1000);
           }
         }
 
         const refreshedAirline = get().airline;
+        const fastCumulativeRevenue =
+          refreshedAirline?.cumulativeRevenue ??
+          airline.cumulativeRevenue ??
+          estimateHistoricRevenue(fleet, routes);
         const updatedAirline = {
           ...(refreshedAirline ?? airline),
-          corporateBalance: currentBalance,
-          brandScore: currentBrandScore,
-          cumulativeRevenue: currentCumulativeRevenue,
-          tier: evaluatedTier,
+          corporateBalance: fastBalance,
+          cumulativeRevenue: fastCumulativeRevenue,
           lastTick: targetTick,
-          timeline: currentTimeline,
+          timeline: fastTimeline,
         };
+        if (cyclesCurrent === cyclesPrevious) {
+          // Idle airline, no monthly boundary crossed: nothing material
+          // changed this step. Advance lastTick (and backfill a missing
+          // cumulativeRevenue) while PRESERVING fleet/timeline identities so
+          // field-level subscribers and module caches stay cold.
+          set({
+            airline: {
+              ...(refreshedAirline ?? airline),
+              lastTick: targetTick,
+              ...(((refreshedAirline ?? airline).cumulativeRevenue == null
+                ? { cumulativeRevenue: fastCumulativeRevenue }
+                : {}) as object),
+            },
+            // Same clearing contract as the cycle-crossing branch — but only
+            // touch state when there is something to clear.
+            ...(get().fleetDeletedDuringCatchup.length > 0
+              ? { fleetDeletedDuringCatchup: [] }
+              : {}),
+          });
+        } else {
+          set({
+            fleet,
+            airline: updatedAirline,
+            timeline: fastTimeline,
+            // Clear stale deletion tracking on fast-path too, so IDs don't
+            // accumulate indefinitely when the slow-path is never reached.
+            fleetDeletedDuringCatchup: [],
+          });
+        }
         const tickUpdateTick = updatedAirline.lastTick ?? targetTick;
-        set({
-          fleet: currentFleet,
-          airline: updatedAirline,
-          timeline: currentTimeline,
-          // Clear stale deletion tracking on fast-path too, so IDs don't
-          // accumulate indefinitely when the slow-path is never reached.
-          fleetDeletedDuringCatchup: [],
-        });
         // Removed legacy checkpointing
         // Only status changes (e.g. chapter 11) are truly material.
         // Routine flight events (landings, takeoffs, turnarounds) are
@@ -305,9 +330,9 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
                 tick: tickUpdateTick,
                 corporateBalance: updatedAirline.corporateBalance,
                 cumulativeRevenue: updatedAirline.cumulativeRevenue,
-                fleetIds: currentFleet.map((ac) => ac.id),
+                fleetIds: fleet.map((ac) => ac.id),
                 routeIds: routes.map((r) => r.id),
-                timeline: currentTimeline.slice(0, TICK_UPDATE_TIMELINE_EVENTS),
+                timeline: fastTimeline.slice(0, TICK_UPDATE_TIMELINE_EVENTS),
                 // Airline identity for bootstrap when AIRLINE_CREATE is missing from relays
                 airlineName: updatedAirline.name,
                 icaoCode: updatedAirline.icaoCode,
@@ -316,16 +341,31 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
                 livery: updatedAirline.livery,
                 status: updatedAirline.status,
                 tier: updatedAirline.tier,
-                brandScore: currentBrandScore,
+                brandScore: updatedAirline.brandScore || 0.5,
               },
             },
             get,
             set,
           }).catch((e) => console.error("Auto-sync tick failed", e));
         }
-        useEngineStore.setState({ catchupProgress: null });
+        clearCatchup();
         return;
       }
+
+      // --- Slow path: full per-tick simulation over mutable fleet/timeline ---
+      let currentFleet = [...fleet];
+      let currentBalance = airline.corporateBalance;
+      let currentBrandScore = airline.brandScore || 0.5;
+      let currentCumulativeRevenue = airline.cumulativeRevenue ?? fp(0);
+      let currentTimeline = [...get().timeline];
+      const timelineEventIds = new Set(currentTimeline.map((event) => event.id));
+      let evaluatedTier = airline.tier;
+
+      if (airline.cumulativeRevenue == null) {
+        currentCumulativeRevenue = estimateHistoricRevenue(currentFleet, routes);
+      }
+
+      let consumedDeletedFleetIds = new Set<string>();
 
       // Immediate visual reconciliation: project fleet to target tick using
       // deterministic cycle algebra so the map shows correct positions while
@@ -447,7 +487,12 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           }
         }
 
-        if (CATCHUP_CHUNK > 0 && (t - lastTick) % CATCHUP_CHUNK === 0 && t < targetTick) {
+        if (
+          needsCatchupUI &&
+          CATCHUP_CHUNK > 0 &&
+          (t - lastTick) % CATCHUP_CHUNK === 0 &&
+          t < targetTick
+        ) {
           useEngineStore.setState({
             catchupProgress: {
               current: t,
@@ -593,10 +638,13 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           set,
         }).catch((e) => console.error("Auto-sync tick failed", e));
       }
-      useEngineStore.setState({ catchupProgress: null });
+      clearCatchup();
     } finally {
       tickMutex.unlock();
-      useEngineStore.setState({ catchupProgress: null });
+      // clearCatchup() is scoped to the try body — inline the guard here.
+      if (useEngineStore.getState().catchupProgress) {
+        useEngineStore.setState({ catchupProgress: null });
+      }
     }
   },
 });

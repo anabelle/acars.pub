@@ -1,10 +1,15 @@
 import { GENESIS_TIME, TICK_DURATION } from "@acars/core";
-import { airports as AIRPORTS } from "@acars/data";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setAirportsCatalog } from "@acars/data";
+import { airports as AIRPORTS } from "@acars/data/airports";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEngineStore } from "./engine.js";
 
 describe("engine store", () => {
   const initialState = useEngineStore.getState();
+
+  beforeAll(() => {
+    setAirportsCatalog(AIRPORTS);
+  });
 
   beforeEach(() => {
     vi.useFakeTimers();

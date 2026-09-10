@@ -5,7 +5,7 @@ import {
   decompressSnapshotString,
   fp,
 } from "@acars/core";
-import { parseCheckpoint, type SnapshotPayload } from "@acars/nostr";
+import type { SnapshotPayload } from "@acars/nostr";
 
 const logger = createLogger("SnapshotValidation");
 
@@ -35,6 +35,7 @@ const MAX_SNAPSHOT_BALANCE = fp(10_000_000_000);
 export async function verifySnapshotPayload(payload: SnapshotPayload): Promise<Checkpoint | null> {
   try {
     const decompressedStr = await decompressSnapshotString(payload.compressedData);
+    const { parseCheckpoint } = await import("@acars/nostr");
     const parsed = parseCheckpoint(JSON.parse(decompressedStr));
     if (!parsed) {
       logger.warn("Discarding snapshot: envelope failed parseCheckpoint validation");

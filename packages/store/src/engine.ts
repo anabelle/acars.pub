@@ -11,7 +11,7 @@ import {
   TICKS_PER_DAY,
   TICK_DURATION,
 } from "@acars/core";
-import { airports as AIRPORTS } from "@acars/data";
+import { getAirports } from "@acars/data";
 import { create } from "zustand";
 
 export interface RouteData {
@@ -51,7 +51,8 @@ function generateRoutes(home: Airport, tick: number): RouteData[] {
 
   if (cachedHomeIata !== home.iata) {
     cachedHomeIata = home.iata;
-    cachedSortedOthers = AIRPORTS.filter((a) => a.iata !== home.iata)
+    cachedSortedOthers = getAirports()
+      .filter((a) => a.iata !== home.iata)
       .map((a) => ({
         airport: a,
         distance: haversineDistance(home.latitude, home.longitude, a.latitude, a.longitude),
@@ -195,7 +196,7 @@ export const useEngineStore = create<EngineState>((set, get) => ({
   setActiveHubIata: (iata, method = "hub selection") => {
     const { homeAirport, userLocation } = get();
     if (homeAirport?.iata === iata) return;
-    const airport = AIRPORTS.find((entry) => entry.iata === iata);
+    const airport = getAirports().find((entry) => entry.iata === iata);
     if (!airport) return;
 
     const currentTick = calculateGlobalTick();

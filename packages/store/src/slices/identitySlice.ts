@@ -7,19 +7,6 @@ import type {
 } from "@acars/core";
 import { computeActionChainHash, fp, fpSub } from "@acars/core";
 import { getHubPricingForIata } from "@acars/data";
-import {
-  attachSigner,
-  clearEphemeralKey,
-  ensureConnected,
-  generateNewKeypair,
-  getPubkey,
-  loadEphemeralKey,
-  loginWithNsec as loginWithNsecNostr,
-  publishAction,
-  resetSigner,
-  saveEphemeralKey,
-  waitForNip07,
-} from "@acars/nostr";
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
@@ -74,6 +61,16 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
     const hasExistingIdentity = prevStatus === "ready" && Boolean(get().airline || get().pubkey);
     set({ isLoading: true, error: null });
 
+    const {
+      attachSigner,
+      clearEphemeralKey,
+      ensureConnected,
+      getPubkey,
+      loadEphemeralKey,
+      loginWithNsec: loginWithNsecNostr,
+      resetSigner,
+      waitForNip07,
+    } = await import("@acars/nostr");
     const extensionReady = await waitForNip07();
 
     // If no extension, try to restore an ephemeral key from a previous session
@@ -165,6 +162,13 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
   loginWithNsec: async (nsec: string) => {
     set({ isLoading: true, error: null });
 
+    const {
+      clearEphemeralKey,
+      ensureConnected,
+      loginWithNsec: loginWithNsecNostr,
+      resetSigner,
+    } = await import("@acars/nostr");
+
     let pubkey: string;
     try {
       pubkey = await loginWithNsecNostr(nsec);
@@ -197,6 +201,15 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
 
   createNewIdentity: async () => {
     set({ isLoading: true, error: null });
+
+    const {
+      clearEphemeralKey,
+      ensureConnected,
+      generateNewKeypair,
+      loginWithNsec: loginWithNsecNostr,
+      resetSigner,
+      saveEphemeralKey,
+    } = await import("@acars/nostr");
 
     let pubkey: string;
     try {
@@ -238,6 +251,7 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
   createAirline: async (params: CreateAirlineParams) => {
     set({ isLoading: true, error: null });
     try {
+      const { attachSigner, ensureConnected, publishAction } = await import("@acars/nostr");
       attachSigner();
       await ensureConnected();
 

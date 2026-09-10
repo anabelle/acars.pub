@@ -1,6 +1,4 @@
 import { type Checkpoint, fpAdd } from "@acars/core";
-import { loadSnapshot } from "@acars/nostr";
-import { db } from "./db.js";
 import { useEngineStore } from "./engine.js";
 import { reconcileFleetToTick } from "./FlightEngine.js";
 import { flushOutbox } from "./outbox.js";
@@ -19,6 +17,7 @@ export async function hydrateIdentityFromStorage(
   set: (state: Partial<AirlineState>) => void,
 ) {
   // 1. Load instantly from IndexedDB
+  const { db } = await import("./db.js");
   const localAirline = await db.airline.where({ ceoPubkey: pubkey }).first();
   const localFleet = await db.fleet.where({ ownerPubkey: pubkey }).toArray();
   const localRoutes = await db.routes.where({ airlinePubkey: pubkey }).toArray();
@@ -41,6 +40,7 @@ export async function hydrateIdentityFromStorage(
 
   // 2. Background sync with Nostr NIP-33 Snapshot Rollups
   try {
+    const { loadSnapshot } = await import("@acars/nostr");
     const remote = await loadSnapshot(pubkey);
     if (remote) {
       // LWW-by-tick, but a remote snapshot only wins if it VERIFIES:

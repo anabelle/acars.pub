@@ -1,10 +1,15 @@
 import type { AircraftInstance, AirlineEntity, FixedPoint, TimelineEvent } from "@acars/core";
 import { fp, fpAdd, fpScale, getMaintenanceDowntimeTicks } from "@acars/core";
-import { getAircraftById } from "@acars/data";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getAircraftById, setAirportsCatalog } from "@acars/data";
+import { airports } from "@acars/data/airports";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
 import { createFleetSlice } from "./fleetSlice";
+
+beforeAll(() => {
+  setAirportsCatalog(airports);
+});
 
 vi.mock("@acars/nostr", () => ({
   publishAction: vi.fn(() =>

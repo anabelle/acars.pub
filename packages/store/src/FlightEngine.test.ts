@@ -7,13 +7,18 @@ import {
   getSuggestedFares,
   TICKS_PER_HOUR,
 } from "@acars/core";
-import { airports, getAircraftById } from "@acars/data";
-import { describe, expect, it } from "vitest";
+import { getAircraftById, setAirportsCatalog } from "@acars/data";
+import { airports } from "@acars/data/airports";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   estimateLandingFinancials,
   processFlightEngine,
   reconcileFleetToTick,
 } from "./FlightEngine.js";
+
+beforeAll(() => {
+  setAirportsCatalog(airports);
+});
 
 const PLAYER_PUBKEY = "player-airline";
 

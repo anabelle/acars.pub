@@ -1,4 +1,10 @@
-import type { AircraftInstance, AircraftModel, FixedPoint, TimelineEvent } from "@acars/core";
+import type {
+  AircraftInstance,
+  AircraftModel,
+  Airport,
+  FixedPoint,
+  TimelineEvent,
+} from "@acars/core";
 import {
   calculateBookValue,
   createLogger,
@@ -13,18 +19,19 @@ import {
   TICK_DURATION,
   TICKS_PER_HOUR,
 } from "@acars/core";
-import { airports, getAircraftById } from "@acars/data";
+import { getAircraftById, getAirports } from "@acars/data";
 
-/** Module-level O(1) airport lookup */
-const airportMap = new Map(airports.map((a) => [a.iata, a]));
+/** Module-level O(1) airport lookup — built lazily on first use so importing
+ * this slice does not require the async airports catalog to be loaded yet. */
+let airportMap: Map<string, Airport> | null = null;
+function getAirportMap(): Map<string, Airport> {
+  if (!airportMap) {
+    airportMap = new Map(getAirports().map((a) => [a.iata, a]));
+  }
+  return airportMap;
+}
 
-import {
-  attachSigner,
-  deleteMarketplaceListing,
-  ensureConnected,
-  type MarketplaceListing,
-  publishUsedAircraft,
-} from "@acars/nostr";
+import type { MarketplaceListing } from "@acars/nostr";
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { useEngineStore } from "../engine";
@@ -233,8 +240,8 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     const model = getAircraftById(instance.modelId);
     if (!model) throw new Error("Aircraft model not found.");
 
-    const originAirport = airportMap.get(instance.baseAirportIata);
-    const destinationAirport = airportMap.get(destinationIata);
+    const originAirport = getAirportMap().get(instance.baseAirportIata);
+    const destinationAirport = getAirportMap().get(destinationIata);
     if (!originAirport || !destinationAirport) {
       throw new Error("Invalid origin or destination airport.");
     }
@@ -408,6 +415,9 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     });
 
     try {
+      const { attachSigner, ensureConnected, deleteMarketplaceListing } = await import(
+        "@acars/nostr"
+      );
       attachSigner();
       await ensureConnected();
 
@@ -696,6 +706,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     });
 
     try {
+      const { attachSigner, ensureConnected } = await import("@acars/nostr");
       attachSigner();
       await ensureConnected();
 
@@ -814,6 +825,8 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     });
 
     try {
+      const { attachSigner, ensureConnected, publishUsedAircraft, deleteMarketplaceListing } =
+        await import("@acars/nostr");
       attachSigner();
       await ensureConnected();
 
@@ -884,6 +897,9 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     set({ fleet: updatedFleet });
 
     try {
+      const { attachSigner, ensureConnected, deleteMarketplaceListing } = await import(
+        "@acars/nostr"
+      );
       attachSigner();
       await ensureConnected();
 
