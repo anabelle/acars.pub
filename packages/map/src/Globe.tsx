@@ -409,6 +409,10 @@ export function Globe({
 
   // Invalidate arc cache when zoom changes LOD tier (segment count changes).
   const lastSegmentCount = useRef<number>(0);
+  // Signature + payload cache for the airports source: lets per-tick
+  // effect runs no-op when classification/presence data is unchanged.
+  const lastAirportDataSig = useRef<string | null>(null);
+  const lastAirportGeojson = useRef<FeatureCollection | null>(null);
 
   // -------------------------------------------------------------------------
   // Refs for requestAnimationFrame-based flight animation
@@ -1309,43 +1313,69 @@ export function Globe({
 
     // --- Airport GeoJSON (classified) ---
     const presence = latestGroundPresence.current;
+    // Cheap signature over every input that affects the airports dataset:
+    // classification + presence composition + per-airport counts (hover
+    // panels read them). Fleet-identity ticks that change none of these
+    // skip the 6072-feature rebuild + ~2MB setData clone (audit C1).
+    let dataSig = `${playerHubs.join(",")}|${playerRouteDestinations.size}:${[...playerRouteDestinations].sort().join(",")}|`;
+    for (const [iata, color] of competitorHubColors) {
+      dataSig += `${iata}=${color};`;
+    }
+    dataSig += `|${latestPlayerLivery.current?.primary ?? ""}`;
+    for (const iata of Object.keys(presence ?? {})) {
+      const segs = presence?.[iata] ?? [];
+      dataSig += `;${iata}:${segs.map((seg) => `${seg.color}=${seg.count}`).join(",")}`;
+    }
+    const airportsDataUnchanged = dataSig === lastAirportDataSig.current;
+    lastAirportDataSig.current = dataSig;
     const existingPresenceImages = new Set(
       map.listImages().filter((name) => name.startsWith("presence-")),
     );
     const activePresenceImages = new Set<string>();
 
-    const airportGeojson: FeatureCollection = {
-      type: "FeatureCollection",
-      features: airports.map((a) => {
-        const classification = classifyAirport(a);
-        const presenceSegments = presence?.[a.iata] ?? [];
-        const presenceKey = presenceSegments.length
-          ? `presence-${a.iata}-${presenceSegments.map((segment) => `${segment.color}-${segment.count}`).join("-")}`
-          : null;
+    const airportGeojson: FeatureCollection =
+      airportsDataUnchanged && lastAirportGeojson.current
+        ? lastAirportGeojson.current
+        : {
+            type: "FeatureCollection",
+            features: airports.map((a) => {
+              const classification = classifyAirport(a);
+              const presenceSegments = presence?.[a.iata] ?? [];
+              // Icon key by COMPOSITION only (colors, ordered) — counts live in
+              // properties. A count change no longer re-creates the image.
+              const presenceKey = presenceSegments.length
+                ? `presence-${a.iata}-${presenceSegments.map((segment) => segment.color).join("-")}`
+                : null;
 
-        if (presenceKey && !map.hasImage(presenceKey)) {
-          const canvas = buildPresenceBadge(presenceSegments, 64);
-          map.addImage(presenceKey, canvas, { pixelRatio: 2 });
+              if (presenceKey && !map.hasImage(presenceKey)) {
+                const canvas = buildPresenceBadge(presenceSegments, 64);
+                map.addImage(presenceKey, canvas, { pixelRatio: 2 });
+              }
+              if (presenceKey) activePresenceImages.add(presenceKey);
+
+              return {
+                type: "Feature",
+                geometry: { type: "Point", coordinates: [a.longitude, a.latitude] },
+                properties: {
+                  ...a,
+                  groundPresenceCount: presenceSegments.reduce(
+                    (sum, segment) => sum + segment.count,
+                    0,
+                  ),
+                  groundPresenceIcon: presenceKey,
+                  ...classification,
+                },
+              };
+            }),
+          };
+
+    if (!airportsDataUnchanged) {
+      for (const imageId of existingPresenceImages) {
+        if (!activePresenceImages.has(imageId)) {
+          map.removeImage(imageId);
         }
-        if (presenceKey) activePresenceImages.add(presenceKey);
-
-        return {
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [a.longitude, a.latitude] },
-          properties: {
-            ...a,
-            groundPresenceCount: presenceSegments.reduce((sum, segment) => sum + segment.count, 0),
-            groundPresenceIcon: presenceKey,
-            ...classification,
-          },
-        };
-      }),
-    };
-
-    for (const imageId of existingPresenceImages) {
-      if (!activePresenceImages.has(imageId)) {
-        map.removeImage(imageId);
       }
+      lastAirportGeojson.current = airportGeojson;
     }
 
     // --- Player flight arcs (with culling + LOD + caching) ---
@@ -1395,7 +1425,9 @@ export function Globe({
       globalArcFeatures.push(makeArcFeature(points));
     }
 
-    (map.getSource("airports") as maplibregl.GeoJSONSource)?.setData(airportGeojson);
+    if (!airportsDataUnchanged) {
+      (map.getSource("airports") as maplibregl.GeoJSONSource)?.setData(airportGeojson);
+    }
     (map.getSource("arcs") as maplibregl.GeoJSONSource)?.setData({
       type: "FeatureCollection",
       features: arcFeatures,
