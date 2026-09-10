@@ -1,0 +1,79 @@
+diff --git a/lib/task-collection/bake-collection.js b/lib/task-collection/bake-collection.js
+index 1bfe7b18532e9a77328069d0ab00754d04f79768..62f657103614de596d8cae2d9a194bf240fc364d 100644
+--- a/lib/task-collection/bake-collection.js
++++ b/lib/task-collection/bake-collection.js
+@@ -62,8 +62,22 @@ function bakeCollection(collection, fixedArgsNum) {
+         var fixedArgsNum_1 = undefined;
+         var bakeCollectionVariadic_1 = undefined;
+         var bakeCollectionAwait_1 = undefined;
+-        var funcFactory = eval(funcFactoryCode);
+-        return funcFactory(collection);
++        try {
++            var funcFactory = eval(funcFactoryCode);
++            return funcFactory(collection);
++        }
++        catch (e) {
++            if (e instanceof EvalError) {
++                // CSP-restricted environment (script-src without 'unsafe-eval'):
++                // fall back to plain dispatch with identical semantics.
++                return function () {
++                    for (var i = 0; i < collection.length; ++i) {
++                        collection[i].apply(undefined, arguments);
++                    }
++                };
++            }
++            throw e;
++        }
+     }
+ }
+ exports.bakeCollection = bakeCollection;
+@@ -88,8 +102,23 @@ function bakeCollectionAwait(collection, fixedArgsNum) {
+         var fixedArgsNum_2 = undefined;
+         var bakeCollectionVariadic_2 = undefined;
+         var bakeCollectionAwait_2 = undefined;
+-        var funcFactory = eval(funcFactoryCode);
+-        return funcFactory(collection);
++        try {
++            var funcFactory = eval(funcFactoryCode);
++            return funcFactory(collection);
++        }
++        catch (e) {
++            if (e instanceof EvalError) {
++                // CSP-restricted environment: plain dispatch fallback.
++                return function () {
++                    var promises = [];
++                    for (var i = 0; i < collection.length; ++i) {
++                        promises.push(collection[i].apply(undefined, arguments));
++                    }
++                    return Promise.all(promises);
++                };
++            }
++            throw e;
++        }
+     }
+ }
+ exports.bakeCollectionAwait = bakeCollectionAwait;
+@@ -112,8 +141,21 @@ function bakeCollectionVariadic(collection) {
+         var fixedArgsNum = undefined;
+         var bakeCollectionVariadic_3 = undefined;
+         var bakeCollectionAwait_3 = undefined;
+-        var funcFactory = eval(funcFactoryCode);
+-        return funcFactory(collection);
++        try {
++            var funcFactory = eval(funcFactoryCode);
++            return funcFactory(collection);
++        }
++        catch (e) {
++            if (e instanceof EvalError) {
++                // CSP-restricted environment: plain dispatch fallback.
++                return function () {
++                    for (var i = 0; i < collection.length; ++i) {
++                        collection[i].apply(undefined, arguments);
++                    }
++                };
++            }
++            throw e;
++        }
+     }
+ }
+ exports.bakeCollectionVariadic = bakeCollectionVariadic;
