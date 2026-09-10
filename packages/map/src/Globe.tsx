@@ -254,6 +254,12 @@ export interface GlobeProps {
   playerRouteDestinations?: Set<string>;
   tick?: number;
   tickProgress?: number;
+  /**
+   * Live engine clock as a ref, bypassing React for the 1Hz progress writes.
+   * When provided, the RAF animation loop reads tick/tickProgress from here
+   * each frame instead of the numeric props (which only re-render on ticks).
+   */
+  engineClock?: { current: { tick: number; tickProgress: number } };
   /** Map palette mode. Use "dark" for the original night-focused treatment or "light" for the earth-toned style. */
   theme?: MapTheme;
   className?: string;
@@ -357,6 +363,7 @@ export function Globe({
   playerRouteDestinations = new Set(),
   tick = 0,
   tickProgress = 0,
+  engineClock,
   theme = DEFAULT_MAP_THEME,
   className = "",
   style,
@@ -413,6 +420,8 @@ export function Globe({
   // effect runs no-op when classification/presence data is unchanged.
   const lastAirportDataSig = useRef<string | null>(null);
   const lastAirportGeojson = useRef<FeatureCollection | null>(null);
+  // Signature cache for the arcs/global-arcs sources (see arcs effect).
+  const lastArcsSig = useRef<string | null>(null);
 
   // -------------------------------------------------------------------------
   // Refs for requestAnimationFrame-based flight animation
@@ -593,9 +602,14 @@ export function Globe({
           [-180, 85.051129],
           [180, 85.051129],
           [180, -85.051129],
-          [-180, -85.051129],
+          [-180, 85.051129],
         ],
-        animate: true,
+        // Static texture: animate:true made maplibre repaint every frame and
+        // re-upload the 1024x512 RGBA texture (~2 MB) at 60fps even though the
+        // terminator only changes every 60s (it starved the UI and eventually
+        // killed WebGL contexts). updateNightOverlay pulses play()/pause() to
+        // upload a fresh texture after each repaint.
+        animate: false,
       });
       map.addLayer({
         id: NIGHT_CANVAS_LAYER,
@@ -1428,14 +1442,32 @@ export function Globe({
     if (!airportsDataUnchanged) {
       (map.getSource("airports") as maplibregl.GeoJSONSource)?.setData(airportGeojson);
     }
-    (map.getSource("arcs") as maplibregl.GeoJSONSource)?.setData({
-      type: "FeatureCollection",
-      features: arcFeatures,
-    });
-    (map.getSource("global-arcs") as maplibregl.GeoJSONSource)?.setData({
-      type: "FeatureCollection",
-      features: globalArcFeatures,
-    });
+    // Signature no-op for arcs: identity churn in fleet/routes deps re-runs
+    // this effect every tick even when the visible arc set is byte-identical.
+    // Skipping the setData avoids a full re-tiling + GPU re-upload of both
+    // sources. Bounds are part of the signature so pans/zooms always refresh.
+    const firstArcCoords = arcFeatures[0]?.geometry as { coordinates?: unknown[] } | undefined;
+    const lastArcCoords = arcFeatures[arcFeatures.length - 1]?.geometry as
+      | { coordinates?: unknown[] }
+      | undefined;
+    const arcsSig = [
+      map.getBounds().toString(),
+      arcFeatures.length,
+      firstArcCoords?.coordinates?.length ?? 0,
+      lastArcCoords?.coordinates?.length ?? 0,
+      globalArcFeatures.length,
+    ].join("|");
+    if (arcsSig !== lastArcsSig.current) {
+      lastArcsSig.current = arcsSig;
+      (map.getSource("arcs") as maplibregl.GeoJSONSource)?.setData({
+        type: "FeatureCollection",
+        features: arcFeatures,
+      });
+      (map.getSource("global-arcs") as maplibregl.GeoJSONSource)?.setData({
+        type: "FeatureCollection",
+        features: globalArcFeatures,
+      });
+    }
   }, [
     airports,
     mapLoaded,
@@ -1556,15 +1588,21 @@ export function Globe({
       const sun = getSubsolarPoint(new Date());
       // Use requestIdleCallback when available so the ~2ms pixel-fill doesn't
       // land on a busy animation frame.  Falls back to a simple timeout.
+      const paintAndPulse = () => {
+        paintNightCanvas(canvas, sun.lat, sun.lng, mapThemePalette.nightTint);
+        // The canvas source is paused (animate:false): pulse play()/pause()
+        // to upload the freshly painted texture exactly once. pause() runs
+        // prepare() synchronously, so no continuous repaint loop starts.
+        const source = map.getSource(NIGHT_CANVAS_SOURCE) as maplibregl.CanvasSource | undefined;
+        source?.play();
+        source?.pause();
+      };
       if (typeof requestIdleCallback !== "undefined") {
-        requestIdleCallback(
-          () => paintNightCanvas(canvas, sun.lat, sun.lng, mapThemePalette.nightTint),
-          {
-            timeout: 2000,
-          },
-        );
+        requestIdleCallback(paintAndPulse, {
+          timeout: 2000,
+        });
       } else {
-        setTimeout(() => paintNightCanvas(canvas, sun.lat, sun.lng, mapThemePalette.nightTint), 0);
+        setTimeout(paintAndPulse, 0);
       }
     };
 
@@ -1645,15 +1683,19 @@ export function Globe({
         rafId.current = requestAnimationFrame(animate);
         return;
       }
-      if (now - lastFrame < 66) {
+      // Throttled to ~5fps: full-fleet interpolation + a setData re-upload of
+      // both GeoJSON sources is far too expensive to run at display rate
+      // (structured clone + worker re-tiling + GPU re-upload). 5 updates per
+      // second still reads as smooth motion for aircraft at map scale.
+      if (now - lastFrame < 200) {
         rafId.current = requestAnimationFrame(animate);
         return;
       }
       lastFrame = now;
 
       const bounds = map.getBounds();
-      const currentTick = latestTick.current;
-      const currentProgress = latestTickProgress.current;
+      const currentTick = engineClock?.current.tick ?? latestTick.current;
+      const currentProgress = engineClock?.current.tickProgress ?? latestTickProgress.current;
 
       const flightFeatures = processFleet(
         latestFleet.current,
