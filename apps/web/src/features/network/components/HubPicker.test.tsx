@@ -12,17 +12,19 @@ vi.mock("@tanstack/react-virtual", () => {
 });
 
 vi.mock("@acars/data", () => {
+  const airports = [
+    {
+      iata: "JFK",
+      city: "New York",
+      name: "John F Kennedy",
+      country: "US",
+      timezone: "UTC",
+      population: 1000,
+    },
+  ];
   return {
-    airports: [
-      {
-        iata: "JFK",
-        city: "New York",
-        name: "John F Kennedy",
-        country: "US",
-        timezone: "UTC",
-        population: 1000,
-      },
-    ],
+    airports,
+    getAirports: () => airports,
     getHubPricingForIata: () => ({ openFee: 1000, monthlyOpex: 100, tier: "regional" }),
     HUB_CLASSIFICATIONS: { JFK: { slotControlled: false, baseCapacityPerHour: 100 } },
   };

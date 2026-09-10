@@ -30,32 +30,35 @@ vi.mock("@acars/store", () => {
 });
 
 vi.mock("@acars/data", () => {
+  const airports = [
+    {
+      iata: "JFK",
+      icao: "KJFK",
+      city: "New York",
+      name: "JFK",
+      country: "US",
+      latitude: 0,
+      longitude: 0,
+      timezone: "America/New_York",
+      population: 1,
+    },
+    {
+      iata: "LAX",
+      icao: "KLAX",
+      city: "Los Angeles",
+      name: "LAX",
+      country: "US",
+      latitude: 1,
+      longitude: 1,
+      timezone: "America/Los_Angeles",
+      population: 1,
+    },
+  ];
   return {
     aircraftModels: [],
-    airports: [
-      {
-        iata: "JFK",
-        icao: "KJFK",
-        city: "New York",
-        name: "JFK",
-        country: "US",
-        latitude: 0,
-        longitude: 0,
-        timezone: "America/New_York",
-        population: 1,
-      },
-      {
-        iata: "LAX",
-        icao: "KLAX",
-        city: "Los Angeles",
-        name: "LAX",
-        country: "US",
-        latitude: 1,
-        longitude: 1,
-        timezone: "America/Los_Angeles",
-        population: 1,
-      },
-    ],
+    airports,
+    getAirports: () => airports,
+    getAircraftById: () => undefined,
     HUB_CLASSIFICATIONS: {
       JFK: { baseCapacityPerHour: 100, slotControlled: false },
     },

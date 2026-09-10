@@ -26,8 +26,8 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => mockNavigate,
 }));
 
-vi.mock("@acars/data", () => ({
-  airports: [
+vi.mock("@acars/data", () => {
+  const airports = [
     {
       iata: "JFK",
       icao: "KJFK",
@@ -58,8 +58,12 @@ vi.mock("@acars/data", () => ({
       tags: [],
       id: "2",
     },
-  ],
-}));
+  ];
+  return {
+    airports,
+    getAirports: () => airports,
+  };
+});
 
 let mockIataParam = "JFK";
 

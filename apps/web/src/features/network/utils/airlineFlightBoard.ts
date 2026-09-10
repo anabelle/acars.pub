@@ -5,7 +5,7 @@ import {
   GENESIS_TIME,
   TICK_DURATION,
 } from "@acars/core";
-import { airports as ALL_AIRPORTS } from "@acars/data";
+import { getAirports } from "@acars/data";
 import {
   aircraftModelIndex,
   BOARDING_WINDOW_TICKS,
@@ -26,7 +26,14 @@ type FlightBoardWindow = {
   end: number;
 };
 
-const airportByIata = new Map<string, Airport>(ALL_AIRPORTS.map((a) => [a.iata, a]));
+// Built lazily — the airports catalog loads async after first paint.
+let airportByIata: Map<string, Airport> | null = null;
+function getAirportByIata(): Map<string, Airport> {
+  if (!airportByIata) {
+    airportByIata = new Map<string, Airport>(getAirports().map((a) => [a.iata, a]));
+  }
+  return airportByIata;
+}
 
 const offsetFormatterCache = new Map<string, Intl.DateTimeFormat>();
 
@@ -119,15 +126,15 @@ function getRelevantTimezone(aircraft: AircraftInstance, tick: number): string {
   if (!displayLeg) return "UTC";
 
   if (aircraft.status === "enroute") {
-    return airportByIata.get(displayLeg.destinationIata)?.timezone ?? "UTC";
+    return getAirportByIata().get(displayLeg.destinationIata)?.timezone ?? "UTC";
   }
   if (aircraft.status === "turnaround") {
     if (isPostMidpointTurnaround(aircraft, tick)) {
-      return airportByIata.get(displayLeg.originIata)?.timezone ?? "UTC";
+      return getAirportByIata().get(displayLeg.originIata)?.timezone ?? "UTC";
     }
-    return airportByIata.get(displayLeg.destinationIata)?.timezone ?? "UTC";
+    return getAirportByIata().get(displayLeg.destinationIata)?.timezone ?? "UTC";
   }
-  return airportByIata.get(displayLeg.originIata)?.timezone ?? "UTC";
+  return getAirportByIata().get(displayLeg.originIata)?.timezone ?? "UTC";
 }
 
 function canAppearOnBoard(aircraft: AircraftInstance) {

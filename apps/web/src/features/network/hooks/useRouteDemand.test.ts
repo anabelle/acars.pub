@@ -11,19 +11,21 @@ vi.mock("@acars/store", () => {
 });
 
 vi.mock("@acars/data", () => {
+  const airports = [
+    {
+      iata: "JFK",
+      latitude: 0,
+      longitude: 0,
+    },
+    {
+      iata: "LAX",
+      latitude: 1,
+      longitude: 1,
+    },
+  ];
   return {
-    airports: [
-      {
-        iata: "JFK",
-        latitude: 0,
-        longitude: 0,
-      },
-      {
-        iata: "LAX",
-        latitude: 1,
-        longitude: 1,
-      },
-    ],
+    airports,
+    getAirports: () => airports,
     HUB_CLASSIFICATIONS: {},
   };
 });

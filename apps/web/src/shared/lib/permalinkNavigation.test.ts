@@ -12,8 +12,8 @@ vi.mock("@acars/store", () => ({
   },
 }));
 
-vi.mock("@acars/data", () => ({
-  airports: [
+vi.mock("@acars/data", () => {
+  const airports = [
     {
       iata: "JFK",
       icao: "KJFK",
@@ -29,8 +29,12 @@ vi.mock("@acars/data", () => ({
       tags: [],
       id: "1",
     },
-  ],
-}));
+  ];
+  return {
+    airports,
+    getAirports: () => airports,
+  };
+});
 
 import { getDetailReturnTo, navigateToAircraft, navigateToAirport } from "./permalinkNavigation";
 

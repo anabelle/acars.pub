@@ -1,6 +1,7 @@
 import { useAirlineStore } from "@acars/store";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { Briefcase, Globe, Info, Plane, Radar, Trophy, Wallet } from "lucide-react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavBadges } from "@/shared/hooks/useNavBadges";
 import { NavBadge } from "./NavBadge";
@@ -73,11 +74,40 @@ function resolveNavBadge(
   return null;
 }
 
+/** Preload all main route chunks once the shell mounts (idle time). */
+function usePreloadNavRoutes() {
+  const router = useRouter();
+  useEffect(() => {
+    const preloadAll = () => {
+      for (const item of navItems) {
+        void router.preloadRoute({ to: item.to });
+      }
+    };
+    let cancel: (() => void) | null = null;
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(preloadAll);
+      cancel = () => {
+        if (typeof window.cancelIdleCallback === "function") {
+          window.cancelIdleCallback(id);
+        }
+      };
+    } else {
+      const id = window.setTimeout(preloadAll, 1500);
+      cancel = () => window.clearTimeout(id);
+    }
+    return () => cancel?.();
+  }, [router]);
+}
+
 export function Sidebar() {
-  const { airline, viewedPubkey } = useAirlineStore((state) => state);
-  const hasAirlineContext = Boolean(airline || viewedPubkey);
+  // Primitive selector: the shell chrome re-renders only when the airline
+  // context appears/disappears — not on every store set() (>=3 per tick).
+  const hasAirlineContext = useAirlineStore((state) =>
+    Boolean(state.airline || state.viewedPubkey),
+  );
   const badges = useNavBadges();
   const { t } = useTranslation("common");
+  usePreloadNavRoutes();
 
   return (
     <div className="pointer-events-auto hidden h-full w-16 flex-col border-r border-border bg-background/80 py-6 backdrop-blur-xl transition-all sm:flex md:w-52 md:px-2">
@@ -137,8 +167,9 @@ export function Sidebar() {
 }
 
 export function MobileNav() {
-  const { airline, viewedPubkey } = useAirlineStore((state) => state);
-  const hasAirlineContext = Boolean(airline || viewedPubkey);
+  const hasAirlineContext = useAirlineStore((state) =>
+    Boolean(state.airline || state.viewedPubkey),
+  );
   const badges = useNavBadges();
   const { t } = useTranslation("common");
 

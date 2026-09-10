@@ -36,6 +36,9 @@ vi.mock("@tanstack/react-router", () => {
         {children}
       </a>
     ),
+    useRouter: () => ({
+      preloadRoute: () => Promise.resolve(),
+    }),
   };
 });
 

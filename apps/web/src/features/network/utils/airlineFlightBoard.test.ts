@@ -1,7 +1,13 @@
 import type { AircraftInstance, AirlineEntity } from "@acars/core";
 import { fp } from "@acars/core";
-import { describe, expect, it } from "vitest";
+import { setAirportsCatalog } from "@acars/data";
+import { airports } from "@acars/data/airports";
+import { beforeAll, describe, expect, it } from "vitest";
 import { buildAirlineFlightBoardRows, countAirlineFlightBoardRows } from "./airlineFlightBoard";
+
+beforeAll(() => {
+  setAirportsCatalog(airports);
+});
 
 const makeAirline = (overrides: Partial<AirlineEntity> = {}): AirlineEntity => ({
   id: "airline-1",

@@ -1,9 +1,16 @@
 import type { Airport } from "@acars/core";
-import { airports as AIRPORTS } from "@acars/data";
+import { getAirports } from "@acars/data";
 import { useEngineStore } from "@acars/store";
 import { useCallback } from "react";
 
-const airportByIata = new Map<string, Airport>(AIRPORTS.map((a) => [a.iata, a]));
+// Built lazily — the airports catalog loads async after first paint.
+let airportByIata: Map<string, Airport> | null = null;
+function getAirportByIata(): Map<string, Airport> {
+  if (!airportByIata) {
+    airportByIata = new Map<string, Airport>(getAirports().map((a) => [a.iata, a]));
+  }
+  return airportByIata;
+}
 const DETAIL_PATH_PREFIXES = ["/airport/", "/aircraft/"];
 
 type DetailSearchParams = Record<string, string | undefined>;
@@ -76,7 +83,7 @@ export function navigateToPath(path: string, options?: NavigationOptions): void 
  */
 export function navigateToAirport(iata: string, searchParams?: DetailSearchParams): void {
   const normalizedIata = iata.toUpperCase();
-  const airport = airportByIata.get(normalizedIata);
+  const airport = getAirportByIata().get(normalizedIata);
   if (!airport) return;
 
   useEngineStore.getState().setPermalinkAirport(normalizedIata);

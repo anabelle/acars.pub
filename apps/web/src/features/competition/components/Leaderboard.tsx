@@ -1,4 +1,4 @@
-import type { AircraftInstance, FixedPoint, Route } from "@acars/core";
+import type { AircraftInstance, AirlineEntity, FixedPoint, Route } from "@acars/core";
 import { fpFormat } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { Link } from "@tanstack/react-router";
@@ -60,6 +60,123 @@ function formatMetric(metric: LeaderboardMetric, value: number | FixedPoint) {
   if (metric === "brand") return formatBrandScore(value);
   if (metric === "networkDistance") return `${Math.round(value as number).toLocaleString()} km`;
   return value.toLocaleString();
+}
+
+type FleetByOwner = ReadonlyMap<string, readonly AircraftInstance[]>;
+type RoutesByOwner = ReadonlyMap<string, readonly Route[]>;
+type Competitors = ReadonlyMap<string, AirlineEntity>;
+
+let lookupCache: {
+  fleetByOwner: FleetByOwner | null;
+  routesByOwner: RoutesByOwner | null;
+  aircraftById: Map<string, AircraftInstance> | null;
+  routeById: Map<string, Route> | null;
+} = { fleetByOwner: null, routesByOwner: null, aircraftById: null, routeById: null };
+
+/**
+ * Flattens the world `fleetByOwner` / `routesByOwner` maps into id lookup
+ * indexes, cached on the store references (same pattern as
+ * `worldFleetIndex.ts`): the store replaces the Maps on every world write,
+ * which invalidates the cache automatically, while remounts and re-renders
+ * with unchanged references reuse the previous O(worldFleet + worldRoutes)
+ * build instead of rebuilding it per mount / per render.
+ */
+function getLeaderboardLookups(
+  fleetByOwner: FleetByOwner,
+  routesByOwner: RoutesByOwner,
+): { aircraftById: Map<string, AircraftInstance>; routeById: Map<string, Route> } {
+  if (
+    lookupCache.fleetByOwner === fleetByOwner &&
+    lookupCache.routesByOwner === routesByOwner &&
+    lookupCache.aircraftById &&
+    lookupCache.routeById
+  ) {
+    return { aircraftById: lookupCache.aircraftById, routeById: lookupCache.routeById };
+  }
+  const aircraftById = new Map<string, AircraftInstance>();
+  for (const ownerFleet of fleetByOwner.values()) {
+    for (const aircraft of ownerFleet) {
+      aircraftById.set(aircraft.id, aircraft);
+    }
+  }
+  const routeById = new Map<string, Route>();
+  for (const ownerRoutes of routesByOwner.values()) {
+    for (const route of ownerRoutes) {
+      routeById.set(route.id, route);
+    }
+  }
+  lookupCache = { fleetByOwner, routesByOwner, aircraftById, routeById };
+  return { aircraftById, routeById };
+}
+
+let rowsCache: {
+  competitors: Competitors | null;
+  airline: AirlineEntity | null;
+  aircraftById: Map<string, AircraftInstance> | null;
+  routeById: Map<string, Route> | null;
+  currentTick: number;
+  metric: LeaderboardMetric;
+  rows: LeaderboardRowData[] | null;
+} = {
+  competitors: null,
+  airline: null,
+  aircraftById: null,
+  routeById: null,
+  currentTick: -1,
+  metric: "networkDistance",
+  rows: null,
+};
+
+/**
+ * Scores + sorts the leaderboard rows, cached on every input reference (plus
+ * tick and metric). Toggling the metric or ticking with unchanged world
+ * references reuses the cached rows instead of re-scoring and re-sorting the
+ * whole competitor set.
+ */
+function getLeaderboardRows(
+  competitors: Competitors,
+  airline: AirlineEntity | null,
+  aircraftById: Map<string, AircraftInstance>,
+  routeById: Map<string, Route>,
+  currentTick: number,
+  metric: LeaderboardMetric,
+): LeaderboardRowData[] {
+  if (
+    rowsCache.competitors === competitors &&
+    rowsCache.airline === airline &&
+    rowsCache.aircraftById === aircraftById &&
+    rowsCache.routeById === routeById &&
+    rowsCache.currentTick === currentTick &&
+    rowsCache.metric === metric &&
+    rowsCache.rows
+  ) {
+    return rowsCache.rows;
+  }
+  const entries = Array.from(competitors.values());
+  if (airline) {
+    entries.push(airline);
+  }
+  const unique = new Map(entries.map((entry) => [entry.id, entry]));
+  const rows = sortLeaderboardRows(
+    buildLeaderboardRows(Array.from(unique.values()), aircraftById, routeById, currentTick),
+    metric,
+  );
+  rowsCache = { competitors, airline, aircraftById, routeById, currentTick, metric, rows };
+  return rows;
+}
+
+/** Test hook: clears the module-level caches. */
+export function __resetLeaderboardCacheForTests(): void {
+  lookupCache = { fleetByOwner: null, routesByOwner: null, aircraftById: null, routeById: null };
+  rowsCache = {
+    competitors: null,
+    airline: null,
+    aircraftById: null,
+    routeById: null,
+    currentTick: -1,
+    metric: "networkDistance",
+    rows: null,
+  };
 }
 
 function LeaderboardRow({
@@ -234,39 +351,19 @@ export function Leaderboard() {
     [],
   );
 
-  // Build lookup maps separately so toggling metric doesn't rebuild them
-  const { aircraftById, routeById } = useMemo(() => {
-    const aircraftMap = new Map<string, AircraftInstance>();
-    for (const ownerFleet of fleetByOwner.values()) {
-      for (const aircraft of ownerFleet) {
-        aircraftMap.set(aircraft.id, aircraft);
-      }
-    }
-    const routeMap = new Map<string, Route>();
-    for (const ownerRoutes of routesByOwner.values()) {
-      for (const route of ownerRoutes) {
-        routeMap.set(route.id, route);
-      }
-    }
-    return { aircraftById: aircraftMap, routeById: routeMap };
-  }, [fleetByOwner, routesByOwner]);
+  // Build lookup maps separately so toggling metric doesn't rebuild them.
+  // Both memos read through module-level caches keyed by the store
+  // references, so remounts and re-renders with unchanged world references
+  // reuse the previous O(worldFleet + worldRoutes) work.
+  const { aircraftById, routeById } = useMemo(
+    () => getLeaderboardLookups(fleetByOwner, routesByOwner),
+    [fleetByOwner, routesByOwner],
+  );
 
-  const rows = useMemo(() => {
-    const entries = Array.from(competitors.values());
-    if (airline) {
-      entries.push(airline);
-    }
-
-    const unique = new Map(entries.map((entry) => [entry.id, entry]));
-    const scored = buildLeaderboardRows(
-      Array.from(unique.values()),
-      aircraftById,
-      routeById,
-      currentTick,
-    );
-
-    return sortLeaderboardRows(scored, metric);
-  }, [competitors, airline, aircraftById, routeById, currentTick, metric]);
+  const rows = useMemo(
+    () => getLeaderboardRows(competitors, airline, aircraftById, routeById, currentTick, metric),
+    [competitors, airline, aircraftById, routeById, currentTick, metric],
+  );
 
   const ownId = airline?.id ?? null;
   const panelScrollRef = usePanelScrollRef();

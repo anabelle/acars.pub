@@ -2,7 +2,7 @@ import { fp } from "@acars/core";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/shared/components/layout/PanelLayout", () => {
   return {
@@ -160,6 +160,12 @@ vi.mock("@acars/store", () => {
 });
 
 import CorporateRoute from "./-corporate.lazy";
+import { setAirportsCatalog } from "@acars/data";
+import { airports } from "@acars/data/airports";
+
+beforeAll(() => {
+  setAirportsCatalog(airports);
+});
 
 describe("Corporate route", () => {
   beforeEach(() => {

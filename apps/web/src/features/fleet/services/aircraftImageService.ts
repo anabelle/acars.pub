@@ -1,5 +1,5 @@
 import type { AircraftModel, AirlineEntity, Airport } from "@acars/core";
-import { airports } from "@acars/data";
+import { getAirports } from "@acars/data";
 
 // Model candidates sent to the server proxy (tries in order)
 const MODEL_CANDIDATES = ["imagen-4.0-generate-001", "imagen-3.0-generate-002"];
@@ -75,7 +75,7 @@ function hexToColorName(hex: string): string {
 
 /** Look up full airport record by IATA code. */
 function getAirport(iata: string): Airport | undefined {
-  return airports.find((a) => a.iata === iata);
+  return getAirports().find((a) => a.iata === iata);
 }
 
 /** Look up airport display name by IATA code. */

@@ -1,7 +1,12 @@
-import { airports as AIRPORTS } from "@acars/data";
+import { setAirportsCatalog } from "@acars/data";
+import { airports as AIRPORTS } from "@acars/data/airports";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { WorldMap } from "./WorldMap";
+
+beforeAll(() => {
+  setAirportsCatalog(AIRPORTS);
+});
 
 const MAP_THEME_STORAGE_KEY = "acars:map:theme";
 
@@ -52,6 +57,9 @@ vi.mock("@acars/store", () => {
     selector(mockUseEngineStore() as EngineStoreState);
 
   useEngineStore.getState = () => mockUseEngineStore() as EngineStoreState;
+  // WorldMap subscribes to tick/tickProgress outside React (1Hz writes must
+  // not re-render the root-mounted map) — mock the subscription plumbing.
+  useEngineStore.subscribe = () => () => {};
 
   return {
     useEngineStore,

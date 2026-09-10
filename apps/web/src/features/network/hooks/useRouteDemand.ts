@@ -1,4 +1,4 @@
-import type { DemandResult, FixedPoint, Route } from "@acars/core";
+import type { Airport, DemandResult, FixedPoint, Route } from "@acars/core";
 import {
   buildHubState,
   type HubState,
@@ -15,7 +15,7 @@ import {
   PRICE_ELASTICITY_FIRST,
   scaleToAddressableMarket,
 } from "@acars/core";
-import { airports, HUB_CLASSIFICATIONS } from "@acars/data";
+import { getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useMemo } from "react";
 
@@ -45,9 +45,16 @@ const DEFAULT_DEMAND: DemandResult = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-// Module-level index over the static airports catalog — replaces the linear
+// Module-level index over the airports catalog — replaces the linear
 // `airports.find` scans (6k+ entries) that used to run twice per snapshot.
-const airportByIata = new Map(airports.map((airport) => [airport.iata, airport]));
+// Built lazily because the catalog now loads async after first paint.
+let airportByIata: Map<string, Airport> | null = null;
+function getAirportByIata(): Map<string, Airport> {
+  if (!airportByIata) {
+    airportByIata = new Map(getAirports().map((airport) => [airport.iata, airport]));
+  }
+  return airportByIata;
+}
 
 // Traffic/hub stats are O(routes) each; a full demand pass over N routes would
 // be O(N²). Memoize them per routes-array reference so a pass is O(N).
@@ -138,8 +145,8 @@ export function getRouteDemandSnapshot(
 ): RouteDemandSnapshot {
   const originIata = route.originIata;
   const destinationIata = route.destinationIata;
-  const origin = airportByIata.get(originIata) ?? null;
-  const destination = airportByIata.get(destinationIata) ?? null;
+  const origin = getAirportByIata().get(originIata) ?? null;
+  const destination = getAirportByIata().get(destinationIata) ?? null;
 
   if (!origin || !destination) {
     const referenceFares = getSuggestedFares(route.distanceKm);

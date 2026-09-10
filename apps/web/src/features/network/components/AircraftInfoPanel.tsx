@@ -1,4 +1,4 @@
-import type { AircraftInstance, Route, TimelineEvent } from "@acars/core";
+import type { AircraftInstance, Airport, Route, TimelineEvent } from "@acars/core";
 import {
   calculateBookValue,
   computeRouteFrequency,
@@ -10,7 +10,7 @@ import {
   fpSub,
   TICKS_PER_HOUR,
 } from "@acars/core";
-import { airports as AIRPORTS, getAircraftById } from "@acars/data";
+import { getAircraftById, getAirports } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plane, Route as RouteIcon, Users, Wrench, X } from "lucide-react";
@@ -36,7 +36,14 @@ type AircraftSearchParams = {
 };
 
 const numberFormat = new Intl.NumberFormat("en-US");
-const airportIndex = new Map(AIRPORTS.map((a) => [a.iata, a]));
+// Built lazily — the airports catalog loads async after first paint.
+let airportIndex: Map<string, Airport> | null = null;
+function getAirportIndex(): Map<string, Airport> {
+  if (!airportIndex) {
+    airportIndex = new Map(getAirports().map((a) => [a.iata, a]));
+  }
+  return airportIndex;
+}
 
 const statusConfig = {
   enroute: {
@@ -901,8 +908,8 @@ export function RouteTab({
     );
   }
 
-  const originAirport = airportIndex.get(route.originIata);
-  const destAirport = airportIndex.get(route.destinationIata);
+  const originAirport = getAirportIndex().get(route.originIata);
+  const destAirport = getAirportIndex().get(route.destinationIata);
   const acModel = getAircraftById(aircraft.modelId);
   const frequency = computeRouteFrequency(
     route.distanceKm,

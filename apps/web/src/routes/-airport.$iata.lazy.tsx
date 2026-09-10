@@ -1,10 +1,17 @@
 import type { Airport } from "@acars/core";
-import { airports as AIRPORTS } from "@acars/data";
+import { getAirports } from "@acars/data";
 import { useEngineStore } from "@acars/store";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-const airportIndex = new Map<string, Airport>(AIRPORTS.map((a) => [a.iata, a]));
+// Built lazily — the airports catalog loads async after first paint.
+let airportIndex: Map<string, Airport> | null = null;
+function getAirportIndex(): Map<string, Airport> {
+  if (!airportIndex) {
+    airportIndex = new Map<string, Airport>(getAirports().map((a) => [a.iata, a]));
+  }
+  return airportIndex;
+}
 
 export default function AirportPermalinkPage() {
   const { iata } = useParams({ strict: false }) as { iata: string };
@@ -12,7 +19,7 @@ export default function AirportPermalinkPage() {
   const setPermalinkAirport = useEngineStore((s) => s.setPermalinkAirport);
 
   const normalizedIata = iata?.toUpperCase() ?? "";
-  const airport = airportIndex.get(normalizedIata) ?? null;
+  const airport = getAirportIndex().get(normalizedIata) ?? null;
 
   useEffect(() => {
     if (!airport) {

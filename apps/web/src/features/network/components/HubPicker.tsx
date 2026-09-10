@@ -1,6 +1,6 @@
 import type { Airport } from "@acars/core";
 import { fp, fpFormat } from "@acars/core";
-import { airports as AIRPORTS, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@acars/data";
+import { getAirports, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@acars/data";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { MapPin, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -29,7 +29,7 @@ export function HubPicker({
   }, [open]);
 
   const filtered = useMemo(() => {
-    const base = AIRPORTS.filter((a) => a.iata && a.city && a.name);
+    const base = getAirports().filter((a) => a.iata && a.city && a.name);
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const prioritized = base.filter((a) => a.timezone === tz);
     const prioritizedSorted = prioritized

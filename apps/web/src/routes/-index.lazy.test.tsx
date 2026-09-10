@@ -91,11 +91,14 @@ describe("MapView", () => {
     expect(screen.getByText("Operations Cockpit")).toBeInTheDocument();
   });
 
-  it("renders nothing when map panel is requested", () => {
+  it("keeps the cockpit mounted but hidden when map panel is requested", () => {
     mockUseActiveAirline.mockReturnValue({ airline: null });
     mockUseSearch.mockReturnValue({ panel: "map" });
     const { container } = render(<MapView />);
-    expect(container.firstChild).toBeNull();
+    // The cockpit wrapper stays mounted (state/memos survive) but is hidden.
+    expect(container.firstChild).not.toBeNull();
+    expect((container.firstChild as HTMLElement).className).toContain("hidden");
+    expect(screen.queryByText("Start from the map")).not.toBeInTheDocument();
   });
 
   it("renders the airline map card when an airline is active", () => {
@@ -133,6 +136,9 @@ describe("MapView", () => {
 
     const { container } = render(<MapView />);
 
-    expect(container.firstChild).toBeNull();
+    // Intro card hidden; cockpit remains mounted-but-hidden.
+    expect(screen.queryByText("Start from the map")).not.toBeInTheDocument();
+    expect(container.firstChild).not.toBeNull();
+    expect((container.firstChild as HTMLElement).className).toContain("hidden");
   });
 });

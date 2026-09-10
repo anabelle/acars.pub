@@ -7,7 +7,7 @@ import {
   ROUTE_SLOT_FEE,
   type Route,
 } from "@acars/core";
-import { airports as AIRPORTS, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@acars/data";
+import { getAirports, getHubPricingForIata, HUB_CLASSIFICATIONS } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Building2, MapPin, Plane, PlaneTakeoff, Users, X } from "lucide-react";
@@ -35,7 +35,14 @@ type AirportSearchParams = {
   airportTab?: "info" | "flights";
 };
 
-const airportIndex = new Map(AIRPORTS.map((airport) => [airport.iata, airport]));
+// Built lazily — the airports catalog loads async after first paint.
+let airportIndex: Map<string, Airport> | null = null;
+function getAirportIndex(): Map<string, Airport> {
+  if (!airportIndex) {
+    airportIndex = new Map(getAirports().map((airport) => [airport.iata, airport]));
+  }
+  return airportIndex;
+}
 
 const numberFormat = new Intl.NumberFormat("en-US");
 const compactFormat = new Intl.NumberFormat("en-US", {
@@ -132,8 +139,8 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
     setOriginHubIata(defaultOriginHub);
   }
 
-  const originHubAirport = originHubIata ? airportIndex.get(originHubIata) : null;
-  const activeHubAirport = playerHubs[0] ? airportIndex.get(playerHubs[0]) : null;
+  const originHubAirport = originHubIata ? getAirportIndex().get(originHubIata) : null;
+  const activeHubAirport = playerHubs[0] ? getAirportIndex().get(playerHubs[0]) : null;
   const distanceKm = originHubAirport
     ? Math.round(
         haversineDistance(

@@ -1,10 +1,15 @@
 import { fp, fpDiv, fpFormat, fpMul, fpSub, TICKS_PER_HOUR } from "@acars/core";
-import { getAircraftById } from "@acars/data";
+import { getAircraftById, setAirportsCatalog } from "@acars/data";
+import { airports } from "@acars/data/airports";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n";
 import { MOBILE_BOTTOM_NAV_BOTTOM_CLASS } from "@/shared/components/layout/mobileLayout";
 import { AircraftInfoPanel, RouteTab } from "./AircraftInfoPanel";
+
+beforeAll(() => {
+  setAirportsCatalog(airports);
+});
 
 type Selector<T> = (state: T) => unknown;
 

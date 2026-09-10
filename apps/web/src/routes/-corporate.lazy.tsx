@@ -1,4 +1,4 @@
-import type { Airport, FixedPoint, TimelineEvent } from "@acars/core";
+import type { AircraftInstance, Airport, FixedPoint, Route, TimelineEvent } from "@acars/core";
 import {
   CHAPTER11_BALANCE_THRESHOLD_USD,
   FP_ZERO,
@@ -1284,44 +1284,63 @@ function CorporateSectionNav({ section }: { section: CorporateSection }) {
   );
 }
 
-export function CorporateWorkspace({ section = "overview" }: { section?: CorporateSection }) {
-  const { t } = useTranslation(["identity", "game"]);
-  // Fine-grained selectors — the previous whole-store subscription re-rendered
-  // the corporate workspace on every write of any airline-store slice.
-  const airline = useAirlineStore((s) => s.airline);
-  const {
-    modifyHubs,
-    dissolveAirline,
-    initializeIdentity,
-    createNewIdentity,
-    loginWithNsec,
-    isLoading,
-  } = useAirlineStore(
-    useShallow((s) => ({
-      modifyHubs: s.modifyHubs,
-      dissolveAirline: s.dissolveAirline,
-      initializeIdentity: s.initializeIdentity,
-      createNewIdentity: s.createNewIdentity,
-      loginWithNsec: s.loginWithNsec,
-      isLoading: s.isLoading,
-    })),
-  );
-  const { fleet, timeline, routes, isViewingOther } = useActiveAirline();
+/* ------------------------------------------------------------------ */
+/*  Section-scoped derived data                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Overview-only: hosts `useFinancialPulse` and the fleet-lease aggregation
+ * so they only evaluate while the overview section is actually rendered.
+ */
+function OverviewFinancialPulse({
+  corporateBalance,
+  fleet,
+  timeline,
+  hubOpex,
+}: {
+  corporateBalance: FixedPoint;
+  fleet: AircraftInstance[];
+  timeline: TimelineEvent[];
+  hubOpex: number;
+}) {
   const tick = useEngineStore((s) => s.tick);
-  const homeAirport = useEngineStore((s) => s.homeAirport);
-  const setActiveHubIata = useEngineStore((s) => s.setActiveHubIata);
-
-  const [pendingAction, setPendingAction] = useState<{
-    type: "add" | "switch" | "remove";
-    iata: string;
-  } | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isDissolving, setIsDissolving] = useState(false);
-  const [dissolveError, setDissolveError] = useState<string | null>(null);
-
   const pulse = useFinancialPulse(timeline);
+  const { totalMonthlyLease, leasedCount } = useMemo(() => {
+    const leasedAircraft = fleet.filter((ac) => ac.purchaseType === "lease");
+    const leaseAmounts = leasedAircraft.map((ac) => {
+      const model = getAircraftById(ac.modelId);
+      return model?.monthlyLease ?? FP_ZERO;
+    });
+    return {
+      totalMonthlyLease: leaseAmounts.length > 0 ? fpSum(leaseAmounts) : FP_ZERO,
+      leasedCount: leasedAircraft.length,
+    };
+  }, [fleet]);
 
+  return (
+    <FinancialPulse
+      corporateBalance={corporateBalance}
+      pulse={pulse}
+      hubOpex={hubOpex}
+      fleetLease={totalMonthlyLease}
+      leasedCount={leasedCount}
+      tick={tick}
+    />
+  );
+}
+
+/**
+ * Overview/network only: derives route performance from the timeline and
+ * renders the virtualized list. Unmounted sections skip the derivation.
+ */
+function RoutePerformancePanel({
+  timeline,
+  routes,
+}: {
+  timeline: TimelineEvent[];
+  routes: Route[];
+}) {
+  const { t } = useTranslation("game");
   const routePerformance = useRoutePerformance(timeline, routes);
   const routePerformanceContainerRef = useRef<HTMLDivElement>(null);
   const sortedRoutePerformance = useMemo(
@@ -1337,34 +1356,70 @@ export function CorporateWorkspace({ section = "overview" }: { section?: Corpora
     estimateSize: () => 44,
   });
 
-  useEffect(() => {
-    if (airline?.status !== "chapter11") {
-      setDissolveError(null);
-    }
-  }, [airline?.status]);
+  if (routePerformance.length === 0) return null;
 
-  const currentMonthlyOpex = useMemo(
-    () => airline?.hubs.reduce((sum, hub) => sum + getHubPricingForIata(hub).monthlyOpex, 0) ?? 0,
-    [airline?.hubs],
+  return (
+    <section className="rounded-xl border border-border/50 bg-background/50 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          {t("corporate.routePerformance", { ns: "game" })}
+        </p>
+        <span className="text-[10px] text-muted-foreground">
+          {t("corporate.lastFlights", {
+            ns: "game",
+            count: RECENT_FLIGHT_COUNT,
+          })}
+        </span>
+      </div>
+      <div ref={routePerformanceContainerRef} className="max-h-64 overflow-y-auto">
+        <div
+          className="relative w-full"
+          style={{
+            height: `${routePerformanceVirtualizer.getTotalSize()}px`,
+          }}
+        >
+          {routePerformanceVirtualizer.getVirtualItems().map((virtualItem) => {
+            const route = sortedRoutePerformance[virtualItem.index];
+            const lf = Math.round(route.avgLoadFactor * 100);
+            const lfTone =
+              lf >= 80 ? "text-emerald-400" : lf >= 60 ? "text-amber-400" : "text-rose-400";
+            const profitTone = route.profitPerHour >= 0 ? "text-emerald-400" : "text-rose-400";
+            return (
+              <div
+                key={route.routeId}
+                className="absolute left-0 top-0 w-full"
+                style={{
+                  height: `${virtualItem.size}px`,
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <div className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-foreground">{route.label}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {route.fleetCount} aircraft
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-[10px] font-mono">
+                    <span className={lfTone}>{lf}% LF</span>
+                    <span className={profitTone}>{fpFormat(route.profitPerHour, 0)}/hr</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
+}
 
-  const activeRouteCount = useMemo(
-    () => routes.filter((r) => r.status === "active").length,
-    [routes],
-  );
-
-  const { totalMonthlyLease, leasedCount } = useMemo(() => {
-    const leasedAircraft = fleet.filter((ac) => ac.purchaseType === "lease");
-    const leaseAmounts = leasedAircraft.map((ac) => {
-      const model = getAircraftById(ac.modelId);
-      return model?.monthlyLease ?? FP_ZERO;
-    });
-    return {
-      totalMonthlyLease: leaseAmounts.length > 0 ? fpSum(leaseAmounts) : FP_ZERO,
-      leasedCount: leasedAircraft.length,
-    };
-  }, [fleet]);
-
+/**
+ * Overview/network only: projects supply ratios and weekly profit per route.
+ * Unmounted sections skip the demand-snapshot sweep entirely.
+ */
+function NetworkHealthPanel({ fleet, routes }: { fleet: AircraftInstance[]; routes: Route[] }) {
+  const tick = useEngineStore((s) => s.tick);
   // Supply ratios and route economics don't change meaningfully within a
   // game-minute — recompute on a coarse demand bucket instead of every tick.
   const networkHealthTickBucket = Math.floor(tick / DEMAND_SNAPSHOT_BUCKET_TICKS);
@@ -1409,6 +1464,66 @@ export function CorporateWorkspace({ section = "overview" }: { section?: Corpora
       routesNeedingCuts: entries.filter((entry) => entry.needsCuts).length,
     };
   }, [fleet, routes, networkHealthTickBucket]);
+
+  return (
+    <NetworkHealth
+      oversuppliedRoutes={networkHealth.oversuppliedRoutes}
+      projectedWeeklyProfit={networkHealth.projectedWeeklyProfit}
+      routesNeedingCuts={networkHealth.routesNeedingCuts}
+    />
+  );
+}
+
+export function CorporateWorkspace({ section = "overview" }: { section?: CorporateSection }) {
+  const { t } = useTranslation(["identity", "game"]);
+  // Fine-grained selectors — the previous whole-store subscription re-rendered
+  // the corporate workspace on every write of any airline-store slice.
+  const airline = useAirlineStore((s) => s.airline);
+  const {
+    modifyHubs,
+    dissolveAirline,
+    initializeIdentity,
+    createNewIdentity,
+    loginWithNsec,
+    isLoading,
+  } = useAirlineStore(
+    useShallow((s) => ({
+      modifyHubs: s.modifyHubs,
+      dissolveAirline: s.dissolveAirline,
+      initializeIdentity: s.initializeIdentity,
+      createNewIdentity: s.createNewIdentity,
+      loginWithNsec: s.loginWithNsec,
+      isLoading: s.isLoading,
+    })),
+  );
+  const { fleet, timeline, routes, isViewingOther } = useActiveAirline();
+  const homeAirport = useEngineStore((s) => s.homeAirport);
+  const setActiveHubIata = useEngineStore((s) => s.setActiveHubIata);
+
+  const [pendingAction, setPendingAction] = useState<{
+    type: "add" | "switch" | "remove";
+    iata: string;
+  } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isDissolving, setIsDissolving] = useState(false);
+  const [dissolveError, setDissolveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (airline?.status !== "chapter11") {
+      setDissolveError(null);
+    }
+  }, [airline?.status]);
+
+  const currentMonthlyOpex = useMemo(
+    () => airline?.hubs.reduce((sum, hub) => sum + getHubPricingForIata(hub).monthlyOpex, 0) ?? 0,
+    [airline?.hubs],
+  );
+
+  const activeRouteCount = useMemo(
+    () => routes.filter((r) => r.status === "active").length,
+    [routes],
+  );
 
   if (!airline && !isViewingOther) {
     return (
@@ -1531,80 +1646,20 @@ export function CorporateWorkspace({ section = "overview" }: { section?: Corpora
           )}
 
           {section === "overview" && (
-            <FinancialPulse
+            <OverviewFinancialPulse
               corporateBalance={airline.corporateBalance}
-              pulse={pulse}
+              fleet={fleet}
+              timeline={timeline}
               hubOpex={currentMonthlyOpex}
-              fleetLease={totalMonthlyLease}
-              leasedCount={leasedCount}
-              tick={tick}
             />
-          )}
-
-          {(section === "overview" || section === "network") && routePerformance.length > 0 && (
-            <section className="rounded-xl border border-border/50 bg-background/50 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  {t("corporate.routePerformance", { ns: "game" })}
-                </p>
-                <span className="text-[10px] text-muted-foreground">
-                  {t("corporate.lastFlights", {
-                    ns: "game",
-                    count: RECENT_FLIGHT_COUNT,
-                  })}
-                </span>
-              </div>
-              <div ref={routePerformanceContainerRef} className="max-h-64 overflow-y-auto">
-                <div
-                  className="relative w-full"
-                  style={{
-                    height: `${routePerformanceVirtualizer.getTotalSize()}px`,
-                  }}
-                >
-                  {routePerformanceVirtualizer.getVirtualItems().map((virtualItem) => {
-                    const route = sortedRoutePerformance[virtualItem.index];
-                    const lf = Math.round(route.avgLoadFactor * 100);
-                    const lfTone =
-                      lf >= 80 ? "text-emerald-400" : lf >= 60 ? "text-amber-400" : "text-rose-400";
-                    const profitTone =
-                      route.profitPerHour >= 0 ? "text-emerald-400" : "text-rose-400";
-                    return (
-                      <div
-                        key={route.routeId}
-                        className="absolute left-0 top-0 w-full"
-                        style={{
-                          height: `${virtualItem.size}px`,
-                          transform: `translateY(${virtualItem.start}px)`,
-                        }}
-                      >
-                        <div className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-foreground">{route.label}</span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {route.fleetCount} aircraft
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-4 text-[10px] font-mono">
-                            <span className={lfTone}>{lf}% LF</span>
-                            <span className={profitTone}>
-                              {fpFormat(route.profitPerHour, 0)}/hr
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
           )}
 
           {(section === "overview" || section === "network") && (
-            <NetworkHealth
-              oversuppliedRoutes={networkHealth.oversuppliedRoutes}
-              projectedWeeklyProfit={networkHealth.projectedWeeklyProfit}
-              routesNeedingCuts={networkHealth.routesNeedingCuts}
-            />
+            <RoutePerformancePanel timeline={timeline} routes={routes} />
+          )}
+
+          {(section === "overview" || section === "network") && (
+            <NetworkHealthPanel fleet={fleet} routes={routes} />
           )}
 
           {(section === "overview" || section === "hubs") && (

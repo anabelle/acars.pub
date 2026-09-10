@@ -25,7 +25,7 @@ import {
   scaleToAddressableMarket,
   TICKS_PER_DAY,
 } from "@acars/core";
-import { airports as ALL_AIRPORTS, getAircraftById, HUB_CLASSIFICATIONS } from "@acars/data";
+import { getAircraftById, getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
 import { useActiveAirline, useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -128,7 +128,8 @@ function buildProspects(origin: Airport, tick: number): ProspectMarket[] {
   if (prospectSortedOthersCache.originIata !== origin.iata) {
     prospectSortedOthersCache = {
       originIata: origin.iata,
-      sorted: ALL_AIRPORTS.filter((a) => a.iata !== origin.iata)
+      sorted: getAirports()
+        .filter((a) => a.iata !== origin.iata)
         .map((a) => ({
           airport: a,
           distance: haversineDistance(origin.latitude, origin.longitude, a.latitude, a.longitude),
@@ -270,7 +271,7 @@ export function RouteManager() {
   );
 
   const airportIndex = useMemo(
-    () => new Map(ALL_AIRPORTS.map((airport) => [airport.iata, airport])),
+    () => new Map(getAirports().map((airport) => [airport.iata, airport])),
     [],
   );
 
@@ -300,14 +301,16 @@ export function RouteManager() {
   const searchResults = useMemo(() => {
     if (searchQuery.length < 2) return [];
     const query = searchQuery.toLowerCase();
-    return ALL_AIRPORTS.filter(
-      (airport) =>
-        airport.iata !== planningOriginAirport?.iata &&
-        (airport.iata?.toLowerCase().includes(query) ||
-          airport.icao?.toLowerCase().includes(query) ||
-          airport.city?.toLowerCase().includes(query) ||
-          airport.name?.toLowerCase().includes(query)),
-    ).slice(0, 5);
+    return getAirports()
+      .filter(
+        (airport) =>
+          airport.iata !== planningOriginAirport?.iata &&
+          (airport.iata?.toLowerCase().includes(query) ||
+            airport.icao?.toLowerCase().includes(query) ||
+            airport.city?.toLowerCase().includes(query) ||
+            airport.name?.toLowerCase().includes(query)),
+      )
+      .slice(0, 5);
   }, [searchQuery, planningOriginAirport?.iata]);
 
   const calculateSearchProspect = useCallback(

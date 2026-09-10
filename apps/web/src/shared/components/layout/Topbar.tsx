@@ -1,6 +1,6 @@
-import { FP_ZERO, fp, fpAdd, fpDiv, fpFormat, fpSub, fpSum } from "@acars/core";
+import { fp, fpAdd, fpDiv, fpFormat, fpSub, fpSum, FP_ZERO } from "@acars/core";
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
-import { useActiveAirline, useAirlineStore } from "@acars/store";
+import { useAirlineStore } from "@acars/store";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, CircleHelp, KeyRound, Menu, Sparkles, Wallet, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -9,31 +9,20 @@ import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse"
 import { EphemeralKeyBackupActions } from "@/features/identity/components/EphemeralKeyBackupActions";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
 
-export function Topbar() {
-  const airline = useAirlineStore((state) => state.airline);
-  const initializeIdentity = useAirlineStore((state) => state.initializeIdentity);
-  const loginWithNsec = useAirlineStore((state) => state.loginWithNsec);
-  const createNewIdentity = useAirlineStore((state) => state.createNewIdentity);
-  const authError = useAirlineStore((state) => state.error);
-  const isEphemeral = useAirlineStore((state) => state.isEphemeral);
-  const isLoading = useAirlineStore((state) => state.isLoading);
-  const viewAs = useAirlineStore((state) => state.viewAs);
-  const { airline: activeAirline, fleet = [], timeline, isViewingOther } = useActiveAirline();
-  const navigate = useNavigate();
-  const { isConnected, relayCount } = useRelayHealth();
-  const safeTimeline = Array.isArray(timeline) ? timeline : [];
-  const pulse = useFinancialPulse(safeTimeline);
-  const avgLoadFactor = pulse.avgLoadFactor;
-  const [showNsecInput, setShowNsecInput] = useState(false);
-  const [nsecInputError, setNsecInputError] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showKeyTools, setShowKeyTools] = useState(false);
-  const { t } = useTranslation("common");
+/**
+ * Per-tick leaf: live corporate balance + net cash-flow ticker. Subscribes to
+ * the ticking slices itself so the Topbar shell does not re-render every tick.
+ */
+function TopbarBalanceTicker() {
+  const airline = useAirlineStore((s) => s.airline);
+  const fleet = useAirlineStore((s) => s.fleet);
+  const timeline = useAirlineStore((s) => s.timeline);
+  const pulse = useFinancialPulse(Array.isArray(timeline) ? timeline : []);
 
-  /* Net cash flow ticker — flight revenue minus fixed costs (hub opex + fleet leases) */
+  /* Net cash flow — flight revenue minus fixed costs (hub opex + fleet leases) */
   const netCashFlow = useMemo(() => {
-    if (!activeAirline || pulse.flightCount === 0) return null;
-    const hubOpex = activeAirline.hubs.reduce(
+    if (!airline || pulse.flightCount === 0) return null;
+    const hubOpex = airline.hubs.reduce(
       (sum, hub) => sum + getHubPricingForIata(hub).monthlyOpex,
       0,
     );
@@ -46,19 +35,72 @@ export function Topbar() {
     const fixedCostsPerHour = fpDiv(totalFixedCosts, fp(30 * 24));
     const perHour = fpSub(pulse.netIncomeRate, fixedCostsPerHour);
     return { perHour, positive: perHour >= FP_ZERO };
-  }, [activeAirline, fleet, pulse]);
+  }, [airline, fleet, pulse]);
 
-  const cashFlowTicker = netCashFlow ? (
+  if (!airline) return null;
+  return (
+    <>
+      <span className="font-mono text-sm font-bold text-green-400">
+        {fpFormat(airline.corporateBalance)}
+      </span>
+      {netCashFlow && (
+        <span
+          className={`ml-1.5 font-mono text-[10px] font-semibold ${netCashFlow.positive ? "text-emerald-400" : "text-rose-400"}`}
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {netCashFlow.positive ? "▲ +" : "▼ "}
+          {fpFormat(netCashFlow.perHour, 0)}/hr
+        </span>
+      )}
+    </>
+  );
+}
+
+/** Per-tick leaf: average load factor derived from the timeline pulse. */
+function TopbarLoadFactor() {
+  const timeline = useAirlineStore((s) => s.timeline);
+  const pulse = useFinancialPulse(Array.isArray(timeline) ? timeline : []);
+  const avgLoadFactor = pulse.avgLoadFactor;
+  return (
     <span
-      className={`font-mono text-[10px] font-semibold ${netCashFlow.positive ? "text-emerald-400" : "text-rose-400"}`}
-      style={{ fontVariantNumeric: "tabular-nums" }}
+      className={`mt-1 font-mono text-sm font-bold ${avgLoadFactor >= 0.8 ? "text-emerald-400" : avgLoadFactor >= 0.6 ? "text-amber-400" : "text-rose-400"}`}
     >
-      {netCashFlow.positive ? "▲" : "▼"} {netCashFlow.positive ? "+" : ""}
-      {fpFormat(netCashFlow.perHour, 0)}/hr
+      {Math.round(avgLoadFactor * 100)}%
     </span>
-  ) : null;
+  );
+}
 
-  const mobilePanelTitle = airline ? t("topbar.flightDeck") : t("topbar.identity");
+export function Topbar() {
+  // Field-level selectors: strings/numbers/rarely-changing refs. The shell
+  // re-renders on identity/navigation events, not on per-tick balance churn
+  // (live numbers are isolated in the leaf components above).
+  const hasAirline = useAirlineStore((s) => Boolean(s.airline));
+  const airlineStatus = useAirlineStore((s) => s.airline?.status ?? null);
+  const airlineLivery = useAirlineStore((s) => s.airline?.livery ?? null);
+  const airlineName = useAirlineStore((s) => s.airline?.name ?? null);
+  const airlineCallsign = useAirlineStore((s) => s.airline?.callsign ?? null);
+  const airlineIcao = useAirlineStore((s) => s.airline?.icaoCode ?? null);
+  const airlineBrandScore = useAirlineStore((s) => s.airline?.brandScore ?? 0);
+  const airlineTier = useAirlineStore((s) => s.airline?.tier ?? 1);
+  const isViewingOther = useAirlineStore((s) =>
+    Boolean(s.viewedPubkey && s.viewedPubkey !== s.pubkey),
+  );
+  const initializeIdentity = useAirlineStore((state) => state.initializeIdentity);
+  const loginWithNsec = useAirlineStore((state) => state.loginWithNsec);
+  const createNewIdentity = useAirlineStore((state) => state.createNewIdentity);
+  const authError = useAirlineStore((state) => state.error);
+  const isEphemeral = useAirlineStore((state) => state.isEphemeral);
+  const isLoading = useAirlineStore((state) => state.isLoading);
+  const viewAs = useAirlineStore((state) => state.viewAs);
+  const navigate = useNavigate();
+  const { isConnected, relayCount } = useRelayHealth();
+  const [showNsecInput, setShowNsecInput] = useState(false);
+  const [nsecInputError, setNsecInputError] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showKeyTools, setShowKeyTools] = useState(false);
+  const { t } = useTranslation("common");
+
+  const mobilePanelTitle = hasAirline ? t("topbar.flightDeck") : t("topbar.identity");
   const mobilePanelLabel = mobilePanelTitle.toLowerCase();
   const canManageLocalKey = isEphemeral && !isViewingOther;
 
@@ -90,13 +132,13 @@ export function Topbar() {
   }
 
   function renderBankruptcyBanner() {
-    return activeAirline &&
-      (activeAirline.status === "chapter11" || activeAirline.status === "liquidated") &&
+    return airlineStatus &&
+      (airlineStatus === "chapter11" || airlineStatus === "liquidated") &&
       !isViewingOther ? (
       <div className="pointer-events-auto flex w-full items-center justify-center gap-2 border-b border-rose-500/30 bg-rose-950/80 px-4 py-2 backdrop-blur-xl">
         <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
         <span className="text-xs font-semibold text-rose-300">
-          {activeAirline.status === "chapter11"
+          {airlineStatus === "chapter11"
             ? t("bankruptcy.chapter11Banner")
             : t("bankruptcy.liquidatedBanner")}
         </span>
@@ -111,7 +153,7 @@ export function Topbar() {
     ) : null;
   }
 
-  if (!airline) {
+  if (!hasAirline) {
     return (
       <>
         <div className="pointer-events-auto absolute top-3 left-3 right-3 z-30 sm:hidden">
@@ -415,18 +457,17 @@ export function Topbar() {
     );
   }
 
-  if (!activeAirline) return null;
+  if (!hasAirline) return null;
 
   return (
     <>
       {renderMobileToggle(
         <>
           <h1 className="truncate text-sm leading-none font-bold tracking-tight text-foreground">
-            {activeAirline.name}
+            {airlineName}
           </h1>
           <p className="mt-1 truncate text-[11px] text-muted-foreground">
-            {activeAirline.callsign} · {fpFormat(activeAirline.corporateBalance)}
-            {cashFlowTicker && <span className="ml-1.5">{cashFlowTicker}</span>}
+            {airlineCallsign} · <TopbarBalanceTicker />
           </p>
         </>,
       )}
@@ -444,19 +485,19 @@ export function Topbar() {
               <div
                 className="flex h-8 w-8 items-center justify-center rounded uppercase text-[10px] font-bold shadow-sm"
                 style={{
-                  backgroundColor: activeAirline.livery.primary,
-                  color: activeAirline.livery.secondary,
-                  border: `1px solid ${activeAirline.livery.secondary}40`,
+                  backgroundColor: airlineLivery?.primary ?? "",
+                  color: airlineLivery?.secondary ?? "",
+                  border: `1px solid ${airlineLivery?.secondary ?? "#64748b"}40`,
                 }}
               >
-                {activeAirline.icaoCode}
+                {airlineIcao}
               </div>
               <div className="min-w-0">
                 <h1 className="text-sm leading-none font-bold tracking-tight text-foreground">
-                  {activeAirline.name}
+                  {airlineName}
                 </h1>
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-                  <p>{activeAirline.callsign}</p>
+                  <p>{airlineCallsign}</p>
                   {isViewingOther ? (
                     <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-bold tracking-[0.16em] text-amber-200">
                       {t("topbar.competitorMode")}
@@ -518,10 +559,7 @@ export function Topbar() {
                   {t("topbar.corporateBalance")}
                 </span>
                 <span className="mt-1 flex items-baseline gap-1.5">
-                  <span className="font-mono text-sm font-bold text-green-400">
-                    {fpFormat(activeAirline.corporateBalance)}
-                  </span>
-                  {cashFlowTicker}
+                  <TopbarBalanceTicker />
                 </span>
               </div>
               <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
@@ -529,19 +567,15 @@ export function Topbar() {
                   {t("topbar.brandTier")}
                 </span>
                 <span className="mt-1 font-mono text-sm font-bold text-foreground md:text-right">
-                  {(activeAirline.brandScore * 10).toFixed(1)}{" "}
-                  <span className="text-muted-foreground">T{activeAirline.tier}</span>
+                  {(airlineBrandScore * 10).toFixed(1)}{" "}
+                  <span className="text-muted-foreground">T{airlineTier}</span>
                 </span>
               </div>
               <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
                 <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
                   {t("topbar.avgLoadFactor")}
                 </span>
-                <span
-                  className={`mt-1 font-mono text-sm font-bold ${avgLoadFactor >= 0.8 ? "text-emerald-400" : avgLoadFactor >= 0.6 ? "text-amber-400" : "text-rose-400"}`}
-                >
-                  {Math.round(avgLoadFactor * 100)}%
-                </span>
+                <TopbarLoadFactor />
               </div>
             </div>
           </div>
@@ -569,19 +603,19 @@ export function Topbar() {
               <div
                 className="flex h-8 w-8 items-center justify-center rounded uppercase text-[10px] font-bold shadow-sm"
                 style={{
-                  backgroundColor: activeAirline.livery.primary,
-                  color: activeAirline.livery.secondary,
-                  border: `1px solid ${activeAirline.livery.secondary}40`,
+                  backgroundColor: airlineLivery?.primary ?? "",
+                  color: airlineLivery?.secondary ?? "",
+                  border: `1px solid ${airlineLivery?.secondary ?? "#64748b"}40`,
                 }}
               >
-                {activeAirline.icaoCode}
+                {airlineIcao}
               </div>
               <div className="min-w-0">
                 <h1 className="text-sm leading-none font-bold tracking-tight text-foreground">
-                  {activeAirline.name}
+                  {airlineName}
                 </h1>
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
-                  <p>{activeAirline.callsign}</p>
+                  <p>{airlineCallsign}</p>
                   {isViewingOther ? (
                     <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-bold tracking-[0.16em] text-amber-200">
                       {t("topbar.competitorMode")}
@@ -642,10 +676,7 @@ export function Topbar() {
                   {t("topbar.corporateBalance")}
                 </span>
                 <span className="mt-1 flex items-baseline gap-1.5">
-                  <span className="font-mono text-sm font-bold text-green-400">
-                    {fpFormat(activeAirline.corporateBalance)}
-                  </span>
-                  {cashFlowTicker}
+                  <TopbarBalanceTicker />
                 </span>
               </div>
               <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
@@ -653,19 +684,15 @@ export function Topbar() {
                   {t("topbar.brandTier")}
                 </span>
                 <span className="mt-1 font-mono text-sm font-bold text-foreground md:text-right">
-                  {(activeAirline.brandScore * 10).toFixed(1)}{" "}
-                  <span className="text-muted-foreground">T{activeAirline.tier}</span>
+                  {(airlineBrandScore * 10).toFixed(1)}{" "}
+                  <span className="text-muted-foreground">T{airlineTier}</span>
                 </span>
               </div>
               <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
                 <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
                   {t("topbar.avgLoadFactor")}
                 </span>
-                <span
-                  className={`mt-1 font-mono text-sm font-bold ${avgLoadFactor >= 0.8 ? "text-emerald-400" : avgLoadFactor >= 0.6 ? "text-amber-400" : "text-rose-400"}`}
-                >
-                  {Math.round(avgLoadFactor * 100)}%
-                </span>
+                <TopbarLoadFactor />
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useActiveAirline, useAirlineStore } from "@acars/store";
+import { useAirlineStore } from "@acars/store";
 import { useRouterState } from "@tanstack/react-router";
 import { Compass, Radar, ShieldAlert, Target, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -89,7 +89,13 @@ export function WorkspaceContextBar() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
-  const { airline, isViewingOther } = useActiveAirline();
+  // Field-level selectors: this bar renders workspace chrome that changes on
+  // navigation/identity events, not on per-tick balance churn.
+  const hasAirline = useAirlineStore((s) => Boolean(s.airline));
+  const airlineStatus = useAirlineStore((s) => s.airline?.status ?? null);
+  const isViewingOther = useAirlineStore((s) =>
+    Boolean(s.viewedPubkey && s.viewedPubkey !== s.pubkey),
+  );
   const identityStatus = useAirlineStore((state) => state.identityStatus);
   const [dismissed, setDismissed] = useState(() => getDismissedUntil() > Date.now());
 
@@ -104,7 +110,7 @@ export function WorkspaceContextBar() {
       };
     }
 
-    if (!airline) {
+    if (!hasAirline) {
       return {
         icon: Compass,
         tone: "border-sky-500/25 bg-sky-500/10 text-sky-200",
@@ -116,7 +122,7 @@ export function WorkspaceContextBar() {
       };
     }
 
-    if (airline.status === "chapter11" || airline.status === "liquidated") {
+    if (airlineStatus === "chapter11" || airlineStatus === "liquidated") {
       return {
         icon: ShieldAlert,
         tone: "border-rose-500/25 bg-rose-500/10 text-rose-200",
@@ -131,7 +137,7 @@ export function WorkspaceContextBar() {
       title: t("workspace.modeLive"),
       detail: t("workspace.modeLiveDetail"),
     };
-  }, [airline, identityStatus, isViewingOther, t]);
+  }, [hasAirline, airlineStatus, identityStatus, isViewingOther, t]);
 
   const ModeIcon = mode.icon;
 

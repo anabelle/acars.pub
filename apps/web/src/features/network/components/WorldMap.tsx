@@ -1,6 +1,6 @@
 import type { AircraftInstance, Airport, Route } from "@acars/core";
 import { TICK_DURATION } from "@acars/core";
-import { airports as AIRPORTS } from "@acars/data";
+import { getAirports } from "@acars/data";
 import {
   DEFAULT_MAP_THEME,
   Globe as CoreGlobe,
@@ -9,7 +9,7 @@ import {
 } from "@acars/map";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { Moon, Sun } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { hasLeaderboardActivity } from "@/features/competition/leaderboardMetrics";
 import { AircraftInfoPanel } from "@/features/network/components/AircraftInfoPanel";
@@ -23,7 +23,15 @@ import {
   navigateToPath,
 } from "@/shared/lib/permalinkNavigation";
 
-const airportByIata = new Map<string, Airport>(AIRPORTS.map((a) => [a.iata, a]));
+// Airport index built lazily on first use — the airports catalog loads async
+// (after first paint), so module evaluation must not touch it.
+let airportByIata: Map<string, Airport> | null = null;
+function getAirportByIata(): Map<string, Airport> {
+  if (!airportByIata) {
+    airportByIata = new Map<string, Airport>(getAirports().map((a) => [a.iata, a]));
+  }
+  return airportByIata;
+}
 const MAP_THEME_STORAGE_KEY = "acars:map:theme";
 
 function getSavedMapTheme(): MapTheme {
@@ -43,8 +51,8 @@ function getAircraftFocusPoint(
   tickProgress: number,
 ): Airport | null {
   if (ac.status === "enroute" && ac.flight) {
-    const origin = airportByIata.get(ac.flight.originIata);
-    const dest = airportByIata.get(ac.flight.destinationIata);
+    const origin = getAirportByIata().get(ac.flight.originIata);
+    const dest = getAirportByIata().get(ac.flight.destinationIata);
     if (origin && dest) {
       const elapsed = (tick - ac.flight.departureTick + tickProgress) * TICK_DURATION;
       const duration = (ac.flight.arrivalTick - ac.flight.departureTick) * TICK_DURATION;
@@ -59,16 +67,25 @@ function getAircraftFocusPoint(
     }
     return dest ?? null;
   }
-  return ac.baseAirportIata ? (airportByIata.get(ac.baseAirportIata) ?? null) : null;
+  return ac.baseAirportIata ? (getAirportByIata().get(ac.baseAirportIata) ?? null) : null;
 }
 
 export function WorldMap() {
   const { t } = useTranslation("game");
   const homeAirport = useEngineStore((s) => s.homeAirport);
-  const tick = useEngineStore((s) => s.tick);
-  const tickProgress = useEngineStore((s) => s.tickProgress);
   const permalinkAirportIata = useEngineStore((s) => s.permalinkAirportIata);
   const permalinkAircraftId = useEngineStore((s) => s.permalinkAircraftId);
+  // Live tick/progress for the globe's animation loop, kept OUTSIDE React:
+  // subscribing re-rendered this root-mounted component every second for two
+  // numbers that only the RAF loop reads. The globe reads the ref per frame.
+  const engineClockRef = useRef({ tick: 0, tickProgress: 0 });
+  useEffect(() => {
+    const init = useEngineStore.getState();
+    engineClockRef.current = { tick: init.tick, tickProgress: init.tickProgress };
+    return useEngineStore.subscribe((state) => {
+      engineClockRef.current = { tick: state.tick, tickProgress: state.tickProgress };
+    });
+  }, []);
   // Fine-grained selectors — the previous whole-store subscription re-rendered
   // the root-mounted map on every write of any airline-store slice.
   const airline = useAirlineStore((s) => s.airline);
@@ -92,7 +109,7 @@ export function WorldMap() {
   // automatically focus and inspect that airport on the map.
   useEffect(() => {
     if (!permalinkAirportIata) return;
-    const airport = airportByIata.get(permalinkAirportIata);
+    const airport = getAirportByIata().get(permalinkAirportIata);
     if (airport) {
       // Deferred to satisfy react-hooks/set-state-in-effect — this effect
       // synchronises external Zustand store state with local component state.
@@ -217,12 +234,15 @@ export function WorldMap() {
         competitorFleet.find((a) => a.id === aircraftId) ??
         null;
       if (!ac) return;
+      // Read the clock imperatively: subscribing to tick/tickProgress made
+      // this callback (and with it the whole map) churn every second.
+      const { tick: t, tickProgress: tp } = useEngineStore.getState();
       setInspectedAircraft(ac);
       setInspectedAirport(null);
-      setFocusedAirport(getAircraftFocusPoint(ac, tick, tickProgress));
+      setFocusedAirport(getAircraftFocusPoint(ac, t, tp));
       navigateToAircraft(aircraftId);
     },
-    [fleet, competitorFleet, tick, tickProgress],
+    [fleet, competitorFleet],
   );
 
   const clearAircraftFocus = () => {
@@ -265,14 +285,13 @@ export function WorldMap() {
         reference-stable memos derived from store references (competitorFleet,
         competitorRoutes, groundPresence, competitorLiveries, playerHubs,
         competitorHubColors, playerRouteDestinations) and callbacks are
-        useCallback-stable. `tick`/`tickProgress` intentionally change every
-        tick — the globe needs them to animate aircraft positions. Any further
-        delivery optimization (memoizing Globe internals) lives in
+        useCallback-stable. Live tick/progress travel through engineClockRef
+        (no re-render). Any further delivery optimization lives in
         packages/map/Globe.tsx, which is out of scope for apps/web.
       */}
       <CoreGlobe
         key={mapTheme}
-        airports={AIRPORTS}
+        airports={getAirports()}
         selectedAirport={selectedAirport}
         onAirportSelect={handleAirportSelect}
         onAircraftSelect={handleAircraftSelect}
@@ -286,8 +305,7 @@ export function WorldMap() {
         playerHubs={playerHubs}
         competitorHubColors={competitorHubColors}
         playerRouteDestinations={playerRouteDestinations}
-        tick={tick}
-        tickProgress={tickProgress}
+        engineClock={engineClockRef}
         theme={mapTheme}
       />
       {inspectedAirport ? (

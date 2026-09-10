@@ -1,6 +1,7 @@
 import type { Airport } from "@acars/core";
-import { getAircraftById } from "@acars/data";
-import { describe, expect, it } from "vitest";
+import { getAircraftById, setAirportsCatalog } from "@acars/data";
+import { airports } from "@acars/data/airports";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   buildCatalogPrompt,
   buildSceneDescriptor,
@@ -10,6 +11,10 @@ import {
   isValidAircraftImagePrompt,
   SCENE_VERSION,
 } from "./aircraftImageService";
+
+beforeAll(() => {
+  setAirportsCatalog(airports);
+});
 
 // ---------------------------------------------------------------------------
 // Helpers: minimal Airport stubs
