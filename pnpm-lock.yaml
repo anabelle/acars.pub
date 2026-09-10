@@ -114,9 +114,6 @@ importers:
       i18next:
         specifier: ^25.10.10
         version: 25.10.10(typescript@5.9.3)
-      i18next-browser-languagedetector:
-        specifier: ^8.2.1
-        version: 8.2.1
       lucide-react:
         specifier: ^0.577.0
         version: 0.577.0(react@19.3.0)
@@ -3574,12 +3571,6 @@ packages:
     engines: { node: ">=18" }
     hasBin: true
 
-  i18next-browser-languagedetector@8.2.1:
-    resolution:
-      {
-        integrity: sha512-bZg8+4bdmaOiApD7N7BPT9W8MLZG+nPTOFlLiJiT8uzKXFjhxw4v2ierCXOwB5sFDMtuA5G4kgYZ0AznZxQ/cw==,
-      }
-
   i18next@25.10.10:
     resolution:
       {
@@ -6879,10 +6870,10 @@ snapshots:
 
   "@types/unist@3.0.3": {}
 
-  "@typescript-eslint/eslint-plugin@8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)":
+  "@typescript-eslint/eslint-plugin@8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)":
     dependencies:
       "@eslint-community/regexpp": 4.12.2
-      "@typescript-eslint/parser": 8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      "@typescript-eslint/parser": 8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/scope-manager": 8.70.0
       "@typescript-eslint/type-utils": 8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/utils": 8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
@@ -7835,10 +7826,6 @@ snapshots:
       - supports-color
 
   husky@9.1.7: {}
-
-  i18next-browser-languagedetector@8.2.1:
-    dependencies:
-      "@babel/runtime": 7.29.7
 
   i18next@25.10.10(typescript@5.9.3):
     dependencies:
@@ -8800,7 +8787,7 @@ snapshots:
 
   typescript-eslint@8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3):
     dependencies:
-      "@typescript-eslint/eslint-plugin": 8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
+      "@typescript-eslint/eslint-plugin": 8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/parser": 8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/typescript-estree": 8.70.0(typescript@5.9.3)
       "@typescript-eslint/utils": 8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)

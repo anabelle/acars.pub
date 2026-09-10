@@ -1,44 +1,31 @@
 import { Globe } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { supportedLanguages } from "@/i18n";
+import {
+  LANGUAGE_STORAGE_KEY,
+  setLanguage,
+  supportedLanguages,
+  type SupportedLanguage,
+} from "@/i18n";
 
 function safeGetStoredLanguage(): string | null {
   if (typeof window === "undefined") return null;
   const storage = window.localStorage;
   if (!storage || typeof storage.getItem !== "function") return null;
   try {
-    return storage.getItem("acars-language");
+    return storage.getItem(LANGUAGE_STORAGE_KEY);
   } catch {
     return null;
   }
 }
 
-function safeClearStoredLanguage() {
-  if (typeof window === "undefined") return;
-  const storage = window.localStorage;
-  if (!storage || typeof storage.removeItem !== "function") return;
-  try {
-    storage.removeItem("acars-language");
-  } catch {
-    // Ignore storage access failures and fall back to runtime detection only.
-  }
-}
-
 export function LanguageSelector() {
-  const { t, i18n } = useTranslation("common");
+  const { t } = useTranslation("common");
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
-    if (value === "auto") {
-      // Remove manual override so the detector falls back to browser prefs
-      safeClearStoredLanguage();
-      // Detect from browser settings (navigator.language)
-      const detected = navigator.language.split("-")[0];
-      const supported = Object.keys(supportedLanguages);
-      i18n.changeLanguage(supported.includes(detected) ? detected : "en");
-    } else {
-      i18n.changeLanguage(value);
-    }
+    if (value !== "auto" && !(value in supportedLanguages)) return;
+    // Loads the locale's lazy bundles (if needed) and applies the change
+    void setLanguage(value as SupportedLanguage | "auto");
   };
 
   // Check if a manual override is stored

@@ -1,8 +1,13 @@
 import type { Airport } from "@acars/core";
-import { airports as AIRPORTS, findPreferredHub } from "@acars/data";
+import {
+  findPreferredHub,
+  getAirports,
+  isDataCatalogReady,
+  whenDataCatalogReady,
+} from "@acars/data";
 import type { UserLocation } from "@acars/store";
 import { useAirlineStore, useEngineStore } from "@acars/store";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Message contract posted by the auditor worker (src/workers/auditor.ts).
@@ -29,6 +34,7 @@ function estimateLocationFromOffset(): UserLocation {
 function findAirportByTimezone(occupiedIatas?: ReadonlySet<string>): Airport | null {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const AIRPORTS = getAirports();
     const matches = AIRPORTS.filter((a) => a.timezone === tz);
     if (matches.length > 0) {
       const sorted = [...matches].sort((a, b) => (b.population || 0) - (a.population || 0));
@@ -85,31 +91,59 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
   // When they do, we must not override their choice.
   const userManuallyPickedHub = useRef(false);
 
+  // Async airports catalog (~6k entries) — kick the load off immediately on
+  // mount, BEFORE identity init / startEngine, so the hub-selection and
+  // engine-start effects below never race the catalog. First paint is not
+  // blocked: the map/UI render shells until `catalogReady` flips.
+  const [catalogReady, setCatalogReady] = useState(isDataCatalogReady);
+  useEffect(() => {
+    if (isDataCatalogReady()) {
+      setCatalogReady(true);
+      return;
+    }
+    let cancelled = false;
+    void whenDataCatalogReady().then(() => {
+      if (!cancelled) setCatalogReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const isHubSelectionLocked = () =>
     userManuallyPickedHub.current || useEngineStore.getState().userLocation?.source === "manual";
 
   // TAREA 8: background peer-audit worker. Created imperatively so the effect
   // is idempotent under StrictMode double-mount — cleanup terminates the
   // worker, and a fresh one is created on remount (no shared mutable state).
+  // Deferred ~10s so the worker's first audit cycle (snapshot fetches +
+  // decompression + hashing) does not compete with startup: identity load,
+  // catalog fetch and first map paint own the CPU early on.
   useEffect(() => {
     if (typeof Worker === "undefined") return;
-    const auditorWorker = new Worker(new URL("../workers/auditor.ts", import.meta.url), {
-      type: "module",
-    });
-    auditorWorker.onmessage = (event: MessageEvent<AuditorCycleMessage>) => {
-      const payload = event.data;
-      if (payload?.type === "audit-cycle" && payload.status === "failed") {
-        console.warn("[auditor] audit cycle failed", {
-          pubkey: payload.pubkey,
-          failedCount: payload.failedCount,
-          reason: payload.reason,
-        });
-      }
-    };
-    auditorWorker.postMessage({ type: "start" });
+    let auditorWorker: Worker | null = null;
+    const spawnTimer = window.setTimeout(() => {
+      auditorWorker = new Worker(new URL("../workers/auditor.ts", import.meta.url), {
+        type: "module",
+      });
+      auditorWorker.onmessage = (event: MessageEvent<AuditorCycleMessage>) => {
+        const payload = event.data;
+        if (payload?.type === "audit-cycle" && payload.status === "failed") {
+          console.warn("[auditor] audit cycle failed", {
+            pubkey: payload.pubkey,
+            failedCount: payload.failedCount,
+            reason: payload.reason,
+          });
+        }
+      };
+      auditorWorker.postMessage({ type: "start" });
+    }, 10_000);
     return () => {
-      auditorWorker.onmessage = null;
-      auditorWorker.terminate();
+      window.clearTimeout(spawnTimer);
+      if (auditorWorker) {
+        auditorWorker.onmessage = null;
+        auditorWorker.terminate();
+      }
     };
   }, []);
 
@@ -129,7 +163,8 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
   // tick, which used to re-fire this effect on each of them.
   useEffect(() => {
     if (!primaryHubIata) return;
-    const dbHub = AIRPORTS.find((a) => a.iata === primaryHubIata);
+    if (!catalogReady) return; // airports catalog still loading — wait
+    const dbHub = getAirports().find((a) => a.iata === primaryHubIata);
     if (dbHub) {
       setHub(
         dbHub,
@@ -138,7 +173,7 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
       );
     }
     startEngine();
-  }, [primaryHubIata, setHub, startEngine]);
+  }, [primaryHubIata, catalogReady, setHub, startEngine]);
 
   // Initialize hub from geolocation — only for new users (no airline loaded yet).
   // Wait until identity check has completed so we know if a Nostr profile exists.
@@ -146,6 +181,7 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
     if (homeAirport) return; // Already initialized
     if (identityStatus === "checking") return; // Identity still loading — wait
     if (hasAirline) return; // Returning user — Nostr sync effect handles hub
+    if (!catalogReady) return; // Airports catalog still loading — wait
 
     const fallbackLocate = () => {
       // Guard: airline may have loaded while geo was pending
@@ -198,7 +234,7 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
     } else {
       fallbackLocate();
     }
-  }, [homeAirport, identityStatus, hasAirline, competitors, setHub, startEngine]);
+  }, [homeAirport, identityStatus, hasAirline, catalogReady, competitors, setHub, startEngine]);
 
   // Re-evaluate the suggested hub once competitor data loads from Nostr.
   // This only fires for new users who haven't created an airline yet and
@@ -207,6 +243,7 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
     if (hasAirline) return; // Returning user — don't touch their hub
     if (competitors.size === 0) return; // No competitor data yet
     if (!userLocation || !homeAirport) return;
+    if (!catalogReady) return; // findPreferredHub needs the airports catalog
 
     // Check if the user manually picked a hub (source === "manual")
     if (userLocation.source === "manual") {
@@ -225,7 +262,7 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
     if (better.iata !== homeAirport.iata) {
       setHub(better, { latitude, longitude, source: userLocation.source }, "auto-distributed");
     }
-  }, [hasAirline, competitors, homeAirport, userLocation, setHub]);
+  }, [hasAirline, competitors, homeAirport, userLocation, catalogReady, setHub]);
 
   return <>{children}</>;
 }

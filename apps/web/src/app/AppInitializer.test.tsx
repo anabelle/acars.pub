@@ -5,6 +5,24 @@ import { AppInitializer } from "./AppInitializer";
 const mockUseAirlineStore = vi.hoisted(() => vi.fn());
 const mockUseEngineStore = vi.hoisted(() => vi.fn());
 const mockFindPreferredHub = vi.hoisted(() => vi.fn());
+const mockAirports = vi.hoisted(() => [
+  {
+    iata: "JFK",
+    latitude: 0,
+    longitude: 0,
+    timezone: "UTC",
+    city: "City",
+    population: 1,
+  },
+  {
+    iata: "EWR",
+    latitude: 1,
+    longitude: 1,
+    timezone: "UTC",
+    city: "City",
+    population: 1,
+  },
+]);
 
 type Selector<T> = (state: T) => unknown;
 type AirlineStoreState = {
@@ -44,24 +62,10 @@ vi.mock("@acars/store", () => {
 
 vi.mock("@acars/data", () => {
   return {
-    airports: [
-      {
-        iata: "JFK",
-        latitude: 0,
-        longitude: 0,
-        timezone: "UTC",
-        city: "City",
-        population: 1,
-      },
-      {
-        iata: "EWR",
-        latitude: 1,
-        longitude: 1,
-        timezone: "UTC",
-        city: "City",
-        population: 1,
-      },
-    ],
+    airports: mockAirports,
+    getAirports: () => mockAirports,
+    isDataCatalogReady: () => true,
+    whenDataCatalogReady: () => Promise.resolve(mockAirports),
     findPreferredHub: mockFindPreferredHub,
   };
 });

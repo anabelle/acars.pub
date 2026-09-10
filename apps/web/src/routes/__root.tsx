@@ -1,12 +1,19 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { Suspense, lazy } from "react";
 import { IdentityGate } from "@/features/identity/components/IdentityGate";
 import { Ticker } from "@/features/network/components/Ticker";
-import { WorldMap } from "@/features/network/components/WorldMap";
 import { MOBILE_TOPBAR_PANEL_PADDING_CLASS } from "@/shared/components/layout/mobileLayout";
 import { MobileNav, Sidebar } from "@/shared/components/layout/Sidebar";
 import { Topbar } from "@/shared/components/layout/Topbar";
 import { WorkspaceContextBar } from "@/shared/components/layout/WorkspaceContextBar";
 import { AppInitializer } from "../app/AppInitializer";
+
+// The WebGL globe (maplibre-gl + @acars/map, ~1.1 MB min) loads in its own
+// chunk AFTER first paint. It is a background layer — the HUD renders on top
+// regardless, so a late map never blocks the interactive shell.
+const WorldMap = lazy(() =>
+  import("@/features/network/components/WorldMap").then((m) => ({ default: m.WorldMap })),
+);
 
 type RootSearch = {
   airportTab?: "info" | "flights";
@@ -36,8 +43,11 @@ export const Route = createRootRoute({
   component: () => (
     <AppInitializer>
       <div className="relative flex h-[100dvh] w-screen overflow-hidden bg-background text-foreground">
-        {/* Layer 0: The WebGL Map (Always rendering in background) */}
-        <WorldMap />
+        {/* Layer 0: The WebGL Map (Always rendering in background; chunk
+            loads lazily after first paint) */}
+        <Suspense fallback={null}>
+          <WorldMap />
+        </Suspense>
 
         {/* Layer 1: the Tycoon HUD Shell (Overlaying the Map) */}
         <div className="absolute inset-0 z-20 flex flex-col pointer-events-none">
