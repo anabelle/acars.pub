@@ -16,11 +16,11 @@
     "@acars/core": "workspace:^",
     "@nostr-dev-kit/ndk": "^3.0.3",
     "@nostr-dev-kit/ndk-blossom": "^2.0.2",
-    "nostr-tools": "^2.23.3"
+    "nostr-tools": "^2.25.2"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.7"
   },
   "types": "dist/index.d.ts"
 }

@@ -1,4 +1,5 @@
-import maplibregl from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
+import type { Feature, FeatureCollection } from "geojson";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { AircraftInstance, Airport, HubTier, Route } from "@acars/core";
@@ -1237,7 +1238,7 @@ export function Globe({
         cursorFrame = requestAnimationFrame(updateCursor);
       });
 
-      map.on("mouseleave", () => {
+      map.on("mouseout", () => {
         pendingCursorPoint = null;
         if (cursorFrame !== null) {
           cancelAnimationFrame(cursorFrame);
@@ -1313,7 +1314,7 @@ export function Globe({
     );
     const activePresenceImages = new Set<string>();
 
-    const airportGeojson: GeoJSON.FeatureCollection = {
+    const airportGeojson: FeatureCollection = {
       type: "FeatureCollection",
       features: airports.map((a) => {
         const classification = classifyAirport(a);
@@ -1348,7 +1349,7 @@ export function Globe({
     }
 
     // --- Player flight arcs (with culling + LOD + caching) ---
-    const arcFeatures: GeoJSON.Feature[] = [];
+    const arcFeatures: Feature[] = [];
     for (const ac of fleet) {
       if (ac.status !== "enroute" || !ac.flight) continue;
       const origin = airportIndex.get(ac.flight.originIata);
@@ -1372,7 +1373,7 @@ export function Globe({
     }
 
     // --- Global route arcs (with culling + LOD + caching) ---
-    const globalArcFeatures: GeoJSON.Feature[] = [];
+    const globalArcFeatures: Feature[] = [];
     for (const route of competitorRoutes) {
       const origin = airportIndex.get(route.originIata);
       const dest = airportIndex.get(route.destinationIata);
@@ -1440,7 +1441,7 @@ export function Globe({
           lastSegmentCount.current = segments;
         }
 
-        const arcFeatures: GeoJSON.Feature[] = [];
+        const arcFeatures: Feature[] = [];
         for (const ac of latestFleet.current) {
           if (ac.status !== "enroute" || !ac.flight) continue;
           const origin = airportIndex.get(ac.flight.originIata);
@@ -1460,7 +1461,7 @@ export function Globe({
           arcFeatures.push(makeArcFeature(points));
         }
 
-        const globalArcFeatures: GeoJSON.Feature[] = [];
+        const globalArcFeatures: Feature[] = [];
         for (const route of competitorRoutes) {
           const origin = airportIndex.get(route.originIata);
           const dest = airportIndex.get(route.destinationIata);
@@ -1546,8 +1547,8 @@ export function Globe({
       resolveColor: (ac: AircraftInstance) => { primary?: string; secondary?: string } | undefined,
       baseSize: number,
       now: number,
-    ): GeoJSON.Feature[] => {
-      const features: GeoJSON.Feature[] = [];
+    ): Feature[] => {
+      const features: Feature[] = [];
       for (const ac of targetFleet) {
         if (ac.status !== "enroute" || !ac.flight) continue;
         const f = ac.flight;

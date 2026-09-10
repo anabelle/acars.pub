@@ -216,7 +216,9 @@ export function pointInViewport(
  * Converts arc points into a GeoJSON Feature, automatically splitting at
  * the antimeridian if the route crosses it.
  */
-export function makeArcFeature(points: [number, number][]): GeoJSON.Feature {
+import type { Feature } from "geojson";
+
+export function makeArcFeature(points: [number, number][]): Feature {
   const lines = splitAntimeridian(points);
   if (lines.length === 1) {
     return {
