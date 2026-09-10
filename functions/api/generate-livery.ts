@@ -16,7 +16,6 @@
 interface Env {
   GOOGLE_API?: string;
   GEMINI_API_KEY?: string;
-  VITE_GEMINI_API_KEY?: string;
   CF_PAGES_BRANCH?: string;
 }
 
@@ -166,7 +165,10 @@ function isValidAircraftImagePrompt(prompt: string): boolean {
 
 function resolveApiKey(env: Env): string | undefined {
   // 1. Explicit CF Pages bindings
-  const fromBindings = env.GOOGLE_API ?? env.GEMINI_API_KEY ?? env.VITE_GEMINI_API_KEY;
+  // Server-side only. Never read VITE_* variables here: anything prefixed
+  // VITE_ is inlined into the client bundle at build time by Vite, so a
+  // VITE_GEMINI_API_KEY fallback would leak the secret to every browser.
+  const fromBindings = env.GOOGLE_API ?? env.GEMINI_API_KEY;
   if (fromBindings) return fromBindings;
 
   // 2. Fallback: process.env (available with nodejs_compat)
@@ -175,7 +177,7 @@ function resolveApiKey(env: Env): string | undefined {
       | { env?: Record<string, string> }
       | undefined;
     if (p?.env) {
-      return p.env.GOOGLE_API ?? p.env.GEMINI_API_KEY ?? p.env.VITE_GEMINI_API_KEY;
+      return p.env.GOOGLE_API ?? p.env.GEMINI_API_KEY;
     }
   } catch {
     /* not available */

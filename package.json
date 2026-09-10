@@ -16,6 +16,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "test:run": "pnpm -r test -- --run",
+    "test:coverage": "pnpm -r test -- --run --coverage.enabled --coverage.thresholds.autoUpdate=false",
+    "typecheck:functions": "tsc -p functions --noEmit",
     "verify:contracts": "pnpm -r build && pnpm -r typecheck",
     "verify:boundaries": "pnpm -r lint",
     "verify:determinism": "pnpm --filter @acars/core test -- --run",
@@ -24,6 +26,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
+    "@cloudflare/workers-types": "^5.20260908.1",
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
     "@eslint/js": "^9.39.3",
@@ -36,6 +39,7 @@
     "jsdom": "^28.1.0",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.33.1",
     "vitest": "^3.2.4"
   },

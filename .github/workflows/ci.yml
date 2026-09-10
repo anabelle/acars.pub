@@ -36,5 +36,15 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
-      - name: Tests
-        run: pnpm run test:run
+      - name: Typecheck Pages Functions
+        run: pnpm run typecheck:functions
+
+      - name: Tests (coverage enforced)
+        run: pnpm run test:coverage
+
+      # NOTE: this step is expected to FAIL until the dependency updates in
+      # the current fix wave land (known high-severity advisories in prod
+      # deps as of 2026-09). It is added now so the gate exists; do not
+      # remove it to get a green build — update the deps instead.
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level=high

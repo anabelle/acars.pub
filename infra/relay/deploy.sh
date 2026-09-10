@@ -2,19 +2,33 @@
 # deploy.sh — Deploy or update the ACARS Nostr relay on the VPS
 #
 # Usage:
-#   ./deploy.sh                  # Deploy with defaults
-#   ./deploy.sh --restart        # Force restart the relay container
-#   ./deploy.sh --initial-setup  # First-time setup (creates data dir, obtains SSL cert)
+#   RELAY_USER=<ssh-user> RELAY_HOST=<vps-host> ./deploy.sh
+#   RELAY_USER=<ssh-user> RELAY_HOST=<vps-host> ./deploy.sh --restart
+#   RELAY_USER=<ssh-user> RELAY_HOST=<vps-host> ./deploy.sh --initial-setup
+#
+# The VPS target is intentionally NOT hardcoded (public repo). Configure it
+# via environment variables, e.g. in your shell profile or a local,
+# untracked env file:
+#   export RELAY_USER="pixel"
+#   export RELAY_HOST="203.0.113.10"
 #
 # Prerequisites:
-#   - SSH access to pixel@65.181.125.80
+#   - RELAY_USER and RELAY_HOST set, with SSH access to that host
 #   - The pixel_pixel-net Docker network must exist on the VPS
 #   - For initial setup: certbot image available, Cloudflare DNS configured
 
 set -euo pipefail
 
-VPS_HOST="pixel@65.181.125.80"
-VPS_RELAY_DIR="/home/pixel/pixel/nostr-relay"
+RELAY_USER="${RELAY_USER:-}"
+RELAY_HOST="${RELAY_HOST:-}"
+if [ -z "$RELAY_HOST" ] || [ -z "$RELAY_USER" ]; then
+    echo "ERROR: RELAY_HOST and RELAY_USER are required (the VPS address is" >&2
+    echo "       deliberately not hardcoded in this public repo)." >&2
+    echo "       Usage: RELAY_USER=<ssh-user> RELAY_HOST=<vps-host> $0" >&2
+    exit 1
+fi
+VPS_HOST="${RELAY_USER}@${RELAY_HOST}"
+VPS_RELAY_DIR="/home/${RELAY_USER}/pixel/nostr-relay"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Colors

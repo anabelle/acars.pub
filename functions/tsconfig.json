@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // Cloudflare Pages Functions run in workerd; workers-types provides the
+    // runtime globals (Request/Response, PagesFunction, etc.).
+    "types": ["@cloudflare/workers-types"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    // Functions are bundled by CF Pages, never emitted by tsc.
+    "noEmit": true
+  },
+  "include": ["api/**/*"]
+}
