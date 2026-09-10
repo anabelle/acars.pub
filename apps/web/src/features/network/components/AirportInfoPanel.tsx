@@ -124,10 +124,13 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
     [playerHubs, airport.iata],
   );
   const [originHubIata, setOriginHubIata] = useState<string | null>(defaultOriginHub);
-
-  useEffect(() => {
+  const [lastDefaultHub, setLastDefaultHub] = useState<string | null>(defaultOriginHub);
+  // Derived-state reset during render (React-recommended) instead of a
+  // setState-in-effect cascade.
+  if (lastDefaultHub !== defaultOriginHub) {
+    setLastDefaultHub(defaultOriginHub);
     setOriginHubIata(defaultOriginHub);
-  }, [defaultOriginHub]);
+  }
 
   const originHubAirport = originHubIata ? airportIndex.get(originHubIata) : null;
   const activeHubAirport = playerHubs[0] ? airportIndex.get(playerHubs[0]) : null;

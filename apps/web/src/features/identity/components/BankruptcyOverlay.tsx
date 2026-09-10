@@ -20,10 +20,17 @@ export function BankruptcyOverlay() {
   const airlineStatus = airline?.status ?? null;
   const isOverlayStatus = airlineStatus === "chapter11" || airlineStatus === "liquidated";
 
-  React.useEffect(() => {
+  // Reset UI state when the underlying airline identity/status changes.
+  // Adjusting state during render avoids the setState-in-effect cascade.
+  const [identityKey, setIdentityKey] = React.useState<string | null>(
+    airlineId ? `${airlineId}:${airlineStatus}` : null,
+  );
+  const currentKey = airlineId ? `${airlineId}:${airlineStatus}` : null;
+  if (identityKey !== currentKey) {
+    setIdentityKey(currentKey);
     setDismissed(false);
     setConfirmDissolve(false);
-  }, [airlineId, airlineStatus]);
+  }
 
   React.useEffect(() => {
     if (!isOverlayStatus) return;

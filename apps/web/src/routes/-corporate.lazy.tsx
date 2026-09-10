@@ -1088,11 +1088,13 @@ function ActivityLog({
 }) {
   const { t } = useTranslation("game");
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const tick = useEngineStore((s) => s.tick);
-
-  useEffect(() => {
+  const [lastDefault, setLastDefault] = useState(defaultExpanded);
+  // Derived-state reset during render (no setState-in-effect cascade).
+  if (lastDefault !== defaultExpanded) {
+    setLastDefault(defaultExpanded);
     setExpanded(defaultExpanded);
-  }, [defaultExpanded]);
+  }
+  const tick = useEngineStore((s) => s.tick);
 
   const recentEvents = useMemo(() => timeline.slice(0, 5), [timeline]);
 
