@@ -14,8 +14,9 @@
     "@acars/core": "workspace:*"
   },
   "devDependencies": {
+    "adm-zip": "^0.5.10",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4",
-    "adm-zip": "^0.5.10"
+    "tz-lookup": "6.1.25",
+    "vitest": "^3.2.4"
   }
 }

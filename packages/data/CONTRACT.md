@@ -4,6 +4,8 @@
 
 ## Status: STABLE
 
+Last verified: 2026-09
+
 ### Exported Types
 
 ```typescript
@@ -30,7 +32,7 @@ interface HubPricing {
 // Airport catalog (6,072 airports from OpenFlights)
 const airports: Airport[];
 
-// Aircraft catalog (15 models across 4 tiers)
+// Aircraft catalog (35 models across 4 tiers)
 const aircraftModels: AircraftModel[];
 
 // Aircraft indexes

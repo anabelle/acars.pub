@@ -4,6 +4,40 @@ import http from "node:http";
 import https from "node:https";
 import { fileURLToPath } from "node:url";
 import AdmZip from "adm-zip";
+import tzlookup from "tz-lookup";
+
+// OpenFlights leaves the timezone column as \N for hundreds of airports in
+// non-UTC countries (US/AU/CN/RU/...), which previously backfilled to "UTC"
+// and shifted flight-board times by ±8-14h. Backfill from coordinates via
+// tz-lookup instead. Zones that observe a fixed UTC+0 offset year-round are
+// stored as "UTC" to keep the catalog format stable.
+const zoneOffsetMinutes = (tz, date) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    timeZoneName: "longOffset",
+  }).formatToParts(date);
+  const name = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT";
+  if (name === "GMT" || name === "UTC") return 0;
+  const match = name.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  return sign * (Number(match[2]) * 60 + Number(match[3] ?? 0));
+};
+
+const isFixedUtcZero = (tz) =>
+  zoneOffsetMinutes(tz, new Date(Date.UTC(2024, 0, 15, 12))) === 0 &&
+  zoneOffsetMinutes(tz, new Date(Date.UTC(2024, 6, 15, 12))) === 0;
+
+const resolveTimezone = (openFlightsTz, lat, lon) => {
+  if (openFlightsTz && openFlightsTz !== "\\N") return openFlightsTz;
+  try {
+    const zone = tzlookup(lat, lon);
+    if (zone === "UTC" || zone === "Etc/UTC" || isFixedUtcZero(zone)) return "UTC";
+    return zone;
+  } catch {
+    return "UTC";
+  }
+};
 
 const OPEN_FLIGHTS_URL =
   "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat";
@@ -468,7 +502,7 @@ const parseOpenFlights = (csv) => {
     const lon = parseFloat(parts[7]);
     if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
 
-    const tz = parts[11] !== "\\N" ? parts[11] : "UTC";
+    const tz = resolveTimezone(parts[11], lat, lon);
 
     airports.push({
       id: parts[0],
