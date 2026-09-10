@@ -51,4 +51,28 @@ describe("Content Security Policy", () => {
     expect(scriptSrcDirective).toBeTruthy();
     expect(scriptSrcDirective).not.toContain("'unsafe-eval'");
   });
+
+  it("allows any Nostr relay over wss (decentralized relay set, incl. NDK outbox defaults like purplepag.es)", () => {
+    const candidatePaths = [
+      resolve(process.cwd(), "index.html"),
+      resolve(process.cwd(), "apps/web/index.html"),
+    ];
+    const indexHtmlPath = candidatePaths.find((path) => existsSync(path));
+
+    expect(indexHtmlPath).toBeDefined();
+
+    const indexHtml = readFileSync(indexHtmlPath as string, "utf8");
+    const cspTagMatch = indexHtml.match(/<meta[^>]*http-equiv="Content-Security-Policy"[^>]*>/i);
+    const contentMatch = cspTagMatch?.[0].match(/content="([^"]*)"/);
+
+    const connectSrcDirective = contentMatch?.[1]
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("connect-src "));
+
+    expect(connectSrcDirective).toBeTruthy();
+    expect(connectSrcDirective).toContain("wss:");
+    // HTTPS egress stays allowlisted (image/CDN hosts only).
+    expect(connectSrcDirective).not.toContain("https://nostr.acars.pub");
+  });
 });
