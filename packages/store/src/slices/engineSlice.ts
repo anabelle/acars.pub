@@ -500,10 +500,14 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
 
       const deliveryEvents: typeof currentTimeline = [];
 
-      for (const ac of currentFleet) {
-        if (ac.status !== "delivery") continue;
-        if (ac.deliveryAtTick == null || ac.deliveryAtTick > targetTick) continue;
-        ac.status = "idle";
+      // Immutable delivery transition: build NEW objects instead of
+      // mutating `ac` in place. currentFleet may still share object
+      // references with the live store state (e.g. when processFlightEngine
+      // threw on its first tick, or when aircraft were merged in from
+      // `latestFleet` above), so in-place mutation would corrupt shared state.
+      currentFleet = currentFleet.map((ac) => {
+        if (ac.status !== "delivery") return ac;
+        if (ac.deliveryAtTick == null || ac.deliveryAtTick > targetTick) return ac;
         const deliveryTick = ac.deliveryAtTick;
         deliveryEvents.push({
           id: `evt-delivery-${ac.id}-${deliveryTick}`,
@@ -514,7 +518,8 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           aircraftName: ac.name,
           description: `${ac.name} has been delivered and is ready for operations.`,
         });
-      }
+        return { ...ac, status: "idle" as const };
+      });
 
       if (deliveryEvents.length > 0) {
         const newEvents = deliveryEvents.filter((e) => !timelineEventIds.has(e.id));

@@ -22,8 +22,18 @@ const mocks = vi.hoisted(() => {
       bulkPut: vi.fn().mockResolvedValue(undefined),
     },
     transaction: vi.fn(async () => undefined),
+    meta: {
+      get: vi.fn().mockResolvedValue(undefined),
+      put: vi.fn().mockResolvedValue(undefined),
+    },
+    outbox: {
+      toArray: vi.fn().mockResolvedValue([]),
+      add: vi.fn().mockResolvedValue(1),
+      delete: vi.fn().mockResolvedValue(undefined),
+    },
   };
   const loadSnapshotMock = vi.fn().mockResolvedValue(null);
+  const computeHashMock = vi.fn().mockResolvedValue("hash-mock");
   const decompressMock = vi.fn().mockResolvedValue("");
   const reconcileMock = vi.fn(() => ({
     fleet: [],
@@ -31,18 +41,27 @@ const mocks = vi.hoisted(() => {
     balanceDelta: 0,
   }));
   const engineState = { tick: 1000 };
-  return { dbMock, loadSnapshotMock, decompressMock, reconcileMock, engineState };
+  return { dbMock, loadSnapshotMock, computeHashMock, decompressMock, reconcileMock, engineState };
 });
 
 vi.mock("./db.js", () => ({ db: mocks.dbMock }));
 vi.mock("@acars/nostr", () => ({
   loadSnapshot: mocks.loadSnapshotMock,
   decompressSnapshotString: mocks.decompressMock,
+  parseCheckpoint: (data: unknown) => data,
 }));
-vi.mock("@acars/core", () => ({
-  decompressSnapshotString: mocks.decompressMock,
-  fpAdd: (a: number, b: number) => a + b,
-}));
+vi.mock("@acars/core", async (importOriginal) => {
+  // Real `fp` (and future helpers) for the validation module; the two
+  // behavioral overrides below are load-bearing for these fixtures.
+  const actual = await importOriginal<typeof import("@acars/core")>();
+  return {
+    fp: actual.fp,
+    createLogger: () => ({ info: () => {}, warn: () => {}, error: () => {}, debug: () => {} }),
+    computeCheckpointStateHash: mocks.computeHashMock,
+    decompressSnapshotString: mocks.decompressMock,
+    fpAdd: (a: number, b: number) => a + b,
+  };
+});
 vi.mock("./engine.js", () => ({
   useEngineStore: {
     getState: () => ({ tick: mocks.engineState.tick }),
@@ -74,6 +93,9 @@ beforeEach(() => {
   resetChains();
   mocks.loadSnapshotMock.mockResolvedValue(null);
   mocks.decompressMock.mockResolvedValue("");
+  mocks.computeHashMock.mockResolvedValue("hash-mock");
+  mocks.dbMock.meta.get.mockResolvedValue(undefined);
+  mocks.dbMock.outbox.toArray.mockResolvedValue([]);
   mocks.reconcileMock.mockReturnValue({ fleet: [], events: [], balanceDelta: 0 });
   mocks.engineState.tick = 1000;
 });
@@ -169,6 +191,7 @@ describe("hydrateIdentityFromStorage", () => {
       createdAt: 1,
       actionChainHash: "chain-remote",
       stateHash: "hash-remote",
+      actionSeq: 15,
       airline: {
         id: "remote-air",
         ceoPubkey: "me",
@@ -186,12 +209,76 @@ describe("hydrateIdentityFromStorage", () => {
       tick: 5000,
     });
     mocks.decompressMock.mockResolvedValue(JSON.stringify(remoteCheckpoint));
+    // Verification: recomputed state hash must equal the declared hashes.
+    mocks.computeHashMock.mockResolvedValue("hash-remote");
 
     const set = vi.fn();
     await hydrateIdentityFromStorage("me", set);
     const arg = set.mock.calls[0][0];
     expect(arg.airline.id).toBe("remote-air");
     expect(arg.actionChainHash).toBe("chain-remote");
+    // Persisted actionSeq restored from the snapshot payload.
+    expect(arg.actionSeq).toBe(15);
+    // The verified snapshot becomes the latest known checkpoint.
+    expect(arg.latestCheckpoint).toEqual(expect.objectContaining({ tick: 5000 }));
+  });
+
+  it("keeps local state when a newer remote snapshot fails verification", async () => {
+    const localAirline = {
+      id: "local-air",
+      ceoPubkey: "me",
+      lastTick: 1000,
+      corporateBalance: 0,
+      timeline: [],
+    };
+    mocks.dbMock.airline.where.mockReturnValue({ first: vi.fn().mockResolvedValue(localAirline) });
+    const remoteCheckpoint = {
+      schemaVersion: 1,
+      tick: 9000,
+      createdAt: 1,
+      actionChainHash: "chain-evil",
+      stateHash: "hash-declared",
+      airline: {
+        id: "remote-evil",
+        ceoPubkey: "me",
+        lastTick: 9000,
+        corporateBalance: 0,
+        timeline: [],
+      },
+      fleet: [],
+      routes: [],
+      timeline: [],
+    };
+    mocks.loadSnapshotMock.mockResolvedValue({
+      compressedData: "gz:evil",
+      stateHash: "hash-declared",
+      tick: 9000,
+    });
+    mocks.decompressMock.mockResolvedValue(JSON.stringify(remoteCheckpoint));
+    // Recomputed hash does NOT match the declared one → reject.
+    mocks.computeHashMock.mockResolvedValue("hash-recomputed-different");
+
+    const set = vi.fn();
+    await hydrateIdentityFromStorage("me", set);
+    const arg = set.mock.calls[0][0];
+    expect(arg.airline.id).toBe("local-air");
+  });
+
+  it("restores actionSeq from the local meta table when no remote snapshot applies", async () => {
+    const airline = {
+      id: "a1",
+      ceoPubkey: "me",
+      lastTick: 1000,
+      corporateBalance: 0,
+      timeline: [],
+    };
+    mocks.dbMock.airline.where.mockReturnValue({ first: vi.fn().mockResolvedValue(airline) });
+    mocks.dbMock.meta.get.mockResolvedValue({ key: "actionSeq:me", value: 12 });
+
+    const set = vi.fn();
+    await hydrateIdentityFromStorage("me", set);
+    const arg = set.mock.calls[0][0];
+    expect(arg.actionSeq).toBe(12);
   });
 
   it("keeps local state when remote snapshot is older", async () => {

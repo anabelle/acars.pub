@@ -1,11 +1,15 @@
-import { type Checkpoint, decompressSnapshotString, fpAdd } from "@acars/core";
+import { type Checkpoint, fpAdd } from "@acars/core";
 import { loadSnapshot } from "@acars/nostr";
 import { db } from "./db.js";
 import { useEngineStore } from "./engine.js";
 import { reconcileFleetToTick } from "./FlightEngine.js";
+import { flushOutbox } from "./outbox.js";
+import { verifySnapshotPayload } from "./snapshotValidation.js";
 import type { AirlineState } from "./types.js";
 
 const MAX_PLAYER_CATCHUP = 50000;
+
+const actionSeqKey = (pubkey: string) => `actionSeq:${pubkey}`;
 
 /**
  * Loads and reconciles identity state from local storage and snapshots.
@@ -23,21 +27,41 @@ export async function hydrateIdentityFromStorage(
   let currentFleet = localFleet;
   let currentRoutes = localRoutes;
   let currentActionChainHash = "";
-  const currentActionSeq = 0;
+  let currentLatestCheckpoint: Checkpoint | null = null;
+  // Restored from the persisted snapshot payload and/or the local meta
+  // table (see actionChain.ts) — never reset to 0 blindly, because
+  // actionSeq feeds deterministic instance/route id generation.
+  let currentActionSeq = 0;
+  try {
+    const meta = await db.meta.get(actionSeqKey(pubkey));
+    if (meta && meta.value > currentActionSeq) currentActionSeq = meta.value;
+  } catch {
+    // meta table unavailable — fall back to snapshot-restored seq only
+  }
 
   // 2. Background sync with Nostr NIP-33 Snapshot Rollups
   try {
     const remote = await loadSnapshot(pubkey);
     if (remote) {
-      const decompressedString = await decompressSnapshotString(remote.compressedData);
-      const snapshotCheckpoint = JSON.parse(decompressedString) as Checkpoint;
-
+      // LWW-by-tick, but a remote snapshot only wins if it VERIFIES:
+      // parseCheckpoint shape validation + recomputed state hash must
+      // match both the checkpoint body and the relay payload hash, and
+      // the defensive fleet/balance clamps must hold. If verification
+      // fails we keep local state (which may contain actions applied
+      // after the peer's last snapshot that the hash chain can't see).
+      //
+      // REMAINING LIMITATION (accepted, minimal fix): when both sides
+      // verify there is still no real merge — a verified remote tick
+      // strictly greater than local replaces local wholesale, so any
+      // local actions newer than the remote snapshot are lost until the
+      // next snapshot publish. A proper three-way merge over the shared
+      // action log is future work.
+      const snapshotCheckpoint = await verifySnapshotPayload(remote);
       const localTick = currentAirline?.lastTick ?? 0;
 
-      // If remote is newer, replace local
-      if (snapshotCheckpoint.tick > localTick) {
+      if (snapshotCheckpoint && snapshotCheckpoint.tick > localTick) {
         console.log(
-          `[Identity] Nostr snapshot tick ${snapshotCheckpoint.tick} is newer than local DB ${localTick}. Overwriting state.`,
+          `[Identity] Verified Nostr snapshot tick ${snapshotCheckpoint.tick} is newer than local DB ${localTick}. Overwriting state.`,
         );
         const { airline, fleet, routes, actionChainHash } = snapshotCheckpoint;
 
@@ -55,6 +79,18 @@ export async function hydrateIdentityFromStorage(
         currentFleet = fleet;
         currentRoutes = routes;
         currentActionChainHash = actionChainHash;
+        currentLatestCheckpoint = snapshotCheckpoint;
+        // Restore the persisted actionSeq (field added to snapshot payloads
+        // by publishCurrentStateSnapshot). max(persisted, local-meta) keeps
+        // the seq monotonic across restarts.
+        const persistedSeq = (snapshotCheckpoint as Checkpoint & { actionSeq?: unknown }).actionSeq;
+        if (typeof persistedSeq === "number" && Number.isFinite(persistedSeq)) {
+          currentActionSeq = Math.max(currentActionSeq, Math.floor(persistedSeq));
+        }
+      } else if (snapshotCheckpoint === null && remote.tick > localTick) {
+        console.warn(
+          `[Identity] Remote snapshot tick ${remote.tick} failed verification — keeping local state.`,
+        );
       }
     }
   } catch (err) {
@@ -76,6 +112,7 @@ export async function hydrateIdentityFromStorage(
       identityStatus: "ready",
       isLoading: false,
     });
+    void flushOutbox().catch((e) => console.warn("[Identity] Outbox flush failed", e));
     return;
   }
 
@@ -128,8 +165,13 @@ export async function hydrateIdentityFromStorage(
     timeline: reconciledTimeline,
     actionChainHash: currentActionChainHash,
     actionSeq: currentActionSeq,
+    latestCheckpoint: currentLatestCheckpoint,
     fleetDeletedDuringCatchup: [],
     identityStatus: "ready",
     isLoading: false,
   });
+
+  // Re-send any actions that were persisted to the outbox but never
+  // successfully published before the app closed (< 24h old).
+  void flushOutbox().catch((e) => console.warn("[Identity] Outbox flush failed", e));
 }

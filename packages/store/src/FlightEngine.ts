@@ -186,6 +186,10 @@ export function processFlightEngine(
     });
   }
 
+  // O(1) route lookup for the per-aircraft state machine below (was
+  // routes.find inside the fleet loop — O(R) per aircraft per tick).
+  const routeById = new Map(routes.map((route) => [route.id, route]));
+
   // 1. Process each aircraft
   for (const ac of updatedFleetMap.values()) {
     // Optimization: Already processed this tick?
@@ -238,7 +242,7 @@ export function processFlightEngine(
 
     // State: IDLE -> Start Flight if assigned
     if (ac.status === "idle" && ac.assignedRouteId) {
-      const route = routes.find((r) => r.id === ac.assignedRouteId);
+      const route = routeById.get(ac.assignedRouteId);
       if (route && route.status === "active") {
         // SAFETY GROUNDING CHECK
         const isGrounded = ac.condition < 0.2 || ac.flightHoursSinceCheck > 600;
@@ -310,7 +314,7 @@ export function processFlightEngine(
       }
 
       const isFerry = ac.flight?.purpose === "ferry";
-      const route = !isFerry ? routes.find((r) => r.id === ac.assignedRouteId) : null;
+      const route = !isFerry ? (routeById.get(ac.assignedRouteId ?? "") ?? null) : null;
       const isOrphan = !route && !isFerry && !!ac.flight;
       const hasFareSnapshot = !!(
         ac.flight?.fareEconomy !== undefined ||
@@ -661,7 +665,7 @@ export function processFlightEngine(
         continue;
       }
 
-      const route = routes.find((r) => r.id === ac.assignedRouteId);
+      const route = routeById.get(ac.assignedRouteId ?? "") ?? null;
       if (route && ac.flight) {
         const hours = route.distanceKm / (model.speedKmh || 800);
         const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
@@ -1057,6 +1061,9 @@ export function reconcileFleetToTick(
   }
   const eventGenQueue: EventGenParams[] = [];
 
+  // O(1) route lookup for the per-aircraft reconciliation below.
+  const routeById = new Map(routes.map((route) => [route.id, route]));
+
   const updatedFleet: AircraftInstance[] = fleet.map((ac): AircraftInstance => {
     // Handle delivery aircraft that have been delivered but have no route —
     // they just need to transition to idle.  This must happen before the
@@ -1087,7 +1094,7 @@ export function reconcileFleetToTick(
 
     // Only reconcile aircraft that are on active routes and have a stale
     // flight state (arrivalTick or turnaroundEndTick in the past).
-    const route = ac.assignedRouteId ? routes.find((r) => r.id === ac.assignedRouteId) : null;
+    const route = ac.assignedRouteId ? (routeById.get(ac.assignedRouteId) ?? null) : null;
     if (!route || route.status !== "active") return ac;
 
     const model = getAircraftById(ac.modelId);

@@ -103,6 +103,16 @@ let initialSyncComplete = false;
 let unsubscribeActionStream: (() => void) | null = null;
 const logger = createLogger("WorldSync");
 
+// Delta-based world sync watermark (replaces tick % 20 cadence).
+const WORLD_SYNC_INTERVAL_TICKS = 20;
+let lastWorldSyncTick = 0;
+
+// Guards the module-level bootstrap IIFE against double execution (HMR,
+// duplicate module instantiation in tests/bundlers). Re-subscriptions
+// triggered by visibilitychange / relay recovery are NOT affected — they
+// route through startActionSubscription directly.
+let subscriptionStarted = false;
+
 /**
  * Persistent promise chain that serializes tick processing across boundaries.
  *
@@ -127,11 +137,21 @@ let lastSeenActionCreatedAtSec = 0;
 
 // Buffer for live events that arrive before the initial sync completes.
 // Flushed (with deduplication) once initialSyncComplete is set to true.
+// Bounded: FIFO drop-oldest at EVENT_BUFFER_CAP so a very long initial sync
+// (or a stuck one) cannot grow the buffer without limit.
+const EVENT_BUFFER_CAP = 5000;
 const eventBuffer: Array<{ pubkey: string; entry: ActionLogEntry }> = [];
 
-/** @internal — test-only accessor for the pre-sync event buffer */
+/** @internal test-only accessor for the pre-sync event buffer */
 export function _getEventBuffer(): string[] {
   return eventBuffer.map((e) => e.pubkey);
+}
+
+function bufferEvent(pubkey: string, entry: ActionLogEntry) {
+  eventBuffer.push({ pubkey, entry });
+  if (eventBuffer.length > EVENT_BUFFER_CAP) {
+    eventBuffer.splice(0, eventBuffer.length - EVENT_BUFFER_CAP);
+  }
 }
 
 function updateLastSeenAction(createdAt: number | undefined) {
@@ -198,7 +218,10 @@ useEngineStore.subscribe((state) => {
   // state fresh; projectCompetitorFleet keeps positions current between syncs.
   // Skip until the initial eager sync completes to avoid racing with it.
   // Use force: true so the sync is not silently dropped.
-  if (state.tick % 20 === 0 && initialSyncComplete) {
+  // Delta-based (tick - last >= 20) instead of tick % 20 so a paused/throttled
+  // tab that skips the exact multiple tick still syncs within one window.
+  if (initialSyncComplete && state.tick - lastWorldSyncTick >= WORLD_SYNC_INTERVAL_TICKS) {
+    lastWorldSyncTick = state.tick;
     store.syncWorld({ force: true });
   }
 
@@ -272,7 +295,7 @@ async function startActionSubscription(since: number): Promise<void> {
       // Buffer events that arrive before the initial sync finishes so they
       // are not silently dropped.  They will be replayed once sync completes.
       if (!initialSyncComplete) {
-        eventBuffer.push({ pubkey: competitorPubkey, entry });
+        bufferEvent(competitorPubkey, entry);
         return;
       }
 
@@ -309,6 +332,9 @@ async function startActionSubscription(since: number): Promise<void> {
 }
 
 (async () => {
+  if (subscriptionStarted) return;
+  subscriptionStarted = true;
+
   // Wait for at least one Nostr relay to be connected before fetching
   // world state, instead of using an arbitrary delay.
   await ensureConnected();
@@ -337,6 +363,10 @@ async function startActionSubscription(since: number): Promise<void> {
   }
 
   initialSyncComplete = true;
+  // The initial sync just refreshed the world — anchor the delta-based
+  // periodic sync watermark so the next periodic sync fires one full
+  // interval later, not immediately.
+  lastWorldSyncTick = useEngineStore.getState().tick;
 
   // Replay buffered events that arrived during the initial sync window.
   flushEventBuffer();

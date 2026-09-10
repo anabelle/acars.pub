@@ -18,6 +18,7 @@ const airportMap = new Map(airports.map((a) => [a.iata, a]));
 
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
+import { clampFixedPoint } from "../actionReducer";
 import { useEngineStore } from "../engine";
 import type { AirlineState } from "../types";
 
@@ -270,12 +271,15 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       set((state) => {
         // Merge-safe rollback: only revert the specific fields changed by
         // this hub modification, preserving concurrent tick updates.
+        // The hub fee is RE-ABONED arithmetically (current balance + fee)
+        // rather than restoring the pre-action absolute balance, so any
+        // ticks that landed concurrently (revenue, opex) are not clobbered.
         const restoredAirline =
           state.airline && previousAirline
             ? {
                 ...state.airline,
                 hubs: previousAirline.hubs,
-                corporateBalance: previousAirline.corporateBalance,
+                corporateBalance: fpAdd(state.airline.corporateBalance, hubFee),
                 routeIds: previousAirline.routeIds,
               }
             : previousAirline;
@@ -828,12 +832,23 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       return { ...ac, assignedRouteId: routeId };
     });
 
+    // Only create new route objects for routes actually touched by this
+    // assignment (the target route and any route losing the aircraft) —
+    // untouched routes keep their references so downstream memoization
+    // and concurrent updates are not invalidated.
     const updatedRoutes = routes.map((rt) => {
-      const assigned = rt.assignedAircraftIds.filter((id) => id !== aircraftId);
       if (rt.id === routeId) {
+        const assigned = rt.assignedAircraftIds.filter((id) => id !== aircraftId);
         assigned.push(aircraftId);
+        return { ...rt, assignedAircraftIds: assigned };
       }
-      return { ...rt, assignedAircraftIds: assigned };
+      if (rt.assignedAircraftIds.includes(aircraftId)) {
+        return {
+          ...rt,
+          assignedAircraftIds: rt.assignedAircraftIds.filter((id) => id !== aircraftId),
+        };
+      }
+      return rt;
     });
 
     const currentTimeline = [...get().timeline];
@@ -947,13 +962,28 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     const { routes, airline } = get();
     if (!airline) return;
 
+    // Same local clamp the replay applies (actionReducer ROUTE_UPDATE_FARES):
+    // fares are bounded to [0, MAX_FARE] so optimistic state and replayed
+    // state cannot diverge on out-of-range input.
+    const MAX_FARE = fp(10000);
+    const zero = fp(0);
+
     const updatedRoutes = routes.map((rt) => {
       if (rt.id === routeId) {
         return {
           ...rt,
-          fareEconomy: fares.economy !== undefined ? fares.economy : rt.fareEconomy,
-          fareBusiness: fares.business !== undefined ? fares.business : rt.fareBusiness,
-          fareFirst: fares.first !== undefined ? fares.first : rt.fareFirst,
+          fareEconomy:
+            fares.economy !== undefined
+              ? (clampFixedPoint(fares.economy, zero, MAX_FARE) ?? rt.fareEconomy)
+              : rt.fareEconomy,
+          fareBusiness:
+            fares.business !== undefined
+              ? (clampFixedPoint(fares.business, zero, MAX_FARE) ?? rt.fareBusiness)
+              : rt.fareBusiness,
+          fareFirst:
+            fares.first !== undefined
+              ? (clampFixedPoint(fares.first, zero, MAX_FARE) ?? rt.fareFirst)
+              : rt.fareFirst,
         };
       }
       return rt;

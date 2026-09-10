@@ -4,6 +4,8 @@
 
 ## Status: STABLE
 
+Last verified: 2026-09
+
 ### Exported Types
 
 ```typescript
@@ -60,11 +62,8 @@ function useAirlineStore(): AirlineState & AirlineActions;
 // Engine store (tick management)
 function useEngineStore(): EngineState & EngineActions;
 
-// Convenience hooks
-function useAircraft(aircraftId: string): AircraftInstance | undefined;
-function useRoute(routeId: string): Route | undefined;
-function useHubAirports(): Airport[];
-function useCompetitorAirlines(): AirlineEntity[];
+// Convenience hook (the only exported selector hook)
+function useActiveAirline(): ActiveAirlineView;
 ```
 
 ### Exported Store Instances
@@ -78,24 +77,35 @@ const useEngineStore: UseBoundStore<StoreApi<EngineState>>;
 
 ```typescript
 // Identity
-setPubkey(pubkey: string | null): void;
 createAirline(name: string, livery: Livery, hubIata: string): Promise<void>;
-loadFromNostr(): Promise<boolean>;
+createNewIdentity(): { pubkey: string; secret: string };
+hydrateIdentityFromStorage(): void;
 
 // Fleet
-purchaseAircraft(modelId: string, customName?: string): Promise<void>;
+purchaseAircraft(
+  model: AircraftModel,
+  deliveryHubIata?: string,
+  configuration?: CabinConfiguration,
+): Promise<void>;
+purchaseUsedAircraft(listing: MarketplaceListing): Promise<void>;
 sellAircraft(aircraftId: string): Promise<void>;
+listAircraft(aircraftId: string, price: FixedPoint): Promise<void>;
+cancelListing(aircraftId: string): Promise<void>;
+buyoutAircraft(aircraftId: string, price: FixedPoint): Promise<void>;
+ferryAircraft(aircraftId: string, destIata: string): Promise<void>;
 performMaintenance(aircraftId: string): void;
 assignAircraftToRoute(aircraftId: string, routeId: string): void;
-unassignAircraft(aircraftId: string): void;
+updateAircraftLivery(aircraftId: string, livery: Livery): void;
 
 // Network
-addHub(iata: string): Promise<void>;
-removeHub(iata: string): void;
-switchActiveHub(iata: string): void;
+setHub(iata: string): Promise<void>;
+modifyHubs(change: { add?: string[]; remove?: string[] }): Promise<void>;
+updateHub(iata: string, change: HubChange): Promise<void>;
+setActiveHubIata(iata: string | null): void;
 openRoute(originIata: string, destIata: string, fares: Fares): Promise<void>;
 closeRoute(routeId: string): Promise<void>;
 updateRouteFares(routeId: string, fares: Fares): void;
+rebaseRoute(routeId: string): void;
 
 // Engine
 processTick(tick: number): Promise<void>;

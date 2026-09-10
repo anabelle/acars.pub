@@ -58,6 +58,13 @@ const MAX_FARE = fp(10000);
 const MAX_PRICE = fp(1000000000);
 const MIN_BALANCE = fp(-1000000000);
 const MAX_BALANCE = fp(1000000000);
+/**
+ * Bootstrap airlines (no AIRLINE_CREATE in the log) must never claim more
+ * than the tier-1 starting balance from a TICK_UPDATE payload — an attacker
+ * (or a buggy client) declaring $1B would otherwise materialize wealth that
+ * was never established by an AIRLINE_CREATE action.
+ */
+const BOOTSTRAP_MAX_BALANCE = fp(100000000);
 const VALID_STATUSES: AirlineEntity["status"][] = ["private", "public", "chapter11", "liquidated"];
 const TIMELINE_EVENT_TYPES: ReadonlySet<TimelineEventType> = new Set([
   "takeoff",
@@ -116,12 +123,36 @@ const sanitizeIata = (value: unknown): string | null => {
   return trimmed;
 };
 
-const clampFixedPoint = (value: unknown, min: FixedPoint, max: FixedPoint): FixedPoint | null => {
+export const clampFixedPoint = (
+  value: unknown,
+  min: FixedPoint,
+  max: FixedPoint,
+): FixedPoint | null => {
   const numeric = asNumber(value);
   if (numeric === null) return null;
   const rounded = Math.round(numeric);
   const clamped = Math.min(Math.max(rounded, min), max);
   return clamped as FixedPoint;
+};
+
+/**
+ * Canonical action ordering for replay and chain hashing: primary key is
+ * the payload tick (finer-grained and causal — it is the game-time at which
+ * the action was taken), tie-broken by event created_at and finally eventId.
+ * Legacy events without a payload tick sort as tick 0.
+ */
+const compareActionRecords = (a: ActionRecord, b: ActionRecord): number => {
+  const tickOf = (record: ActionRecord): number => {
+    const tick = (record.action.payload as Record<string, unknown> | undefined)?.tick;
+    return typeof tick === "number" && Number.isFinite(tick) ? tick : 0;
+  };
+  const aTick = tickOf(a);
+  const bTick = tickOf(b);
+  if (aTick !== bTick) return aTick - bTick;
+  const aTime = a.createdAt ?? 0;
+  const bTime = b.createdAt ?? 0;
+  if (aTime !== bTime) return aTime - bTime;
+  return a.eventId.localeCompare(b.eventId);
 };
 
 const asStringArray = (value: unknown): string[] =>
@@ -139,12 +170,9 @@ export async function buildActionChainHashFromRecords(
   previousHash: string,
   records: ActionRecord[],
 ): Promise<string> {
-  const sorted = [...records].sort((a, b) => {
-    const aTime = a.createdAt ?? 0;
-    const bTime = b.createdAt ?? 0;
-    if (aTime !== bTime) return aTime - bTime;
-    return a.eventId.localeCompare(b.eventId);
-  });
+  // Canonical order must match the replay order in replayActionLog —
+  // see compareActionRecords (payload tick first, then created_at/eventId).
+  const sorted = [...records].sort(compareActionRecords);
   let hash = previousHash;
   for (const record of sorted) {
     hash = await computeActionChainHash(hash, {
@@ -264,6 +292,12 @@ export async function replayActionLog(params: {
     if (timelineEventIds.has(event.id)) return;
     timeline.unshift(event);
     timelineEventIds.add(event.id);
+    // COST/DESIGN NOTE: once the timeline is full (1000 events) each push
+    // pays an O(MAX_TIMELINE_EVENTS) Set rebuild to forget trimmed ids.
+    // An incremental id->order Map would still be O(n) per unshift (every
+    // index shifts), so we deliberately accept this bounded O(n) cost —
+    // correctness (exact dedup of exactly the retained window) wins over
+    // micro-optimizing a 1000-element rebuild.
     if (timeline.length > MAX_TIMELINE_EVENTS) {
       timeline.length = MAX_TIMELINE_EVENTS;
       timelineEventIds.clear();
@@ -342,13 +376,54 @@ export async function replayActionLog(params: {
   const resolveRouteId = (routeId: string | null) =>
     routeId ? (routeIdAliases.get(routeId) ?? routeId) : null;
 
+  // Reverse index aircraftId -> set of routeIds currently listing it.
+  // Lets AIRCRAFT_SELL / unassign-all remove an aircraft from routes in
+  // O(routes-listing-it) instead of scanning every route per action.
+  const aircraftRoutesIndex = new Map<string, Set<string>>();
+  const indexAircraftOnRoute = (aircraftId: string, routeId: string) => {
+    let routes = aircraftRoutesIndex.get(aircraftId);
+    if (!routes) {
+      routes = new Set();
+      aircraftRoutesIndex.set(aircraftId, routes);
+    }
+    routes.add(routeId);
+  };
+  const deindexAircraftFromRoute = (aircraftId: string, routeId: string) => {
+    const routes = aircraftRoutesIndex.get(aircraftId);
+    if (!routes) return;
+    routes.delete(routeId);
+    if (routes.size === 0) aircraftRoutesIndex.delete(aircraftId);
+  };
+  const removeAircraftFromRoute = (aircraftId: string, routeId: string) => {
+    const route = routesById.get(routeId);
+    if (!route || !route.assignedAircraftIds.includes(aircraftId)) return;
+    route.assignedAircraftIds = route.assignedAircraftIds.filter((id) => id !== aircraftId);
+    deindexAircraftFromRoute(aircraftId, routeId);
+  };
+  const removeAircraftFromAllRoutes = (aircraftId: string) => {
+    const routeIds = aircraftRoutesIndex.get(aircraftId);
+    if (!routeIds) return;
+    for (const routeId of [...routeIds]) {
+      removeAircraftFromRoute(aircraftId, routeId);
+    }
+  };
+  const deleteIndexedRoute = (routeId: string) => {
+    const route = routesById.get(routeId);
+    if (route) {
+      for (const aircraftId of route.assignedAircraftIds) {
+        deindexAircraftFromRoute(aircraftId, routeId);
+      }
+    }
+    routesById.delete(routeId);
+  };
+  for (const route of routesById.values()) {
+    for (const aircraftId of route.assignedAircraftIds) {
+      indexAircraftOnRoute(aircraftId, route.id);
+    }
+  }
+
   const filteredActions = actions.filter((record) => record.authorPubkey === pubkey);
-  const sortedActions = [...filteredActions].sort((a, b) => {
-    const aTime = a.createdAt ?? 0;
-    const bTime = b.createdAt ?? 0;
-    if (aTime !== bTime) return aTime - bTime;
-    return a.eventId.localeCompare(b.eventId);
-  });
+  const sortedActions = [...filteredActions].sort(compareActionRecords);
   let bootstrapTick: number | null = null;
 
   // Bootstrap: If no checkpoint and no AIRLINE_CREATE in the action log,
@@ -366,8 +441,13 @@ export async function replayActionLog(params: {
         if (record.action.action === "TICK_UPDATE") {
           const payload = record.action.payload;
           const tick = clampInt(payload.tick, 0, Number.MAX_SAFE_INTEGER) ?? 0;
+          // Declared balances are clamped to the tier-1 starting balance —
+          // a bootstrap (missing AIRLINE_CREATE) cannot be trusted to state
+          // its own wealth. Once an AIRLINE_CREATE exists in the log the
+          // authoritative balance from actions/TICK_UPDATE applies instead.
           const corporateBalance =
-            clampFixedPoint(payload.corporateBalance, MIN_BALANCE, MAX_BALANCE) ?? fp(100000000);
+            clampFixedPoint(payload.corporateBalance, MIN_BALANCE, BOOTSTRAP_MAX_BALANCE) ??
+            fp(100000000);
           const name = clampString(payload.airlineName, MAX_NAME_LENGTH) ?? "Unknown Airline";
           const icaoCode = clampString(payload.icaoCode, MAX_CODE_LENGTH) ?? "";
           const callsign = clampString(payload.callsign, MAX_CODE_LENGTH) ?? "";
@@ -458,6 +538,7 @@ export async function replayActionLog(params: {
       routePairs.clear();
       routePairToRouteId.clear();
       routeIdAliases.clear();
+      aircraftRoutesIndex.clear();
       timeline.splice(0, timeline.length);
       timelineEventIds.clear();
       allowActionTimeline = true;
@@ -514,6 +595,7 @@ export async function replayActionLog(params: {
       routePairs.clear();
       routePairToRouteId.clear();
       routeIdAliases.clear();
+      aircraftRoutesIndex.clear();
       timeline.splice(0, timeline.length);
       timelineEventIds.clear();
       allowActionTimeline = true;
@@ -642,8 +724,8 @@ export async function replayActionLog(params: {
         }
         if (authoritativeRouteIds) {
           const validRouteSet = new Set(authoritativeRouteIds);
-          for (const id of routesById.keys()) {
-            if (!validRouteSet.has(id)) routesById.delete(id);
+          for (const id of [...routesById.keys()]) {
+            if (!validRouteSet.has(id)) deleteIndexedRoute(id);
           }
         }
 
@@ -783,7 +865,7 @@ export async function replayActionLog(params: {
         const routeId = resolveRouteId(clampString(payload.routeId, 64));
         if (!routeId) break;
         const route = routesById.get(routeId);
-        routesById.delete(routeId);
+        deleteIndexedRoute(routeId);
         if (route) {
           const pairKey = routePairKey(route.originIata, route.destinationIata);
           routePairs.delete(pairKey);
@@ -820,6 +902,9 @@ export async function replayActionLog(params: {
         const previousPairKey = routePairKey(route.originIata, route.destinationIata);
         routePairs.delete(previousPairKey);
         routePairToRouteId.delete(previousPairKey);
+        for (const aircraftId of route.assignedAircraftIds) {
+          deindexAircraftFromRoute(aircraftId, routeId);
+        }
         routesById.set(routeId, {
           ...route,
           originIata,
@@ -852,12 +937,7 @@ export async function replayActionLog(params: {
         if (!aircraft || !route) break;
         // Remove from previous route's assignedAircraftIds
         if (aircraft.assignedRouteId && aircraft.assignedRouteId !== routeId) {
-          const prevRoute = routesById.get(aircraft.assignedRouteId);
-          if (prevRoute) {
-            prevRoute.assignedAircraftIds = prevRoute.assignedAircraftIds.filter(
-              (id) => id !== aircraftId,
-            );
-          }
+          removeAircraftFromRoute(aircraftId, resolveRouteId(aircraft.assignedRouteId));
         }
         aircraft.assignedRouteId = routeId;
         aircraft.routeAssignedAtTick = actionTick;
@@ -873,6 +953,7 @@ export async function replayActionLog(params: {
         }
         if (!route.assignedAircraftIds.includes(aircraftId)) {
           route.assignedAircraftIds = [...route.assignedAircraftIds, aircraftId];
+          indexAircraftOnRoute(aircraftId, routeId);
         }
         updateLastTick(actionTick);
         pushTimelineEvent({
@@ -905,14 +986,9 @@ export async function replayActionLog(params: {
           }
         }
         if (routeId) {
-          const route = routesById.get(routeId);
-          if (route) {
-            route.assignedAircraftIds = route.assignedAircraftIds.filter((id) => id !== aircraftId);
-          }
+          removeAircraftFromRoute(aircraftId, routeId);
         } else {
-          for (const route of routesById.values()) {
-            route.assignedAircraftIds = route.assignedAircraftIds.filter((id) => id !== aircraftId);
-          }
+          removeAircraftFromAllRoutes(aircraftId);
         }
         updateLastTick(actionTick);
         const route = routeId ? routesById.get(routeId) : null;
@@ -1027,9 +1103,7 @@ export async function replayActionLog(params: {
         const aircraft = fleetById.get(instanceId);
         if (!aircraft) break;
         fleetById.delete(instanceId);
-        for (const route of routesById.values()) {
-          route.assignedAircraftIds = route.assignedAircraftIds.filter((id) => id !== instanceId);
-        }
+        removeAircraftFromAllRoutes(instanceId);
         const model = getAircraftById(aircraft?.modelId ?? "");
         if (!model) break;
         const isLease = aircraft?.purchaseType === "lease";

@@ -8,6 +8,7 @@ import {
   getProsperityIndex,
   getSeason,
   haversineDistance,
+  TICKS_PER_DAY,
   TICK_DURATION,
 } from "@acars/core";
 import { airports as AIRPORTS } from "@acars/data";
@@ -31,7 +32,20 @@ export interface UserLocation {
 let cachedHomeIata: string | null = null;
 let cachedSortedOthers: { airport: Airport; distance: number }[] = [];
 
+// Memoized route suggestions keyed by (homeIata, seasonBucket). syncTick
+// used to regenerate all routes every tick even though season/prosperity
+// inputs only change meaningfully per game-day — now the per-day result is
+// computed once and reused for the ~28,800 ticks inside that day bucket.
+// Invalidated by key change: a new home or a new day bucket recomputes.
+const routesMemo = new Map<string, RouteData[]>();
+const ROUTES_MEMO_MAX_ENTRIES = 16;
+
 function generateRoutes(home: Airport, tick: number): RouteData[] {
+  const seasonBucket = Math.floor(tick / TICKS_PER_DAY);
+  const memoKey = `${home.iata}:${seasonBucket}`;
+  const memoized = routesMemo.get(memoKey);
+  if (memoized) return memoized;
+
   const simulatedDate = new Date(GENESIS_TIME + tick * TICK_DURATION);
   const prosperity = getProsperityIndex(tick);
 
@@ -56,7 +70,7 @@ function generateRoutes(home: Airport, tick: number): RouteData[] {
   if (others.length >= 4)
     picks.push(others[others.length - 2].airport, others[others.length - 1].airport);
 
-  return picks.map((dest) => {
+  const routes = picks.map((dest) => {
     const season = getSeason(dest.latitude, simulatedDate);
     const distance = haversineDistance(
       home.latitude,
@@ -78,6 +92,14 @@ function generateRoutes(home: Airport, tick: number): RouteData[] {
       season,
     };
   });
+
+  if (routesMemo.size >= ROUTES_MEMO_MAX_ENTRIES) {
+    // Drop the oldest entry (first inserted key) to bound memory.
+    const oldestKey = routesMemo.keys().next().value;
+    if (oldestKey !== undefined) routesMemo.delete(oldestKey);
+  }
+  routesMemo.set(memoKey, routes);
+  return routes;
 }
 
 // --- Universal Clock Configuration is now handled in @acars/core ---

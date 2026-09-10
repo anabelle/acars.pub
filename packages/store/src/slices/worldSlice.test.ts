@@ -1,5 +1,5 @@
 import type { AircraftInstance, AirlineEntity } from "@acars/core";
-import { fp } from "@acars/core";
+import { computeCheckpointStateHash, fp } from "@acars/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
@@ -13,12 +13,17 @@ vi.mock("@acars/core", async (importOriginal) => {
   };
 });
 
-vi.mock("@acars/nostr", () => ({
-  loadAllSnapshots: vi.fn(() => Promise.resolve(new Map())),
-  getNDK: vi.fn(() => ({})),
-  NDKEvent: vi.fn(),
-  MARKETPLACE_KIND: 30079,
-}));
+vi.mock("@acars/nostr", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@acars/nostr")>();
+  return {
+    ...mod,
+    loadAllSnapshots: vi.fn(() => Promise.resolve(new Map())),
+    getNDK: vi.fn(() => ({})),
+    NDKEvent: vi.fn(),
+    MARKETPLACE_KIND: 30079,
+    deleteMarketplaceListing: vi.fn().mockResolvedValue(undefined),
+  };
+});
 
 vi.mock("../engine", () => ({
   useEngineStore: {
@@ -144,6 +149,36 @@ const makeAircraft = (id: string, ownerPubkey: string): AircraftInstance => ({
   condition: 1,
 });
 
+/**
+ * Builds a relay SnapshotPayload carrying a checkpoint whose stateHash is
+ * genuinely computed over its contents (mirrors publishCurrentStateSnapshot).
+ */
+async function makeSnapshotPayload(checkpoint: {
+  tick: number;
+  airline: AirlineEntity;
+  fleet: AircraftInstance[];
+  routes: never[];
+}): Promise<{ compressedData: string; stateHash: string; tick: number }> {
+  const stateHash = await computeCheckpointStateHash({
+    airline: checkpoint.airline,
+    fleet: checkpoint.fleet,
+    routes: checkpoint.routes,
+    timeline: [],
+  });
+  const body = {
+    schemaVersion: 1,
+    tick: checkpoint.tick,
+    createdAt: Date.now(),
+    actionChainHash: "chain-test",
+    stateHash,
+    airline: checkpoint.airline,
+    fleet: checkpoint.fleet,
+    routes: checkpoint.routes,
+    timeline: [],
+  };
+  return { compressedData: JSON.stringify(body), stateHash, tick: checkpoint.tick };
+}
+
 describe("projectCompetitorFleet", () => {
   beforeEach(async () => {
     _resetWorldFlags();
@@ -226,19 +261,15 @@ describe("syncWorld", () => {
   it("loads and installs snapshots for competitors", async () => {
     const pubkey = "comp-new";
     const newAirline = makeAirline(pubkey, 120);
-    const mockSnapshot = {
-      schemaVersion: 1,
+    const payload = await makeSnapshotPayload({
       tick: 120,
       airline: newAirline,
       fleet: [makeAircraft("ac-new", pubkey)],
       routes: [],
-      timeline: [],
-    };
+    });
 
     const { loadAllSnapshots } = await import("@acars/nostr");
-    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(
-      new Map([[pubkey, { compressedData: JSON.stringify(mockSnapshot) } as any]]),
-    );
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(new Map([[pubkey, payload]]));
 
     const { state } = createSliceState();
 
@@ -254,19 +285,15 @@ describe("syncWorld", () => {
       ...makeAirline(pubkey, 100),
       status: "chapter11",
     };
-    const mockSnapshot = {
-      schemaVersion: 1,
+    const payload = await makeSnapshotPayload({
       tick: 120,
       airline: bankruptAirline,
       fleet: [makeAircraft("ac-new", pubkey)],
       routes: [],
-      timeline: [],
-    };
+    });
 
     const { loadAllSnapshots } = await import("@acars/nostr");
-    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(
-      new Map([[pubkey, { compressedData: JSON.stringify(mockSnapshot) } as any]]),
-    );
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(new Map([[pubkey, payload]]));
 
     const { state } = createSliceState();
 
@@ -274,5 +301,148 @@ describe("syncWorld", () => {
 
     expect(state.competitors.has("comp-bankrupt")).toBe(true);
     expect(state.competitors.get("comp-bankrupt")?.status).toBe("chapter11");
+  });
+
+  it("rejects snapshots whose state hash does not verify", async () => {
+    const pubkey = "comp-tampered";
+    const payload = await makeSnapshotPayload({
+      tick: 120,
+      airline: makeAirline(pubkey, 120),
+      fleet: [makeAircraft("ac-tampered", pubkey)],
+      routes: [],
+    });
+    // Tamper: ship a different hash on the relay payload than the body declares.
+    const tampered = { ...payload, stateHash: "deadbeef" };
+
+    const { loadAllSnapshots } = await import("@acars/nostr");
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(new Map([[pubkey, tampered]]));
+
+    const { state } = createSliceState();
+
+    await state.syncWorld();
+
+    expect(state.competitors.has("comp-tampered")).toBe(false);
+    expect(state.fleetByOwner.has(pubkey)).toBe(false);
+  });
+
+  it("rejects snapshots with a fleet larger than the defensive cap", async () => {
+    const pubkey = "comp-huge";
+    const hugeFleet = Array.from({ length: 5001 }, (_, i) => makeAircraft(`ac-huge-${i}`, pubkey));
+    const payload = await makeSnapshotPayload({
+      tick: 120,
+      airline: makeAirline(pubkey, 120),
+      fleet: hugeFleet,
+      routes: [],
+    });
+
+    const { loadAllSnapshots } = await import("@acars/nostr");
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(new Map([[pubkey, payload]]));
+
+    const { state } = createSliceState();
+
+    await state.syncWorld();
+
+    expect(state.competitors.has("comp-huge")).toBe(false);
+  });
+
+  it("rejects snapshots with an out-of-range corporate balance", async () => {
+    const pubkey = "comp-rich";
+    const richAirline = {
+      ...makeAirline(pubkey, 120),
+      corporateBalance: fp(50_000_000_000), // $50B — outside the ±$10B clamp
+    };
+    const payload = await makeSnapshotPayload({
+      tick: 120,
+      airline: richAirline,
+      fleet: [],
+      routes: [],
+    });
+
+    const { loadAllSnapshots } = await import("@acars/nostr");
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(new Map([[pubkey, payload]]));
+
+    const { state } = createSliceState();
+
+    await state.syncWorld();
+
+    expect(state.competitors.has("comp-rich")).toBe(false);
+  });
+});
+
+describe("syncCompetitor", () => {
+  beforeEach(async () => {
+    _resetWorldFlags();
+    const nostr = await import("@acars/nostr");
+    vi.mocked(nostr.loadAllSnapshots).mockClear();
+    vi.mocked(nostr.loadAllSnapshots).mockResolvedValue(new Map());
+  });
+
+  it("applies live events incrementally over the cached competitor state", async () => {
+    const pubkey = "comp-live";
+    const competitor = makeAirline(pubkey, 120);
+
+    // Prime the cache (and the full-sync watermark) via a full syncWorld.
+    const payload = await makeSnapshotPayload({
+      tick: 120,
+      airline: competitor,
+      fleet: [makeAircraft("ac-live", pubkey)],
+      routes: [],
+    });
+    const { loadAllSnapshots } = await import("@acars/nostr");
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(new Map([[pubkey, payload]]));
+
+    const { state } = createSliceState();
+    await state.syncWorld();
+    expect(state.competitors.has(pubkey)).toBe(true);
+
+    // From here on, syncWorld must NOT be called again — live events are
+    // replayed over the cache instead of triggering a full resync.
+    const syncWorldSpy = vi.fn();
+    state.syncWorld = syncWorldSpy;
+
+    await state.syncCompetitor(pubkey, [
+      {
+        event: { id: "evt-live-1", created_at: 200, author: { pubkey } },
+        action: {
+          schemaVersion: 2,
+          action: "HUB_ADD",
+          payload: { iata: "LAX", fee: fp(0), tick: 125 },
+        },
+      } as never,
+    ]);
+
+    expect(syncWorldSpy).not.toHaveBeenCalled();
+    const updated = state.competitors.get(pubkey);
+    expect(updated?.hubs).toContain("LAX");
+    expect(updated?.lastTick).toBe(125);
+  });
+
+  it("full-resyncs when no live events are provided", async () => {
+    const { state } = createSliceState();
+    const syncWorldSpy = vi.fn();
+    state.syncWorld = syncWorldSpy;
+
+    await state.syncCompetitor("comp-unknown");
+
+    expect(syncWorldSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("full-resyncs when the competitor is not cached yet", async () => {
+    const { state } = createSliceState();
+    const syncWorldSpy = vi.fn();
+    state.syncWorld = syncWorldSpy;
+
+    await state.syncCompetitor("comp-uncached", [
+      {
+        event: { id: "evt-live-2", created_at: 200, author: { pubkey: "comp-uncached" } },
+        action: {
+          schemaVersion: 2,
+          action: "HUB_ADD",
+          payload: { iata: "LAX", fee: fp(0), tick: 125 },
+        },
+      } as never,
+    ]);
+
+    expect(syncWorldSpy).toHaveBeenCalledTimes(1);
   });
 });

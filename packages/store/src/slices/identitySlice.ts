@@ -313,7 +313,7 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
         // Publish initial NIP-33 snapshot so the airline is discoverable on relays
         try {
           const { publishCurrentStateSnapshot } = await import("../actionChain");
-          await publishCurrentStateSnapshot(get());
+          await publishCurrentStateSnapshot(get(), set);
         } catch (e) {
           console.error("Failed to publish initial snapshot", e);
         }

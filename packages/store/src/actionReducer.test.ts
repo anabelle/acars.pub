@@ -1000,4 +1000,137 @@ describe("replayActionLog", () => {
     expect(result.airline?.name).toBe("Recreated Air");
     expect(result.dissolved).toBe(false);
   });
+
+  it("orders actions by payload tick ahead of created_at (causal order)", async () => {
+    const pubkey = "pubkey-tick-order";
+    const actions = [
+      {
+        eventId: "evt-create",
+        authorPubkey: pubkey,
+        createdAt: 1,
+        action: {
+          schemaVersion: 2 as const,
+          action: "AIRLINE_CREATE" as const,
+          payload: {
+            name: "Tick Order Air",
+            hubs: ["JFK"],
+            corporateBalance: fp(500000000),
+            tick: 1,
+          },
+        },
+      },
+      {
+        // Later created_at but EARLIER tick: must apply BEFORE the sell.
+        eventId: "evt-purchase",
+        authorPubkey: pubkey,
+        createdAt: 300,
+        action: {
+          schemaVersion: 2 as const,
+          action: "AIRCRAFT_PURCHASE" as const,
+          payload: {
+            instanceId: "ac-1",
+            modelId: "atr72-600",
+            purchaseType: "buy",
+            tick: 5,
+          },
+        },
+      },
+      {
+        // Earlier created_at but LATER tick: must apply AFTER the purchase.
+        eventId: "evt-sell",
+        authorPubkey: pubkey,
+        createdAt: 200,
+        action: {
+          schemaVersion: 2 as const,
+          action: "AIRCRAFT_SELL" as const,
+          payload: {
+            instanceId: "ac-1",
+            tick: 10,
+          },
+        },
+      },
+    ];
+
+    const result = await replayActionLog({ pubkey, actions });
+    // With the old (created_at, eventId) ordering the sell ran before the
+    // purchase (no aircraft to sell) and the fleet ended at 1 aircraft.
+    // Tick-causal ordering sells the aircraft that was bought at tick 5.
+    expect(result.fleet).toHaveLength(0);
+  });
+
+  it("treats a missing payload tick as 0 when ordering legacy events", async () => {
+    const pubkey = "pubkey-legacy-order";
+    const actions = [
+      {
+        // AIRLINE_CREATE without a payload tick → treated as tick 0.
+        eventId: "evt-create",
+        authorPubkey: pubkey,
+        createdAt: 1,
+        action: {
+          schemaVersion: 2 as const,
+          action: "AIRLINE_CREATE" as const,
+          payload: {
+            name: "Legacy Air",
+            hubs: ["JFK"],
+            corporateBalance: fp(500000000),
+          },
+        },
+      },
+      {
+        // Legacy event: no tick in payload → also tick 0; ties with the
+        // create fall back to created_at/eventId.
+        eventId: "evt-legacy",
+        authorPubkey: pubkey,
+        createdAt: 5,
+        action: {
+          schemaVersion: 2 as const,
+          action: "HUB_ADD" as const,
+          payload: { iata: "SFO" },
+        },
+      },
+      {
+        eventId: "evt-modern",
+        authorPubkey: pubkey,
+        createdAt: 6,
+        action: {
+          schemaVersion: 2 as const,
+          action: "HUB_ADD" as const,
+          payload: { iata: "BOS", tick: 1 },
+        },
+      },
+    ];
+
+    const result = await replayActionLog({ pubkey, actions });
+    // The undefined-tick events sort as 0 (stable via created_at), the
+    // modern event afterwards — no crash, all hubs applied.
+    expect(result.airline?.hubs).toContain("JFK");
+    expect(result.airline?.hubs).toContain("SFO");
+    expect(result.airline?.hubs).toContain("BOS");
+  });
+
+  it("clamps a bootstrap-declared balance to the tier-1 starting balance", async () => {
+    const pubkey = "pubkey-bootstrap-balance-clamp";
+    const actions = [
+      {
+        eventId: "evt-bootstrap-rich",
+        authorPubkey: pubkey,
+        createdAt: 100,
+        action: {
+          schemaVersion: 2 as const,
+          action: "TICK_UPDATE" as const,
+          payload: {
+            tick: 100,
+            // Attacker-declared $900M — must be clamped to $100M.
+            corporateBalance: fp(900000000),
+            fleetIds: [],
+            routeIds: [],
+          },
+        },
+      },
+    ];
+
+    const result = await replayActionLog({ pubkey, actions });
+    expect(result.airline).toBeTruthy();
+    expect(result.airline?.corporateBalance).toBe(fp(100000000));
+  });
 });

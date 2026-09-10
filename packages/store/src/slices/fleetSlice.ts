@@ -20,11 +20,9 @@ const airportMap = new Map(airports.map((a) => [a.iata, a]));
 
 import {
   attachSigner,
+  deleteMarketplaceListing,
   ensureConnected,
-  getNDK,
-  MARKETPLACE_KIND,
   type MarketplaceListing,
-  NDKEvent,
   publishUsedAircraft,
 } from "@acars/nostr";
 import type { StateCreator } from "zustand";
@@ -411,7 +409,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
 
     try {
       attachSigner();
-      ensureConnected();
+      await ensureConnected();
 
       await publishActionWithChain({
         action: {
@@ -429,16 +427,12 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
 
       // If it was listed, we should delete the listing too
       if (instance.listingPrice) {
-        const ndk = getNDK();
-        const deletionEvent = new NDKEvent(ndk);
-        deletionEvent.kind = 5;
-        // NIP-33 addressable event deletion: use ['a', ...] tag only.
-        // We don't have the Nostr event ID, and ['e', aircraftId] was using
-        // the app-level ID which is invalid for the 'e' tag.
-        deletionEvent.tags = [
-          ["a", `${MARKETPLACE_KIND}:${instance.ownerPubkey}:airtr:marketplace:${aircraftId}`],
-        ];
-        await deletionEvent.publish();
+        try {
+          await deleteMarketplaceListing(instance.ownerPubkey, aircraftId);
+        } catch (e) {
+          // Non-critical: other clients filter stale listings by ownership.
+          console.warn(`[Fleet] Failed to delete listing for ${aircraftId}:`, e);
+        }
       }
     } catch (e) {
       set((state) => {
@@ -703,7 +697,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
 
     try {
       attachSigner();
-      ensureConnected();
+      await ensureConnected();
 
       await publishActionWithChain({
         action: {
@@ -821,23 +815,37 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
 
     try {
       attachSigner();
-      ensureConnected();
+      await ensureConnected();
 
-      // 2. Publish to Marketplace
+      // 2. Publish to Marketplace, then the action-log entry. If the action
+      // publish fails AFTER the listing went live, publish a kind-5 deletion
+      // so the listing does not linger as an orphan a buyer could pay for.
       await publishUsedAircraft({ ...instance, listingPrice: price }, price);
-      await publishActionWithChain({
-        action: {
-          schemaVersion: 2,
-          action: "AIRCRAFT_LIST",
-          payload: {
-            instanceId: aircraftId,
-            price,
-            tick: useEngineStore.getState().tick,
+      try {
+        await publishActionWithChain({
+          action: {
+            schemaVersion: 2,
+            action: "AIRCRAFT_LIST",
+            payload: {
+              instanceId: aircraftId,
+              price,
+              tick: useEngineStore.getState().tick,
+            },
           },
-        },
-        get,
-        set,
-      });
+          get,
+          set,
+        });
+      } catch (actionError) {
+        try {
+          await deleteMarketplaceListing(instance.ownerPubkey, aircraftId);
+        } catch (deletionError) {
+          logger.error(
+            `Failed to clean up orphaned marketplace listing for ${aircraftId}:`,
+            deletionError,
+          );
+        }
+        throw actionError;
+      }
     } catch (e) {
       set((state) => {
         if (!state.airline) return state;
@@ -877,16 +885,10 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
 
     try {
       attachSigner();
-      ensureConnected();
+      await ensureConnected();
 
       // 2. Delete Marketplace Entry
-      const ndk = getNDK();
-      const deletionEvent = new NDKEvent(ndk);
-      deletionEvent.kind = 5;
-      deletionEvent.tags = [
-        ["a", `${MARKETPLACE_KIND}:${airline.ceoPubkey}:airtr:marketplace:${aircraftId}`],
-      ];
-      await deletionEvent.publish();
+      await deleteMarketplaceListing(airline.ceoPubkey, aircraftId);
       await publishActionWithChain({
         action: {
           schemaVersion: 2,

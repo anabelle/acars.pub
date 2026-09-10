@@ -14,19 +14,23 @@ import {
   fp,
   fpAdd,
   fpFormat,
-  fpRaw,
   fpScale,
   fpSub,
   GENESIS_TIME,
   TICK_DURATION,
   TICKS_PER_MONTH,
 } from "@acars/core";
+import type { GameActionEnvelope } from "@acars/core";
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
-import { getNDK, MARKETPLACE_KIND, NDKEvent } from "@acars/nostr";
+import { deleteMarketplaceListing } from "@acars/nostr";
 import type { ActionLogEntry } from "@acars/nostr";
 import type { StateCreator } from "zustand";
+import { replayActionLog } from "../actionReducer";
 import { useEngineStore } from "../engine";
 import { reconcileFleetToTick } from "../FlightEngine";
+import { computeRejectedBuyEventIds } from "../marketplaceReplay";
+import { scopeActionsToCheckpoint } from "../scopeActions";
+import { verifySnapshotPayload } from "../snapshotValidation";
 import type { AirlineState } from "../types";
 
 export interface WorldSlice {
@@ -52,9 +56,18 @@ let pendingSyncWorldOptions: { force?: boolean } | null = null;
 const MONTH_TICKS = TICKS_PER_MONTH;
 const worldLogger = createLogger("WorldSync");
 
+/**
+ * Full snapshot resyncs per competitor are rate-limited to this interval;
+ * in between, live events keep the competitor state current via the
+ * incremental replay in `syncCompetitor`.
+ */
+const COMPETITOR_FULL_SYNC_INTERVAL_MS = 60_000;
+const competitorLastFullSync = new Map<string, number>();
+
 export function _resetWorldFlags() {
   isSyncingWorld = false;
   pendingSyncWorldOptions = null;
+  competitorLastFullSync.clear();
 }
 
 const applyMonthlyCosts = (
@@ -89,6 +102,66 @@ const applyMonthlyCosts = (
   const totalOpexCost = fpScale(fp(opexTotal), numCycles);
   const totalCost = fpAdd(totalLeaseCost, totalOpexCost);
   return fpSub(balance, totalCost);
+};
+
+/**
+ * Add a player's active routes to the global route registry as flight
+ * offers. Shared by the full `syncWorld` pass and the incremental
+ * `syncCompetitor` replay so both paths compute offers identically.
+ */
+const buildRouteOffers = (
+  registry: Map<string, FlightOffer[]>,
+  airline: AirlineEntity,
+  fleet: AircraftInstance[],
+  routes: Route[],
+): void => {
+  // O(1) aircraft lookup for assignedAircraftIds resolution (was
+  // fleet.find inside a map — O(F) per route).
+  const fleetById = new Map(fleet.map((ac) => [ac.id, ac]));
+
+  for (const route of routes) {
+    if (route.status !== "active") continue;
+
+    const key = canonicalRouteKey(route.originIata, route.destinationIata);
+    const offers = registry.get(key) || [];
+
+    let avgSpeed = 800;
+    let avgTravelTime = 0;
+    if (route.assignedAircraftIds.length > 0) {
+      const models = route.assignedAircraftIds
+        .map((id: string) => {
+          const ac = fleetById.get(id);
+          return ac ? getAircraftById(ac.modelId) : null;
+        })
+        .filter(Boolean);
+      if (models.length > 0) {
+        avgSpeed = models.reduce((sum, m) => sum + (m!.speedKmh || 800), 0) / models.length;
+        avgTravelTime = (route.distanceKm / avgSpeed) * 60;
+      }
+    }
+
+    const frequency = computeRouteFrequency(
+      route.distanceKm,
+      route.assignedAircraftIds.length,
+      avgSpeed,
+    );
+    if (frequency === 0) continue;
+
+    const offer: FlightOffer = {
+      airlinePubkey: airline.ceoPubkey,
+      fareEconomy: route.fareEconomy,
+      fareBusiness: route.fareBusiness,
+      fareFirst: route.fareFirst,
+      frequencyPerWeek: frequency,
+      travelTimeMinutes: Math.round(avgTravelTime) || 480,
+      stops: 0,
+      serviceScore: 0.7,
+      brandScore: airline.brandScore || 0.5,
+    };
+
+    offers.push(offer);
+    registry.set(key, offers);
+  }
 };
 
 export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = (set, get) => ({
@@ -165,7 +238,6 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         const existingState = get();
         // Load completely from Snapshot Rollups! Wait...
         const { loadAllSnapshots } = await import("@acars/nostr");
-        const { decompressSnapshotString } = await import("@acars/core");
 
         const allSnapshots = await loadAllSnapshots();
 
@@ -189,13 +261,25 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
           if (pubkey === myPubkey) continue;
 
           try {
-            const decompressedStr = await decompressSnapshotString(payload.compressedData);
-            const { airline, fleet, routes } = JSON.parse(decompressedStr) as Checkpoint;
+            // CRITICAL: peer snapshots are untrusted input. The payload is
+            // decompressed, shape-validated via parseCheckpoint, hash-verified
+            // (recomputed state hash must match BOTH the checkpoint body and
+            // the relay-carried hash) and clamped (fleet <= 5000, balance in
+            // [-$10B, $10B]). Anything that fails is DISCARDED, not ingested.
+            const snapshotCheckpoint = await verifySnapshotPayload(payload);
+            if (!snapshotCheckpoint) {
+              worldLogger.warn(
+                `Rejected invalid/unverified snapshot for competitor ${pubkey} — not ingesting.`,
+              );
+              continue;
+            }
+            const { airline, fleet, routes } = snapshotCheckpoint;
 
             if (airline.status === "chapter11" || airline.status === "liquidated") {
               competitors.set(pubkey, airline);
               updatedFleetByOwner.set(pubkey, fleet);
               updatedRoutesByOwner.set(pubkey, routes);
+              competitorLastFullSync.set(pubkey, Date.now());
               continue; // Do not advance bankrupt airlines
             }
 
@@ -243,52 +327,10 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             competitors.set(pubkey, finalAirline);
             updatedFleetByOwner.set(pubkey, finalFleet);
             updatedRoutesByOwner.set(pubkey, routes);
+            competitorLastFullSync.set(pubkey, Date.now());
 
             // Update global route registry
-            for (const route of routes) {
-              if (route.status !== "active") continue;
-
-              const key = canonicalRouteKey(route.originIata, route.destinationIata);
-              const offers = registry.get(key) || [];
-
-              let avgSpeed = 800;
-              let avgTravelTime = 0;
-              if (route.assignedAircraftIds.length > 0) {
-                const models = route.assignedAircraftIds
-                  .map((id: string) => {
-                    const ac = finalFleet.find((a: AircraftInstance) => a.id === id);
-                    return ac ? getAircraftById(ac.modelId) : null;
-                  })
-                  .filter(Boolean);
-                if (models.length > 0) {
-                  avgSpeed =
-                    models.reduce((sum, m) => sum + (m!.speedKmh || 800), 0) / models.length;
-                  avgTravelTime = (route.distanceKm / avgSpeed) * 60;
-                }
-              }
-
-              const frequency = computeRouteFrequency(
-                route.distanceKm,
-                route.assignedAircraftIds.length,
-                avgSpeed,
-              );
-              if (frequency === 0) continue;
-
-              const offer: FlightOffer = {
-                airlinePubkey: finalAirline.ceoPubkey,
-                fareEconomy: route.fareEconomy,
-                fareBusiness: route.fareBusiness,
-                fareFirst: route.fareFirst,
-                frequencyPerWeek: frequency,
-                travelTimeMinutes: Math.round(avgTravelTime) || 480,
-                stops: 0,
-                serviceScore: 0.7,
-                brandScore: finalAirline.brandScore || 0.5,
-              };
-
-              offers.push(offer);
-              registry.set(key, offers);
-            }
+            buildRouteOffers(registry, finalAirline, finalFleet, routes);
           } catch (e) {
             worldLogger.warn(`Failed parsing snapshot for competitor ${pubkey}`, e);
           }
@@ -323,8 +365,94 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
     }
   },
 
-  syncCompetitor: async () => {
-    return await get().syncWorld();
+  syncCompetitor: async (competitorPubkey: string, liveEvents?: ActionLogEntry[]) => {
+    const now = Date.now();
+    const lastFullSync = competitorLastFullSync.get(competitorPubkey) ?? 0;
+    const hasLiveEvents = Array.isArray(liveEvents) && liveEvents.length > 0;
+
+    // Full resync when there is nothing to replay incrementally, when the
+    // cached state is stale (periodic refresh), or on first sight.
+    if (!hasLiveEvents || now - lastFullSync >= COMPETITOR_FULL_SYNC_INTERVAL_MS) {
+      competitorLastFullSync.set(competitorPubkey, now);
+      return await get().syncWorld();
+    }
+
+    const state = get();
+    const cachedAirline = state.competitors.get(competitorPubkey);
+    if (!cachedAirline) {
+      // No cached state to replay onto — fall back to a full resync.
+      competitorLastFullSync.set(competitorPubkey, now);
+      return await get().syncWorld();
+    }
+    const cachedFleet = state.fleetByOwner.get(competitorPubkey) ?? [];
+    const cachedRoutes = state.routesByOwner.get(competitorPubkey) ?? [];
+
+    const checkpoint: Checkpoint = {
+      schemaVersion: 1,
+      tick: cachedAirline.lastTick ?? 0,
+      createdAt: now,
+      actionChainHash: "",
+      stateHash: "",
+      airline: cachedAirline,
+      fleet: cachedFleet,
+      routes: cachedRoutes,
+      timeline: [],
+    };
+
+    // Scope the live events to those newer than the cached state (with the
+    // standard rescue rules), then replay them over the cached snapshot.
+    const scoped = scopeActionsToCheckpoint(liveEvents, checkpoint);
+    // Anti-double-purchase guard: relay retries can deliver two
+    // AIRCRAFT_BUY_USED events for the same instance — only the earliest
+    // (per canonical order) may win.
+    const rejectedEventIds = computeRejectedBuyEventIds(scoped);
+    try {
+      const replayed = await replayActionLog({
+        pubkey: competitorPubkey,
+        actions: scoped.map((entry) => ({
+          action: entry.action as unknown as GameActionEnvelope,
+          eventId: entry.event.id,
+          authorPubkey: entry.event.author.pubkey,
+          createdAt: entry.event.created_at ?? null,
+        })),
+        checkpoint,
+        rejectedEventIds,
+      });
+
+      if (!replayed.airline) {
+        // Dissolved mid-stream — keep the cached state; the next full
+        // resync will confirm.
+        return;
+      }
+
+      const updatedCompetitors = new Map(state.competitors);
+      updatedCompetitors.set(competitorPubkey, replayed.airline);
+      const updatedFleetByOwner = new Map(state.fleetByOwner);
+      updatedFleetByOwner.set(competitorPubkey, replayed.fleet);
+      const updatedRoutesByOwner = new Map(state.routesByOwner);
+      updatedRoutesByOwner.set(competitorPubkey, replayed.routes);
+
+      // Refresh only this competitor's offers in the registry: drop their
+      // old entries, then re-add from the replayed state.
+      const updatedRegistry = new Map(state.globalRouteRegistry);
+      for (const [key, offers] of updatedRegistry.entries()) {
+        const kept = offers.filter((offer) => offer.airlinePubkey !== competitorPubkey);
+        if (kept.length !== offers.length) {
+          if (kept.length === 0) updatedRegistry.delete(key);
+          else updatedRegistry.set(key, kept);
+        }
+      }
+      buildRouteOffers(updatedRegistry, replayed.airline, replayed.fleet, replayed.routes);
+
+      set({
+        competitors: updatedCompetitors,
+        fleetByOwner: updatedFleetByOwner,
+        routesByOwner: updatedRoutesByOwner,
+        globalRouteRegistry: updatedRegistry,
+      });
+    } catch (e) {
+      worldLogger.warn(`Incremental competitor sync failed for ${competitorPubkey}`, e);
+    }
   },
 });
 
@@ -337,7 +465,7 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
  */
 async function settleMarketplaceSales(
   get: () => AirlineState,
-  set: (state: Partial<AirlineState>) => void,
+  set: (partial: Partial<AirlineState> | ((state: AirlineState) => Partial<AirlineState>)) => void,
 ): Promise<void> {
   const { airline, fleet, routes, timeline, pubkey, fleetByOwner } = get();
   if (!airline || !pubkey) return;
@@ -426,6 +554,14 @@ async function settleMarketplaceSales(
 
   const finalTimeline = [...newTimelineEvents, ...timeline].slice(0, 1000);
 
+  // Snapshot of the pre-settlement state, used by the merge-safe rollback.
+  const previousFleetById = new Map(fleet.map((ac) => [ac.id, ac]));
+  const previousRouteById = new Map(routes.map((rt) => [rt.id, rt]));
+  const addedTimelineIds = new Set(newTimelineEvents.map((evt) => evt.id));
+  // Exact proceeds credited by this settlement — the rollback re-subtracts
+  // this delta instead of restoring an absolute balance snapshot.
+  const saleDelta = fpSub(updatedBalance, airline.corporateBalance);
+
   // Optimistic update
   set({
     airline: updatedAirline,
@@ -434,16 +570,11 @@ async function settleMarketplaceSales(
     timeline: finalTimeline,
   });
 
-  // Publish updated airline state + delete marketplace listings (seller-signed, NIP-09 compliant)
+  // Delete marketplace listings (seller-signed, NIP-09 compliant)
   try {
-    // Delete our own marketplace listings (we are the author, so NIP-09 allows this)
-    const ndk = getNDK();
     for (const sold of soldAircraft) {
       try {
-        const deletionEvent = new NDKEvent(ndk);
-        deletionEvent.kind = 5;
-        deletionEvent.tags = [["a", `${MARKETPLACE_KIND}:${pubkey}:airtr:marketplace:${sold.id}`]];
-        await deletionEvent.publish();
+        await deleteMarketplaceListing(pubkey, sold.id);
         console.info(`[WorldSlice] Published NIP-09 deletion for marketplace listing: ${sold.id}`);
       } catch (e) {
         // Non-critical: listing will be filtered by ownership verification on other clients
@@ -451,8 +582,54 @@ async function settleMarketplaceSales(
       }
     }
   } catch (e) {
-    // Rollback on publish failure
+    // Rollback on publish failure — merge-safe: revert only the settlement
+    // delta instead of restoring absolute snapshots, so concurrent tick
+    // updates (revenue, opex) applied meanwhile are preserved.
     console.error("[WorldSlice] Failed to publish marketplace settlement:", e);
-    set({ airline, fleet, routes, timeline });
+    set((state) => {
+      const restoredFleet = [...state.fleet];
+      for (const sold of soldAircraft) {
+        if (!restoredFleet.some((ac) => ac.id === sold.id)) {
+          const previous = previousFleetById.get(sold.id);
+          if (previous) restoredFleet.push(previous);
+        }
+      }
+      const restoredRoutes = state.routes.map((rt) => {
+        const previousRoute = previousRouteById.get(rt.id);
+        if (!previousRoute) return rt;
+        const restoredIds = [...rt.assignedAircraftIds];
+        for (const sold of soldAircraft) {
+          if (
+            previousRoute.assignedAircraftIds.includes(sold.id) &&
+            !restoredIds.includes(sold.id)
+          ) {
+            restoredIds.push(sold.id);
+          }
+        }
+        return restoredIds.length === rt.assignedAircraftIds.length
+          ? rt
+          : { ...rt, assignedAircraftIds: restoredIds };
+      });
+      return {
+        airline: state.airline
+          ? {
+              ...state.airline,
+              // Re-subtract exactly the sale proceeds we credited (delta),
+              // never an absolute balance snapshot.
+              corporateBalance: fpSub(state.airline.corporateBalance, saleDelta),
+              // Re-add the sold aircraft to fleetIds.
+              fleetIds: [
+                ...state.airline.fleetIds,
+                ...soldAircraft
+                  .map((sold) => sold.id)
+                  .filter((id) => !state.airline!.fleetIds.includes(id)),
+              ],
+            }
+          : state.airline,
+        fleet: restoredFleet,
+        routes: restoredRoutes,
+        timeline: state.timeline.filter((evt) => !addedTimelineIds.has(evt.id)),
+      };
+    });
   }
 }

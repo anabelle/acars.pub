@@ -1,7 +1,7 @@
 import type { AircraftInstance, AirlineEntity, FixedPoint, TimelineEvent } from "@acars/core";
 import { fp, fpAdd, fpScale, getMaintenanceDowntimeTicks } from "@acars/core";
 import { getAircraftById } from "@acars/data";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
 import { createFleetSlice } from "./fleetSlice";
@@ -15,8 +15,9 @@ vi.mock("@acars/nostr", () => ({
     }),
   ),
   publishUsedAircraft: vi.fn(() => Promise.resolve()),
+  deleteMarketplaceListing: vi.fn(() => Promise.resolve()),
   attachSigner: vi.fn(),
-  ensureConnected: vi.fn(),
+  ensureConnected: vi.fn(() => Promise.resolve()),
   getNDK: vi.fn(() => ({
     connect: vi.fn(),
   })),
@@ -132,6 +133,10 @@ const makeAircraft = (id: string, base: string): AircraftInstance => ({
   flightHoursTotal: 0,
   flightHoursSinceCheck: 0,
   condition: 1,
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
 });
 
 describe("ferryAircraft", () => {
@@ -490,5 +495,51 @@ describe("performMaintenance", () => {
     expect(state.timeline.some((evt) => evt.id === "evt-existing")).toBe(true);
     // Maintenance event should be removed
     expect(state.timeline.some((evt) => evt.id === "evt-maint-ac-worn-100")).toBe(false);
+  });
+});
+
+describe("listAircraft", () => {
+  it("deletes the orphaned marketplace listing when the action publish fails", async () => {
+    const airline = makeAirline(["BOG"]);
+    const ac = makeAircraft("ac-list", "BOG");
+    const { state } = createSliceState({ airline, fleet: [ac], timeline: [] });
+
+    const nostr = await import("@acars/nostr");
+    const { publishActionWithChain } = await import("../actionChain");
+    // The marketplace listing publish succeeds, but the AIRCRAFT_LIST action
+    // publish fails — the live listing must be cleaned up via kind-5.
+    vi.mocked(publishActionWithChain).mockImplementationOnce(() =>
+      Promise.reject(new Error("publish failed")),
+    );
+
+    await expect(state.listAircraft("ac-list", fp(2000000))).rejects.toThrow(
+      "Failed to publish listing",
+    );
+
+    expect(vi.mocked(nostr.publishUsedAircraft)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(nostr.deleteMarketplaceListing)).toHaveBeenCalledWith(
+      "test-pubkey",
+      "ac-list",
+    );
+    // Rollback: listing price reverted and fee refunded.
+    expect(state.fleet.find((a) => a.id === "ac-list")?.listingPrice ?? null).toBeNull();
+    expect(state.airline?.corporateBalance).toBe(airline.corporateBalance);
+  });
+
+  it("does not delete anything when the listing publish itself fails", async () => {
+    const airline = makeAirline(["BOG"]);
+    const ac = makeAircraft("ac-list2", "BOG");
+    const { state } = createSliceState({ airline, fleet: [ac], timeline: [] });
+
+    const nostr = await import("@acars/nostr");
+    vi.mocked(nostr.publishUsedAircraft).mockImplementationOnce(() =>
+      Promise.reject(new Error("relay down")),
+    );
+
+    await expect(state.listAircraft("ac-list2", fp(2000000))).rejects.toThrow(
+      "Failed to publish listing",
+    );
+
+    expect(vi.mocked(nostr.deleteMarketplaceListing)).not.toHaveBeenCalled();
   });
 });

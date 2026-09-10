@@ -6,7 +6,7 @@ import {
   type Route,
 } from "@acars/core";
 import { publishAction } from "@acars/nostr";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
 import type { AirlineState } from "../types";
 import {
@@ -18,9 +18,25 @@ import {
 // Reset mock call counts (but not implementations) before each test so that
 // accumulated calls from one test suite do not pollute assertions in others
 // (e.g. the fast-path test that asserts processFlightEngine was never called).
+
+/**
+ * Let fire-and-forget publishes (serialized queue in actionChain) drain
+ * before asserting on the publish spy. One macrotask is enough for all
+ * pending microtasks + Dexie rejection cycles to settle.
+ */
+const flushAsync = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
 beforeEach(() => {
   vi.clearAllMocks();
   _resetTickLockDiagnostics();
+});
+
+// Fire-and-forget publishes (serialized queue in actionChain) from one test
+// must not leak into the next test's spy window. Drain the queue (plus one
+// macrotask for Dexie/crypto rejection cycles) after every test, BEFORE the
+// next beforeEach clears the mock call history.
+afterEach(async () => {
+  await flushAsync();
 });
 
 vi.mock("../FlightEngine", () => ({
@@ -41,6 +57,7 @@ vi.mock("@acars/nostr", () => ({
     }),
   ),
   publishCheckpoint: vi.fn(() => Promise.resolve()),
+  publishSnapshot: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../engine", () => ({
@@ -408,9 +425,11 @@ describe("TICK_UPDATE publish cadence", () => {
     for (let tick = 1001; tick < 1020; tick += 1) {
       await state.processTick(tick);
     }
+    await flushAsync();
     expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(1);
 
     await state.processTick(1020);
+    await flushAsync();
     expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(2);
   });
 
@@ -450,6 +469,7 @@ describe("TICK_UPDATE publish cadence", () => {
     // immediately — routine events ride the heartbeat cadence.
     await state.processTick(1001);
 
+    await flushAsync();
     expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(1);
   });
 
@@ -485,6 +505,7 @@ describe("TICK_UPDATE publish cadence", () => {
     await state.processTick(1000);
     await state.processTick(1001);
 
+    await flushAsync();
     expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(2);
   });
 
@@ -506,6 +527,7 @@ describe("TICK_UPDATE publish cadence", () => {
     });
 
     await state.processTick(1000);
+    await flushAsync();
     expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(1);
 
     const publishedAction = vi.mocked(publishAction).mock.calls[0][0];
@@ -546,9 +568,11 @@ describe("TICK_UPDATE publish cadence", () => {
       for (let tick = 1001; tick < 1020; tick += 1) {
         await state.processTick(tick);
       }
+      await flushAsync();
       expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(1);
 
       await state.processTick(1020);
+      await flushAsync();
       expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(2);
     } finally {
       errorSpy.mockRestore();
@@ -574,6 +598,7 @@ describe("TICK_UPDATE publish cadence", () => {
     });
 
     await state.processTick(1000);
+    await flushAsync();
     expect(vi.mocked(publishAction)).toHaveBeenCalledTimes(1);
 
     const publishedAction = vi.mocked(publishAction).mock.calls[0][0];
