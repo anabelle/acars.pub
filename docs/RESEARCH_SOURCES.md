@@ -117,7 +117,7 @@ design decisions back to their sources and verify/update them.
 ### 4.2 Implementation
 
 - **NDK (Nostr Development Kit)**: https://github.com/nostr-dev-kit/ndk — TypeScript client library. Our chosen Nostr client.
-- **Nostr Game Engine (NGE)**: https://github.com/nostr-protocol/nostr-game-engine — Reference implementation of a game on Nostr (jMonkeyEngine-based, not directly applicable but architecturally informative).
+- **NGEngine (Nostr Game Engine)**: https://github.com/NostrGameEngine/ngengine — Reference implementation of a game on Nostr (jMonkeyEngine-based, not directly applicable but architecturally informative).
 
 ---
 
@@ -166,7 +166,6 @@ design decisions back to their sources and verify/update them.
 
 - **BacancyTech**: https://bacancytechnology.com — Comprehensive guide to React i18n architecture.
 - **Dev.to**: Multiple articles on namespace-based organization, TypeScript type-safe keys, and CI integration.
-- **SamuelFaj**: https://samuelfaj.com — Backend i18n patterns, database-stored translations, Redis caching.
 
 ---
 

@@ -121,4 +121,37 @@ A robust UI isn't just about code—it's about dopamine.
 
 ---
 
+## 6. Tycoon Density: Information Architecture at Scale
+
+_(Merged from the former `docs/TYCOON_UI_ARCHITECTURE.md`, Sept 2026.)_
+
+Based on research into enterprise software, city builders (Cities: Skylines), and grand strategy games (Paradox, Victoria 3, Eve Online): at 10,000 active aircraft and thousands of routes, standard web-app layouts, pagination, and simple lists fail.
+
+### 6.1 Information Hierarchy
+
+1. **Macro Layer (global context):** the 3D world map — always visible, always moving, immediate spatial awareness.
+2. **HUD:** anchored to screen edges — critical metrics only (balance, tick rate, prosperity, unread alerts).
+3. **Lenses (domain dashboards):** docked/sliding panels (Fleet, Finance, Corporate) consuming 30-40% of screen width, map stays visible.
+4. **Micro Layer (drill-down):** dense, filterable, sortable tables for explicit management (e.g., the used aircraft market).
+
+### 6.2 The "Cockpit" Layout
+
+Abandon the centered-webpage layout; the UI hugs the edges to maximize map view:
+
+- **Layer 0 (background):** `WorldMap` (direct `maplibregl.Map()` usage), always rendering.
+- **Left edge:** sidebar navigation (Overview, Fleet, Network, Corporate, Bank).
+- **Top edge:** status bar — company name, tier, brand score, cash balance.
+- **Bottom edge:** event ticker — scrolling global Nostr events.
+- **Right edge:** context panel (`<Outlet />`) — glassmorphic sheet, 400-800px, where TanStack Router renders the active domain.
+
+### 6.3 Data Density Practices
+
+- **Eliminate white space:** tightly packed tables (`size="sm"` variants).
+- **Iconography over text:** `[fuel icon] 5,000/hr` instead of labels.
+- **Semantic color:** green = positive cash flow; red = losses/bankruptcy; yellow/orange = alerts/maintenance; blue = informational.
+- **Progress bars everywhere:** capacity indicators (e.g., route demand at 85%).
+- **Atomic Zustand selectors:** the ticking engine must update the UI without massive React re-renders.
+
+---
+
 This architecture prevents the app from becoming a legacy burden. By relying strictly on type-safe routing, atomic Tailwind styling, and standard feature slices, future agents can confidently add massive new corporate modules without breaking the existing UI.

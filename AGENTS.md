@@ -36,12 +36,18 @@ You cannot render 10,000 aircraft rows into the DOM. Every list must use `@tanst
 
 ## 3. The Corporate Architecture (First-Class Entities)
 
-In this game, the **Airline** has been a first-class citizen from day one. You are not building a simple 1:1 mapping (Player = Airline). We use a **Corporate Holding Model**:
+Be honest about what exists and what is planned. Both matter; conflating them breaks onboarding.
 
-- An **AirlineEntity** is a distinct cryptographic object (with a genesis hash ID, assets, and liabilities).
-- A **Player** (Nostr Pubkey) is an investor and optionally the CEO.
-- Airlines have **Cap Tables** (10,000,000 shares) and can IPO, merge, issue dividends, file Chapter 11 bankruptcy, or suffer Hostile Takeovers via signed player vote events.
-  _Always write types to support the `AirlineEntity` structure, not a 1:1 player schema._
+**PRESENT — the running model is 1:1 (Player = Airline).**
+
+- Every player owns exactly one airline (`AirlineEntity`), created at identity setup with full assets and liabilities.
+- The `AirlineEntity` type carries **vestigial corporate fields** (`sharesOutstanding: 10,000,000`, `shareholders: Record<pubkey, count>`) that are initialized to a single 100% owner and are otherwise unused today. Keep them in the type — the future model below builds on them — but do not write gameplay logic against multi-owner cap tables yet.
+- **Chapter 11 bankruptcy is real and client-side**: the tick processor (engine slice) checks `corporateBalance < CHAPTER11_BALANCE_THRESHOLD_USD (-$10M)` each tick, grounds the fleet, pauses operations, and emits a bankruptcy `TICK_UPDATE`. There is no server, no arbiter, no transition to "liquidated".
+
+**FUTURE — the Corporate Holding Model (PROPOSAL, Phase 8).**
+
+- Multi-investor cap tables, IPOs, mergers, dividends, hostile takeovers via signed player vote events (kind `30081`), and automatic liquidation are **design only**. See `docs/CORPORATE_MODEL.md`, which is explicitly a proposal, not a spec of shipped behavior.
+- Until that lands: _write types to support the `AirlineEntity` structure (so the migration path stays open), but implement gameplay against the 1:1 model._
 
 ## 4. Architecture Bounded Contexts
 

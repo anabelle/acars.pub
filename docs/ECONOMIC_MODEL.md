@@ -66,7 +66,7 @@ Total demand is split into three classes:
 
 | Class    | Share of Total | Price Elasticity            | Booking Window   |
 | -------- | -------------- | --------------------------- | ---------------- |
-| Economy  | 75%            | -1.5 (high sensitivity)     | 14–90 days ahead |
+| Economy  | 75%            | -1.2 (high sensitivity)     | 14–90 days ahead |
 | Business | 20%            | -0.5 (low sensitivity)      | 1–14 days ahead  |
 | First    | 5%             | -0.2 (very low sensitivity) | 1–30 days ahead  |
 
@@ -244,7 +244,10 @@ If `Balance < -10,000,000` (negative $10M):
 - The airline state is persisted as "Chapter 11" on Nostr to prevent further debt accumulation while offline.
 - Player must reorganize (sell assets) to restore positive balance and resume operations.
 
-If balance reaches `-50,000,000`: game over (Liquidation).
+If balance reaches `-50,000,000`: **design intent only** — today the only
+guard at −$50M is a replay spend-floor (`REPLAY_SOFT_FLOOR` in
+`packages/store/src/actionReducer.ts`) that blocks actions projecting a
+balance below it; there is no automatic transition to a "liquidated" state.
 
 ---
 
@@ -267,6 +270,11 @@ If total seats offered on a route exceed demand by more than 150%:
 - **UI Visualization**: SURFACED in the `RouteManager` as the "Supply / Demand Saturation" meter on active route cards. Alerts users when a route is "Over-Supplied."
 
 ### 6.3 Brand Score Evolution
+
+> **Status: partially implemented (2/6 drivers).** Brand score exists in state
+> (initialized at 0.5, clamped to [0,1]) and feeds QSI, but most of the
+> per-tick deltas below are design intent not yet wired into the tick
+> processor.
 
 ```
 BrandScore(tick+1) = BrandScore(tick) + Δ

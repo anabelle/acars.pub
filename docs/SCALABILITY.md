@@ -18,7 +18,7 @@ _Eliminating the worst CPU-side bottlenecks within the existing MapLibre layer a
 
 ### 1. O(1) Airport Lookups
 
-Planned: replace `airports.find(a => a.iata === ...)` linear scans with a `Map<string, Airport>` index built via `useMemo`. At 10K routes with ~4 lookups each, this eliminates ~240M string comparisons per update cycle.
+Implemented: `airports.find(a => a.iata === ...)` linear scans are replaced with a `Map<string, Airport>` index built via `useMemo` (see `packages/map/src/Globe.tsx`). At 10K routes with ~4 lookups each, this eliminates ~240M string comparisons per update cycle.
 
 ### 2. Viewport Culling
 
@@ -144,45 +144,66 @@ Use a library like `rbush` or a customized Quadtree to optimize spatial queries.
 
 _Handling global state across Nostr effectively._
 
-## Phase C: Data Synchronization (Multiplayer Scale)
-
-_Handling global state across Nostr effectively._
-
 ### 1. NIP-33 Snapshot Rollups (Implemented)
 
-Instead of fetching the entire event history, clients fetch the latest **Snapshot Rollup** via NIP-33.
+_(Consolidated from the former `docs/SNAPSHOT_ROLLUP_ARCHITECTURE.md`, Sept 2026.)_
 
-- **Compression**: Payloads are Gzip-compressed, reducing relay storage by 90%.
-- **Attestation**: Every snapshot includes a state hash and action chain hash for verification.
-- **Latency**: Reduces join time from $O(N)$ (events) to $O(1)$ (latest snapshot).
+In a purely event-sourced system, game state is reconstructed by fetching all `kind: 30078` events for a `pubkey`. As players perform thousands of actions, fetch-and-reduce grows linearly $O(N)$: slow initial loads, heavy relay load, and client processing on every start. ACARS solves this with **attested snapshots** on NIP-33 parameterized replaceable events.
+
+**The rollup event:**
+
+- **Kind**: `30078`
+- **d-tag**: `airtr:world:v6-beta:snapshot` (`SNAPSHOT_D_TAG` in `packages/nostr/src/snapshot.ts`)
+- **Content**: JSON `SnapshotPayload` (`compressedData`, `stateHash`, `tick`) with Gzip-compressed state
+- **Attestation**: tags carry `stateHash` and `tick`; the action chain hash (SHA-256 accumulation of event IDs) makes tampering or skipping detectable
+
+**Multi-layer storage:**
+
+| Layer     | Technology             | Purpose                                                                  | Speed      |
+| :-------- | :--------------------- | :----------------------------------------------------------------------- | :--------- |
+| **Local** | **IndexedDB (Dexie)**  | Persistent local cache for instant app resumption.                       | < 50ms     |
+| **Relay** | **Nostr (NIP-33)**     | Authoritative remote backup for cross-device sync and public visibility. | 500ms - 2s |
+| **Chain** | **Nostr (kind 30078)** | The raw event log for granular audit and fallback reconstruction.        | Variable   |
+
+**Synchronization flow:**
+
+1. **Instant Load**: on startup, the local loader hydrates the Zustand store from IndexedDB.
+2. **Snapshot Fetch**: the client queries relays for the latest NIP-33 snapshot for the pubkey.
+3. **Rollup Merge**: if the remote snapshot tick is greater than local, local state is replaced.
+4. **Action Replay**: events published after the snapshot tick are fetched and reduced to reach the log head.
+5. **Real-Time Reconciliation**: the simulation is deterministic with **1 tick = 3s** (1,200 ticks/hour); after 5 hours offline the engine reconciles the 6,000 missing ticks to compute revenue and costs since the last saved state.
+
+**Compression** uses the native browser `CompressionStream` (Gzip), cutting payloads ~80-90% and keeping events within relay size limits (64KB typ.).
+
+**Benefits**: $O(1)$ join time regardless of history length; instant cross-device persistence; relays serve only the latest snapshot per player.
 
 ### 2. Multi-Layer Local Persistence (Implemented)
 
 Local state is persisted to **IndexedDB (Dexie)** for instant app resumption without waiting for a relay round-trip. The data is synchronized in the background with Nostr snapshots to ensure accuracy across devices.
 
-### 3. Background Auditor (Implemented)
+### 3. Background Auditor (Wiring in progress)
 
-State integrity is verified in a dedicated Web Worker to detect and correct any deterministic drift or memory corruption without blocking the UI thread.
+The auditor is a dedicated Web Worker that verifies deterministic state hashes off the UI thread. Worker implemented; integration with app bootstrap landed Sep 2026 (see `apps/web/src/workers/auditor.ts`).
 
 ---
 
 ## Technical Feasibility Log
 
-| Strategy                           | Difficulty | Impact            | Status          |
-| ---------------------------------- | ---------- | ----------------- | --------------- |
-| O(1) Airport Index                 | Low        | Algorithmic Speed | **Planned**     |
-| Viewport Culling                   | Low        | Rendering Speed   | **Implemented** |
-| Zoom-Adaptive LOD                  | Low        | Rendering Speed   | **Implemented** |
-| Arc Memoization                    | Low        | CPU Reduction     | **Implemented** |
-| RAF Flight Animation               | Low        | Visual Quality    | **Implemented** |
-| Two-Layer SDF Livery (12 families) | Low        | Visual Identity   | **Implemented** |
-| Zoom-Based Icon Sizing             | Low        | Map Readability   | **Implemented** |
-| StrictMode WebGL Fix               | Low        | Dev Stability     | **Implemented** |
-| Tiered Airport Classes             | Low        | Map Readability   | **Implemented** |
-| **NIP-33 Snapshot Rollups**        | Medium     | Join Latency      | **Implemented** |
-| **IndexedDB Persistence**          | Low        | Startup Speed     | **Implemented** |
-| **Background Auditor**             | Medium     | Data Integrity    | **Implemented** |
-| Custom WebGL Layer                 | High       | Rendering Speed   | Proposed        |
-| Web Worker Engine                  | Medium     | UI Stability      | Proposed        |
-| Shader Interpolation               | High       | Zero CPU Cost     | Proposed        |
-| Spatial Indexing                   | Medium     | Algorithmic Speed | Proposed        |
+| Strategy                           | Difficulty | Impact            | Status                 |
+| ---------------------------------- | ---------- | ----------------- | ---------------------- |
+| O(1) Airport Index                 | Low        | Algorithmic Speed | **Implemented**        |
+| Viewport Culling                   | Low        | Rendering Speed   | **Implemented**        |
+| Zoom-Adaptive LOD                  | Low        | Rendering Speed   | **Implemented**        |
+| Arc Memoization                    | Low        | CPU Reduction     | **Implemented**        |
+| RAF Flight Animation               | Low        | Visual Quality    | **Implemented**        |
+| Two-Layer SDF Livery (12 families) | Low        | Visual Identity   | **Implemented**        |
+| Zoom-Based Icon Sizing             | Low        | Map Readability   | **Implemented**        |
+| StrictMode WebGL Fix               | Low        | Dev Stability     | **Implemented**        |
+| Tiered Airport Classes             | Low        | Map Readability   | **Implemented**        |
+| **NIP-33 Snapshot Rollups**        | Medium     | Join Latency      | **Implemented**        |
+| **IndexedDB Persistence**          | Low        | Startup Speed     | **Implemented**        |
+| **Background Auditor**             | Medium     | Data Integrity    | **Wiring in progress** |
+| Custom WebGL Layer                 | High       | Rendering Speed   | Proposed               |
+| Web Worker Engine                  | Medium     | UI Stability      | Proposed               |
+| Shader Interpolation               | High       | Zero CPU Cost     | Proposed               |
+| Spatial Indexing                   | Medium     | Algorithmic Speed | Proposed               |

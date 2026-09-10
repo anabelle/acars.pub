@@ -67,7 +67,7 @@ ACARS is a real-world aviation simulation where players build and operate virtua
 
 - Node.js 20+
 - pnpm 9+
-- A NIP-07 browser extension (nos2x, Alby, or Nostr Connect)
+- Optional: a NIP-07 browser extension (nos2x, Alby, or Nostr Connect). Not required — the app has a one-click **guest-key onboarding** flow that generates an in-browser keypair so you can play immediately (back it up later to secure the account).
 
 ### Installation
 
@@ -90,8 +90,9 @@ Open http://localhost:5173 and connect your Nostr extension to create your airli
 ```bash
 pnpm dev          # Start web app in development mode
 pnpm build        # Build all packages
-pnpm test         # Run tests in watch mode
-pnpm test:run     # Run tests once
+pnpm test         # Run all workspace tests (one pass)
+pnpm test:run     # Run all workspace tests once (alias of test)
+pnpm test:coverage # Run tests with coverage thresholds enforced
 pnpm lint         # Lint all packages
 pnpm typecheck    # Type-check all packages
 pnpm clean        # Remove all build artifacts
@@ -131,7 +132,7 @@ acars/
 │   ├── data/                # Static data catalogs
 │   │   └── src/
 │   │       ├── airports.ts  # 6,072 airports
-│   │       └── aircraft.ts  # 15 aircraft models
+│   │       └── aircraft.ts  # 35 aircraft models
 │   ├── map/                 # MapLibre GL components
 │   │   └── src/Globe.tsx    # Interactive globe with routes
 │   ├── nostr/               # Nostr I/O layer (NDK)
@@ -200,20 +201,18 @@ Every feature must answer: _"If 10,000 players fire this event simultaneously, w
 
 ## Documentation
 
-| Document                                                                | Purpose                                           |
-| ----------------------------------------------------------------------- | ------------------------------------------------- |
-| [DESIGN_PRINCIPLES.md](docs/DESIGN_PRINCIPLES.md)                       | Gameplay vision, engagement loops, sensory design |
-| [ECONOMIC_MODEL.md](docs/ECONOMIC_MODEL.md)                             | Gravity model, QSI, fixed-point costs             |
-| [CORPORATE_MODEL.md](docs/CORPORATE_MODEL.md)                           | IPOs, M&A, bankruptcy, stock mechanics            |
-| [FLEET_MANAGER_PLAN.md](docs/FLEET_MANAGER_PLAN.md)                     | Aircraft depreciation, maintenance, commonality   |
-| [MONETIZATION_MODEL.md](docs/MONETIZATION_MODEL.md)                     | Bitcoin/Lightning revenue streams                 |
-| [SCALABILITY.md](docs/SCALABILITY.md)                                   | Map and rendering scaling strategy                |
-| [UI_ARCHITECTURE.md](docs/UI_ARCHITECTURE.md)                           | Frontend stack and cross-platform strategy        |
-| [TYCOON_UI_ARCHITECTURE.md](docs/TYCOON_UI_ARCHITECTURE.md)             | Enterprise-grade UI layout and data density       |
-| [AGENT_DEVELOPMENT_PARADIGM.md](docs/AGENT_DEVELOPMENT_PARADIGM.md)     | Multi-agent coordination and safety contracts     |
-| [RESEARCH_SOURCES.md](docs/RESEARCH_SOURCES.md)                         | Bibliography and reference sources                |
-| [SNAPSHOT_ROLLUP_ARCHITECTURE.md](docs/SNAPSHOT_ROLLUP_ARCHITECTURE.md) | NIP-33 attested snapshot rollup system            |
-| [ROADMAP.md](docs/ROADMAP.md)                                           | Development phases and milestones                 |
+| Document                                                            | Purpose                                           |
+| ------------------------------------------------------------------- | ------------------------------------------------- |
+| [DESIGN_PRINCIPLES.md](docs/DESIGN_PRINCIPLES.md)                   | Gameplay vision, engagement loops, sensory design |
+| [ECONOMIC_MODEL.md](docs/ECONOMIC_MODEL.md)                         | Gravity model, QSI, fixed-point costs             |
+| [CORPORATE_MODEL.md](docs/CORPORATE_MODEL.md)                       | IPOs, M&A, bankruptcy, stock mechanics            |
+| [FLEET_MANAGER_PLAN.md](docs/FLEET_MANAGER_PLAN.md)                 | Aircraft depreciation, maintenance, commonality   |
+| [MONETIZATION_MODEL.md](docs/MONETIZATION_MODEL.md)                 | Bitcoin/Lightning revenue streams                 |
+| [SCALABILITY.md](docs/SCALABILITY.md)                               | Map/rendering scaling + NIP-33 snapshot rollups   |
+| [UI_ARCHITECTURE.md](docs/UI_ARCHITECTURE.md)                       | Frontend stack, cross-platform, tycoon density    |
+| [AGENT_DEVELOPMENT_PARADIGM.md](docs/AGENT_DEVELOPMENT_PARADIGM.md) | Multi-agent coordination and safety contracts     |
+| [RESEARCH_SOURCES.md](docs/RESEARCH_SOURCES.md)                     | Bibliography and reference sources                |
+| [ROADMAP.md](docs/ROADMAP.md)                                       | Development phases and milestones                 |
 
 ## Community & Support
 

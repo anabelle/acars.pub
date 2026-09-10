@@ -1,5 +1,11 @@
 # ACARS — Advanced Corporate & Financial Model
 
+> ⚠️ **PROPOSAL (Phase 8) — NOT IMPLEMENTED.** No backend exists; chapter11 is
+> applied client-side by the tick processor (balance < −$10M grounds the fleet
+> and pauses operations — see `packages/store/src/slices/engineSlice.ts`).
+> The current shipped model is 1:1 player = airline. See AGENTS.md §3 for the
+> present-day model; everything below is the proposed future architecture.
+
 ## Stocks, Mergers, Bankruptcy, and the Decoupling of Player and Corporation
 
 As ACARS scales to millions of users, the traditional "One Player = One Airline" model becomes overly restrictive. To simulate a true, dynamic global economy with corporate drama, we must separate the **Player** from the **Airline**.
@@ -86,9 +92,9 @@ Airlines run on razor-thin margins. Bad fuel hedging, sudden demand shocks, or o
 
 ### 4.1 Chapter 11 (Restructuring)
 
-If an Airline's balance drops below a critical debt threshold for 7 consecutive days:
+If an Airline's balance drops below a critical debt threshold for 7 consecutive days (proposed):
 
-- The backend automatically transitions the entity status to `chapter11`.
+- The system would automatically transition the entity status to `chapter11`.
 - **Protections**: The airline is protected from immediate liquidation. Creditors cannot seize assets.
 - **Restrictions**: The CEO's controls are severely limited. They cannot buy new aircraft or issue dividends. They must renegotiate leases, sell off unprofitable routes, and shrink the fleet to return to profitability.
 

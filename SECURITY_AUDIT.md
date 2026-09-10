@@ -44,6 +44,8 @@ This design gives excellent offline resilience and censorship resistance, but it
 
 **Fix:** `AIRCRAFT_BUY_USED` now requires a non-empty `listingId`. Actions without one are rejected during replay.
 
+**Residual:** This is verified presence, not full listing resolution — the buyer-side replay does not yet re-hydrate the original kind-30079 listing to confirm price/ownership at buy time. Full listing resolution during replay is pending.
+
 ---
 
 ## HIGH — Fixed in this PR
@@ -64,7 +66,7 @@ This design gives excellent offline resilience and censorship resistance, but it
 
 **Finding:** Competitor checkpoints were used as-is, without any hash verification.
 
-**Fix:** Added `computeCheckpointStateHash` verification for competitor checkpoints in both `syncWorld` and `syncCompetitor`. Invalid checkpoints are discarded and state is rebuilt from the action log.
+**Fix:** Added `computeCheckpointStateHash` verification for competitor checkpoints in both `syncWorld` and `syncCompetitor`. Invalid checkpoints are discarded and state is rebuilt from the action log. (Verification wired 2026-09: the `worldSlice` ingestion path validates incoming checkpoints; see the corresponding wave for implementation details.)
 
 ---
 

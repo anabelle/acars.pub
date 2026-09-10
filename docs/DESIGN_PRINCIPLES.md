@@ -672,7 +672,7 @@ Current State = reduce(validate(allEvents), initialState)
 5. **Debugging** — reproduce any bug by replaying the event sequence
 6. **Forking** — create alternate "what-if" scenarios by branching the event stream
 
-**Implementation note:** the current public world id is `dev-v3`, and clients load action logs only (snapshot APIs are disabled for this world).
+**Implementation note:** the current public world id is `v6-beta` (see `WORLD_ID` in `packages/nostr/src/schema.ts`).
 
 ### 8.4 Modular Package Boundaries
 
@@ -782,7 +782,7 @@ To achieve our goal of supporting **millions of concurrent players** operating *
 
 We do NOT simulate individual passengers pathfinding through networks (which burns CPU). We use top-down formulas:
 
-- **Gravity Model**: `Demand = K * (Pop_A * Pop_B) / Distance^1.2`. Calculates total route demand in $O(1)$ time.
+- **Gravity Model**: `Demand = K * (Pop_A * Pop_B) / Distance^1.0`. Calculates total route demand in $O(1)$ time (`THETA = 1.0` in `packages/core/src/demand.ts`).
 - **QSI (Quality Service Index)**: Acts as a market-share multiplier. If an airline's QSI yields 30% share, they instantly get 30% of the route demand.
 
 ### 9.2 Event Sourcing via Nostr
@@ -828,4 +828,4 @@ In a decentralized network, a malicious actor might broadcast multiple `Purchase
 A Nostr relay will accept any validly formatted event from any pubkey. The engine must enforce the authorization bounds.
 
 - **Signature Verification:** Every action that mutates an `AirlineEntity` must be cryptographically signed by the exact Nostr pubkey that founded that airline, or a pubkey explicitly granted delegated authority within the entity's Cap Table.
-- **Pre-Engine Filtering:** Invalid signatures or unauthorized actors attempting to modify another player's airline (e.g., trying to rename an airline they don't own) must be caught by the validation layer before the event ever enters the core state reducer.
+- **Pre-Engine Filtering** _(planned)_: Invalid signatures or unauthorized actors attempting to modify another player's airline (e.g., trying to rename an airline they don't own) must be caught by the validation layer before the event ever enters the core state reducer. Today this filtering is enforced during reducer ingestion, not by a separate pre-engine pass.

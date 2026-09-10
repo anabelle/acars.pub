@@ -127,7 +127,7 @@
 
 ## Phase 5: Multiplayer Competition
 
-**STATUS: 100% COMPLETE ✅**
+**STATUS: COMPLETE ✅** (auditor bootstrap wiring 🔧 — worker implemented; integration with app bootstrap landed Sep 2026)
 
 | Key Features                                                         | Status |
 | -------------------------------------------------------------------- | ------ |
@@ -139,7 +139,7 @@
 | Leaderboard (computed from Nostr events)                             | ✅     |
 | **NIP-33 Snapshot Rollups** (attested hashing & compression)         | ✅     |
 | **Local Snapshot Index** (Dexie IDB synchronization)                 | ✅     |
-| **Background Auditor** (continuous state-drift verification)         | ✅     |
+| **Background Auditor** (continuous state-drift verification)         | 🔧     |
 
 ---
 

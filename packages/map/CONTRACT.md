@@ -4,13 +4,30 @@
 
 ## Status: STABLE
 
+Last verified: 2026-09
+
 ### Exported Components
 
 ```typescript
-// Main globe component
+// Main globe component. Key props (see GlobeProps in Globe.tsx for the
+// authoritative list):
 function Globe(props: {
+  airports: Airport[];
+  selectedAirport?: Airport | null;
+  onAirportSelect?(airport: Airport | null): void;
+  onAircraftSelect?(aircraft: AircraftInstance | null): void;
+  fleet?: AircraftInstance[];
+  competitorFleet?: AircraftInstance[];
+  competitorRoutes?: Route[];
+  playerLivery?: Livery | null;
+  playerHubs?: string[];
+  tick?: number;
+  tickProgress?: number;
   className?: string;
-  children?: React.ReactNode;
+  style?: React.CSSProperties;
+  onMapClick?(lngLat: { lng: number; lat: number }): void;
+  // ...plus groundPresence, competitorLiveries, competitorHubColors,
+  // playerRouteDestinations, theme
 }): JSX.Element;
 ```
 
@@ -53,7 +70,8 @@ The `Globe` component:
    - Layer visibility
    - Source updates
 
-3. Supports children as overlay UI (glassmorphic panels)
+3. Supports data-driven overlays (fleet/competitors/routes) via props; there
+   is no `children` overlay slot — render panels outside `<Globe />`
 
 ### Icon System
 
