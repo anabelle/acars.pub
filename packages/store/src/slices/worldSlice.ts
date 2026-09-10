@@ -65,10 +65,28 @@ const worldLogger = createLogger("WorldSync");
 const COMPETITOR_FULL_SYNC_INTERVAL_MS = 60_000;
 const competitorLastFullSync = new Map<string, number>();
 
+/**
+ * Signature of the last snapshot payload REJECTED per competitor pubkey.
+ * Validation is deterministic — an identical payload yields the identical
+ * verdict — so we skip re-decompressing/re-validating (and re-logging) the
+ * same invalid snapshot on every sync cycle. Keyed by
+ * `${tick}:${stateHash}:${compressedData.length}`.
+ */
+const rejectedSnapshotSig = new Map<string, string>();
+
+function snapshotPayloadSig(payload: {
+  tick: number;
+  stateHash: string;
+  compressedData: string;
+}): string {
+  return `${payload.tick}:${payload.stateHash}:${payload.compressedData.length}`;
+}
+
 export function _resetWorldFlags() {
   isSyncingWorld = false;
   pendingSyncWorldOptions = null;
   competitorLastFullSync.clear();
+  rejectedSnapshotSig.clear();
 }
 
 const applyMonthlyCosts = (
@@ -261,6 +279,12 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         for (const [pubkey, payload] of allSnapshots.entries()) {
           if (pubkey === myPubkey) continue;
 
+          // Skip payloads already rejected in a previous cycle: verification
+          // is deterministic, so the same payload fails the same way without
+          // paying decompression + parse + hash again (or re-logging).
+          const payloadSig = snapshotPayloadSig(payload);
+          if (rejectedSnapshotSig.get(pubkey) === payloadSig) continue;
+
           try {
             // CRITICAL: peer snapshots are untrusted input. The payload is
             // decompressed, shape-validated via parseCheckpoint, hash-verified
@@ -269,11 +293,13 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             // [-$10B, $10B]). Anything that fails is DISCARDED, not ingested.
             const snapshotCheckpoint = await verifySnapshotPayload(payload);
             if (!snapshotCheckpoint) {
+              rejectedSnapshotSig.set(pubkey, payloadSig);
               worldLogger.warn(
                 `Rejected invalid/unverified snapshot for competitor ${pubkey} — not ingesting.`,
               );
               continue;
             }
+            rejectedSnapshotSig.delete(pubkey);
             const { airline, fleet, routes } = snapshotCheckpoint;
 
             if (airline.status === "chapter11" || airline.status === "liquidated") {
