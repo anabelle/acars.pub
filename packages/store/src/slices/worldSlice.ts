@@ -14,6 +14,7 @@ import {
   fp,
   fpAdd,
   fpFormat,
+  fpRaw,
   fpScale,
   fpSub,
   GENESIS_TIME,

@@ -422,6 +422,14 @@ export type GameActionType =
   | "AIRCRAFT_FERRY"
   | "AIRCRAFT_UPDATE_LIVERY";
 
+/**
+ * Actions whose Nostr events use a UNIQUE d-tag per (author, action) so
+ * NIP-33 replacement deletes their history on relays. They must NOT be
+ * part of the verifiable action chain: peers can never re-hash events
+ * that no longer exist. See apps/web/src/workers/auditor.ts.
+ */
+export const REPLACEABLE_ACTION_TYPES: ReadonlySet<string> = new Set(["TICK_UPDATE"]);
+
 export type GameActionPayload = Record<string, unknown>;
 
 export interface GameActionEnvelope {

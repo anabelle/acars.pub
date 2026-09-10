@@ -8,6 +8,7 @@ import type {
   TimelineEventType,
 } from "@acars/core";
 import {
+  REPLACEABLE_ACTION_TYPES,
   calculateBookValue,
   computeActionChainHash,
   fp,
@@ -524,12 +525,18 @@ export async function replayActionLog(params: {
     const actionTick = Math.min(rawActionTick, maxTickFromTimestamp);
     if (bootstrapTick != null && actionTick <= bootstrapTick) continue;
     const eventTimestamp = resolveEventTimestamp(actionTick, record.createdAt);
-    actionChainHash = await computeActionChainHash(actionChainHash, {
-      id: record.eventId,
-      createdAt: record.createdAt,
-      authorPubkey: record.authorPubkey,
-      action,
-    });
+    // Replaceable actions (unique d-tag, e.g. TICK_UPDATE) are destroyed on
+    // relays by NIP-33 replacement, so peers can never re-hash them. Chain
+    // ONLY persistent actions — matches the auditor's criterion
+    // (apps/web/src/workers/auditor.ts) so checkpoints stay verifiable.
+    if (!REPLACEABLE_ACTION_TYPES.has(action.action)) {
+      actionChainHash = await computeActionChainHash(actionChainHash, {
+        id: record.eventId,
+        createdAt: record.createdAt,
+        authorPubkey: record.authorPubkey,
+        action,
+      });
+    }
 
     if (action.action === "AIRLINE_CREATE") {
       // Starting a new airline resets all prior owned state.
@@ -936,8 +943,12 @@ export async function replayActionLog(params: {
         const route = routesById.get(routeId);
         if (!aircraft || !route) break;
         // Remove from previous route's assignedAircraftIds
-        if (aircraft.assignedRouteId && aircraft.assignedRouteId !== routeId) {
-          removeAircraftFromRoute(aircraftId, resolveRouteId(aircraft.assignedRouteId));
+        const previousRouteId = aircraft.assignedRouteId;
+        if (previousRouteId != null && previousRouteId !== routeId) {
+          const resolvedPrevious = resolveRouteId(previousRouteId);
+          if (resolvedPrevious != null) {
+            removeAircraftFromRoute(aircraftId, resolvedPrevious);
+          }
         }
         aircraft.assignedRouteId = routeId;
         aircraft.routeAssignedAtTick = actionTick;

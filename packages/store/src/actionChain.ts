@@ -161,7 +161,9 @@ export async function publishActionWithChain(params: {
     publishCurrentStateSnapshot(get(), set).catch(console.error);
   });
 
-  return publishedEvent as NDKEvent;
+  // The serialized task rejects on publish failure, so reaching here means
+  // the task completed and publishedEvent was assigned.
+  return publishedEvent as unknown as NDKEvent;
 }
 
 export async function publishCurrentStateSnapshot(

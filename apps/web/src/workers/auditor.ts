@@ -8,6 +8,8 @@ import { loadActionLog, loadAllSnapshots, type ActionLogEntry } from "@acars/nos
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
 const DEFAULT_MAX_ACTIONS = 1500;
+/** Dedicated per-peer pagination: audit one peer per cycle, up to 5 pages. */
+const PEER_MAX_PAGES = 5;
 
 type AuditTrigger = "start" | "interval" | "manual";
 
@@ -19,38 +21,75 @@ type WorkerCommand =
   | { type: "stop" }
   | { type: "run-now" };
 
-interface PeerAuditResult {
-  pubkey: string;
-  tick: number;
-  stateHashValid: boolean;
-  actionChainStatus: "verified" | "failed" | "inconclusive";
-  expectedStateHash: string;
-  computedStateHash: string;
-  expectedActionChainHash: string;
-  computedActionChainHash: string | null;
-  issues: string[];
-}
+// ---------------------------------------------------------------------------
+// Worker → main-thread message contract.
+//
+// One peer is audited per cycle (rotation); each cycle posts exactly one
+// AuditCycleMessage. The main-thread consumer (arriving in a later wave)
+// switches on `type` and can surface failures via `status` + `reason`.
+// ---------------------------------------------------------------------------
 
-interface AuditCyclePayload {
+export type AuditCycleStatus = "ok" | "failed" | "inconclusive";
+
+export interface AuditCycleMessage {
   type: "audit-cycle";
-  trigger: AuditTrigger;
+  /** Monotonic cycle counter (increments per audit run). */
   cycle: number;
+  trigger: AuditTrigger;
+  /** Pubkey of the peer audited in this cycle. */
+  pubkey: string;
+  status: AuditCycleStatus;
+  /** Number of failed checks (state hash mismatch and/or chain hash mismatch). */
+  failedCount: number;
+  /** Semicolon-joined human-readable reason(s); present when status !== "ok". */
+  reason?: string;
   startedAt: number;
   finishedAt: number;
-  peerCount: number;
-  verifiedCount: number;
-  failedCount: number;
-  inconclusiveCount: number;
-  results: PeerAuditResult[];
 }
 
-interface AuditErrorPayload {
+export interface AuditErrorMessage {
   type: "audit-error";
-  trigger: AuditTrigger;
   cycle: number;
+  trigger: AuditTrigger;
+  error: string;
   startedAt: number;
   finishedAt: number;
-  error: string;
+}
+
+export type AuditorToMainMessage = AuditCycleMessage | AuditErrorMessage;
+
+// ---------------------------------------------------------------------------
+// Chain-hash policy.
+//
+// TICK_UPDATE carries a unique d-tag (`…:action:tick_update`), so NIP-33
+// replacement means relays only keep the LATEST one — older tick events are
+// gone and can never be re-hashed. Only persistent actions (AIRLINE_CREATE,
+// purchases, routes, listings, …) form a verifiable chain.
+// ---------------------------------------------------------------------------
+
+import { REPLACEABLE_ACTION_TYPES } from "@acars/core";
+
+function isPersistentAction(entry: ActionLogEntry): boolean {
+  return !REPLACEABLE_ACTION_TYPES.has(entry.action.action);
+}
+
+/**
+ * Canonical action ordering — mirrors the store's replay order
+ * (compareActionRecords in packages/store/src/actionReducer.ts): payload tick
+ * first, then event created_at, then eventId.
+ */
+function compareActions(a: ActionLogEntry, b: ActionLogEntry): number {
+  const tickOf = (entry: ActionLogEntry): number => {
+    const tick = (entry.action.payload as Record<string, unknown> | undefined)?.tick;
+    return typeof tick === "number" && Number.isFinite(tick) ? tick : 0;
+  };
+  const aTick = tickOf(a);
+  const bTick = tickOf(b);
+  if (aTick !== bTick) return aTick - bTick;
+  const aTime = a.event.created_at ?? 0;
+  const bTime = b.event.created_at ?? 0;
+  if (aTime !== bTime) return aTime - bTime;
+  return a.event.id.localeCompare(b.event.id);
 }
 
 let interval: number | null = null;
@@ -58,6 +97,8 @@ let cycle = 0;
 let cycleInFlight = false;
 let maxActions = DEFAULT_MAX_ACTIONS;
 let intervalMs = DEFAULT_INTERVAL_MS;
+/** Round-robin cursor over the snapshot peer list. */
+let peerCursor = 0;
 
 self.onmessage = (e: MessageEvent<WorkerCommand>) => {
   const command = e.data;
@@ -124,34 +165,31 @@ function normalizeError(error: unknown): string {
   return "Unknown audit error";
 }
 
-function groupActionsByPubkey(entries: ActionLogEntry[]): Map<string, ActionLogEntry[]> {
-  const grouped = new Map<string, ActionLogEntry[]>();
-  for (const entry of entries) {
-    const pubkey = entry.event.author?.pubkey;
-    if (!pubkey) continue;
-    const list = grouped.get(pubkey) ?? [];
-    list.push(entry);
-    grouped.set(pubkey, list);
-  }
-  return grouped;
+interface PeerAuditOutcome {
+  status: AuditCycleStatus;
+  failedCount: number;
+  reasons: string[];
 }
 
-function sortActions(entries: ActionLogEntry[]): ActionLogEntry[] {
-  return [...entries].sort((a, b) => {
-    const aTime = a.event.created_at ?? 0;
-    const bTime = b.event.created_at ?? 0;
-    if (aTime !== bTime) return aTime - bTime;
-    return a.event.id.localeCompare(b.event.id);
-  });
-}
-
-async function verifyPeerSnapshot(
+/**
+ * Verifies one peer's snapshot against its own action log window.
+ *
+ * - State hash: recomputed from the decompressed checkpoint and compared to
+ *   both the snapshot envelope and the checkpoint body.
+ * - Chain hash: computed over PERSISTENT actions only (replaceable
+ *   TICK_UPDATEs cannot be re-hashed — relays dropped the older ones).
+ *   A missing AIRLINE_CREATE makes the chain INCONCLUSIVE, not failed:
+ *   the genesis event is required for a full-chain hash and its absence is
+ *   an evidence gap, not proof of tampering.
+ */
+async function verifyPeer(
   pubkey: string,
   compressedData: string,
   expectedStateHash: string,
   actions: ActionLogEntry[],
-): Promise<PeerAuditResult> {
+): Promise<PeerAuditOutcome> {
   const issues: string[] = [];
+  let failedCount = 0;
 
   const decompressed = await decompressSnapshotString(compressedData);
   const parsed = JSON.parse(decompressed);
@@ -169,46 +207,41 @@ async function verifyPeerSnapshot(
   const stateHashValid =
     computedStateHash === expectedStateHash && computedStateHash === checkpoint.stateHash;
   if (!stateHashValid) {
-    issues.push("State hash mismatch");
+    failedCount += 1;
+    issues.push("state-hash-mismatch");
   }
 
-  let actionChainStatus: PeerAuditResult["actionChainStatus"] = "inconclusive";
-  let computedActionChainHash: string | null = null;
+  const persistentActions = actions.filter(isPersistentAction).sort(compareActions);
 
-  const sortedActions = sortActions(actions);
-  if (sortedActions.length === 0) {
-    issues.push("No actions available for chain verification");
-  } else if (!sortedActions.some((entry) => entry.action.action === "AIRLINE_CREATE")) {
-    issues.push("Action window does not include AIRLINE_CREATE; chain verification inconclusive");
-  } else {
-    let chainHash = "";
-    for (const entry of sortedActions) {
-      chainHash = await computeActionChainHash(chainHash, {
-        id: entry.event.id,
-        createdAt: entry.event.created_at ?? null,
-        authorPubkey: pubkey,
-        action: entry.action,
-      });
-    }
-    computedActionChainHash = chainHash;
-    if (chainHash === checkpoint.actionChainHash) {
-      actionChainStatus = "verified";
-    } else {
-      actionChainStatus = "failed";
-      issues.push("Action chain hash mismatch");
-    }
+  if (!persistentActions.some((entry) => entry.action.action === "AIRLINE_CREATE")) {
+    // Genesis is required for a complete chain hash; without it we simply
+    // cannot reconstruct the chain (relay pruning, pre-genesis world…).
+    return { status: "inconclusive", failedCount, reasons: [...issues, "missing-airline-create"] };
+  }
+
+  if (persistentActions.length === 0) {
+    return { status: "inconclusive", failedCount, reasons: [...issues, "no-persistent-actions"] };
+  }
+
+  let chainHash = "";
+  for (const entry of persistentActions) {
+    chainHash = await computeActionChainHash(chainHash, {
+      id: entry.event.id,
+      createdAt: entry.event.created_at ?? null,
+      authorPubkey: pubkey,
+      action: entry.action,
+    });
+  }
+
+  if (chainHash !== checkpoint.actionChainHash) {
+    failedCount += 1;
+    issues.push("action-chain-mismatch");
   }
 
   return {
-    pubkey,
-    tick: checkpoint.tick,
-    stateHashValid,
-    actionChainStatus,
-    expectedStateHash,
-    computedStateHash,
-    expectedActionChainHash: checkpoint.actionChainHash,
-    computedActionChainHash,
-    issues,
+    status: failedCount > 0 ? "failed" : "ok",
+    failedCount,
+    reasons: issues,
   };
 }
 
@@ -217,76 +250,78 @@ async function runAuditCycle(trigger: AuditTrigger): Promise<void> {
   cycleInFlight = true;
   cycle += 1;
   const startedAt = Date.now();
+  const currentCycle = cycle;
 
   try {
     const snapshots = await loadAllSnapshots();
-    const peerPubkeys = [...snapshots.keys()];
-    const actions =
-      peerPubkeys.length > 0
-        ? await loadActionLog({
-            authors: peerPubkeys,
-            limit: maxActions,
-            maxPages: 1,
-          })
-        : [];
-    const groupedActions = groupActionsByPubkey(actions);
+    const peers = [...snapshots.keys()];
 
-    const results: PeerAuditResult[] = [];
-    for (const [pubkey, payload] of snapshots.entries()) {
-      try {
-        const result = await verifyPeerSnapshot(
-          pubkey,
-          payload.compressedData,
-          payload.stateHash,
-          groupedActions.get(pubkey) ?? [],
-        );
-        results.push(result);
-      } catch (error) {
-        results.push({
-          pubkey,
-          tick: payload.tick,
-          stateHashValid: false,
-          actionChainStatus: "inconclusive",
-          expectedStateHash: payload.stateHash,
-          computedStateHash: "",
-          expectedActionChainHash: "",
-          computedActionChainHash: null,
-          issues: [normalizeError(error)],
-        });
-      }
+    if (peers.length === 0) {
+      const payload: AuditErrorMessage = {
+        type: "audit-error",
+        cycle: currentCycle,
+        trigger,
+        error: "No snapshot peers available to audit",
+        startedAt,
+        finishedAt: Date.now(),
+      };
+      self.postMessage(payload);
+      return;
     }
 
-    const failedCount = results.filter(
-      (result) => !result.stateHashValid || result.actionChainStatus === "failed",
-    ).length;
-    const inconclusiveCount = results.filter(
-      (result) => result.stateHashValid && result.actionChainStatus === "inconclusive",
-    ).length;
-    const verifiedCount = results.filter(
-      (result) => result.stateHashValid && result.actionChainStatus === "verified",
-    ).length;
+    // Rotation: audit ONE peer per cycle with a dedicated paginated window,
+    // instead of one shallow global window shared across all peers.
+    const pubkey = peers[peerCursor % peers.length];
+    peerCursor += 1;
+    const snapshot = snapshots.get(pubkey);
+    if (!snapshot) {
+      const payload: AuditErrorMessage = {
+        type: "audit-error",
+        cycle: currentCycle,
+        trigger,
+        error: `Snapshot disappeared for peer ${pubkey.slice(0, 8)}…`,
+        startedAt,
+        finishedAt: Date.now(),
+      };
+      self.postMessage(payload);
+      return;
+    }
 
-    const payload: AuditCyclePayload = {
+    const actions = await loadActionLog({
+      authors: [pubkey],
+      limit: maxActions,
+      maxPages: PEER_MAX_PAGES,
+    });
+
+    let outcome: PeerAuditOutcome;
+    try {
+      outcome = await verifyPeer(pubkey, snapshot.compressedData, snapshot.stateHash, actions);
+    } catch (error) {
+      // Decompression/validation throws mean the snapshot payload is invalid
+      // (including rejected decompression bombs) → audit failure.
+      outcome = { status: "failed", failedCount: 1, reasons: [normalizeError(error)] };
+    }
+
+    const message: AuditCycleMessage = {
       type: "audit-cycle",
+      cycle: currentCycle,
       trigger,
-      cycle,
+      pubkey,
+      status: outcome.status,
+      failedCount: outcome.failedCount,
+      ...(outcome.reasons.length > 0 ? { reason: outcome.reasons.join("; ") } : {}),
       startedAt,
       finishedAt: Date.now(),
-      peerCount: results.length,
-      verifiedCount,
-      failedCount,
-      inconclusiveCount,
-      results,
     };
-    self.postMessage(payload);
+    self.postMessage(message);
   } catch (error) {
-    const payload: AuditErrorPayload = {
+    const payload: AuditErrorMessage = {
       type: "audit-error",
+      cycle: currentCycle,
       trigger,
-      cycle,
+      error: normalizeError(error),
       startedAt,
       finishedAt: Date.now(),
-      error: normalizeError(error),
     };
     self.postMessage(payload);
   } finally {
