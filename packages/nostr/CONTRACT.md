@@ -4,6 +4,8 @@
 
 ## Status: STABLE
 
+Last verified: 2026-09
+
 ### Exported Types
 
 ```typescript
@@ -58,7 +60,10 @@ export type SellerFleetIndex = Map<string, Set<string>>; // pubkey -> Set<instan
 ### Exported Constants
 
 ```typescript
-const MARKETPLACE_KIND = 30079; // NDKKind for used aircraft listings
+const ACTION_KIND = 30078; // game action log
+const MARKETPLACE_KIND: NDKKind = 30079; // used aircraft listings
+const CATALOG_IMAGE_KIND: NDKKind = 30080; // catalog/livery images
+const CATALOG_IMAGE_D_PREFIX: string;
 ```
 
 ### Exported Functions
@@ -99,13 +104,20 @@ function subscribeActions(options: {
   onClose?: () => void;
 }): Promise<() => void>;
 
-// D-Tags (for event addressing)
-function buildActionDTag(action: GameActionEnvelope, seq?: number): string;
+// D-Tags (for event addressing) — exported from schema.ts, not re-exported
+// at the package root; import from "@acars/nostr/schema" if needed.
+// function buildActionDTag(action: GameActionEnvelope, seq?: number): string;
 
 // Checkpoints
 function loadCheckpoint(pubkey: string): Promise<Checkpoint | null>;
 function loadCheckpoints(pubkeys: string[]): Promise<Map<string, Checkpoint>>;
 function publishCheckpoint(checkpoint: Checkpoint): Promise<NDKEvent>;
+function parseCheckpoint(raw: string): Checkpoint | null;
+
+// Snapshots (NIP-33 rollups, see docs/SCALABILITY.md)
+function publishSnapshot(payload: SnapshotPayload): Promise<NDKEvent>;
+function loadSnapshot(pubkey: string): Promise<SnapshotPayload | null>;
+function loadAllSnapshots(): Promise<Map<string, SnapshotPayload>>;
 
 // Marketplace (kind 30079)
 function loadMarketplace(
@@ -115,11 +127,22 @@ function publishUsedAircraft(
   aircraft: AircraftInstance,
   price: FixedPoint,
 ): Promise<NDKEvent>;
+function deleteMarketplaceListing(instanceId: string): Promise<NDKEvent>;
 
-// Deprecated (throw errors)
-function publishAirline(): Promise<never>;
-function loadAirline(): Promise<never>;
-function loadGlobalAirlines(): Promise<never>;
+// Catalog images (kind 30080)
+function publishCatalogImage(record: CatalogImageRecord): Promise<NDKEvent>;
+function loadCatalogImages(): Promise<CatalogImageRecord[]>;
+
+// Identity extras (ephemeral/guest keys)
+function generateNewKeypair(): { pubkey: string; secret: string };
+function saveEphemeralKey(secret: string): void;
+function loadEphemeralKey(): string | null;
+function hasStoredEphemeralKey(): boolean;
+function clearEphemeralKey(): void;
+function resetSigner(): void;
+
+// Blossom file storage
+function uploadToBlossom(file: Blob): Promise<string>;
 ```
 
 ### Re-exports
@@ -133,7 +156,7 @@ export type { NDKFilter } from "@nostr-dev-kit/ndk";
 ### Contract Rules
 
 1. All exports listed above are FROZEN until a major version bump.
-2. Event kinds (30078, 30079) are part of the contract.
+2. Event kinds (30078, 30079, 30080) are part of the contract.
 3. Action envelope schema version must be incremented on breaking changes.
 4. Relay URLs are NOT part of the contract (configurable).
 

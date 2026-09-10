@@ -5,7 +5,11 @@ export function buildHubState(hubIata: string, routes: Route[]): HubState {
   let spokeCount = 0;
 
   for (const route of routes) {
-    if (route.originIata !== hubIata) continue;
+    // A spoke connects to the hub whether the route departs from it or
+    // lands at it — count both directions (and their frequencies).
+    const departsFromHub = route.originIata === hubIata;
+    const landsAtHub = route.destinationIata === hubIata;
+    if (!departsFromHub && !landsAtHub) continue;
     spokeCount += 1;
     weeklyFrequency += route.frequencyPerWeek ?? 0;
   }

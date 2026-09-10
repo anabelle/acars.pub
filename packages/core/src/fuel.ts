@@ -1,4 +1,5 @@
 import { fp, fpAdd, fpScale, fpSub } from "./fixed-point.js";
+import { detCos, detLog } from "./det-math.js";
 import { createTickPRNG } from "./prng.js";
 import type { FixedPoint } from "./types.js";
 import { TICKS_PER_DAY } from "./types.js";
@@ -23,7 +24,8 @@ function randomStandardNormal(tick: number): number {
   const prng = createTickPRNG(tick);
   const u1 = Math.max(prng(), Number.EPSILON);
   const u2 = prng();
-  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  // sqrt is IEEE spec-exact; log/cos are deterministic det-math variants.
+  return Math.sqrt(-2 * detLog(u1)) * detCos(2 * Math.PI * u2);
 }
 
 export function stepFuelPrice(currentPrice: FixedPoint, tick: number): FixedPoint {
@@ -49,14 +51,63 @@ function getEpochFuelPrice(epoch: number): FixedPoint {
   return price;
 }
 
+// Per-tick memoization. getFuelPriceAtTick is pure in (tick), so the
+// price series can be cached and extended incrementally instead of
+// re-walking from the epoch start on every call (O(ticks) per landing →
+// O(1) amortized). The cache covers a contiguous tick window
+// [cacheLowTick, cacheHighTick] and is bounded to three epochs; when it
+// overflows it resets to the requested tick and later lookups re-derive
+// from the epoch-start prices in `epochCache`. Output is bit-identical
+// to the naive epoch-walk (see fuel tests).
+const FUEL_TICK_CACHE_MAX = FUEL_PRICE_EPOCH_TICKS * 3;
+const tickCache = new Map<number, FixedPoint>([[0, FUEL_PRICE_MEAN_PER_KG]]);
+let cacheLowTick = 0;
+let cacheHighTick = 0;
+
+function rebuildFromEpochStart(safeTick: number): FixedPoint {
+  const epoch = Math.floor(safeTick / FUEL_PRICE_EPOCH_TICKS);
+  const startTick = epoch * FUEL_PRICE_EPOCH_TICKS;
+  let price = getEpochFuelPrice(epoch);
+
+  tickCache.clear();
+  tickCache.set(startTick, price);
+  cacheLowTick = startTick;
+
+  for (let tick = startTick; tick < safeTick; tick += 1) {
+    price = stepFuelPrice(price, tick);
+    tickCache.set(tick + 1, price);
+  }
+  cacheHighTick = safeTick;
+  return price;
+}
+
 export function getFuelPriceAtTick(tick: number): FixedPoint {
   const safeTick = Math.max(0, Math.floor(tick));
-  const epoch = Math.floor(safeTick / FUEL_PRICE_EPOCH_TICKS);
-  let price = getEpochFuelPrice(epoch);
-  const epochStartTick = epoch * FUEL_PRICE_EPOCH_TICKS;
 
-  for (let currentTick = epochStartTick; currentTick < safeTick; currentTick += 1) {
-    price = stepFuelPrice(price, currentTick);
+  const cached = tickCache.get(safeTick);
+  if (cached !== undefined) return cached;
+
+  let price: FixedPoint;
+  if (safeTick > cacheHighTick) {
+    // Forward jump: advance incrementally from the highest cached tick.
+    price = tickCache.get(cacheHighTick)!;
+    for (let currentTick = cacheHighTick; currentTick < safeTick; currentTick += 1) {
+      price = stepFuelPrice(price, currentTick);
+      tickCache.set(currentTick + 1, price);
+    }
+    cacheHighTick = safeTick;
+  } else {
+    // Backward jump (rare): re-derive from the cached epoch-start state.
+    price = rebuildFromEpochStart(safeTick);
+  }
+
+  if (cacheHighTick - cacheLowTick + 1 > FUEL_TICK_CACHE_MAX) {
+    // Cache bound exceeded: drop everything but the current answer.
+    // Future queries re-derive from `epochCache` as needed.
+    tickCache.clear();
+    tickCache.set(safeTick, price);
+    cacheLowTick = safeTick;
+    cacheHighTick = safeTick;
   }
 
   return price;

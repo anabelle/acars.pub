@@ -1,5 +1,5 @@
-import { fp, fpSum } from "./fixed-point";
-import type { AircraftInstance, FixedPoint, Route } from "./types";
+import { fp, fpSum } from "./fixed-point.js";
+import type { AircraftInstance, FixedPoint, Route } from "./types.js";
 
 export interface TierThreshold {
   minCumulativeRevenue: FixedPoint;

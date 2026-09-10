@@ -5,6 +5,7 @@
 // ============================================================
 
 import { FP_ZERO, fp, fpAdd, fpDiv, fpScale } from "./fixed-point.js";
+import { detExp } from "./det-math.js";
 import { FUEL_PRICE_MEAN_PER_KG } from "./fuel.js";
 import type { AircraftModel, FixedPoint, FlightOffer } from "./types.js";
 
@@ -78,7 +79,7 @@ export function calculateHubLandingFee(
   const excess = ratio - HUB_CONGESTION_THRESHOLD;
   const multiplier = Math.min(
     MAX_HUB_LANDING_FEE_MULTIPLIER,
-    1 + HUB_CONGESTION_THRESHOLD + (Math.exp(excess * 4) - 1),
+    1 + HUB_CONGESTION_THRESHOLD + (detExp(excess * 4) - 1),
   );
   return fpScale(baseLandingFee, multiplier);
 }

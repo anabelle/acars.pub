@@ -116,7 +116,7 @@ describe("checkpoint hashing", () => {
       { id: "ac-1", purchasePrice: fp(20) } as never,
     ];
     const routes = [{ id: "r-2" } as never, { id: "r-1" } as never];
-    // Same tick, different ids — exercises the localeCompare tie-break branch.
+    // Same tick, different ids — exercises the code-unit tie-break branch.
     // Plus a different-tick entry to exercise the tick-differ branch.
     const timeline = [
       { id: "tl-b", tick: 5 } as never,

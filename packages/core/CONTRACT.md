@@ -2,7 +2,7 @@
 
 ## Version: 1.0.0
 
-## Status: STABLE
+## Status: SYNCED 2026-09 — regenerar tras cambios de API
 
 ### Exported Types
 
@@ -144,10 +144,10 @@ const FP_SCALE = 10000;
 const FP_ZERO = 0 as FixedPoint;
 
 // Demand
-const PLAYER_MARKET_CEILING = 0.14;
+const PLAYER_MARKET_CEILING = 0.2;
 const MIN_ADDRESSABLE_WEEKLY = 360;
 const NATURAL_LF_CEILING = 0.88;
-const PRICE_ELASTICITY_ECONOMY = -1.5;
+const PRICE_ELASTICITY_ECONOMY = -1.2;
 const PRICE_ELASTICITY_BUSINESS = -0.5;
 const PRICE_ELASTICITY_FIRST = -0.2;
 const MAX_PRICE_ELASTICITY_MULTIPLIER = 1.5;
@@ -233,10 +233,22 @@ function getSeason(latitude: number, date: Date): Season;
 function getSeasonalMultiplier(tag: AirportTag, season: Season): number;
 
 // Solar
-function getSolarDeclination(dayOfYear: number): number;
+function getSolarDeclination(date: Date): number;
 function getSubsolarPoint(date: Date): { lat: number; lng: number };
 function computeTerminatorLine(date: Date): TerminatorLineCollection;
 function computeNightOverlay(date: Date): NightOverlayFeatureCollection;
+
+// Deterministic Transcendental Math (bit-identical cross-runtime)
+// Built only from IEEE-754 spec-exact ops + fixed-term series; use these
+// instead of Math.exp/log/sin/cos/pow anywhere in the state chain.
+function detExp(x: number): number;
+function detLog(x: number): number;
+function detLog1p(x: number): number;
+function detSin(x: number): number;
+function detCos(x: number): number;
+function detAtan2(y: number, x: number): number;
+function detAsin(x: number): number;
+function detPow(base: number, exponent: number): number;
 
 // Fleet
 function calculateBookValue(
@@ -346,11 +358,27 @@ function countLandingsBetween(
 function createPRNG(seed: number): () => number;
 function createTickPRNG(tick: number): () => number;
 
-// Checkpoints
+// Checkpoints (async — SHA-256 via WebCrypto)
 function canonicalize(obj: unknown): string;
-function computeActionChainHash(actions: GameActionEnvelope[]): string;
-function computeCheckpointStateHash(checkpoint: Checkpoint): string;
-function verifyCheckpoint(checkpoint: Checkpoint): boolean;
+function computeActionChainHash(
+  previousHash: string,
+  input: unknown,
+): Promise<string>;
+function computeCheckpointStateHash(checkpoint: {
+  airline: AirlineEntity;
+  fleet: AircraftInstance[];
+  routes: Route[];
+  timeline: TimelineEvent[];
+}): Promise<string>;
+function verifyCheckpoint(params: {
+  actionChainHash: string;
+  expectedActionChainHash: string;
+  expectedStateHash: string;
+  airline: AirlineEntity;
+  fleet: AircraftInstance[];
+  routes: Route[];
+  timeline: TimelineEvent[];
+}): Promise<boolean>;
 
 // Logging
 function createLogger(namespace: string): {
@@ -362,7 +390,7 @@ function createLogger(namespace: string): {
 
 ### Contract Rules
 
-1. All exports listed above are FROZEN until a major version bump.
+1. All exports listed above are SYNCED 2026-09 — regenerar tras cambios de API.
 2. New exports may be ADDED without a version bump.
 3. Existing exports may NOT be modified or removed without:
    a. A deprecation notice in this file
@@ -375,3 +403,5 @@ function createLogger(namespace: string): {
 - **None** — @acars/core has zero external runtime dependencies.
 - All financial math uses fixed-point arithmetic (ADR-002).
 - All randomness uses seeded PRNG for determinism.
+- All transcendentals in the state chain use `det-math` (IEEE spec-exact
+  construction → bit-identical on every JS runtime).

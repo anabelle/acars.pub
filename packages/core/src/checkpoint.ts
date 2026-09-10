@@ -2,6 +2,15 @@ import type { AircraftInstance, AirlineEntity, Route, TimelineEvent } from "./ty
 
 const textEncoder = new TextEncoder();
 
+/**
+ * Canonical string comparison by UTF-16 code units. localeCompare is
+ * locale/ICU-dependent and non-deterministic across runtimes — never use
+ * it for canonical ordering (see canonicalRouteKey for the same pattern).
+ */
+function compareStrings(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function sortValue(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => sortValue(item));
@@ -56,11 +65,11 @@ export async function computeCheckpointStateHash(params: {
   routes: Route[];
   timeline: TimelineEvent[];
 }): Promise<string> {
-  const sortedFleet = [...params.fleet].sort((a, b) => a.id.localeCompare(b.id));
-  const sortedRoutes = [...params.routes].sort((a, b) => a.id.localeCompare(b.id));
+  const sortedFleet = [...params.fleet].sort((a, b) => compareStrings(a.id, b.id));
+  const sortedRoutes = [...params.routes].sort((a, b) => compareStrings(a.id, b.id));
   const sortedTimeline = [...params.timeline].sort((a, b) => {
     if (a.tick !== b.tick) return a.tick - b.tick;
-    return a.id.localeCompare(b.id);
+    return compareStrings(a.id, b.id);
   });
 
   const canonical = canonicalize({

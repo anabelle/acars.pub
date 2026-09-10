@@ -7,6 +7,15 @@
 import type { FlightOffer, PassengerClass, DemandResult } from "./types.js";
 import { fpToNumber } from "./fixed-point.js";
 
+/**
+ * Canonical string comparison by UTF-16 code units. localeCompare is
+ * locale/ICU-dependent and non-deterministic across runtimes — never use
+ * it for canonical ordering (same pattern as canonicalRouteKey).
+ */
+function compareStrings(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 // --- Weights (from ECONOMIC_MODEL.md §2.3) ---
 
 type FactorWeights = {
@@ -98,11 +107,22 @@ export function calculateShares(
     const pb = fpToNumber(offer.fareBusiness);
     const pf = fpToNumber(offer.fareFirst);
 
-    const priceScoreE = 1.0 - (pe - minPriceEconomy) / (maxPriceEconomy - minPriceEconomy + 1);
-    const priceScoreB = 1.0 - (pb - minPriceBusiness) / (maxPriceBusiness - minPriceBusiness + 1);
-    const priceScoreF = 1.0 - (pf - minPriceFirst) / (maxPriceFirst - minPriceFirst + 1);
+    // Fare normalization denominator: spread plus ~1% of the minimum fare
+    // (absolute +1 would over-penalize cheap routes and under-penalize
+    // expensive ones; min(fare)/100 keeps the smoothing scale-relative,
+    // with a $1 floor so the denominator never collapses to zero spread).
+    const fareScaleE = Math.max(1, minPriceEconomy / 100);
+    const fareScaleB = Math.max(1, minPriceBusiness / 100);
+    const fareScaleF = Math.max(1, minPriceFirst / 100);
+
+    const priceScoreE =
+      1.0 - (pe - minPriceEconomy) / (maxPriceEconomy - minPriceEconomy + fareScaleE);
+    const priceScoreB =
+      1.0 - (pb - minPriceBusiness) / (maxPriceBusiness - minPriceBusiness + fareScaleB);
+    const priceScoreF = 1.0 - (pf - minPriceFirst) / (maxPriceFirst - minPriceFirst + fareScaleF);
 
     const frequencyScore = offer.frequencyPerWeek / totalFrequency;
+    // Time is already in a natural absolute unit (minutes): keep +1 minute.
     const timeScore = 1.0 - (offer.travelTimeMinutes - minTime) / (maxTime - minTime + 1);
 
     const stopsScore = offer.stops === 0 ? 1.0 : offer.stops === 1 ? 0.5 : 0.2;
@@ -144,11 +164,24 @@ export function calculateShares(
   if (totalQSIF === 0) totalQSIF = 1;
 
   // --- Calculate Market Shares ---
+  // One airline may field multiple offers on a market (e.g. JFK→MAD and
+  // MAD→JFK). Their per-class QSI must be AGGREGATED (summed) into a
+  // single map entry before dividing by the total — a plain .set per
+  // offer would overwrite siblings and make Σshares < 1, silently
+  // evaporating passengers in allocatePassengers().
+  const aggE = new Map<string, number>();
+  const aggB = new Map<string, number>();
+  const aggF = new Map<string, number>();
+
   for (const score of qsiScores) {
-    result.economy.set(score.airlinePubkey, score.qsiE / totalQSIE);
-    result.business.set(score.airlinePubkey, score.qsiB / totalQSIB);
-    result.first.set(score.airlinePubkey, score.qsiF / totalQSIF);
+    aggE.set(score.airlinePubkey, (aggE.get(score.airlinePubkey) ?? 0) + score.qsiE);
+    aggB.set(score.airlinePubkey, (aggB.get(score.airlinePubkey) ?? 0) + score.qsiB);
+    aggF.set(score.airlinePubkey, (aggF.get(score.airlinePubkey) ?? 0) + score.qsiF);
   }
+
+  for (const [pubkey, qsi] of aggE) result.economy.set(pubkey, qsi / totalQSIE);
+  for (const [pubkey, qsi] of aggB) result.business.set(pubkey, qsi / totalQSIB);
+  for (const [pubkey, qsi] of aggF) result.first.set(pubkey, qsi / totalQSIF);
 
   return result;
 }
@@ -197,12 +230,13 @@ export function allocatePassengers(
       remainders.push({ pubkey, remainder: r });
     }
 
-    // Sort by remainder descending, but fall back to pubkey string comparison for determinism!
+    // Sort by remainder descending, but fall back to canonical code-unit
+    // pubkey comparison for determinism (localeCompare is ICU-dependent)!
     remainders.sort((a, b) => {
       if (b.remainder !== a.remainder) {
         return b.remainder - a.remainder;
       }
-      return a.pubkey.localeCompare(b.pubkey);
+      return compareStrings(a.pubkey, b.pubkey);
     });
 
     // Distribute remaining single seats to those with highest remainders

@@ -548,7 +548,7 @@ export async function subscribeActions(options: {
   };
 }
 
-function parseCheckpoint(data: unknown): Checkpoint | null {
+export function parseCheckpoint(data: unknown): Checkpoint | null {
   if (!isRecord(data)) return null;
   const schemaVersion = clampInt(data.schemaVersion, 1, 10);
   const tick = clampInt(data.tick, 0, Number.MAX_SAFE_INTEGER);

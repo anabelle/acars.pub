@@ -185,9 +185,9 @@ describe("allocatePassengers()", () => {
       first: 0,
     };
 
-    // Both have exact 1.5 seats. By pubkey sort ('airlineA' vs 'airlineB' descending wait no, localeCompare)
-    // b.remainder - a.remainder is 0.
-    // a.pubkey.localeCompare(b.pubkey) puts 'airlineA' before 'airlineB'
+    // Both have exact 1.5 seats. b.remainder - a.remainder is 0, so the
+    // canonical code-unit tie-break fires: compareStrings puts 'airlineA'
+    // before 'airlineB' (same order localeCompare gave for these ASCII keys).
     const alloc = allocatePassengers(offers, demand);
 
     expect(alloc.get("airlineA")!.economy).toBe(2);
@@ -301,5 +301,61 @@ describe("allocatePassengers()", () => {
     // Shares sum to ~1.0
     const total = shares.economy.get("zerofreq")! + shares.economy.get("alsounused")!;
     expect(total).toBeCloseTo(1.0, 6);
+  });
+
+  it("aggregates multiple offers from the same airline pubkey (no passenger evaporation)", () => {
+    // "dual" fields two offers on the same market (e.g. JFK→MAD and
+    // MAD→JFK); its QSI must be summed into one map entry so Σshares = 1.
+    const base = {
+      fareEconomy: fp(500),
+      fareBusiness: fp(1500),
+      fareFirst: fp(3000),
+      frequencyPerWeek: 14,
+      travelTimeMinutes: 300,
+      stops: 0,
+      serviceScore: 0.8,
+      brandScore: 0.8,
+    };
+
+    const offers: FlightOffer[] = [
+      { ...base, airlinePubkey: "dual", travelTimeMinutes: 280 },
+      { ...base, airlinePubkey: "dual", travelTimeMinutes: 320 },
+      { ...base, airlinePubkey: "single" },
+    ];
+
+    const shares = calculateShares(offers);
+
+    // Exactly one entry per pubkey.
+    expect(shares.economy.size).toBe(2);
+    expect(shares.business.size).toBe(2);
+    expect(shares.first.size).toBe(2);
+
+    const dualE = shares.economy.get("dual")!;
+    const singleE = shares.economy.get("single")!;
+    expect(dualE + singleE).toBeCloseTo(1.0, 12);
+    // The aggregated dual-offer carrier beats the identical single offer.
+    expect(dualE).toBeGreaterThan(singleE);
+
+    const demand: DemandResult = {
+      origin: "JFK",
+      destination: "MAD",
+      economy: 1000,
+      business: 100,
+      first: 10,
+    };
+    const alloc = allocatePassengers(offers, demand);
+    const totals = [...alloc.values()].reduce(
+      (acc, v) => ({
+        economy: acc.economy + v.economy,
+        business: acc.business + v.business,
+        first: acc.first + v.first,
+      }),
+      { economy: 0, business: 0, first: 0 },
+    );
+    // No passengers evaporate: exact conservation.
+    expect(totals.economy).toBe(1000);
+    expect(totals.business).toBe(100);
+    expect(totals.first).toBe(10);
+    expect(alloc.get("dual")!.economy).toBeGreaterThan(alloc.get("single")!.economy);
   });
 });

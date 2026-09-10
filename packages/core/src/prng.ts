@@ -22,7 +22,13 @@ export function createPRNG(seed: number): () => number {
 /**
  * Create a PRNG seeded from a tick number.
  * All clients using the same tick get the same sequence.
+ *
+ * Math.imul computes the low 32 bits of tick·0x9E3779B1 (Knuth
+ * multiplicative hash) exactly, whereas `tick * 2654435761` first forms
+ * an IEEE product that silently loses bits once it exceeds 2^53
+ * (~tick 3.4e9). The seed stream is bit-identical to the old formula for
+ * every tick whose product is exactly representable.
  */
 export function createTickPRNG(tick: number): () => number {
-  return createPRNG(tick * 2654435761); // Knuth multiplicative hash
+  return createPRNG(Math.imul(tick, 0x9e3779b1) >>> 0);
 }

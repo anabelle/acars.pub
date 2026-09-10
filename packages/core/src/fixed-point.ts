@@ -47,9 +47,16 @@ function roundDiv(numerator: bigint, denominator: bigint): bigint {
   return doubleRemainder > denominator ? quotient - 1n : quotient;
 }
 
+const MAX_SAFE_INTEGER_BIGINT = 9007199254740991n; // Number.MAX_SAFE_INTEGER
+
 function bigintToSafeFixedPoint(value: bigint, operation: string): FixedPoint {
-  const result = Number(value);
-  return assertSafeInteger(result, operation);
+  // Validate BEFORE the BigInt→Number conversion: a double conversion of an
+  // out-of-range bigint silently rounds, and relying on the post-hoc check
+  // would obscure the source of the overflow.
+  if (value > MAX_SAFE_INTEGER_BIGINT || value < -MAX_SAFE_INTEGER_BIGINT) {
+    throw new RangeError(`${operation} produced an unsafe fixed-point value`);
+  }
+  return assertSafeInteger(Number(value), operation);
 }
 
 /** Create a FixedPoint from a regular number (e.g. dollars) */
@@ -62,13 +69,18 @@ export function fp(value: number): FixedPoint {
  * Cast an already-scaled integer back to FixedPoint.
  * Use this when deserializing from JSON where the value was stored
  * as the raw FP integer (e.g., 1000000 for $100.00).
- * Returns FP_ZERO if the value is not a finite number.
+ *
+ * - undefined → FP_ZERO (absent field in legacy snapshots)
+ * - any other non-number (string/null/object/boolean) → RangeError:
+ *   silently coercing corrupt payloads to $0 hides state desyncs
+ * - non-finite numbers (NaN/±Infinity) → RangeError, same rationale
  */
 export function fpRaw(value: unknown): FixedPoint {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return assertSafeInteger(Math.round(value), "fpRaw");
+  if (value === undefined) return 0 as FixedPoint;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new RangeError(`fpRaw requires a finite number, received ${typeof value}`);
   }
-  return 0 as FixedPoint;
+  return assertSafeInteger(Math.round(value), "fpRaw");
 }
 
 /** Convert FixedPoint back to a regular number for display */

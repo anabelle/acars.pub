@@ -4,7 +4,7 @@ import { buildHubState, getAirportTraffic } from "./hub.js";
 import type { Route } from "./types.js";
 
 describe("buildHubState", () => {
-  it("counts spokes and frequency from hub origin routes", () => {
+  it("counts spokes and frequency from routes departing or landing at the hub", () => {
     const routes: Route[] = [
       {
         id: "r1",
@@ -48,12 +48,36 @@ describe("buildHubState", () => {
 
     const result = buildHubState("JFK", routes);
     expect(result.hubIata).toBe("JFK");
-    expect(result.spokeCount).toBe(2);
-    expect(result.weeklyFrequency).toBe(14);
+    // r1/r2 depart from JFK; r3 lands at JFK — all three are spokes.
+    expect(result.spokeCount).toBe(3);
+    expect(result.weeklyFrequency).toBe(21);
     expect(result.avgFrequency).toBe(7);
   });
 
-  it("returns zeros when there are no matching origin routes", () => {
+  it("returns zeros when no routes touch the hub", () => {
+    const routes: Route[] = [
+      {
+        id: "r1",
+        originIata: "LAX",
+        destinationIata: "SFO",
+        airlinePubkey: "pub",
+        distanceKm: 4000,
+        assignedAircraftIds: [],
+        fareEconomy: fp(0),
+        fareBusiness: fp(0),
+        fareFirst: fp(0),
+        status: "active",
+        frequencyPerWeek: 7,
+      },
+    ];
+
+    const result = buildHubState("JFK", routes);
+    expect(result.spokeCount).toBe(0);
+    expect(result.weeklyFrequency).toBe(0);
+    expect(result.avgFrequency).toBe(0);
+  });
+
+  it("counts a route that only lands at the hub", () => {
     const routes: Route[] = [
       {
         id: "r1",
@@ -71,9 +95,9 @@ describe("buildHubState", () => {
     ];
 
     const result = buildHubState("JFK", routes);
-    expect(result.spokeCount).toBe(0);
-    expect(result.weeklyFrequency).toBe(0);
-    expect(result.avgFrequency).toBe(0);
+    expect(result.spokeCount).toBe(1);
+    expect(result.weeklyFrequency).toBe(7);
+    expect(result.avgFrequency).toBe(7);
   });
 });
 

@@ -5,6 +5,7 @@
 // ============================================================
 
 import { fpToNumber } from "./fixed-point.js";
+import { detExp, detLog1p, detPow, detSin } from "./det-math.js";
 import { haversineDistance } from "./geo.js";
 import { getSeasonalMultiplier } from "./season.js";
 import type {
@@ -104,14 +105,14 @@ export function calculateDemand(
     ),
   );
 
-  // Gravity model formula
+  // Gravity model formula (deterministic pow — Math.** is runtime-approximated)
   const numerator =
-    origin.population ** ALPHA *
-    destination.population ** BETA *
-    origin.gdpPerCapita ** GAMMA *
-    destination.gdpPerCapita ** DELTA;
+    detPow(origin.population, ALPHA) *
+    detPow(destination.population, BETA) *
+    detPow(origin.gdpPerCapita, GAMMA) *
+    detPow(destination.gdpPerCapita, DELTA);
 
-  const denominator = distance ** THETA;
+  const denominator = detPow(distance, THETA);
 
   const baseDemand = K * (numerator / denominator);
 
@@ -186,7 +187,7 @@ export function getHubDemandModifier(
   }
 
   if (originState && destState) {
-    const feed = (Math.log1p(originState.spokeCount) + Math.log1p(destState.spokeCount)) * 0.08;
+    const feed = (detLog1p(originState.spokeCount) + detLog1p(destState.spokeCount)) * 0.08;
     modifier += feed;
   }
 
@@ -213,7 +214,7 @@ export function getHubCongestionModifier(
   }
 
   const excess = ratio - 1.0;
-  const penalty = Math.exp(-1.5 * excess);
+  const penalty = detExp(-1.5 * excess);
   return Math.max(0.3, 0.75 * penalty);
 }
 
@@ -225,7 +226,7 @@ export function getProsperityIndex(
   tick: number,
   ticksPerCycle: number = TICKS_PER_HOUR * 24 * 365.25,
 ): number {
-  return 1.0 + 0.15 * Math.sin((2 * Math.PI * tick) / ticksPerCycle);
+  return 1.0 + 0.15 * detSin((2 * Math.PI * tick) / ticksPerCycle);
 }
 
 // --- Addressable Market & Supply Pressure ---
@@ -282,7 +283,7 @@ export function calculateSupplyPressure(totalWeeklySeats: number, weeklyDemand: 
   }
 
   // Over-supplied: decay with slight aggression (exponent 1.1)
-  const pressure = NATURAL_LF_CEILING / supplyRatio ** 1.1;
+  const pressure = NATURAL_LF_CEILING / detPow(supplyRatio, 1.1);
   return Math.max(0.15, pressure);
 }
 
@@ -307,7 +308,7 @@ export function calculatePriceElasticity(
   if (actual <= 0) return MAX_PRICE_ELASTICITY_MULTIPLIER;
 
   const ratio = actual / reference;
-  const multiplier = ratio ** elasticity;
+  const multiplier = detPow(ratio, elasticity);
 
   if (!Number.isFinite(multiplier)) {
     return ratio <= 1 ? MAX_PRICE_ELASTICITY_MULTIPLIER : MIN_PRICE_ELASTICITY_MULTIPLIER;

@@ -1,4 +1,5 @@
 import { fpScale } from "./fixed-point.js";
+import { detPow } from "./det-math.js";
 import type { AircraftModel, FixedPoint } from "./types.js";
 import { TICKS_PER_HOUR } from "./types.js";
 
@@ -51,8 +52,8 @@ export function computeRouteFrequency(
 }
 
 /**
- * Calculates the current book value of an aircraft based on straight-line depreciation,
- * condition penalties, and utilization penalties.
+ * Calculates the current book value of an aircraft based on declining-balance
+ * depreciation, condition penalties, and utilization penalties.
  */
 export function calculateBookValue(
   model: AircraftModel,
@@ -74,8 +75,8 @@ export function calculateBookValue(
   const residualPercent = model.residualValuePercent / 100;
   const residualValue = fpScale(model.price, residualPercent);
 
-  // V = P * (1-r)^t
-  let baseValue = fpScale(model.price, (1 - annualRate) ** ageYears);
+  // V = P * (1-r)^t (deterministic pow)
+  let baseValue = fpScale(model.price, detPow(1 - annualRate, ageYears));
 
   // 3. Apply Condition Penalty (Up to 30% reduction)
   // 100% condition = 0 penalty. 50% condition = 15% penalty.

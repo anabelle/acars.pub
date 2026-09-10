@@ -27,6 +27,7 @@ export {
   CATALOG_IMAGE_KIND,
   type CatalogImageRecord,
   loadActionLog,
+  parseCheckpoint,
   loadCatalogImages,
   loadCheckpoint,
   loadCheckpoints,

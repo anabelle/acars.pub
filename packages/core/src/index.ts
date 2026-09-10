@@ -36,6 +36,17 @@ export {
   PRICE_ELASTICITY_FIRST,
   scaleToAddressableMarket,
 } from "./demand.js";
+// Deterministic transcendental math (cross-runtime bit-identical)
+export {
+  detAsin,
+  detAtan2,
+  detCos,
+  detExp,
+  detLog,
+  detLog1p,
+  detPow,
+  detSin,
+} from "./det-math.js";
 // Finance
 export {
   calculateFlightCost,

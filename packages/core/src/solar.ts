@@ -1,6 +1,8 @@
 // ============================================================
 // @acars/core — Solar Geometry (Day/Night Terminator)
 // ============================================================
+// display-only, not part of state hash — safe to use Math.* here.
+// ============================================================
 
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;

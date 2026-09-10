@@ -204,12 +204,18 @@ describe("fixed-point arithmetic", () => {
       expect(fpDiv(fp(-1), fp(-3))).toBe(3_333);
     });
 
-    it("fpRaw() returns FP_ZERO for non-number / non-finite input", () => {
+    it("fpRaw() returns FP_ZERO for undefined (legacy snapshot absence)", () => {
       expect(fpRaw(undefined)).toBe(FP_ZERO);
-      expect(fpRaw(null)).toBe(FP_ZERO);
-      expect(fpRaw("abc")).toBe(FP_ZERO);
-      expect(fpRaw(Number.NaN)).toBe(FP_ZERO);
-      expect(fpRaw(Number.POSITIVE_INFINITY)).toBe(FP_ZERO);
+    });
+
+    it("fpRaw() throws RangeError for non-number / non-finite input", () => {
+      expect(() => fpRaw(null)).toThrow(RangeError);
+      expect(() => fpRaw("abc")).toThrow(RangeError);
+      expect(() => fpRaw("10000")).toThrow(RangeError);
+      expect(() => fpRaw({})).toThrow(RangeError);
+      expect(() => fpRaw(Number.NaN)).toThrow(RangeError);
+      expect(() => fpRaw(Number.POSITIVE_INFINITY)).toThrow(RangeError);
+      expect(() => fpRaw(Number.NEGATIVE_INFINITY)).toThrow(RangeError);
     });
 
     it("fpRaw() rounds a finite number to a safe fixed-point integer", () => {

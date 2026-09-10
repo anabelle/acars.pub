@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fp, fpSub, fpToNumber } from "./fixed-point.js";
+import type { FixedPoint } from "./types.js";
 import {
   FUEL_PRICE_MAX_PER_KG,
   FUEL_PRICE_MEAN_PER_KG,
@@ -90,5 +91,53 @@ describe("getFuelPriceHistory", () => {
   it("clamps a negative current tick to zero", () => {
     const samples = getFuelPriceHistory(-50, 2, 10);
     expect(samples.every((s) => s.tick >= 0)).toBe(true);
+  });
+});
+
+describe("getFuelPriceAtTick memoization", () => {
+  /** Naive reference: walk the OU series from tick 0 to `tick`. */
+  function naiveFuelPrice(tick: number): FixedPoint {
+    let price = FUEL_PRICE_MEAN_PER_KG;
+    for (let t = 0; t < tick; t += 1) {
+      price = stepFuelPrice(price, t);
+    }
+    return price;
+  }
+
+  it("returns values identical to the naive epoch-walk for t in 0..5000 (in order)", () => {
+    // Walk the naive series incrementally (equivalent to re-walking from
+    // tick 0 for every t) and compare every step.
+    let naive = FUEL_PRICE_MEAN_PER_KG;
+    for (let t = 0; t <= 5000; t += 1) {
+      expect(getFuelPriceAtTick(t)).toBe(naive);
+      naive = stepFuelPrice(naive, t);
+    }
+  });
+
+  it("returns identical values for out-of-order (backward) queries", () => {
+    // Prime the cache far forward, then jump backwards — the re-derive
+    // path from the cached epoch start must reproduce the same prices.
+    expect(getFuelPriceAtTick(4999)).toBe(naiveFuelPrice(4999));
+    for (const t of [1234, 50, 4500, 7, 4999, 0, 2500]) {
+      expect(getFuelPriceAtTick(t)).toBe(naiveFuelPrice(t));
+    }
+  });
+
+  it("survives cache-bound resets across multi-epoch jumps", () => {
+    // Jump ~3+ epochs ahead (forces a bound-triggered reset), then verify
+    // a backward tick and a forward tick in a different epoch.
+    const far = 3 * 28800 + 137;
+    const expectedFar = naiveFuelPrice(far);
+    expect(getFuelPriceAtTick(far)).toBe(expectedFar);
+
+    const back = 28800 + 42;
+    expect(getFuelPriceAtTick(back)).toBe(naiveFuelPrice(back));
+    expect(getFuelPriceAtTick(far)).toBe(expectedFar);
+    expect(getFuelPriceAtTick(far + 1)).toBe(naiveFuelPrice(far + 1));
+  });
+
+  it("clamps fractional and negative ticks like the naive walk", () => {
+    expect(getFuelPriceAtTick(17.9)).toBe(naiveFuelPrice(17));
+    expect(getFuelPriceAtTick(-3)).toBe(FUEL_PRICE_MEAN_PER_KG);
   });
 });
