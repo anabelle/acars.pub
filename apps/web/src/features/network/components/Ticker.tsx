@@ -1,5 +1,6 @@
 import { getProsperityIndex } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 /**
@@ -14,7 +15,29 @@ export function Ticker() {
   const progress = useEngineStore((s) => s.tickProgress);
   const catchup = useEngineStore((s) => s.catchupProgress);
 
-  const { competitors, fleetByOwner, routesByOwner } = useAirlineStore();
+  // Fine-grained selectors — subscribing to the whole airline store made the
+  // root-mounted Ticker re-render on every state write of any slice.
+  const competitors = useAirlineStore((s) => s.competitors);
+  const fleetByOwner = useAirlineStore((s) => s.fleetByOwner);
+  const routesByOwner = useAirlineStore((s) => s.routesByOwner);
+
+  // World totals derived once per fleet/routes reference (stable store refs)
+  // instead of reducing the whole world on every render.
+  const worldFleetCount = useMemo(() => {
+    let total = 0;
+    fleetByOwner.forEach((ownerFleet) => {
+      total += ownerFleet.length;
+    });
+    return total;
+  }, [fleetByOwner]);
+
+  const worldRouteCount = useMemo(() => {
+    let total = 0;
+    routesByOwner.forEach((ownerRoutes) => {
+      total += ownerRoutes.length;
+    });
+    return total;
+  }, [routesByOwner]);
 
   const prosperity = getProsperityIndex(tick);
 
@@ -53,16 +76,12 @@ export function Ticker() {
 
       <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
         <span>{t("ticker.planes")}</span>
-        <span className="text-foreground font-bold">
-          {Array.from(fleetByOwner.values()).reduce((sum, f) => sum + f.length, 0)}
-        </span>
+        <span className="text-foreground font-bold">{worldFleetCount}</span>
       </div>
 
       <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
         <span>{t("ticker.routes")}</span>
-        <span className="text-foreground font-bold">
-          {Array.from(routesByOwner.values()).reduce((sum, r) => sum + r.length, 0)}
-        </span>
+        <span className="text-foreground font-bold">{worldRouteCount}</span>
       </div>
 
       <div className="hidden md:flex items-center space-x-2 border-r border-border pr-6">

@@ -23,6 +23,7 @@ import {
   ROUTE_SLOT_FEE,
   type Season,
   scaleToAddressableMarket,
+  TICKS_PER_DAY,
 } from "@acars/core";
 import { airports as ALL_AIRPORTS, getAircraftById, HUB_CLASSIFICATIONS } from "@acars/data";
 import { useActiveAirline, useAirlineStore, useEngineStore } from "@acars/store";
@@ -43,8 +44,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { useShallow } from "zustand/react/shallow";
 import { AirlineFlightBoard } from "@/features/network/components/AirlineFlightBoard";
-import { getRouteDemandSnapshot } from "@/features/network/hooks/useRouteDemand";
+import { getRouteDemandSnapshotCached } from "@/features/network/hooks/useRouteDemand";
 import {
   estimateRouteEconomics,
   getPrimaryAssignedAircraft,
@@ -95,6 +97,116 @@ const parseFareInput = (value: string) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+type ProspectMarket = {
+  origin: Airport;
+  destination: Airport;
+  distance: number;
+  demand: { economy: number; business: number; first: number };
+  estimatedDailyRevenue: FixedPoint;
+  season: Season;
+  routeEconomics: ReturnType<typeof estimateRouteEconomics> | null;
+};
+
+// ---------------------------------------------------------------------------
+// Prospect markets: sorting the ~6k airport catalog by distance per render
+// was a top quadratic hotspot. The sorted-others cache mirrors the pattern in
+// @acars/store engine.ts (whose own cache is not exported), and results are
+// memoized per (originIata, dayBucket) — season/prosperity inputs only change
+// meaningfully per game-day.
+// ---------------------------------------------------------------------------
+let prospectSortedOthersCache: {
+  originIata: string | null;
+  sorted: { airport: Airport; distance: number }[] | null;
+} = { originIata: null, sorted: null };
+
+const prospectsMemo = new Map<string, ProspectMarket[]>();
+const PROSPECTS_MEMO_MAX_ENTRIES = 8;
+
+function buildProspects(origin: Airport, tick: number): ProspectMarket[] {
+  const now = new Date();
+  const prosperity = getProsperityIndex(tick);
+  if (prospectSortedOthersCache.originIata !== origin.iata) {
+    prospectSortedOthersCache = {
+      originIata: origin.iata,
+      sorted: ALL_AIRPORTS.filter((a) => a.iata !== origin.iata)
+        .map((a) => ({
+          airport: a,
+          distance: haversineDistance(origin.latitude, origin.longitude, a.latitude, a.longitude),
+        }))
+        .sort((a, b) => a.distance - b.distance),
+    };
+  }
+  const others = prospectSortedOthersCache.sorted ?? [];
+
+  const picks: Airport[] = [];
+  if (others.length >= 2) picks.push(others[0].airport, others[1].airport);
+  const midIdx = Math.floor(others.length * 0.4);
+  const midIdx2 = Math.floor(others.length * 0.5);
+  if (others.length >= 6) picks.push(others[midIdx].airport, others[midIdx2].airport);
+  if (others.length >= 4)
+    picks.push(others[others.length - 2].airport, others[others.length - 1].airport);
+
+  return picks.map((dest) => {
+    const season = getSeason(dest.latitude, now);
+    const distance = haversineDistance(
+      origin.latitude,
+      origin.longitude,
+      dest.latitude,
+      dest.longitude,
+    );
+    const demand = calculateDemand(origin, dest, season, prosperity, 1.0);
+    const addressableDemand = scaleToAddressableMarket(demand);
+    const fares = getSuggestedFares(distance);
+    const estimatedDailyRevenue = fpAdd(
+      fpAdd(
+        fpScale(fares.economy, demand.economy / 7),
+        fpScale(fares.business, demand.business / 7),
+      ),
+      fpScale(fares.first, demand.first / 7),
+    );
+    const sampleModel = getAircraftById("atr72-600") ?? getAircraftById("a320neo");
+    const routeEconomics = sampleModel
+      ? estimateRouteEconomics({
+          route: {
+            originIata: origin.iata,
+            destinationIata: dest.iata,
+            distanceKm: distance,
+            fareEconomy: fares.economy,
+            fareBusiness: fares.business,
+            fareFirst: fares.first,
+          },
+          addressableDemand,
+          pressureMultiplier: 0.85,
+          effectiveLoadFactor: 0.85,
+          aircraft: sampleModel,
+          aircraftCount: 1,
+          cabinConfig: sampleModel.capacity,
+          tick,
+        })
+      : null;
+    return {
+      origin,
+      destination: dest,
+      distance,
+      demand,
+      estimatedDailyRevenue,
+      season,
+      routeEconomics,
+    };
+  });
+}
+
+function getProspectMarkets(origin: Airport, tick: number): ProspectMarket[] {
+  const dayBucket = Math.floor(tick / TICKS_PER_DAY);
+  const memoKey = `${origin.iata}:${dayBucket}`;
+  const memoized = prospectsMemo.get(memoKey);
+  if (memoized) return memoized;
+  const built = buildProspects(origin, dayBucket * TICKS_PER_DAY);
+  if (prospectsMemo.size >= PROSPECTS_MEMO_MAX_ENTRIES) prospectsMemo.clear();
+  prospectsMemo.set(memoKey, built);
+  return built;
+}
+
 const calculateElasticityDisplay = (
   actualFare: FixedPoint,
   referenceFare: FixedPoint,
@@ -111,17 +223,23 @@ const calculateElasticityDisplay = (
 export function RouteManager() {
   const { t } = useTranslation(["common", "game"]);
   const { airline, routes, fleet, isViewingOther } = useActiveAirline();
-  const {
-    pubkey,
-    openRoute,
-    updateRouteFares,
-    rebaseRoute,
-    closeRoute,
-    globalRouteRegistry,
-    competitors,
-  } = useAirlineStore();
+  // Fine-grained selectors — the previous whole-store subscription re-rendered
+  // this 2k-LOC tree on every write of any airline-store slice.
+  const pubkey = useAirlineStore((s) => s.pubkey);
+  const globalRouteRegistry = useAirlineStore((s) => s.globalRouteRegistry);
+  const competitors = useAirlineStore((s) => s.competitors);
+  const { openRoute, updateRouteFares, rebaseRoute, closeRoute } = useAirlineStore(
+    useShallow((s) => ({
+      openRoute: s.openRoute,
+      updateRouteFares: s.updateRouteFares,
+      rebaseRoute: s.rebaseRoute,
+      closeRoute: s.closeRoute,
+    })),
+  );
   const confirm = useConfirm();
-  const { homeAirport, tick, setActiveHubIata } = useEngineStore();
+  const homeAirport = useEngineStore((s) => s.homeAirport);
+  const tick = useEngineStore((s) => s.tick);
+  const setActiveHubIata = useEngineStore((s) => s.setActiveHubIata);
   const { tab } = useSearch({ from: "/network" });
   const navigate = useNavigate({ from: "/network" });
   const setTab = (newTab: "active" | "opportunities") => {
@@ -192,16 +310,6 @@ export function RouteManager() {
     ).slice(0, 5);
   }, [searchQuery, planningOriginAirport?.iata]);
 
-  type ProspectMarket = {
-    origin: Airport;
-    destination: Airport;
-    distance: number;
-    demand: { economy: number; business: number; first: number };
-    estimatedDailyRevenue: FixedPoint;
-    season: Season;
-    routeEconomics: ReturnType<typeof estimateRouteEconomics> | null;
-  };
-
   const calculateSearchProspect = useCallback(
     (dest: Airport): ProspectMarket | null => {
       if (!planningOriginAirport) return null;
@@ -257,81 +365,11 @@ export function RouteManager() {
     [planningOriginAirport, tick],
   );
 
-  const buildProspects = useCallback(
-    (origin: Airport | null): ProspectMarket[] => {
-      if (!origin) return [];
-      const now = new Date();
-      const prosperity = getProsperityIndex(tick);
-      const others = ALL_AIRPORTS.filter((a) => a.iata !== origin.iata)
-        .map((a) => ({
-          airport: a,
-          distance: haversineDistance(origin.latitude, origin.longitude, a.latitude, a.longitude),
-        }))
-        .sort((a, b) => a.distance - b.distance);
-
-      const picks: Airport[] = [];
-      if (others.length >= 2) picks.push(others[0].airport, others[1].airport);
-      const midIdx = Math.floor(others.length * 0.4);
-      const midIdx2 = Math.floor(others.length * 0.5);
-      if (others.length >= 6) picks.push(others[midIdx].airport, others[midIdx2].airport);
-      if (others.length >= 4)
-        picks.push(others[others.length - 2].airport, others[others.length - 1].airport);
-
-      return picks.map((dest) => {
-        const season = getSeason(dest.latitude, now);
-        const distance = haversineDistance(
-          origin.latitude,
-          origin.longitude,
-          dest.latitude,
-          dest.longitude,
-        );
-        const demand = calculateDemand(origin, dest, season, prosperity, 1.0);
-        const addressableDemand = scaleToAddressableMarket(demand);
-        const fares = getSuggestedFares(distance);
-        const estimatedDailyRevenue = fpAdd(
-          fpAdd(
-            fpScale(fares.economy, demand.economy / 7),
-            fpScale(fares.business, demand.business / 7),
-          ),
-          fpScale(fares.first, demand.first / 7),
-        );
-        const sampleModel = getAircraftById("atr72-600") ?? getAircraftById("a320neo");
-        const routeEconomics = sampleModel
-          ? estimateRouteEconomics({
-              route: {
-                originIata: origin.iata,
-                destinationIata: dest.iata,
-                distanceKm: distance,
-                fareEconomy: fares.economy,
-                fareBusiness: fares.business,
-                fareFirst: fares.first,
-              },
-              addressableDemand,
-              pressureMultiplier: 0.85,
-              effectiveLoadFactor: 0.85,
-              aircraft: sampleModel,
-              aircraftCount: 1,
-              cabinConfig: sampleModel.capacity,
-              tick,
-            })
-          : null;
-        return {
-          origin,
-          destination: dest,
-          distance,
-          demand,
-          estimatedDailyRevenue,
-          season,
-          routeEconomics,
-        };
-      });
-    },
-    [tick],
-  );
-
+  // Memoized per (origin, game-day bucket) at module level — see
+  // getProspectMarkets. The heavy 6k-airport sort runs once per origin.
   const prospectMarkets = useMemo(
-    () => buildProspects(planningOriginAirport),
-    [buildProspects, planningOriginAirport],
+    () => (planningOriginAirport ? getProspectMarkets(planningOriginAirport, tick) : []),
+    [planningOriginAirport, tick],
   );
 
   const activeRoutes = useMemo(
@@ -342,6 +380,12 @@ export function RouteManager() {
     () => routes.filter((route) => route.status === "suspended"),
     [routes],
   );
+  // Unbounded-list guard: cap rendered suspended-route cards, expand on demand.
+  const SUSPENDED_ROUTES_PREVIEW_LIMIT = 50;
+  const [showAllSuspendedRoutes, setShowAllSuspendedRoutes] = useState(false);
+  const suspendedRoutesToShow = showAllSuspendedRoutes
+    ? suspendedRoutes
+    : suspendedRoutes.slice(0, SUSPENDED_ROUTES_PREVIEW_LIMIT);
   const originActiveRoutes = useMemo(() => {
     if (!planningOriginAirport) return [];
     return activeRoutes.filter((route) => route.originIata === planningOriginAirport.iata);
@@ -392,7 +436,7 @@ export function RouteManager() {
     const suggestedFares = getSuggestedFares(fareEditor.distanceKm);
     const activeFareRoute = routes.find((route) => route.id === fareEditor.routeId) ?? null;
     const fareDemandSnapshot = activeFareRoute
-      ? getRouteDemandSnapshot(activeFareRoute, tick, fleet, routes)
+      ? getRouteDemandSnapshotCached(activeFareRoute, tick, fleet, routes)
       : null;
     const fareInputValues = {
       economy: parseFareInput(fareInputs.e),
@@ -554,6 +598,12 @@ export function RouteManager() {
   // --- Virtualization (hooks must come before any conditional return) ---
   const panelScrollRef = usePanelScrollRef();
   const listParentRef = useRef<HTMLDivElement>(null);
+  // Measured in an effect — layout reads from refs during render are stale.
+  // Re-measured on tab switch because the list container remounts per tab.
+  const [listScrollMargin, setListScrollMargin] = useState(0);
+  useEffect(() => {
+    setListScrollMargin(listParentRef.current?.offsetTop ?? 0);
+  }, [tab]);
 
   const displayedOpportunities = useMemo(() => {
     const activeDests = new Set(originActiveRoutes.map((r) => r.destinationIata));
@@ -569,7 +619,7 @@ export function RouteManager() {
     getScrollElement: () => panelScrollRef.current,
     estimateSize: () => 420,
     overscan: 3,
-    scrollMargin: listParentRef.current?.offsetTop ?? 0,
+    scrollMargin: listScrollMargin,
   });
 
   const opportunitiesVirtualizer = useVirtualizer({
@@ -577,7 +627,7 @@ export function RouteManager() {
     getScrollElement: () => panelScrollRef.current,
     estimateSize: () => 220,
     overscan: 5,
-    scrollMargin: listParentRef.current?.offsetTop ?? 0,
+    scrollMargin: listScrollMargin,
   });
 
   if (!airline || !homeAirport || !planningOriginAirport) return null;
@@ -665,7 +715,7 @@ export function RouteManager() {
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-1 gap-3">
-                {suspendedRoutes.map((route) => (
+                {suspendedRoutesToShow.map((route) => (
                   <div
                     key={route.id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-background/70 px-4 py-3"
@@ -800,6 +850,20 @@ export function RouteManager() {
                     </div>
                   </div>
                 ))}
+                {suspendedRoutes.length > SUSPENDED_ROUTES_PREVIEW_LIMIT && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSuspendedRoutes((value) => !value)}
+                    className="mt-1 w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 transition-colors hover:bg-amber-500/20"
+                  >
+                    {showAllSuspendedRoutes
+                      ? t("routeManager.showFewerSuspended", { ns: "game" })
+                      : t("routeManager.showAllSuspended", {
+                          ns: "game",
+                          count: suspendedRoutes.length,
+                        })}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -863,7 +927,14 @@ export function RouteManager() {
                       const route = activeRoutes[virtualItem.index];
                       const destinationAirport = airportIndex.get(route.destinationIata);
                       const assignedCount = route.assignedAircraftIds.length;
-                      const demandSnapshot = getRouteDemandSnapshot(route, tick, fleet, routes);
+                      // Cached per (route, demand bucket) — recomputing the full
+                      // snapshot for every visible row on every tick was quadratic.
+                      const demandSnapshot = getRouteDemandSnapshotCached(
+                        route,
+                        tick,
+                        fleet,
+                        routes,
+                      );
                       const { addressableDemand } = demandSnapshot;
                       const marketDemand =
                         demandSnapshot.totalDemand.economy +
@@ -978,7 +1049,7 @@ export function RouteManager() {
 
                                 <div className="flex flex-col">
                                   <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
-                                    Pricing
+                                    {t("routeManager.pricing", { ns: "game" })}
                                   </span>
                                   <div className="flex gap-3 mt-1">
                                     <span className="text-xs font-mono bg-zinc-500/10 px-2 py-0.5 rounded border border-zinc-500/20 inline-flex items-center gap-1.5">
@@ -1100,7 +1171,8 @@ export function RouteManager() {
                               <div className="mt-3 rounded-xl sm:rounded-2xl border border-border/40 bg-muted/20 p-3 sm:p-4">
                                 <div className="flex items-center justify-between mb-2 sm:mb-3">
                                   <span className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1.5">
-                                    <TrendingUp className="h-3 w-3" /> Market Supply
+                                    <TrendingUp className="h-3 w-3" />{" "}
+                                    {t("routeManager.marketSupply", { ns: "game" })}
                                   </span>
                                   <span className={`text-[10px] font-bold uppercase ${lfTone}`}>
                                     {supplyLabel}
@@ -1110,7 +1182,7 @@ export function RouteManager() {
                                 <div className="grid grid-cols-3 gap-2 sm:gap-3 text-[10px] font-mono">
                                   <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
                                     <span className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                      Total Market
+                                      {t("routeManager.totalMarket", { ns: "game" })}
                                     </span>
                                     <span className="text-foreground font-bold">
                                       {marketDemand.toLocaleString()} / wk
@@ -1118,7 +1190,7 @@ export function RouteManager() {
                                   </div>
                                   <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
                                     <span className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                      Addressable
+                                      {t("routeManager.addressable", { ns: "game" })}
                                     </span>
                                     <span className="text-foreground font-bold">
                                       {addressableTotal.toLocaleString()} / wk
@@ -1126,7 +1198,7 @@ export function RouteManager() {
                                   </div>
                                   <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
                                     <span className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                      Your Seats
+                                      {t("routeManager.yourSeats", { ns: "game" })}
                                     </span>
                                     <span className="text-foreground font-bold">
                                       {totalWeeklySeats.toLocaleString()} / wk
@@ -1553,9 +1625,16 @@ export function RouteManager() {
                               type="button"
                               onClick={async () => {
                                 const approved = await confirm({
-                                  title: "Open route?",
-                                  description: `This charges ${fpFormat(ROUTE_SLOT_FEE, 0)} to open ${market.origin.iata} → ${market.destination.iata}.`,
-                                  confirmLabel: "Open Route",
+                                  title: t("routeManager.openRouteConfirmTitle", { ns: "game" }),
+                                  description: t("routeManager.openRouteConfirmDescription", {
+                                    ns: "game",
+                                    fee: fpFormat(ROUTE_SLOT_FEE, 0),
+                                    origin: market.origin.iata,
+                                    destination: market.destination.iata,
+                                  }),
+                                  confirmLabel: t("routeManager.openRouteConfirmLabel", {
+                                    ns: "game",
+                                  }),
                                 });
                                 if (!approved) return;
                                 setOpeningRouteIata(market.destination.iata);
@@ -1567,8 +1646,10 @@ export function RouteManager() {
                                   );
                                 } catch (error) {
                                   const message =
-                                    error instanceof Error ? error.message : "Unknown error";
-                                  toast.error("Route open failed", {
+                                    error instanceof Error
+                                      ? error.message
+                                      : t("routeManager.unknownError", { ns: "game" });
+                                  toast.error(t("routeManager.routeOpenFailed", { ns: "game" }), {
                                     description: message,
                                   });
                                 } finally {
@@ -1581,12 +1662,15 @@ export function RouteManager() {
                               {openingRouteIata === market.destination.iata ? (
                                 <>
                                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                  Opening…
+                                  {t("routeManager.opening", { ns: "game" })}
                                 </>
                               ) : (
                                 <>
                                   <PlusCircle className="h-4 w-4" />
-                                  Open Route ({fpFormat(ROUTE_SLOT_FEE, 0)})
+                                  {t("routeManager.openRouteWithFee", {
+                                    ns: "game",
+                                    fee: fpFormat(ROUTE_SLOT_FEE, 0),
+                                  })}
                                 </>
                               )}
                             </button>
@@ -1969,7 +2053,7 @@ export function RouteManager() {
                     disabled={isSavingFares}
                     className="rounded-lg border border-border bg-background/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-accent"
                   >
-                    Cancel
+                    {t("actions.cancel", { ns: "common" })}
                   </button>
                   <button
                     type="button"
@@ -1977,7 +2061,9 @@ export function RouteManager() {
                     disabled={isSavingFares}
                     className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-60"
                   >
-                    {isSavingFares ? "Saving…" : "Save fares"}
+                    {isSavingFares
+                      ? t("routeManager.saving", { ns: "game" })
+                      : t("routeManager.saveFares", { ns: "game" })}
                   </button>
                 </div>
               </div>

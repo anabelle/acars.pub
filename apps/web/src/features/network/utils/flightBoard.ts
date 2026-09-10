@@ -30,7 +30,7 @@ type FlightBoardParams = {
   airportTimezone: string;
   mode: FlightBoardMode;
   fleet: AircraftInstance[];
-  globalFleet: AircraftInstance[]; // competitor fleet (excludes player)
+  globalFleet: readonly AircraftInstance[]; // candidate aircraft for this airport
   airline: AirlineEntity | null;
   competitors: Map<string, AirlineEntity>;
   tick: number;

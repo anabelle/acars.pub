@@ -26,7 +26,8 @@ vi.mock("@acars/store", () => {
   return {
     useEngineStore: (selector: Selector<EngineStoreState>) =>
       selector(mockUseEngineStore() as EngineStoreState),
-    useAirlineStore: () => mockUseAirlineStore() as AirlineStoreState,
+    useAirlineStore: (selector: Selector<AirlineStoreState>) =>
+      selector(mockUseAirlineStore() as AirlineStoreState),
   };
 });
 
@@ -78,8 +79,14 @@ describe("Ticker", () => {
     });
     mockUseAirlineStore.mockReturnValue({
       competitors: new Map(),
-      fleetByOwner: new Map(),
-      routesByOwner: new Map(),
+      fleetByOwner: new Map([
+        ["pk1", [{ id: "a1" }, { id: "a2" }, { id: "a3" }]],
+        ["pk2", [{ id: "a4" }, { id: "a5" }, { id: "a6" }, { id: "a7" }]],
+      ]),
+      routesByOwner: new Map([
+        ["pk1", [{ id: "r1" }]],
+        ["pk2", [{ id: "r2" }, { id: "r3" }]],
+      ]),
       fleet: [],
       routes: [],
     });
@@ -87,6 +94,9 @@ describe("Ticker", () => {
     render(<Ticker />);
     expect(screen.getByText("Summer")).toBeInTheDocument();
     expect(screen.getByText(/Live Data/i)).toBeInTheDocument();
+    // Memoized world totals: 3 + 4 aircraft across owners, 1 + 2 routes.
+    expect(screen.getByText("7")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
   });
 
   it("renders translated season labels in Spanish", async () => {

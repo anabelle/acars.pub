@@ -10,6 +10,7 @@ import {
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { hasLeaderboardActivity } from "@/features/competition/leaderboardMetrics";
 import { AircraftInfoPanel } from "@/features/network/components/AircraftInfoPanel";
 import { AirportInfoPanel } from "@/features/network/components/AirportInfoPanel";
@@ -62,13 +63,21 @@ function getAircraftFocusPoint(
 }
 
 export function WorldMap() {
+  const { t } = useTranslation("game");
   const homeAirport = useEngineStore((s) => s.homeAirport);
   const tick = useEngineStore((s) => s.tick);
   const tickProgress = useEngineStore((s) => s.tickProgress);
   const permalinkAirportIata = useEngineStore((s) => s.permalinkAirportIata);
   const permalinkAircraftId = useEngineStore((s) => s.permalinkAircraftId);
-  const { airline, fleet, fleetByOwner, routesByOwner, competitors, routes, pubkey } =
-    useAirlineStore();
+  // Fine-grained selectors — the previous whole-store subscription re-rendered
+  // the root-mounted map on every write of any airline-store slice.
+  const airline = useAirlineStore((s) => s.airline);
+  const fleet = useAirlineStore((s) => s.fleet);
+  const fleetByOwner = useAirlineStore((s) => s.fleetByOwner);
+  const routesByOwner = useAirlineStore((s) => s.routesByOwner);
+  const competitors = useAirlineStore((s) => s.competitors);
+  const routes = useAirlineStore((s) => s.routes);
+  const pubkey = useAirlineStore((s) => s.pubkey);
   const [inspectedAirport, setInspectedAirport] = useState<Airport | null>(null);
   const [inspectedAircraft, setInspectedAircraft] = useState<AircraftInstance | null>(null);
   const [focusedAirport, setFocusedAirport] = useState<Airport | null>(null);
@@ -154,7 +163,12 @@ export function WorldMap() {
     const playerPubkey = pubkey ?? null;
     const result: AircraftInstance[] = [];
     fleetByOwner.forEach((ownerFleet, key) => {
-      if (key !== playerPubkey) result.push(...ownerFleet);
+      if (key === playerPubkey) return;
+      // Loop append instead of spread — `push(...ownerFleet)` throws
+      // RangeError when an owner fleet exceeds the ~100k argument limit.
+      for (const aircraft of ownerFleet) {
+        result.push(aircraft);
+      }
     });
     return result;
   }, [pubkey, fleetByOwner]);
@@ -187,7 +201,11 @@ export function WorldMap() {
     const playerPubkey = pubkey ?? null;
     const result: Route[] = [];
     routesByOwner.forEach((ownerRoutes, key) => {
-      if (key !== playerPubkey) result.push(...ownerRoutes);
+      if (key === playerPubkey) return;
+      // Loop append instead of spread (RangeError guard for huge owners).
+      for (const route of ownerRoutes) {
+        result.push(route);
+      }
     });
     return result;
   }, [pubkey, routesByOwner]);
@@ -218,33 +236,47 @@ export function WorldMap() {
     [fleet, competitorFleet, airline, competitors],
   );
 
+  const handleMapClick = useCallback(() => {
+    setInspectedAirport(null);
+    setInspectedAircraft(null);
+    setFocusedAirport(null);
+    if (
+      permalinkAirportIata ||
+      permalinkAircraftId ||
+      window.location.pathname.startsWith("/airport/") ||
+      window.location.pathname.startsWith("/aircraft/")
+    ) {
+      navigateToPath(getDetailReturnTo(), { replace: true });
+    }
+  }, [permalinkAirportIata, permalinkAircraftId]);
+
   if (!homeAirport) return null;
 
   const selectedAirport = focusedAirport ?? homeAirport;
   const toggleThemeLabel =
-    mapTheme === "dark" ? "Switch to light map theme" : "Switch to dark map theme";
+    mapTheme === "dark"
+      ? t("worldMap.switchToLightTheme", { ns: "game" })
+      : t("worldMap.switchToDarkTheme", { ns: "game" });
 
   return (
     <div className="absolute inset-0 z-0 h-full w-full overflow-hidden bg-black">
+      {/*
+        ALTO 4 (map delivery): all data props handed to CoreGlobe are already
+        reference-stable memos derived from store references (competitorFleet,
+        competitorRoutes, groundPresence, competitorLiveries, playerHubs,
+        competitorHubColors, playerRouteDestinations) and callbacks are
+        useCallback-stable. `tick`/`tickProgress` intentionally change every
+        tick — the globe needs them to animate aircraft positions. Any further
+        delivery optimization (memoizing Globe internals) lives in
+        packages/map/Globe.tsx, which is out of scope for apps/web.
+      */}
       <CoreGlobe
         key={mapTheme}
         airports={AIRPORTS}
         selectedAirport={selectedAirport}
         onAirportSelect={handleAirportSelect}
         onAircraftSelect={handleAircraftSelect}
-        onMapClick={() => {
-          setInspectedAirport(null);
-          setInspectedAircraft(null);
-          setFocusedAirport(null);
-          if (
-            permalinkAirportIata ||
-            permalinkAircraftId ||
-            window.location.pathname.startsWith("/airport/") ||
-            window.location.pathname.startsWith("/aircraft/")
-          ) {
-            navigateToPath(getDetailReturnTo(), { replace: true });
-          }
-        }}
+        onMapClick={handleMapClick}
         groundPresence={groundPresence}
         fleet={fleet}
         competitorFleet={competitorFleet}
@@ -266,7 +298,7 @@ export function WorldMap() {
       ) : null}
       {focusedAirport ? (
         <div className="pointer-events-none absolute left-4 top-4 z-20 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] uppercase tracking-widest text-muted-foreground">
-          Focus: {focusedAirport.iata}
+          {t("worldMap.focus", { ns: "game", iata: focusedAirport.iata })}
         </div>
       ) : null}
       <button

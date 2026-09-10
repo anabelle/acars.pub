@@ -1,4 +1,5 @@
 import { useActiveAirline, useAirlineStore } from "@acars/store";
+import { useShallow } from "zustand/react/shallow";
 import { AlertTriangle, Plane } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { FleetManager } from "@/features/fleet/components/FleetManager";
@@ -7,15 +8,23 @@ import { PanelBody, PanelHeader, PanelLayout } from "@/shared/components/layout/
 
 export default function FleetDashboard() {
   const { t } = useTranslation(["identity", "game", "common"]);
-  const { airline, initializeIdentity, createNewIdentity, loginWithNsec, isLoading } =
-    useAirlineStore();
+  // Primitive/boolean selector granularity — no whole-store subscription.
+  const hasAirline = useAirlineStore((state) => Boolean(state.airline));
+  const isLoading = useAirlineStore((state) => state.isLoading);
+  const { initializeIdentity, createNewIdentity, loginWithNsec } = useAirlineStore(
+    useShallow((state) => ({
+      initializeIdentity: state.initializeIdentity,
+      createNewIdentity: state.createNewIdentity,
+      loginWithNsec: state.loginWithNsec,
+    })),
+  );
   const { airline: activeAirline, fleet, isViewingOther } = useActiveAirline();
   const fleetSize = fleet.length;
 
   const isBankrupt =
     activeAirline?.status === "chapter11" || activeAirline?.status === "liquidated";
 
-  if (!airline && !isViewingOther) {
+  if (!hasAirline && !isViewingOther) {
     return (
       <PanelLayout>
         <WorkspaceLockedState

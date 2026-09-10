@@ -28,8 +28,8 @@ export function isGrounded(aircraft: AircraftInstance): boolean {
 
 export function buildGroundTraffic(
   airportIata: string,
-  fleet: AircraftInstance[],
-  competitorFleet: AircraftInstance[],
+  fleet: readonly AircraftInstance[],
+  competitorFleet: readonly AircraftInstance[],
   airline: AirlineEntity | null,
   competitors: Map<string, AirlineEntity>,
 ): { totalCount: number; entries: GroundTrafficEntry[] } {

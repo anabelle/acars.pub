@@ -27,4 +27,28 @@ describe("Content Security Policy", () => {
     expect(imgSrcDirective).toContain("https://r2a.primal.net");
     expect(imgSrcDirective).toContain("https://media.primal.net");
   });
+
+  it("does not allow 'unsafe-eval' in script-src (MapLibre v5 does not require it)", () => {
+    const candidatePaths = [
+      resolve(process.cwd(), "index.html"),
+      resolve(process.cwd(), "apps/web/index.html"),
+    ];
+    const indexHtmlPath = candidatePaths.find((path) => existsSync(path));
+    expect(indexHtmlPath).toBeDefined();
+
+    const indexHtml = readFileSync(indexHtmlPath as string, "utf8");
+    const cspTagMatch = indexHtml.match(/<meta[^>]*http-equiv="Content-Security-Policy"[^>]*>/i);
+    expect(cspTagMatch).toBeTruthy();
+
+    const contentMatch = cspTagMatch?.[0].match(/content="([^"]*)"/);
+    expect(contentMatch).toBeTruthy();
+
+    const scriptSrcDirective = contentMatch?.[1]
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("script-src "));
+
+    expect(scriptSrcDirective).toBeTruthy();
+    expect(scriptSrcDirective).not.toContain("'unsafe-eval'");
+  });
 });

@@ -4,7 +4,7 @@ import { useAirlineStore, useEngineStore } from "@acars/store";
 import { Link } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDownRight, ArrowUpRight, ChevronDown, MapPin, Trophy } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   LeaderboardMetric,
@@ -271,13 +271,18 @@ export function Leaderboard() {
   const ownId = airline?.id ?? null;
   const panelScrollRef = usePanelScrollRef();
   const parentRef = useRef<HTMLDivElement | null>(null);
+  // Measured in an effect — layout reads from refs during render are stale.
+  const [listScrollMargin, setListScrollMargin] = useState(0);
+  useEffect(() => {
+    setListScrollMargin(parentRef.current?.offsetTop ?? 0);
+  }, []);
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => panelScrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 6,
-    scrollMargin: parentRef.current?.offsetTop ?? 0,
+    scrollMargin: listScrollMargin,
   });
 
   return (

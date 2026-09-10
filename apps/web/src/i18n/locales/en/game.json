@@ -62,7 +62,25 @@
     "noEventsDesc": "Your airline's history will appear here as it grows.",
     "operationsLedger": "Operations Ledger",
     "hideDetails": "Hide Details",
-    "viewBreakdown": "View Breakdown"
+    "viewBreakdown": "View Breakdown",
+    "events": {
+      "takeoff": "Flight Departed",
+      "landing": "Flight Landed",
+      "purchase": "Purchase Completed",
+      "sale": "Asset Sold",
+      "leasePayment": "Lease Payment",
+      "maintenance": "Maintenance Update",
+      "delivery": "Delivery Complete",
+      "hubChange": "Hub Updated",
+      "routeChange": "Route Updated",
+      "ferry": "Ferry Flight",
+      "competitorHub": "Competitor Alert",
+      "priceWar": "Price War Detected",
+      "tierUpgrade": "Tier Upgraded",
+      "bankruptcy": "BANKRUPTCY FILED",
+      "financialWarning": "Financial Warning",
+      "operationsUpdate": "Operations Update"
+    }
   },
   "fleet": {
     "title": "Fleet",
@@ -203,7 +221,22 @@
     "reviewConfiguration": "Review your configuration above, then confirm the order.",
     "purchasing": "Purchasing…",
     "insufficientFunds": "Insufficient Funds",
-    "confirmOrder": "Confirm Order"
+    "confirmOrder": "Confirm Order",
+    "forSale": "For Sale: {{price}}",
+    "registryId": "Registry ID",
+    "currentLocation": "Current Location",
+    "locationEnroute": "Enroute",
+    "deliveryTo": "Delivery to",
+    "atAirport": "At",
+    "baseHub": "Base Hub",
+    "maintenanceDebt": "Maintenance Debt",
+    "groundingAt": "Grounding at 20%",
+    "purchasedFor": "Purchased For",
+    "buyoutPrice": "Buyout Price",
+    "monthlyLease": "Monthly Lease",
+    "assignRouteAria": "Assign route for {{name}}",
+    "assignmentFailed": "Assignment failed",
+    "scrapAria": "Scrap {{name}}"
   },
   "network": {
     "title": "Network",
@@ -481,7 +514,22 @@
     "closeRouteDescription": "This removes {{origin}} → {{destination}} from your network. Any assigned aircraft will be unassigned.",
     "closeRoute": "Close Route",
     "networkEmpty": "Your network is empty.",
-    "editFares": "Edit Fares"
+    "editFares": "Edit Fares",
+    "pricing": "Pricing",
+    "marketSupply": "Market Supply",
+    "totalMarket": "Total Market",
+    "addressable": "Addressable",
+    "yourSeats": "Your Seats",
+    "openRouteConfirmTitle": "Open route?",
+    "openRouteConfirmDescription": "This charges {{fee}} to open {{origin}} → {{destination}}.",
+    "openRouteConfirmLabel": "Open Route",
+    "routeOpenFailed": "Route open failed",
+    "opening": "Opening…",
+    "openRouteWithFee": "Open Route ({{fee}})",
+    "saving": "Saving…",
+    "saveFares": "Save fares",
+    "showAllSuspended": "Show all suspended routes ({{count}})",
+    "showFewerSuspended": "Show fewer suspended routes"
   },
   "hubPicker": {
     "changeTitle": "Change your hub airport",
@@ -571,7 +619,9 @@
     "viewRoute": "View Route",
     "setAsHome": "Set as Home",
     "distanceFrom": "Distance from",
-    "distanceFromHq": "Distance from HQ"
+    "distanceFromHq": "Distance from HQ",
+    "showAllAirlines": "Show all airlines ({{count}})",
+    "showFewerAirlines": "Show fewer airlines"
   },
   "aircraftPanel": {
     "title": "Aircraft",
@@ -623,5 +673,10 @@
     "activeCount_one": "{{count}} active",
     "activeCount_other": "{{count}} active",
     "time": "Time"
+  },
+  "worldMap": {
+    "switchToLightTheme": "Switch to light map theme",
+    "switchToDarkTheme": "Switch to dark map theme",
+    "focus": "Focus: {{iata}}"
   }
 }

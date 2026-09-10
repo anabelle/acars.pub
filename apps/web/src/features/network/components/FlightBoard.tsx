@@ -1,9 +1,9 @@
-import type { AircraftInstance } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { PlaneLanding, PlaneTakeoff } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { buildFlightBoardRows, type FlightRow } from "@/features/network/utils/flightBoard";
+import { getWorldFleetAtAirport } from "@/features/network/utils/worldFleetIndex";
 import { navigateToAirport, navigateToAircraft } from "@/shared/lib/permalinkNavigation";
 
 type FlightBoardProps = {
@@ -105,17 +105,24 @@ function FidsSection({
 
 export function FlightBoard({ airportIata, airportTimezone }: FlightBoardProps) {
   const { t } = useTranslation("game");
-  const { airline, fleet, fleetByOwner, competitors, pubkey } = useAirlineStore();
+  // Fine-grained selectors instead of whole-store subscription.
+  const airline = useAirlineStore((s) => s.airline);
+  const fleet = useAirlineStore((s) => s.fleet);
+  const fleetByOwner = useAirlineStore((s) => s.fleetByOwner);
+  const competitors = useAirlineStore((s) => s.competitors);
+  const pubkey = useAirlineStore((s) => s.pubkey);
   const tick = useEngineStore((s) => s.tick);
 
-  const competitorFleet = useMemo(() => {
-    const playerPubkey = pubkey ?? null;
-    const result: AircraftInstance[] = [];
-    fleetByOwner.forEach((ownerFleet, key) => {
-      if (key !== playerPubkey) result.push(...ownerFleet);
-    });
-    return result;
-  }, [pubkey, fleetByOwner]);
+  // Shared module-level `Map<airportIata, Aircraft[]>` derived once per
+  // fleetByOwner reference — previously every FlightBoard flattened the whole
+  // world fleet (spread) twice per tick per airport. This is a candidate
+  // superset (base + flight endpoints); buildFlightBoardRows applies the
+  // precise per-mode filters. Player fleet is passed separately and deduped
+  // by id inside the row builder.
+  const worldFleetAtAirport = useMemo(
+    () => getWorldFleetAtAirport(fleetByOwner, pubkey ?? null, airportIata),
+    [fleetByOwner, pubkey, airportIata],
+  );
 
   const departures = useMemo(() => {
     return buildFlightBoardRows({
@@ -123,12 +130,12 @@ export function FlightBoard({ airportIata, airportTimezone }: FlightBoardProps) 
       airportTimezone,
       mode: "departures",
       fleet,
-      globalFleet: competitorFleet,
+      globalFleet: worldFleetAtAirport,
       airline,
       competitors,
       tick,
     });
-  }, [fleet, competitorFleet, airline, competitors, airportIata, airportTimezone, tick]);
+  }, [fleet, worldFleetAtAirport, airline, competitors, airportIata, airportTimezone, tick]);
 
   const arrivals = useMemo(() => {
     return buildFlightBoardRows({
@@ -136,12 +143,12 @@ export function FlightBoard({ airportIata, airportTimezone }: FlightBoardProps) 
       airportTimezone,
       mode: "arrivals",
       fleet,
-      globalFleet: competitorFleet,
+      globalFleet: worldFleetAtAirport,
       airline,
       competitors,
       tick,
     });
-  }, [fleet, competitorFleet, airline, competitors, airportIata, airportTimezone, tick]);
+  }, [fleet, worldFleetAtAirport, airline, competitors, airportIata, airportTimezone, tick]);
 
   return (
     <div className="rounded-lg overflow-hidden border border-slate-700/80 bg-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">

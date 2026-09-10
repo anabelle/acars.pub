@@ -4,6 +4,19 @@ import type { UserLocation } from "@acars/store";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useEffect, useRef } from "react";
 
+/**
+ * Message contract posted by the auditor worker (src/workers/auditor.ts).
+ * Kept inline (rather than imported from the worker) so this bootstrap does
+ * not depend on the worker module's export surface.
+ */
+type AuditorCycleMessage = {
+  type: "audit-cycle";
+  pubkey?: string;
+  status?: "ok" | "failed";
+  failedCount?: number;
+  reason?: string;
+};
+
 /** Fallback: estimate location from UTC offset */
 function estimateLocationFromOffset(): UserLocation {
   const offsetMinutes = new Date().getTimezoneOffset();
@@ -55,7 +68,12 @@ function collectOccupiedHubs(
 }
 
 export function AppInitializer({ children }: { children: React.ReactNode }) {
-  const { airline, initializeIdentity } = useAirlineStore();
+  // Primitive-granularity subscriptions: selecting the whole `airline` object
+  // re-rendered this wrapper (and re-fired its effects) on every tick because
+  // the store replaces the airline identity as balances change.
+  const primaryHubIata = useAirlineStore((s) => s.airline?.hubs?.[0] ?? null);
+  const hasAirline = useAirlineStore((s) => Boolean(s.airline));
+  const initializeIdentity = useAirlineStore((s) => s.initializeIdentity);
   const identityStatus = useAirlineStore((s) => s.identityStatus);
   const competitors = useAirlineStore((s) => s.competitors);
   const homeAirport = useEngineStore((s) => s.homeAirport);
@@ -70,8 +88,33 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
   const isHubSelectionLocked = () =>
     userManuallyPickedHub.current || useEngineStore.getState().userLocation?.source === "manual";
 
+  // TAREA 8: background peer-audit worker. Created imperatively so the effect
+  // is idempotent under StrictMode double-mount — cleanup terminates the
+  // worker, and a fresh one is created on remount (no shared mutable state).
   useEffect(() => {
-    initializeIdentity();
+    if (typeof Worker === "undefined") return;
+    const auditorWorker = new Worker(new URL("../workers/auditor.ts", import.meta.url), {
+      type: "module",
+    });
+    auditorWorker.onmessage = (event: MessageEvent<AuditorCycleMessage>) => {
+      const payload = event.data;
+      if (payload?.type === "audit-cycle" && payload.status === "failed") {
+        console.warn("[auditor] audit cycle failed", {
+          pubkey: payload.pubkey,
+          failedCount: payload.failedCount,
+          reason: payload.reason,
+        });
+      }
+    };
+    auditorWorker.postMessage({ type: "start" });
+    return () => {
+      auditorWorker.onmessage = null;
+      auditorWorker.terminate();
+    };
+  }, []);
+
+  useEffect(() => {
+    void initializeIdentity();
   }, [initializeIdentity]);
 
   useEffect(() => {
@@ -82,9 +125,11 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
 
   // Once airline loads from Nostr, authoritatively set engine hub to hubs[0].
   // This takes priority over any geo-detection that may have run first.
+  // Dep is the primitive hub IATA — the airline object identity changes every
+  // tick, which used to re-fire this effect on each of them.
   useEffect(() => {
-    if (!airline || !airline.hubs[0]) return;
-    const dbHub = AIRPORTS.find((a) => a.iata === airline.hubs[0]);
+    if (!primaryHubIata) return;
+    const dbHub = AIRPORTS.find((a) => a.iata === primaryHubIata);
     if (dbHub) {
       setHub(
         dbHub,
@@ -93,14 +138,14 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
       );
     }
     startEngine();
-  }, [airline, setHub, startEngine]);
+  }, [primaryHubIata, setHub, startEngine]);
 
   // Initialize hub from geolocation — only for new users (no airline loaded yet).
   // Wait until identity check has completed so we know if a Nostr profile exists.
   useEffect(() => {
     if (homeAirport) return; // Already initialized
     if (identityStatus === "checking") return; // Identity still loading — wait
-    if (airline) return; // Returning user — Nostr sync effect handles hub
+    if (hasAirline) return; // Returning user — Nostr sync effect handles hub
 
     const fallbackLocate = () => {
       // Guard: airline may have loaded while geo was pending
@@ -153,13 +198,13 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
     } else {
       fallbackLocate();
     }
-  }, [homeAirport, identityStatus, airline, competitors, setHub, startEngine]);
+  }, [homeAirport, identityStatus, hasAirline, competitors, setHub, startEngine]);
 
   // Re-evaluate the suggested hub once competitor data loads from Nostr.
   // This only fires for new users who haven't created an airline yet and
   // haven't manually selected a hub via the HubPicker.
   useEffect(() => {
-    if (airline) return; // Returning user — don't touch their hub
+    if (hasAirline) return; // Returning user — don't touch their hub
     if (competitors.size === 0) return; // No competitor data yet
     if (!userLocation || !homeAirport) return;
 
@@ -180,7 +225,7 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
     if (better.iata !== homeAirport.iata) {
       setHub(better, { latitude, longitude, source: userLocation.source }, "auto-distributed");
     }
-  }, [airline, competitors, homeAirport, userLocation, setHub]);
+  }, [hasAirline, competitors, homeAirport, userLocation, setHub]);
 
   return <>{children}</>;
 }

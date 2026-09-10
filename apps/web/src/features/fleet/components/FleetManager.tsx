@@ -14,7 +14,6 @@ import {
   TICKS_PER_HOUR,
 } from "@acars/core";
 import { getAircraftById } from "@acars/data";
-import { FAMILY_ICONS } from "@acars/map";
 import { useActiveAirline, useAirlineStore, useEngineStore } from "@acars/store";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -33,10 +32,15 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
-import { getRouteDemandSnapshot } from "@/features/network/hooks/useRouteDemand";
+import {
+  DEMAND_SNAPSHOT_BUCKET_TICKS,
+  getRouteDemandSnapshotCached,
+} from "@/features/network/hooks/useRouteDemand";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { ModalPortal } from "@/shared/components/ModalPortal";
+import { FamilySilhouette } from "@/shared/components/FamilySilhouette";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { useConfirm } from "@/shared/lib/useConfirm";
 import { cn } from "@/shared/lib/utils";
@@ -82,29 +86,19 @@ const timerStyleMap = {
 
 export const FLEET_TWO_COLUMN_BREAKPOINT = 520;
 
+/**
+ * Displays a static first-party aircraft silhouette (see FamilySilhouette).
+ * Replaces the previous innerHTML + regex-sanitizer approach.
+ */
 function AircraftSilhouette({ familyId, className }: { familyId: string; className?: string }) {
-  const svg = (FAMILY_ICONS[familyId] || FAMILY_ICONS["a320"]).body;
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const sanitizedSvg = svg
-    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-    .replace(/on\w+\s*=\s*"[^"]*"/gi, "")
-    .replace(/on\w+\s*=\s*'[^']*'/gi, "")
-    .replace(/javascript:/gi, "")
-    .replace('fill="white"', 'fill="currentColor"');
-
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.innerHTML = sanitizedSvg;
-    }
-  }, [sanitizedSvg]);
-
-  return <div ref={containerRef} className={className} />;
+  return <FamilySilhouette familyId={familyId} className={className} />;
 }
 
 export function FleetManager() {
   const { t } = useTranslation(["common", "game"]);
   const { airline, fleet, routes, timeline, isViewingOther } = useActiveAirline();
+  // Fine-grained selectors: subscribing to the whole store re-rendered this
+  // 1.4k-LOC tree on every state write (timeline pushes, world syncs…).
   const {
     sellAircraft,
     buyoutAircraft,
@@ -113,18 +107,35 @@ export function FleetManager() {
     cancelListing,
     performMaintenance,
     ferryAircraft,
-  } = useAirlineStore((state) => state);
-  const { tick, tickProgress } = useEngineStore((state) => state);
+  } = useAirlineStore(
+    useShallow((state) => ({
+      sellAircraft: state.sellAircraft,
+      buyoutAircraft: state.buyoutAircraft,
+      assignAircraftToRoute: state.assignAircraftToRoute,
+      listAircraft: state.listAircraft,
+      cancelListing: state.cancelListing,
+      performMaintenance: state.performMaintenance,
+      ferryAircraft: state.ferryAircraft,
+    })),
+  );
+  const tick = useEngineStore((state) => state.tick);
+  const tickProgress = useEngineStore((state) => state.tickProgress);
   const [view, setView] = useState<"owned" | "dealer">("owned");
   const [search, setSearch] = useState("");
   const confirm = useConfirm();
-  const routeDemandIndex = useMemo(
-    () =>
-      new Map(
-        routes.map((route) => [route.id, getRouteDemandSnapshot(route, tick, fleet, routes)]),
-      ),
-    [routes, tick, fleet],
-  );
+  // Demand snapshots only change meaningfully per game-minute; recomputing
+  // them for every route on every tick was the top quadratic hotspot.
+  // Bucket = floor(tick / 20) → the memo below rebuilds once per minute.
+  const demandTickBucket = Math.floor(tick / DEMAND_SNAPSHOT_BUCKET_TICKS);
+  const routeDemandIndex = useMemo(() => {
+    const bucketTick = demandTickBucket * DEMAND_SNAPSHOT_BUCKET_TICKS;
+    return new Map(
+      routes.map((route) => [
+        route.id,
+        getRouteDemandSnapshotCached(route, bucketTick, fleet, routes),
+      ]),
+    );
+  }, [routes, fleet, demandTickBucket]);
   const [listingTarget, setListingTarget] = useState<{
     aircraftId: string;
     name: string;
@@ -146,13 +157,28 @@ export function FleetManager() {
     }
   }, [isViewingOther, view]);
 
-  const filteredFleet = [...fleet]
-    .reverse()
-    .filter(
-      (f) =>
-        f.name.toLowerCase().includes(search.toLowerCase()) ||
-        f.modelId.toLowerCase().includes(search.toLowerCase()),
-    );
+  const filteredFleet = useMemo(() => {
+    const query = search.toLowerCase();
+    return [...fleet]
+      .reverse()
+      .filter(
+        (f) => f.name.toLowerCase().includes(query) || f.modelId.toLowerCase().includes(query),
+      );
+  }, [fleet, search]);
+
+  // Last landing per aircraft derived in ONE reverse pass — previously every
+  // card reversed and scanned the whole timeline on each render.
+  const lastLandingByAircraft = useMemo(() => {
+    const map = new Map<string, (typeof timeline)[number]>();
+    for (let index = timeline.length - 1; index >= 0; index -= 1) {
+      const event = timeline[index];
+      if (event.type !== "landing" || !event.aircraftId) continue;
+      if (!map.has(event.aircraftId)) {
+        map.set(event.aircraftId, event);
+      }
+    }
+    return map;
+  }, [timeline]);
 
   useEffect(() => {
     const mediaQuery =
@@ -183,13 +209,18 @@ export function FleetManager() {
   }, []);
 
   const fleetRows = Math.ceil(filteredFleet.length / fleetColumns);
+  // Measured in an effect — layout reads from refs during render are stale.
+  const [fleetScrollMargin, setFleetScrollMargin] = useState(0);
+  useEffect(() => {
+    setFleetScrollMargin(fleetListRef.current?.offsetTop ?? 0);
+  }, [view]);
   const fleetVirtualizer = useVirtualizer({
     count: fleetRows,
     getScrollElement: () => panelScrollRef.current,
     estimateSize: () => 730,
     initialRect: { width: 1024, height: 1200 },
     overscan: 2,
-    scrollMargin: fleetListRef.current?.offsetTop ?? 0,
+    scrollMargin: fleetScrollMargin,
   });
   const virtualRows = fleetVirtualizer.getVirtualItems();
   const isVirtualized = virtualRows.length > 0;
@@ -394,7 +425,10 @@ export function FleetManager() {
                             <div className="absolute right-3 top-3 z-10 flex items-center gap-2 sm:right-4 sm:top-4">
                               {ac.listingPrice && (
                                 <span className="inline-flex items-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 text-[10px] font-black uppercase tracking-widest">
-                                  For Sale: {fpFormat(ac.listingPrice, 0)}
+                                  {t("fleet.forSale", {
+                                    ns: "game",
+                                    price: fpFormat(ac.listingPrice, 0),
+                                  })}
                                 </span>
                               )}
                               {timer && timerStyle ? (
@@ -474,7 +508,7 @@ export function FleetManager() {
                             <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:gap-x-6">
                               <div>
                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">
-                                  Registry ID
+                                  {t("fleet.registryId", { ns: "game" })}
                                 </p>
                                 <p className="font-mono text-[11px] font-bold text-foreground sm:text-xs break-all">
                                   {ac.id.toUpperCase()}
@@ -482,12 +516,12 @@ export function FleetManager() {
                               </div>
                               <div>
                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">
-                                  Current Location
+                                  {t("fleet.currentLocation", { ns: "game" })}
                                 </p>
                                 <p className="font-mono text-[11px] font-bold text-foreground sm:text-xs">
                                   {ac.status === "enroute" && ac.flight ? (
                                     <>
-                                      Enroute:{" "}
+                                      {t("fleet.locationEnroute", { ns: "game" })}:{" "}
                                       <button
                                         type="button"
                                         onClick={() => navigateToAirport(ac.flight!.originIata)}
@@ -508,7 +542,7 @@ export function FleetManager() {
                                     </>
                                   ) : ac.status === "delivery" ? (
                                     <>
-                                      Delivery to{" "}
+                                      {t("fleet.deliveryTo", { ns: "game" })}{" "}
                                       <button
                                         type="button"
                                         onClick={() => navigateToAirport(ac.baseAirportIata)}
@@ -519,7 +553,7 @@ export function FleetManager() {
                                     </>
                                   ) : (
                                     <>
-                                      At{" "}
+                                      {t("fleet.atAirport", { ns: "game" })}{" "}
                                       <button
                                         type="button"
                                         onClick={() => navigateToAirport(ac.baseAirportIata)}
@@ -533,7 +567,7 @@ export function FleetManager() {
                               </div>
                               <div>
                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">
-                                  Base Hub
+                                  {t("fleet.baseHub", { ns: "game" })}
                                 </p>
                                 <p className="font-mono text-[11px] font-bold text-accent sm:text-xs">
                                   <button
@@ -547,7 +581,7 @@ export function FleetManager() {
                               </div>
                               <div>
                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">
-                                  Condition
+                                  {t("fleet.condition", { ns: "game" })}
                                 </p>
                                 <div className="flex items-center gap-2">
                                   <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-accent/20">
@@ -565,7 +599,7 @@ export function FleetManager() {
                               </div>
                               <div>
                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">
-                                  Flight Hours
+                                  {t("fleet.flightHours", { ns: "game" })}
                                 </p>
                                 <p className="font-mono text-[11px] sm:text-xs">
                                   {ac.flightHoursTotal.toLocaleString()}h
@@ -573,13 +607,13 @@ export function FleetManager() {
                               </div>
                               <div className="col-span-2">
                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1 flex justify-between">
-                                  <span>Maintenance Debt</span>
+                                  <span>{t("fleet.maintenanceDebt", { ns: "game" })}</span>
                                   <span
                                     className={
                                       ac.condition < 0.3 ? "text-red-400" : "text-muted-foreground"
                                     }
                                   >
-                                    Grounding at 20%
+                                    {t("fleet.groundingAt", { ns: "game" })}
                                   </span>
                                 </p>
                                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/30">
@@ -594,7 +628,7 @@ export function FleetManager() {
                               {ac.purchasePrice && (
                                 <div>
                                   <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">
-                                    Purchased For
+                                    {t("fleet.purchasedFor", { ns: "game" })}
                                   </p>
                                   <p className="font-mono text-xs">
                                     {fpFormat(ac.purchasePrice, 0)}
@@ -603,7 +637,9 @@ export function FleetManager() {
                               )}
                               <div>
                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">
-                                  {ac.purchaseType === "lease" ? "Buyout Price" : "Appraisal"}
+                                  {ac.purchaseType === "lease"
+                                    ? t("fleet.buyoutPrice", { ns: "game" })
+                                    : t("fleet.appraisal", { ns: "game" })}
                                 </p>
                                 <p className="font-mono text-xs text-emerald-400">
                                   {fpFormat(marketVal, 0)}
@@ -612,7 +648,7 @@ export function FleetManager() {
                               {ac.purchaseType === "lease" && (
                                 <div>
                                   <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">
-                                    Monthly Lease
+                                    {t("fleet.monthlyLease", { ns: "game" })}
                                   </p>
                                   <p className="font-mono text-xs text-rose-400">
                                     {fpFormat(model.monthlyLease, 0)}/mo
@@ -623,9 +659,7 @@ export function FleetManager() {
 
                             {/* Performance Section */}
                             {(() => {
-                              const lastLanding = [...timeline]
-                                .reverse()
-                                .find((e) => e.type === "landing" && e.aircraftId === ac.id);
+                              const lastLanding = lastLandingByAircraft.get(ac.id) ?? null;
 
                               if (!lastLanding) return null;
 
@@ -813,7 +847,10 @@ export function FleetManager() {
                                   </p>
                                   <div className="flex gap-2">
                                     <select
-                                      aria-label={`Assign route for ${ac.name}`}
+                                      aria-label={t("fleet.assignRouteAria", {
+                                        ns: "game",
+                                        name: ac.name,
+                                      })}
                                       className="flex-1 bg-background border border-border/50 rounded-xl px-3 py-2 text-xs font-bold outline-none ring-primary/20 focus:ring-2 focus:border-primary/50 transition-all appearance-none cursor-pointer"
                                       value={ac.assignedRouteId || ""}
                                       disabled={isAssignmentLocked}
@@ -832,8 +869,10 @@ export function FleetManager() {
                                           );
                                         } catch (err) {
                                           const message =
-                                            err instanceof Error ? err.message : "Unknown error";
-                                          toast.error("Assignment failed", {
+                                            err instanceof Error
+                                              ? err.message
+                                              : t("fleet.unknownError", { ns: "game" });
+                                          toast.error(t("fleet.assignmentFailed", { ns: "game" }), {
                                             description: message,
                                           });
                                         }
@@ -1050,7 +1089,7 @@ export function FleetManager() {
                                       }
                                     });
                                   }}
-                                  aria-label={`Scrap ${ac.name}`}
+                                  aria-label={t("fleet.scrapAria", { ns: "game", name: ac.name })}
                                   className={`flex items-center justify-center rounded-lg border p-2 transition-all ${isScrapLocked ? "cursor-not-allowed border-border/50 bg-muted/20 text-muted-foreground" : "border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white"}`}
                                   title={
                                     isScrapLocked

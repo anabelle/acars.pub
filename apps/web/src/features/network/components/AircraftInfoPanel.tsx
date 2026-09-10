@@ -11,11 +11,10 @@ import {
   TICKS_PER_HOUR,
 } from "@acars/core";
 import { airports as AIRPORTS, getAircraftById } from "@acars/data";
-import { FAMILY_ICONS } from "@acars/map";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plane, Route as RouteIcon, Users, Wrench, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { AircraftLiveryImage } from "@/features/fleet/components/AircraftLiveryImage";
 import { getAircraftTimer } from "@/features/fleet/utils/aircraftTimers";
@@ -25,6 +24,7 @@ import {
   MOBILE_TOPBAR_TOP_CLASS,
 } from "@/shared/components/layout/mobileLayout";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
+import { FamilySilhouette } from "@/shared/components/FamilySilhouette";
 
 type AircraftInfoPanelProps = {
   aircraft: AircraftInstance;
@@ -61,24 +61,12 @@ const statusConfig = {
   },
 } as const;
 
+/**
+ * Displays a static first-party aircraft silhouette (see FamilySilhouette).
+ * Replaces the previous innerHTML + regex-sanitizer approach.
+ */
 function AircraftSilhouette({ familyId, className }: { familyId: string; className?: string }) {
-  const svg = (FAMILY_ICONS[familyId] || FAMILY_ICONS["a320"]).body;
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const sanitizedSvg = svg
-    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-    .replace(/on\w+\s*=\s*"[^"]*"/gi, "")
-    .replace(/on\w+\s*=\s*'[^']*'/gi, "")
-    .replace(/javascript:/gi, "")
-    .replace('fill="white"', 'fill="currentColor"');
-
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.innerHTML = sanitizedSvg;
-    }
-  }, [sanitizedSvg]);
-
-  return <div ref={containerRef} className={className} aria-hidden="true" />;
+  return <FamilySilhouette familyId={familyId} className={className} />;
 }
 
 function ConditionBar({ condition }: { condition: number }) {
@@ -410,7 +398,13 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
   const { t } = useTranslation(["common", "game"]);
   const navigate = useNavigate();
   const search = useSearch({ from: "__root__" });
-  const { airline, fleet, routesByOwner, competitors, timeline } = useAirlineStore();
+  // Fine-grained selectors — the previous whole-store subscription re-rendered
+  // this panel on every write of any airline-store slice.
+  const airline = useAirlineStore((s) => s.airline);
+  const fleet = useAirlineStore((s) => s.fleet);
+  const routesByOwner = useAirlineStore((s) => s.routesByOwner);
+  const competitors = useAirlineStore((s) => s.competitors);
+  const timeline = useAirlineStore((s) => s.timeline);
   const tick = useEngineStore((s) => s.tick);
   const tickProgress = useEngineStore((s) => s.tickProgress);
 
@@ -517,7 +511,7 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
         <div className="flex min-w-0 items-start gap-3">
           <AircraftSilhouette
             familyId={familyId}
-            className="h-8 w-8 shrink-0 text-muted-foreground [&>svg]:h-full [&>svg]:w-full"
+            className="h-8 w-8 shrink-0 text-muted-foreground"
           />
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">

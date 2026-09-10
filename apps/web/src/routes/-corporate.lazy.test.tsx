@@ -77,18 +77,21 @@ vi.mock("@/features/network/utils/routeEconomics", () => {
 });
 
 vi.mock("@/features/network/hooks/useRouteDemand", () => {
+  const snapshot = {
+    addressableDemand: {
+      origin: "JFK",
+      destination: "LAX",
+      economy: 100,
+      business: 20,
+      first: 5,
+    },
+    pressureMultiplier: 0.5,
+    effectiveLoadFactor: 0.5,
+  };
   return {
-    getRouteDemandSnapshot: vi.fn(() => ({
-      addressableDemand: {
-        origin: "JFK",
-        destination: "LAX",
-        economy: 100,
-        business: 20,
-        first: 5,
-      },
-      pressureMultiplier: 0.5,
-      effectiveLoadFactor: 0.5,
-    })),
+    DEMAND_SNAPSHOT_BUCKET_TICKS: 20,
+    getRouteDemandSnapshot: vi.fn(() => snapshot),
+    getRouteDemandSnapshotCached: vi.fn(() => snapshot),
   };
 });
 

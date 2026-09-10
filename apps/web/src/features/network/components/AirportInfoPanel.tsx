@@ -1,5 +1,4 @@
 import {
-  type AircraftInstance,
   type Airport,
   fp,
   fpFormat,
@@ -18,6 +17,7 @@ import { toast } from "sonner";
 import { FlightBoard } from "@/features/network/components/FlightBoard";
 import { buildCompetitorHubEntries } from "@/features/network/utils/competitorHubs";
 import { buildGroundTraffic } from "@/features/network/utils/groundTraffic";
+import { getWorldFleetAtAirport } from "@/features/network/utils/worldFleetIndex";
 import {
   MOBILE_BOTTOM_NAV_BOTTOM_CLASS,
   MOBILE_OVERLAY_MAX_HEIGHT_CLASS,
@@ -62,8 +62,16 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const search = useSearch({ from: "__root__" });
-  const { airline, routes, fleet, fleetByOwner, competitors, modifyHubs, openRoute, pubkey } =
-    useAirlineStore();
+  // Fine-grained selectors — the previous whole-store subscription re-rendered
+  // this panel on every write of any airline-store slice.
+  const airline = useAirlineStore((s) => s.airline);
+  const routes = useAirlineStore((s) => s.routes);
+  const fleet = useAirlineStore((s) => s.fleet);
+  const fleetByOwner = useAirlineStore((s) => s.fleetByOwner);
+  const competitors = useAirlineStore((s) => s.competitors);
+  const pubkey = useAirlineStore((s) => s.pubkey);
+  const modifyHubs = useAirlineStore((s) => s.modifyHubs);
+  const openRoute = useAirlineStore((s) => s.openRoute);
   const setHub = useEngineStore((s) => s.setHub);
 
   // Default to 'info' if no valid tab is in search params
@@ -166,24 +174,32 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
     [fleet, airport.iata],
   );
 
-  const competitorFleet = useMemo(() => {
-    const playerPubkey = pubkey ?? null;
-    const result: AircraftInstance[] = [];
-    fleetByOwner.forEach((ownerFleet, key) => {
-      if (key !== playerPubkey) result.push(...ownerFleet);
-    });
-    return result;
-  }, [pubkey, fleetByOwner]);
+  // Ground-traffic candidates come from the shared module-level airport index
+  // (built once per fleetByOwner reference) instead of flattening the whole
+  // world fleet with `push(...ownerFleet)` spreads on every panel render.
+  const worldFleetAtAirport = useMemo(
+    () => getWorldFleetAtAirport(fleetByOwner, pubkey ?? null, airport.iata),
+    [fleetByOwner, pubkey, airport.iata],
+  );
 
   const groundTraffic = useMemo(
-    () => buildGroundTraffic(airport.iata, fleet, competitorFleet, airline ?? null, competitors),
-    [airport.iata, fleet, competitorFleet, airline, competitors],
+    () =>
+      buildGroundTraffic(airport.iata, fleet, worldFleetAtAirport, airline ?? null, competitors),
+    [airport.iata, fleet, worldFleetAtAirport, airline, competitors],
   );
 
   const competitorHubNames = useMemo(
     () => buildCompetitorHubEntries(competitors, airport.iata),
     [competitors, airport.iata],
   );
+
+  // Unbounded-list guard: cap rendered ground-traffic entries and expand on
+  // demand (entries scale with the number of world airlines at this airport).
+  const GROUND_TRAFFIC_PREVIEW_LIMIT = 50;
+  const [showAllGroundTraffic, setShowAllGroundTraffic] = useState(false);
+  const groundTrafficEntries = showAllGroundTraffic
+    ? groundTraffic.entries
+    : groundTraffic.entries.slice(0, GROUND_TRAFFIC_PREVIEW_LIMIT);
 
   const canOpenHub = airline && !isPlayerHub;
   const canSwitchHub = airline && isPlayerHub && !isActiveHub;
@@ -525,7 +541,7 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                     </span>
                   </div>
                   <div className="mt-3 space-y-2">
-                    {groundTraffic.entries.map((entry) => (
+                    {groundTrafficEntries.map((entry) => (
                       <div key={entry.key} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
                           <span
@@ -551,6 +567,20 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                         </span>
                       </div>
                     ))}
+                    {groundTraffic.entries.length > GROUND_TRAFFIC_PREVIEW_LIMIT && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllGroundTraffic((value) => !value)}
+                        className="w-full rounded-lg border border-border/50 bg-background/80 px-2 py-1.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                      >
+                        {showAllGroundTraffic
+                          ? t("airportPanel.showFewerAirlines", { ns: "game" })
+                          : t("airportPanel.showAllAirlines", {
+                              ns: "game",
+                              count: groundTraffic.entries.length,
+                            })}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

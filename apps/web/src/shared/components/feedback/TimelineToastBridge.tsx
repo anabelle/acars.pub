@@ -2,26 +2,32 @@ import type { TimelineEvent, TimelineEventType } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import React from "react";
 import { toast } from "sonner";
+import i18n from "@/i18n";
 
 const MAX_TOASTS_PER_BATCH = 5;
 
-const EVENT_TITLES: Record<TimelineEventType, string> = {
-  takeoff: "Flight Departed",
-  landing: "Flight Landed",
-  purchase: "Purchase Completed",
-  sale: "Asset Sold",
-  lease_payment: "Lease Payment",
-  maintenance: "Maintenance Update",
-  delivery: "Delivery Complete",
-  hub_change: "Hub Updated",
-  route_change: "Route Updated",
-  ferry: "Ferry Flight",
-  competitor_hub: "Competitor Alert",
-  price_war: "Price War Detected",
-  tier_upgrade: "Tier Upgraded",
-  bankruptcy: "⚠️ BANKRUPTCY FILED",
-  financial_warning: "Financial Warning",
+// Titles resolve through i18n at toast time — this bridge toasts from store
+// subscriptions outside React render, so we use the i18n instance directly.
+const EVENT_TITLE_KEYS: Record<TimelineEventType, string> = {
+  takeoff: "timeline.events.takeoff",
+  landing: "timeline.events.landing",
+  purchase: "timeline.events.purchase",
+  sale: "timeline.events.sale",
+  lease_payment: "timeline.events.leasePayment",
+  maintenance: "timeline.events.maintenance",
+  delivery: "timeline.events.delivery",
+  hub_change: "timeline.events.hubChange",
+  route_change: "timeline.events.routeChange",
+  ferry: "timeline.events.ferry",
+  competitor_hub: "timeline.events.competitorHub",
+  price_war: "timeline.events.priceWar",
+  tier_upgrade: "timeline.events.tierUpgrade",
+  bankruptcy: "timeline.events.bankruptcy",
+  financial_warning: "timeline.events.financialWarning",
 };
+
+const resolveEventTitle = (type: TimelineEventType): string =>
+  i18n.t(EVENT_TITLE_KEYS[type] ?? "timeline.events.operationsUpdate", { ns: "game" });
 
 const EVENT_TOAST_KIND: Record<TimelineEventType, "success" | "info" | "warning"> = {
   takeoff: "info",
@@ -42,12 +48,12 @@ const EVENT_TOAST_KIND: Record<TimelineEventType, "success" | "info" | "warning"
 };
 
 const showTimelineToast = (event: TimelineEvent) => {
-  const title = EVENT_TITLES[event.type] ?? "Operations Update";
+  const title = resolveEventTitle(event.type);
   const description = event.description;
   const kind = EVENT_TOAST_KIND[event.type] ?? "info";
 
   if (event.type === "bankruptcy") {
-    toast.error(title, { description, duration: 15000 });
+    toast.error(`${title} ⚠️`, { description, duration: 15000 });
     return;
   }
   if (kind === "success") {

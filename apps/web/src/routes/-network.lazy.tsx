@@ -1,4 +1,5 @@
 import { useAirlineStore } from "@acars/store";
+import { useShallow } from "zustand/react/shallow";
 import { Globe } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { RouteManager } from "@/features/network/components/RouteManager";
@@ -7,11 +8,19 @@ import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 
 export default function NetworkPage() {
   const { t } = useTranslation("identity");
-  const { airline, initializeIdentity, createNewIdentity, loginWithNsec, isLoading } =
-    useAirlineStore();
+  // Primitive/boolean selector granularity — no whole-store subscription.
+  const hasAirline = useAirlineStore((state) => Boolean(state.airline));
+  const isLoading = useAirlineStore((state) => state.isLoading);
+  const { initializeIdentity, createNewIdentity, loginWithNsec } = useAirlineStore(
+    useShallow((state) => ({
+      initializeIdentity: state.initializeIdentity,
+      createNewIdentity: state.createNewIdentity,
+      loginWithNsec: state.loginWithNsec,
+    })),
+  );
   const isViewingOther = useAirlineStore((state) => Boolean(state.viewedPubkey));
 
-  if (!airline && !isViewingOther) {
+  if (!hasAirline && !isViewingOther) {
     return (
       <PanelLayout>
         <WorkspaceLockedState

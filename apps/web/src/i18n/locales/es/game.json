@@ -62,7 +62,25 @@
     "noEventsDesc": "La historia de tu aerolínea aparecerá aquí a medida que crezca.",
     "operationsLedger": "Libro de Operaciones",
     "hideDetails": "Ocultar Detalles",
-    "viewBreakdown": "Ver Desglose"
+    "viewBreakdown": "Ver Desglose",
+    "events": {
+      "takeoff": "Vuelo iniciado",
+      "landing": "Vuelo aterrizado",
+      "purchase": "Compra completada",
+      "sale": "Activo vendido",
+      "leasePayment": "Pago de alquiler",
+      "maintenance": "Actualización de mantenimiento",
+      "delivery": "Entrega completada",
+      "hubChange": "Hub actualizado",
+      "routeChange": "Ruta actualizada",
+      "ferry": "Vuelo de ferry",
+      "competitorHub": "Alerta de competidor",
+      "priceWar": "Guerra de precios detectada",
+      "tierUpgrade": "Nivel mejorado",
+      "bankruptcy": "QUIEBRA DECLARADA",
+      "financialWarning": "Aviso financiero",
+      "operationsUpdate": "Actualización operativa"
+    }
   },
   "fleet": {
     "title": "Flota",
@@ -203,7 +221,22 @@
     "reviewConfiguration": "Revisa tu configuración arriba y luego confirma el pedido.",
     "purchasing": "Comprando…",
     "insufficientFunds": "Fondos insuficientes",
-    "confirmOrder": "Confirmar pedido"
+    "confirmOrder": "Confirmar pedido",
+    "forSale": "En venta: {{price}}",
+    "registryId": "ID de registro",
+    "currentLocation": "Ubicación actual",
+    "locationEnroute": "En vuelo",
+    "deliveryTo": "Entrega en",
+    "atAirport": "En",
+    "baseHub": "Hub base",
+    "maintenanceDebt": "Deuda de mantenimiento",
+    "groundingAt": "Inmoviliza al 20%",
+    "purchasedFor": "Comprado por",
+    "buyoutPrice": "Precio de recompra",
+    "monthlyLease": "Alquiler mensual",
+    "assignRouteAria": "Asignar ruta para {{name}}",
+    "assignmentFailed": "Error al asignar la ruta",
+    "scrapAria": "Desechar {{name}}"
   },
   "network": {
     "title": "Red",
@@ -481,7 +514,22 @@
     "closeRouteDescription": "Esto elimina {{origin}} → {{destination}} de tu red. Cualquier aeronave asignada quedará sin asignar.",
     "closeRoute": "Cerrar ruta",
     "networkEmpty": "Tu red está vacía.",
-    "editFares": "Editar tarifas"
+    "editFares": "Editar tarifas",
+    "pricing": "Tarifas",
+    "marketSupply": "Oferta del mercado",
+    "totalMarket": "Mercado total",
+    "addressable": "Abordable",
+    "yourSeats": "Tus asientos",
+    "openRouteConfirmTitle": "¿Abrir ruta?",
+    "openRouteConfirmDescription": "Esto cobra {{fee}} por abrir {{origin}} → {{destination}}.",
+    "openRouteConfirmLabel": "Abrir ruta",
+    "routeOpenFailed": "Error al abrir la ruta",
+    "opening": "Abriendo…",
+    "openRouteWithFee": "Abrir ruta ({{fee}})",
+    "saving": "Guardando…",
+    "saveFares": "Guardar tarifas",
+    "showAllSuspended": "Mostrar todas las rutas suspendidas ({{count}})",
+    "showFewerSuspended": "Mostrar menos rutas suspendidas"
   },
   "hubPicker": {
     "changeTitle": "Cambiar tu aeropuerto hub",
@@ -571,7 +619,9 @@
     "viewRoute": "Ver ruta",
     "setAsHome": "Establecer como base",
     "distanceFrom": "Distancia desde",
-    "distanceFromHq": "Distancia desde HQ"
+    "distanceFromHq": "Distancia desde HQ",
+    "showAllAirlines": "Mostrar todas las aerolíneas ({{count}})",
+    "showFewerAirlines": "Mostrar menos aerolíneas"
   },
   "aircraftPanel": {
     "title": "Aeronave",
@@ -623,5 +673,10 @@
     "activeCount_one": "{{count}} activo",
     "activeCount_other": "{{count}} activos",
     "time": "Hora"
+  },
+  "worldMap": {
+    "switchToLightTheme": "Cambiar al mapa claro",
+    "switchToDarkTheme": "Cambiar al mapa oscuro",
+    "focus": "Enfoque: {{iata}}"
   }
 }

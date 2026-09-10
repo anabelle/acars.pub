@@ -23,8 +23,8 @@ const mockUseActiveAirline = vi.fn();
 
 vi.mock("@acars/store", () => {
   return {
-    useAirlineStore: () => mockUseAirlineStore(),
-    useEngineStore: () => mockUseEngineStore(),
+    useAirlineStore: (selector: (state: unknown) => unknown) => selector(mockUseAirlineStore()),
+    useEngineStore: (selector: (state: unknown) => unknown) => selector(mockUseEngineStore()),
     useActiveAirline: () => mockUseActiveAirline(),
   };
 });
@@ -83,7 +83,17 @@ vi.mock("sonner", () => {
 
 describe("RouteManager", () => {
   it("returns null when airline or home airport missing", () => {
-    mockUseAirlineStore.mockReturnValue({ airline: null, routes: [] });
+    mockUseAirlineStore.mockReturnValue({
+      airline: null,
+      routes: [],
+      pubkey: null,
+      globalRouteRegistry: new Map(),
+      competitors: new Map(),
+      openRoute: vi.fn(),
+      updateRouteFares: vi.fn(),
+      rebaseRoute: vi.fn(),
+      closeRoute: vi.fn(),
+    });
     mockUseActiveAirline.mockReturnValue({
       airline: null,
       routes: [],

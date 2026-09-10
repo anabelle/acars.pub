@@ -1,10 +1,10 @@
 import type { DemandResult, FixedPoint, Route } from "@acars/core";
 import {
   buildHubState,
+  type HubState,
   calculateDemand,
   calculatePriceElasticity,
   calculateSupplyPressure,
-  getAirportTraffic,
   getHubCongestionModifier,
   getHubDemandModifier,
   getProsperityIndex,
@@ -45,16 +45,101 @@ const DEFAULT_DEMAND: DemandResult = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+// Module-level index over the static airports catalog — replaces the linear
+// `airports.find` scans (6k+ entries) that used to run twice per snapshot.
+const airportByIata = new Map(airports.map((airport) => [airport.iata, airport]));
+
+// Traffic/hub stats are O(routes) each; a full demand pass over N routes would
+// be O(N²). Memoize them per routes-array reference so a pass is O(N).
+type RouteStats = { traffic: Map<string, number>; hubState: Map<string, HubState> };
+let routeStatsCache: { routes: readonly Route[] | null; stats: RouteStats | null } = {
+  routes: null,
+  stats: null,
+};
+
+function getRouteStats(routes: readonly Route[]): RouteStats {
+  if (routeStatsCache.routes === routes && routeStatsCache.stats) return routeStatsCache.stats;
+  const stats: RouteStats = { traffic: new Map(), hubState: new Map() };
+  for (const route of routes) {
+    const weekly = route.frequencyPerWeek ?? 0;
+    const originTraffic = (stats.traffic.get(route.originIata) ?? 0) + weekly;
+    stats.traffic.set(route.originIata, originTraffic);
+    const destTraffic = (stats.traffic.get(route.destinationIata) ?? 0) + weekly;
+    stats.traffic.set(route.destinationIata, destTraffic);
+    if (!stats.hubState.has(route.originIata)) {
+      stats.hubState.set(route.originIata, buildHubState(route.originIata, routes as Route[]));
+    }
+    if (!stats.hubState.has(route.destinationIata)) {
+      stats.hubState.set(
+        route.destinationIata,
+        buildHubState(route.destinationIata, routes as Route[]),
+      );
+    }
+  }
+  // getAirportTraffic divides summed weekly flights by 7*24 — the loop above
+  // accumulates raw weekly frequencies, so apply the divisor once per entry.
+  for (const [iata, weekly] of stats.traffic) {
+    stats.traffic.set(iata, weekly / (7 * 24));
+  }
+  routeStatsCache = { routes, stats };
+  return stats;
+}
+
+/**
+ * Demand inputs (prosperity, season, network supply) do not change
+// meaningfully within a minute of game time. Snapshots are memoized per
+ * (route, tickBucket, fleet, routes) so per-tick recomputation is free.
+ */
+export const DEMAND_SNAPSHOT_BUCKET_TICKS = 20;
+
+type SnapshotCacheEntry = {
+  route: Route;
+  fleet: RouteDemandFleet;
+  routes: readonly Route[];
+  bucket: number;
+  snapshot: RouteDemandSnapshot;
+};
+const snapshotCache = new Map<string, SnapshotCacheEntry>();
+const SNAPSHOT_CACHE_MAX_ENTRIES = 1024;
+
+export function getRouteDemandSnapshotCached(
+  route: Route,
+  tick: number,
+  fleet: RouteDemandFleet,
+  routes: readonly Route[],
+): RouteDemandSnapshot {
+  const bucket = Math.floor(tick / DEMAND_SNAPSHOT_BUCKET_TICKS);
+  const cached = snapshotCache.get(route.id);
+  if (
+    cached &&
+    cached.bucket === bucket &&
+    cached.route === route &&
+    cached.fleet === fleet &&
+    cached.routes === routes
+  ) {
+    return cached.snapshot;
+  }
+  const snapshot = getRouteDemandSnapshot(
+    route,
+    bucket * DEMAND_SNAPSHOT_BUCKET_TICKS,
+    fleet,
+    routes,
+  );
+  if (snapshotCache.size >= SNAPSHOT_CACHE_MAX_ENTRIES) snapshotCache.clear();
+  snapshotCache.set(route.id, { route, fleet, routes, bucket, snapshot });
+  return snapshot;
+}
+
 export function getRouteDemandSnapshot(
   route: Route,
   tick: number,
   fleet: RouteDemandFleet,
-  routes: Route[],
+  routes: readonly Route[],
 ): RouteDemandSnapshot {
   const originIata = route.originIata;
   const destinationIata = route.destinationIata;
-  const origin = airports.find((airport) => airport.iata === originIata) ?? null;
-  const destination = airports.find((airport) => airport.iata === destinationIata) ?? null;
+  const origin = airportByIata.get(originIata) ?? null;
+  const destination = airportByIata.get(destinationIata) ?? null;
 
   if (!origin || !destination) {
     const referenceFares = getSuggestedFares(route.distanceKm);
@@ -99,8 +184,11 @@ export function getRouteDemandSnapshot(
 
   const originHub = originIata ? (HUB_CLASSIFICATIONS[originIata] ?? null) : null;
   const destHub = destinationIata ? (HUB_CLASSIFICATIONS[destinationIata] ?? null) : null;
-  const originState = originHub && originIata ? buildHubState(originIata, routes) : null;
-  const destState = destHub && destinationIata ? buildHubState(destinationIata, routes) : null;
+  const routeStats = getRouteStats(routes);
+  const originState =
+    originHub && originIata ? (routeStats.hubState.get(originIata) ?? null) : null;
+  const destState =
+    destHub && destinationIata ? (routeStats.hubState.get(destinationIata) ?? null) : null;
   const hubModifier = getHubDemandModifier(
     originHub?.tier ?? null,
     destHub?.tier ?? null,
@@ -108,8 +196,8 @@ export function getRouteDemandSnapshot(
     destState,
   );
 
-  const originTraffic = originIata ? getAirportTraffic(originIata, routes) : 0;
-  const destTraffic = destinationIata ? getAirportTraffic(destinationIata, routes) : 0;
+  const originTraffic = originIata ? (routeStats.traffic.get(originIata) ?? 0) : 0;
+  const destTraffic = destinationIata ? (routeStats.traffic.get(destinationIata) ?? 0) : 0;
   const originCapacity = originHub?.baseCapacityPerHour ?? 80;
   const destCapacity = destHub?.baseCapacityPerHour ?? 80;
   const originCongestion = getHubCongestionModifier(originCapacity, originTraffic);
@@ -202,7 +290,7 @@ export function getRouteDemandSnapshot(
   };
 }
 
-type RouteDemandFleet = {
+type RouteDemandFleet = readonly {
   id: string;
   configuration?: { economy: number; business: number; first: number; cargoKg: number };
 }[];
@@ -212,8 +300,10 @@ export function useRouteDemand(route: Route): RouteDemandSnapshot {
   const fleet = useAirlineStore((state) => state.fleet);
   const routes = useAirlineStore((state) => state.routes);
 
+  // The cached getter makes intra-bucket ticks (bucket = 20 ticks ≈ 1 minute)
+  // free — the memo below re-runs but returns the memoized snapshot.
   return useMemo(
-    () => getRouteDemandSnapshot(route, tick, fleet, routes),
+    () => getRouteDemandSnapshotCached(route, tick, fleet, routes),
     [route, tick, fleet, routes],
   );
 }

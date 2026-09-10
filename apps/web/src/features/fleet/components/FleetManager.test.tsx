@@ -72,34 +72,37 @@ vi.mock("@/shared/lib/useConfirm", () => {
 });
 
 vi.mock("@/features/network/hooks/useRouteDemand", () => {
+  const snapshot = {
+    totalDemand: {
+      origin: "JFK",
+      destination: "LAX",
+      economy: 0,
+      business: 0,
+      first: 0,
+    },
+    addressableDemand: {
+      origin: "JFK",
+      destination: "LAX",
+      economy: 0,
+      business: 0,
+      first: 0,
+    },
+    pressureMultiplier: 0.7,
+    totalWeeklySeats: 0,
+    suggestedFleetDelta: 0,
+    isOversupplied: false,
+    elasticityEconomy: 1,
+    elasticityBusiness: 1,
+    elasticityFirst: 1,
+    referenceFareEconomy: 0,
+    referenceFareBusiness: 0,
+    referenceFareFirst: 0,
+    effectiveLoadFactor: 0.92,
+  };
   return {
-    getRouteDemandSnapshot: vi.fn(() => ({
-      totalDemand: {
-        origin: "JFK",
-        destination: "LAX",
-        economy: 0,
-        business: 0,
-        first: 0,
-      },
-      addressableDemand: {
-        origin: "JFK",
-        destination: "LAX",
-        economy: 0,
-        business: 0,
-        first: 0,
-      },
-      pressureMultiplier: 0.7,
-      totalWeeklySeats: 0,
-      suggestedFleetDelta: 0,
-      isOversupplied: false,
-      elasticityEconomy: 1,
-      elasticityBusiness: 1,
-      elasticityFirst: 1,
-      referenceFareEconomy: 0,
-      referenceFareBusiness: 0,
-      referenceFareFirst: 0,
-      effectiveLoadFactor: 0.92,
-    })),
+    DEMAND_SNAPSHOT_BUCKET_TICKS: 20,
+    getRouteDemandSnapshot: vi.fn(() => snapshot),
+    getRouteDemandSnapshotCached: vi.fn(() => snapshot),
   };
 });
 
@@ -341,7 +344,13 @@ describe("FleetManager", () => {
   });
 
   it("renders shared catalog images in the purchase aircraft dealer", () => {
-    mockVirtualItems = [];
+    // The dealer is now always virtualized (single code path, also at 1
+    // column) — provide virtual rows like the real virtualizer would. Two
+    // rows × 1 column cover the ATR 42/72 models the assertion targets.
+    mockVirtualItems = [
+      { key: "row-0", index: 0, start: 0 },
+      { key: "row-1", index: 1, start: 730 },
+    ];
     mockUseAirlineStore.mockReturnValue({
       airline: { tier: 2, corporateBalance: 500000000, hubs: ["JFK"] },
       fleet: [],

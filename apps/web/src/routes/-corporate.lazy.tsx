@@ -34,6 +34,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/react/shallow";
 import { AirlineTimeline } from "@/features/airline/components/Timeline";
 import { useBillingCycle } from "@/features/corporate/hooks/useBillingCycle";
 import type { FinancialPulse as FinancialPulseData } from "@/features/corporate/hooks/useFinancialPulse";
@@ -43,7 +44,10 @@ import {
 } from "@/features/corporate/hooks/useFinancialPulse";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
 import { HubPicker } from "@/features/network/components/HubPicker";
-import { getRouteDemandSnapshot } from "@/features/network/hooks/useRouteDemand";
+import {
+  DEMAND_SNAPSHOT_BUCKET_TICKS,
+  getRouteDemandSnapshotCached,
+} from "@/features/network/hooks/useRouteDemand";
 import {
   estimateRouteEconomics,
   getPrimaryAssignedAircraft,
@@ -1280,15 +1284,26 @@ function CorporateSectionNav({ section }: { section: CorporateSection }) {
 
 export function CorporateWorkspace({ section = "overview" }: { section?: CorporateSection }) {
   const { t } = useTranslation(["identity", "game"]);
+  // Fine-grained selectors — the previous whole-store subscription re-rendered
+  // the corporate workspace on every write of any airline-store slice.
+  const airline = useAirlineStore((s) => s.airline);
   const {
-    airline,
     modifyHubs,
     dissolveAirline,
     initializeIdentity,
     createNewIdentity,
     loginWithNsec,
     isLoading,
-  } = useAirlineStore();
+  } = useAirlineStore(
+    useShallow((s) => ({
+      modifyHubs: s.modifyHubs,
+      dissolveAirline: s.dissolveAirline,
+      initializeIdentity: s.initializeIdentity,
+      createNewIdentity: s.createNewIdentity,
+      loginWithNsec: s.loginWithNsec,
+      isLoading: s.isLoading,
+    })),
+  );
   const { fleet, timeline, routes, isViewingOther } = useActiveAirline();
   const tick = useEngineStore((s) => s.tick);
   const homeAirport = useEngineStore((s) => s.homeAirport);
@@ -1348,7 +1363,11 @@ export function CorporateWorkspace({ section = "overview" }: { section?: Corpora
     };
   }, [fleet]);
 
+  // Supply ratios and route economics don't change meaningfully within a
+  // game-minute — recompute on a coarse demand bucket instead of every tick.
+  const networkHealthTickBucket = Math.floor(tick / DEMAND_SNAPSHOT_BUCKET_TICKS);
   const networkHealth = useMemo(() => {
+    const bucketTick = networkHealthTickBucket * DEMAND_SNAPSHOT_BUCKET_TICKS;
     const entries = routes
       .map((route) => {
         const primaryAssignment = getPrimaryAssignedAircraft(
@@ -1357,12 +1376,7 @@ export function CorporateWorkspace({ section = "overview" }: { section?: Corpora
           getAircraftById,
         );
         if (!primaryAssignment) return null;
-        const snapshot = getRouteDemandSnapshot(
-          route,
-          useEngineStore.getState().tick,
-          fleet,
-          routes,
-        );
+        const snapshot = getRouteDemandSnapshotCached(route, bucketTick, fleet, routes);
         const economics = estimateRouteEconomics({
           route,
           addressableDemand: snapshot.addressableDemand,
@@ -1372,7 +1386,7 @@ export function CorporateWorkspace({ section = "overview" }: { section?: Corpora
           aircraftCount: Math.max(1, route.assignedAircraftIds.length),
           cabinConfig: primaryAssignment.aircraft.configuration,
           includeFixedCosts: true,
-          tick,
+          tick: bucketTick,
         });
         return {
           routeId: route.id,
@@ -1392,7 +1406,7 @@ export function CorporateWorkspace({ section = "overview" }: { section?: Corpora
       projectedWeeklyProfit: fpSum(entries.map((entry) => entry.projectedProfit)),
       routesNeedingCuts: entries.filter((entry) => entry.needsCuts).length,
     };
-  }, [fleet, routes, tick]);
+  }, [fleet, routes, networkHealthTickBucket]);
 
   if (!airline && !isViewingOther) {
     return (

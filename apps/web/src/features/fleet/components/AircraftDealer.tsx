@@ -48,6 +48,9 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
   const panelScrollRef = usePanelScrollRef();
   const measureRef = useRef<HTMLDivElement>(null);
   const [gridColumns, setGridColumns] = useState(1);
+  // Measured in an effect — reading layout from a ref during render is unsafe
+  // (the value is stale on first paint and after mode switches).
+  const [gridScrollMargin, setGridScrollMargin] = useState(0);
 
   useEffect(() => {
     const updateColumns = () => {
@@ -59,12 +62,13 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
       } else {
         setGridColumns(1);
       }
+      setGridScrollMargin(measureRef.current?.offsetTop ?? 0);
     };
 
     updateColumns();
     window.addEventListener("resize", updateColumns);
     return () => window.removeEventListener("resize", updateColumns);
-  }, []);
+  }, [mode]);
 
   const handleBuyUsed = async (listing: MarketplaceListing) => {
     const approved = await confirm({
@@ -180,7 +184,9 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
         : displayMode === "used"
           ? filteredUsed
           : [];
-  const useVirtualGrid = gridColumns > 1;
+  // Single virtualized path for every breakpoint: the grid virtualizer
+  // supports gridColumns=1 (rowCount = ceil(N/cols)), so <1280px viewports no
+  // longer fall back to an unvirtualized .map() over unbounded listings.
   const rowCount = Math.ceil(listItems.length / gridColumns);
   const rowHeight =
     displayMode === "factory"
@@ -199,7 +205,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
     getScrollElement: () => panelScrollRef.current,
     estimateSize: () => rowHeight,
     overscan: 2,
-    scrollMargin: measureRef.current?.offsetTop ?? 0,
+    scrollMargin: gridScrollMargin,
   });
 
   return (
@@ -295,42 +301,6 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
           <div className="py-20 text-center flex flex-col items-center border border-dashed border-border/50 rounded-2xl bg-card/20">
             <History className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
             <p className="text-muted-foreground">{t("fleet.noUsedAircraft", { ns: "game" })}</p>
-          </div>
-        ) : !useVirtualGrid ? (
-          <div className="space-y-4">
-            {listItems.map((item) => {
-              if (displayMode === "factory") {
-                const aircraft = item as AircraftModel;
-                return (
-                  <AircraftCard
-                    key={aircraft.id}
-                    aircraft={aircraft}
-                    airlineTier={airlineTier}
-                    onSelect={() => setSelectedModel(aircraft)}
-                  />
-                );
-              }
-
-              if (displayMode === "used-loading") {
-                const key = item as string;
-                return (
-                  <div
-                    key={key}
-                    className="h-64 rounded-2xl border border-border/40 bg-card animate-pulse"
-                  />
-                );
-              }
-
-              const listing = item as MarketplaceListing;
-              return (
-                <UsedAircraftCard
-                  key={listing.id}
-                  listing={listing}
-                  airlineTier={airlineTier}
-                  onBuy={() => handleBuyUsed(listing)}
-                />
-              );
-            })}
           </div>
         ) : (
           <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>

@@ -55,7 +55,8 @@ vi.mock("@acars/store", () => {
 
   return {
     useEngineStore,
-    useAirlineStore: () => mockUseAirlineStore() as AirlineStoreState,
+    useAirlineStore: (selector: Selector<AirlineStoreState>) =>
+      selector(mockUseAirlineStore() as AirlineStoreState),
   };
 });
 
