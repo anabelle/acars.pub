@@ -8,6 +8,15 @@ import {
   type MapTheme,
 } from "@acars/map";
 import { useAirlineStore, useEngineStore } from "@acars/store";
+import { config as maplibreConfig } from "maplibre-gl";
+// maplibre v6 resolves its worker at runtime from import.meta.url
+// (`/assets/maplibre-gl-worker.mjs`), a file Vite never emits — the module
+// worker 404s (text/html MIME error) and the canvas stays black while the
+// HUD keeps living. The worker also imports `./maplibre-gl-shared.mjs`
+// relative to its own URL, so both files must ship with their ORIGINAL
+// names side by side: they are copied to public/maplibre/ (verbatim from
+// maplibre-gl@6.9.0 dist) and WORKER_URL points at the stable copy.
+maplibreConfig.WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
 import { Moon, Sun } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
