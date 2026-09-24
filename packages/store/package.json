@@ -18,7 +18,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.7"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
   }
 }
