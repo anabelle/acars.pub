@@ -1509,11 +1509,16 @@ export function CorporateWorkspace({ section = "overview" }: { section?: Corpora
   const [isDissolving, setIsDissolving] = useState(false);
   const [dissolveError, setDissolveError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Clear a stale dissolve error when the airline leaves chapter11. Done via
+  // the render-time "previous value" pattern instead of an effect so no
+  // cascading setState-in-effect render is triggered.
+  const [prevAirlineStatus, setPrevAirlineStatus] = useState(airline?.status);
+  if (prevAirlineStatus !== airline?.status) {
+    setPrevAirlineStatus(airline?.status);
     if (airline?.status !== "chapter11") {
       setDissolveError(null);
     }
-  }, [airline?.status]);
+  }
 
   const currentMonthlyOpex = useMemo(
     () => airline?.hubs.reduce((sum, hub) => sum + getHubPricingForIata(hub).monthlyOpex, 0) ?? 0,

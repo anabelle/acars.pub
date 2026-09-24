@@ -165,20 +165,6 @@ function getLeaderboardRows(
   return rows;
 }
 
-/** Test hook: clears the module-level caches. */
-export function __resetLeaderboardCacheForTests(): void {
-  lookupCache = { fleetByOwner: null, routesByOwner: null, aircraftById: null, routeById: null };
-  rowsCache = {
-    competitors: null,
-    airline: null,
-    aircraftById: null,
-    routeById: null,
-    currentTick: -1,
-    metric: "networkDistance",
-    rows: null,
-  };
-}
-
 function LeaderboardRow({
   row,
   index,

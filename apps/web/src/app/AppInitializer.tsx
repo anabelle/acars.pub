@@ -96,11 +96,10 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
   // engine-start effects below never race the catalog. First paint is not
   // blocked: the map/UI render shells until `catalogReady` flips.
   const [catalogReady, setCatalogReady] = useState(isDataCatalogReady);
+  // No synchronous setState branch here: if the catalog became ready between
+  // render and effect, whenDataCatalogReady() resolves in a microtask and the
+  // .then callback (async, not sync-in-effect) flips the flag identically.
   useEffect(() => {
-    if (isDataCatalogReady()) {
-      setCatalogReady(true);
-      return;
-    }
     let cancelled = false;
     void whenDataCatalogReady().then(() => {
       if (!cancelled) setCatalogReady(true);
