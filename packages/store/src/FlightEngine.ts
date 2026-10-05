@@ -5,6 +5,7 @@ import type {
   CycleFlightEvent,
   FixedPoint,
   FlightOffer,
+  IncumbentOffer,
   Route,
   TimelineEvent,
 } from "@acars/core";
@@ -240,6 +241,10 @@ export interface FlightPassengerResult {
   allOffers: FlightOffer[];
   /** True when a price war is on and the player is one of the undercutters. */
   playerUndercutting: boolean;
+  /** The market's incumbent carrier (S10), or null on a market too thin for one. */
+  incumbent: IncumbentOffer | null;
+  /** Share of economy demand the players win from the incumbent (1 without one). */
+  playersShareOfMarket: number;
 }
 
 /**
@@ -410,12 +415,11 @@ export function computeFlightPassengers({
         fareRatio: reference > 0 ? fpToNumber(fare) / reference : 1,
       };
     });
+  const playersShareOfMarket = entrantMarketShare(incumbent, entrantsFor("economy"));
   const playersDemand = {
     origin: addressableDemand.origin,
     destination: addressableDemand.destination,
-    economy: Math.round(
-      addressableDemand.economy * entrantMarketShare(incumbent, entrantsFor("economy")),
-    ),
+    economy: Math.round(addressableDemand.economy * playersShareOfMarket),
     business: Math.round(
       addressableDemand.business * entrantMarketShare(incumbent, entrantsFor("business")),
     ),
@@ -507,6 +511,8 @@ export function computeFlightPassengers({
     frequencyPerWeek: ourFrequency,
     allOffers,
     playerUndercutting,
+    incumbent,
+    playersShareOfMarket,
   };
 }
 

@@ -1,4 +1,4 @@
-import type { AircraftModel, FixedPoint, FlightOffer, Route } from "@acars/core";
+import type { AircraftModel, FixedPoint, FlightOffer, IncumbentOffer, Route } from "@acars/core";
 import {
   calculateFlightCost,
   calculateFlightRevenue,
@@ -79,10 +79,15 @@ export interface RouteProjection {
   revenuePerDay: FixedPoint;
   /** Operating profit per day (before lease and hub fixed costs). */
   profitPerDay: FixedPoint;
-  /** Our share of economy passengers on the city pair (0–1). */
+  /** Our share of economy passengers on the city pair (0–1), incumbent included. */
   marketShare: number;
   /** Rivals' economy shares, largest first. */
   competitorShares: Array<{ airlinePubkey: string; share: number }>;
+  /**
+   * The market's established carrier (S10): its weekly round trips and economy
+   * share. Null on markets too thin to sustain one (uncontested).
+   */
+  incumbent: { frequencyPerWeek: number; seatsPerFlight: number; share: number } | null;
 }
 
 const PROJECTION_PUBKEY = "projection:self";
@@ -106,7 +111,13 @@ function projectLeg(
       playerPubkey: string;
       network: ReturnType<typeof buildNetworkContext>;
     },
-): { leg: LegProjection; frequencyPerWeek: number; allOffers: FlightOffer[] } {
+): {
+  leg: LegProjection;
+  frequencyPerWeek: number;
+  allOffers: FlightOffer[];
+  incumbent: IncumbentOffer | null;
+  playersShareOfMarket: number;
+} {
   const { model, seatConfig, fares, tick, distanceKm, originIata, destinationIata } = input;
 
   const passengers = computeFlightPassengers({
@@ -179,6 +190,8 @@ function projectLeg(
     },
     frequencyPerWeek: passengers.frequencyPerWeek,
     allOffers: passengers.allOffers,
+    incumbent: passengers.incumbent,
+    playersShareOfMarket: passengers.playersShareOfMarket,
   };
 }
 
@@ -222,12 +235,14 @@ export function projectRouteEconomics(input: RouteProjectionInput): RouteProject
   const flownPerWeek = outbound.frequencyPerWeek;
   const flightsPerDay = (flownPerWeek * 2) / 7;
 
+  // QSI splits what the players win from the incumbent; scale to the whole market.
+  const playersShare = outbound.playersShareOfMarket;
   const shares = calculateShares(outbound.allOffers).economy;
   const competitorShares = outbound.allOffers
     .filter((offer) => offer.airlinePubkey !== playerPubkey)
     .map((offer) => ({
       airlinePubkey: offer.airlinePubkey,
-      share: shares.get(offer.airlinePubkey) ?? 0,
+      share: (shares.get(offer.airlinePubkey) ?? 0) * playersShare,
     }))
     .sort((a, b) => b.share - a.share);
 
@@ -243,7 +258,14 @@ export function projectRouteEconomics(input: RouteProjectionInput): RouteProject
     flightsPerDay,
     revenuePerDay: fpScale(revenuePerFlight, flightsPerDay),
     profitPerDay: fpScale(profitPerFlight, flightsPerDay),
-    marketShare: shares.get(playerPubkey) ?? 0,
+    marketShare: (shares.get(playerPubkey) ?? 0) * playersShare,
     competitorShares,
+    incumbent: outbound.incumbent
+      ? {
+          frequencyPerWeek: outbound.incumbent.frequencyPerWeek,
+          seatsPerFlight: outbound.incumbent.seatsPerFlight,
+          share: 1 - playersShare,
+        }
+      : null,
   };
 }

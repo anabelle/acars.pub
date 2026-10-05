@@ -1,7 +1,7 @@
 # S10 — Market model v2: incumbent carriers + distance-scaled fare cap
 
 > **Status:** ◐ in progress
-> **Next step:** S10.4
+> **Next step:** S10.5
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -42,7 +42,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S10.1** `getIncumbentOffer` pure function + unit tests (not wired). _Done when:_ tests green.
 - [x] **S10.2** Wire the incumbent offer into landing allocation and the fare cap into reducer + slice (constants in core, in place per D2). _Done when:_ engine tests green; `pnpm balance` regenerated.
 - [x] **S10.3** Calibrate with S02; commit before/after report. _Done when:_ README §6 balance targets met in the report.
-- [ ] **S10.4** Selector exposing incumbent strength / projected share for UI. _Done when:_ unit tests green.
+- [x] **S10.4** Selector exposing incumbent strength / projected share for UI. _Done when:_ unit tests green.
 - [ ] **S10.5** Route card shows incumbent strength and the fare cap; commit `baseline-v2.md`. _Done when:_ screenshot + report committed.
 
 ## Details & guidance
@@ -91,6 +91,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
     - The 2× "balanced" and 5× "greedy" strategies now lose money.
     - The cautious path still takes 55 days to Tier 2 (pacing is S12).
   - Gate: lint, typecheck, coverage, 18 e2e.
+- 2026-10-05 · S10.4 · (this commit) · `computeFlightPassengers` returns the market's `incumbent` (null when uncontested) and `playersShareOfMarket`. `RouteProjection` exposes `incumbent: { frequencyPerWeek, seatsPerFlight, share }`. Its `marketShare` and `competitorShares` are now shares of the **whole** market (QSI share × what the players win from the incumbent), so ours, the rivals' and the incumbent's add up to 1. Tests: the existing share-sum test includes the incumbent; MAD–BCN has an incumbent with >100 round trips/week and >90% share, and LIH–KOA has none (100% ours). 232 store tests and the coverage gate pass.
 
 ## Follow-ups
 
