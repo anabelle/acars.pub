@@ -624,7 +624,23 @@
     "distanceFrom": "Distance from",
     "distanceFromHq": "Distance from HQ",
     "showAllAirlines": "Show all airlines ({{count}})",
-    "showFewerAirlines": "Show fewer airlines"
+    "showFewerAirlines": "Show fewer airlines",
+    "details": "Airport details"
+  },
+  "routeCard": {
+    "title": "Route {{origin}} → {{destination}}",
+    "profitLabel": "Projected profit per day, after lease",
+    "perDay": "{{amount}}/day",
+    "loadFactor": "Load factor",
+    "flightsPerDay": "Flights/day",
+    "rivals": "Rivals",
+    "noRivals": "None",
+    "share": "{{share}}% share",
+    "aircraft": "Best aircraft: {{model}} (lease {{lease}}/day)",
+    "beyondTier": "Beyond your tier’s {{limit}} km range: demand is halved until you unlock longer routes.",
+    "unprofitable": "Not profitable with the aircraft you can fly yet. Try a closer or bigger market.",
+    "outOfRange": "None of your unlocked aircraft can fly {{distance}} km yet. Grow your airline to unlock longer-range aircraft.",
+    "estimateNote": "Estimate from the live simulation for today’s season and fuel price. Rivals, fares and seasons will move it."
   },
   "aircraftPanel": {
     "title": "Aircraft",

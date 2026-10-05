@@ -14,6 +14,7 @@ import { Building2, MapPin, Plane, PlaneTakeoff, Users, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { RouteDecisionCard } from "@/features/network/components/RouteDecisionCard";
 import { FlightBoard } from "@/features/network/components/FlightBoard";
 import { buildCompetitorHubEntries } from "@/features/network/utils/competitorHubs";
 import { buildGroundTraffic } from "@/features/network/utils/groundTraffic";
@@ -403,60 +404,75 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
               ) : null}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-border/60 bg-background/90 p-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                  {t("airportPanel.population", { ns: "game" })}
-                </p>
-                <p className="mt-1 text-sm font-mono font-semibold">
-                  {formatPopulation(airport.population)}
-                </p>
-              </div>
-              <div className="rounded-xl border border-border/60 bg-background/90 p-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                  {t("airportPanel.gdpPerCapita", { ns: "game" })}
-                </p>
-                <p className="mt-1 text-sm font-mono font-semibold">
-                  {currencyFormat.format(airport.gdpPerCapita)}
-                </p>
-              </div>
-              <div className="rounded-xl border border-border/60 bg-background/90 p-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                  {t("airportPanel.altitude", { ns: "game" })}
-                </p>
-                <p className="mt-1 text-sm font-mono font-semibold">
-                  {numberFormat.format(airport.altitude)} ft
-                </p>
-              </div>
-              <div className="rounded-xl border border-border/60 bg-background/90 p-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                  {t("airportPanel.timezone", { ns: "game" })}
-                </p>
-                <p className="mt-1 text-sm font-mono font-semibold">{airport.timezone}</p>
-              </div>
-              {hubInfo ? (
-                <>
+            {canOpenRoute && originHubIata && distanceKm ? (
+              <RouteDecisionCard
+                originIata={originHubIata}
+                destinationIata={airport.iata}
+                distanceKm={distanceKm}
+              />
+            ) : null}
+
+            <details className="group rounded-xl">
+              <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground">
+                {t("airportPanel.details", { ns: "game" })}
+              </summary>
+              <div className="mt-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-border/60 bg-background/90 p-3">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                      {t("airportPanel.capacityPerHour", { ns: "game" })}
+                      {t("airportPanel.population", { ns: "game" })}
                     </p>
                     <p className="mt-1 text-sm font-mono font-semibold">
-                      {hubInfo.baseCapacityPerHour}
+                      {formatPopulation(airport.population)}
                     </p>
                   </div>
                   <div className="rounded-xl border border-border/60 bg-background/90 p-3">
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                      {t("airportPanel.slotControl", { ns: "game" })}
+                      {t("airportPanel.gdpPerCapita", { ns: "game" })}
                     </p>
                     <p className="mt-1 text-sm font-mono font-semibold">
-                      {hubInfo.slotControlled
-                        ? t("airportPanel.yes", { ns: "game" })
-                        : t("airportPanel.no", { ns: "game" })}
+                      {currencyFormat.format(airport.gdpPerCapita)}
                     </p>
                   </div>
-                </>
-              ) : null}
-            </div>
+                  <div className="rounded-xl border border-border/60 bg-background/90 p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                      {t("airportPanel.altitude", { ns: "game" })}
+                    </p>
+                    <p className="mt-1 text-sm font-mono font-semibold">
+                      {numberFormat.format(airport.altitude)} ft
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-background/90 p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                      {t("airportPanel.timezone", { ns: "game" })}
+                    </p>
+                    <p className="mt-1 text-sm font-mono font-semibold">{airport.timezone}</p>
+                  </div>
+                  {hubInfo ? (
+                    <>
+                      <div className="rounded-xl border border-border/60 bg-background/90 p-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                          {t("airportPanel.capacityPerHour", { ns: "game" })}
+                        </p>
+                        <p className="mt-1 text-sm font-mono font-semibold">
+                          {hubInfo.baseCapacityPerHour}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-background/90 p-3">
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                          {t("airportPanel.slotControl", { ns: "game" })}
+                        </p>
+                        <p className="mt-1 text-sm font-mono font-semibold">
+                          {hubInfo.slotControlled
+                            ? t("airportPanel.yes", { ns: "game" })
+                            : t("airportPanel.no", { ns: "game" })}
+                        </p>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            </details>
 
             {airline ? (
               <div className="space-y-3">
