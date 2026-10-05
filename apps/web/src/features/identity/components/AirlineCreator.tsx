@@ -6,6 +6,7 @@ import { CheckCircle2, KeyRound, PlaneTakeoff, ShieldAlert } from "lucide-react"
 import { type FormEvent, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { RelayStatusBadge } from "@/shared/components/RelayStatusBadge";
 import { HubPicker } from "../../network/components/HubPicker";
 import { findAirlineConflicts } from "../utils/airlineConflicts";
 import { suggestCallsign, suggestIcaoCode, suggestLivery } from "../utils/airlineIdentity";
@@ -98,8 +99,8 @@ export function AirlineCreator() {
       <div className="border-b border-border bg-muted px-4 py-4 sm:px-8 sm:py-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="mb-3 inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              {t("creator.connectedSubtitle")}
+            <div className="mb-3">
+              <RelayStatusBadge />
             </div>
             <h2 className="flex items-center text-xl font-bold tracking-tight text-foreground sm:text-2xl">
               <PlaneTakeoff className="mr-3 h-6 w-6 text-primary" />

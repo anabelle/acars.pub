@@ -1,7 +1,7 @@
 # S21 — Quick-start airline creator
 
 > **Status:** ◐ in progress
-> **Next step:** S21.3
+> **Next step:** S21.4
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -37,7 +37,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S21.1** Auto-generated ICAO/callsign/colors behind "Customize". _Done when:_ form submits with name + hub only.
 - [x] **S21.2** Three instant hub suggestions with reasons and costs. _Done when:_ unit tests for suggestion picker.
-- [ ] **S21.3** Real relay-state badge. _Done when:_ badge test with relays stubbed down.
+- [x] **S21.3** Real relay-state badge. _Done when:_ badge test with relays stubbed down.
 - [ ] **S21.4** Key backup moved to post-first-landing banner. _Done when:_ screenshots.
 
 ## Details & guidance
@@ -51,7 +51,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 ## Acceptance criteria
 
 - [x] The form needs ≤ 2 inputs to submit.
-- [ ] Badge reflects real state in a test with relays stubbed down.
+- [x] Badge reflects real state in a test with relays stubbed down.
 
 ## Progress log
 
@@ -74,6 +74,11 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - `StarterHubChoices` cards (reason, IATA, city, "$X setup · $Y/mo") sit above "Pick a Different Hub". The list is anchored to the player's first detected location: picking a hub moves the stored location, which would otherwise reshuffle the cards (also caught in the browser).
   - From Madrid: MAD (biggest market, $2M + $400k/mo), SLM Salamanca (closest), GRO Girona (cheapest, $250k + $50k/mo). Clicking a card selects it.
   - Copy updated ("Just pick a name…", "Name your airline and pick a home hub…"). en + es. 4 suggestion tests. Gate + 18 e2e green.
+- 2026-10-05 · S21.3 · (this commit) · **Real relay-state badge.**
+  - `useRelayHealth` now also returns `status`: `connecting` with no relay during the first ~10 s (2 polls), `ready` with ≥1 relay, `offline` after that. It also returns `retry()` (calls `reconnectIfNeeded`) and `retrying`. The existing auto-reconnect and `isConnected` are unchanged for Topbar/Cockpit.
+  - `shared/components/RelayStatusBadge`: "Connected to N relays" / "Connecting to relays…" / "Offline" with a Retry button. It replaces the creator's hard-coded "Connected - create your airline" (ledger A10). en + es.
+  - 3 tests with `@acars/nostr` stubbed: connecting → offline with retry (relays stay down); ready with the count once relays connect; recovers from offline when a retry connects.
+  - Gate + 18 e2e green.
 
 ## Follow-ups
 
