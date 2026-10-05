@@ -10,6 +10,7 @@ import { HubPicker } from "../../network/components/HubPicker";
 import { findAirlineConflicts } from "../utils/airlineConflicts";
 import { suggestCallsign, suggestIcaoCode, suggestLivery } from "../utils/airlineIdentity";
 import { EphemeralKeyBackupActions } from "./EphemeralKeyBackupActions";
+import { StarterHubChoices } from "./StarterHubChoices";
 
 export function AirlineCreator() {
   const { t } = useTranslation(["identity", "common"]);
@@ -226,6 +227,9 @@ export function AirlineCreator() {
                   </div>
                 </div>
               ) : null}
+              <div className="mt-3">
+                <StarterHubChoices selectedIata={homeAirport.iata} onSelect={handleHubChange} />
+              </div>
               <HubPicker currentHub={homeAirport} onSelect={handleHubChange} />
             </div>
           ) : (

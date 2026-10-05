@@ -1,7 +1,7 @@
 # S21 — Quick-start airline creator
 
 > **Status:** ◐ in progress
-> **Next step:** S21.2
+> **Next step:** S21.3
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -36,7 +36,7 @@ Name + hub → flying. Everything else is optional and editable later.
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S21.1** Auto-generated ICAO/callsign/colors behind "Customize". _Done when:_ form submits with name + hub only.
-- [ ] **S21.2** Three instant hub suggestions with reasons and costs. _Done when:_ unit tests for suggestion picker.
+- [x] **S21.2** Three instant hub suggestions with reasons and costs. _Done when:_ unit tests for suggestion picker.
 - [ ] **S21.3** Real relay-state badge. _Done when:_ badge test with relays stubbed down.
 - [ ] **S21.4** Key backup moved to post-first-landing banner. _Done when:_ screenshots.
 
@@ -65,6 +65,15 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - The form now shows: name → hub → a collapsed **"Customize code, callsign and colors"** `<details>`. Its summary shows the current code, callsign and swatches; fields left empty use the suggestions (placeholders show them). Submit needs only a name; the ICAO conflict check runs on the effective code.
   - `createAirline` payload unchanged (out of scope).
   - The e2e signup helper now types only the name, so all 18 e2e cover the 2-field path. Tests: 7 helper tests, creator test updated (name alone enables submit) plus a new test that the submit sends TAW / TRANS / a hex livery. en + es.
+- 2026-10-05 · S21.2 · (this commit) · **Three one-click hub suggestions** with reasons and costs.
+  - `@acars/data` `suggestStarterHubs(lat, lon, current, airports, occupied, tier)` returns:
+    - the preselected big market (`findPreferredHub`),
+    - the closest airport **in another city**,
+    - the cheapest hub to run (the most populous regional-fee airport of another city in the same country).
+  - Occupied airports, duplicates and second airfields of a city already offered are skipped. The first version offered Madrid's Torrejón and Cuatro Vientos airfields as alternatives to MAD; caught in the browser check.
+  - `StarterHubChoices` cards (reason, IATA, city, "$X setup · $Y/mo") sit above "Pick a Different Hub". The list is anchored to the player's first detected location: picking a hub moves the stored location, which would otherwise reshuffle the cards (also caught in the browser).
+  - From Madrid: MAD (biggest market, $2M + $400k/mo), SLM Salamanca (closest), GRO Girona (cheapest, $250k + $50k/mo). Clicking a card selects it.
+  - Copy updated ("Just pick a name…", "Name your airline and pick a home hub…"). en + es. 4 suggestion tests. Gate + 18 e2e green.
 
 ## Follow-ups
 

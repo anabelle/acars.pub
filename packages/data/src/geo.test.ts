@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { findPreferredHub } from "./geo.js";
 
 const airports = [
@@ -133,5 +133,86 @@ describe("findPreferredHub", () => {
       new Set(["BOG", "MDE", "CLO", "BAQ"]),
     );
     expect(r5.iata).toBe("CTG");
+  });
+});
+
+describe("suggestStarterHubs (S21)", () => {
+  const list = [
+    { iata: "BIG", country: "AA", latitude: 30, longitude: 30, population: 1_000_000 },
+    { iata: "NEAR", country: "AA", latitude: 10.1, longitude: 10.1, population: 50_000 },
+    { iata: "REG", country: "AA", latitude: 20, longitude: 20, population: 300_000 },
+    { iata: "REG2", country: "AA", latitude: 21, longitude: 21, population: 200_000 },
+    { iata: "INT", country: "AA", latitude: 25, longitude: 25, population: 900_000 },
+    { iata: "FOR", country: "BB", latitude: 10, longitude: 10.4, population: 5_000_000 },
+    { iata: "GHOST", country: "AA", latitude: 10, longitude: 10, population: 0 },
+  ].map((airport) => ({ city: airport.iata, ...airport })) as any[];
+  const tier = (iata: string) =>
+    iata === "BIG" || iata === "INT" || iata === "FOR" ? "international" : "regional";
+  const big = list[0];
+
+  it("offers the big market, the closest airport and the cheapest regional hub", async () => {
+    const { suggestStarterHubs } = await import("./geo.js");
+    const result = suggestStarterHubs(10, 10, big, list, new Set(), tier);
+    expect(result.map((s) => [s.airport.iata, s.reason])).toEqual([
+      ["BIG", "bigMarket"],
+      ["NEAR", "nearest"],
+      ["REG", "cheapest"],
+    ]);
+  });
+
+  it("skips occupied airports and never repeats one", async () => {
+    const { suggestStarterHubs } = await import("./geo.js");
+    const result = suggestStarterHubs(10, 10, big, list, new Set(["NEAR", "REG"]), tier);
+    const iatas = result.map((s) => s.airport.iata);
+    expect(iatas).not.toContain("NEAR");
+    expect(iatas).not.toContain("REG");
+    expect(new Set(iatas).size).toBe(iatas.length);
+    expect(result.find((s) => s.reason === "cheapest")?.airport.iata).toBe("REG2");
+  });
+
+  it("returns just the current hub when nothing else qualifies", async () => {
+    const { suggestStarterHubs } = await import("./geo.js");
+    expect(suggestStarterHubs(10, 10, big, [big], new Set(), tier)).toEqual([
+      { airport: big, reason: "bigMarket" },
+    ]);
+  });
+
+  it("never offers a second airfield of a city already offered", async () => {
+    const { suggestStarterHubs } = await import("./geo.js");
+    const cityList = [
+      {
+        iata: "MAD",
+        city: "Madrid",
+        country: "ES",
+        latitude: 40.47,
+        longitude: -3.56,
+        population: 6_000_000,
+      },
+      {
+        iata: "TOJ",
+        city: "Madrid",
+        country: "ES",
+        latitude: 40.49,
+        longitude: -3.45,
+        population: 6_000_000,
+      },
+      {
+        iata: "VLL",
+        city: "Valladolid",
+        country: "ES",
+        latitude: 41.7,
+        longitude: -4.85,
+        population: 300_000,
+      },
+    ] as any[];
+    const result = suggestStarterHubs(
+      40.48,
+      -3.46,
+      cityList[0],
+      cityList,
+      new Set(),
+      () => "regional",
+    );
+    expect(result.map((s) => s.airport.iata)).toEqual(["MAD", "VLL"]);
   });
 });

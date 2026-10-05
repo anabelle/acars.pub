@@ -5,7 +5,7 @@
   "creator": {
     "connectedSubtitle": "Conectado - crea tu aerolínea",
     "title": "Lanza Tu Aerolínea",
-    "subtitle": "Configura tu aeropuerto base, nombra tu aerolínea y elige tus colores. Estarás volando en menos de un minuto.",
+    "subtitle": "Ponle nombre a tu aerolínea y elige un hub. Estarás volando en menos de un minuto.",
     "creationFailed": "Error al crear la aerolínea",
     "homeHub": "Hub Principal",
     "homeHubDesc": "Aquí se basará tu aerolínea. Determina tu región inicial y costos.",
@@ -15,7 +15,7 @@
     "setup": "Configuración",
     "monthly": "Mensual",
     "airlineIdentity": "Identidad de la Aerolínea",
-    "identityDesc": "Elige un nombre, un código corto y un indicativo de radio opcional. Otros jugadores los verán en el mapa y clasificaciones.",
+    "identityDesc": "Solo elige un nombre. El código, el indicativo y los colores se sugieren a partir de él, y puedes cambiarlos en Personalizar.",
     "airlineName": "Nombre de la Aerolínea",
     "namePlaceholder": "Apex Global",
     "nameHint": "Mantenlo corto, memorable y fácil de ver en el mapa.",
@@ -40,7 +40,13 @@
     "callsignSuggested": "{{icao}} HEAVY",
     "callsignDefaultIcao": "APX",
     "unknownError": "Error desconocido",
-    "customize": "Personalizar código, indicativo y colores"
+    "customize": "Personalizar código, indicativo y colores",
+    "hubReason": {
+      "bigMarket": "Mercado más grande",
+      "nearest": "Más cerca de ti",
+      "cheapest": "Más barato de operar"
+    },
+    "hubCost": "{{setup}} de apertura · {{monthly}}/mes"
   },
   "guest": {
     "title": "Inicia tu aerolínea",
