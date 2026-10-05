@@ -12,6 +12,7 @@ import {
   pointInViewport,
   routeIntersectsViewport,
 } from "./geo.js";
+import { planCameraFlight } from "./camera.js";
 import { resolveMapSelection } from "./interactions.js";
 import {
   type AirportClass,
@@ -828,24 +829,28 @@ export function Globe({
   // Initial fly-to on first airport selection or focus change
   // =========================================================================
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || !selectedAirport) return;
+    const map = mapRef.current;
+    if (!mapLoaded || !map || !selectedAirport) return;
 
-    if (!hasInitialFlied.current) {
-      hasInitialFlied.current = true;
-      mapRef.current.flyTo({
-        center: [selectedAirport.longitude, selectedAirport.latitude],
-        zoom: 4.5,
-        essential: true,
-        duration: 2000,
-      });
-      return;
-    }
-
-    mapRef.current.flyTo({
+    // First focus (your hub on load or in onboarding) lands at hub zoom;
+    // later ones keep the player's zoom if they are already closer in.
+    const first = !hasInitialFlied.current;
+    hasInitialFlied.current = true;
+    const targetZoom = first ? 4.5 : Math.max(3.2, map.getZoom());
+    const center = map.getCenter();
+    const canvas = map.getCanvas();
+    const plan = planCameraFlight(
+      { lng: center.lng, lat: center.lat },
+      { lng: selectedAirport.longitude, lat: selectedAirport.latitude },
+      { current: map.getZoom(), target: targetZoom },
+      { width: canvas.clientWidth, height: canvas.clientHeight },
+    );
+    // Not "essential": people who prefer reduced motion get a jump cut.
+    map.flyTo({
       center: [selectedAirport.longitude, selectedAirport.latitude],
-      zoom: Math.max(3.2, mapRef.current.getZoom()),
-      essential: true,
-      duration: 1200,
+      zoom: targetZoom,
+      duration: plan.duration,
+      ...(plan.minZoom !== undefined ? { minZoom: plan.minZoom } : {}),
     });
   }, [selectedAirport, mapLoaded]);
 
