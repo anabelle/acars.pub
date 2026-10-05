@@ -88,7 +88,13 @@ export function getFuelPriceAtTick(tick: number): FixedPoint {
   if (cached !== undefined) return cached;
 
   let price: FixedPoint;
-  if (safeTick > cacheHighTick) {
+  if (safeTick - cacheHighTick > FUEL_TICK_CACHE_MAX) {
+    // Long forward jump (e.g. the first lookup of a session, from tick 0 to
+    // "now"): re-derive from the epoch-start price instead of caching every
+    // intermediate tick. Walking and storing each tick overflowed the Map's
+    // 2^24-entry limit once the game clock passed ~16.8M ticks.
+    price = rebuildFromEpochStart(safeTick);
+  } else if (safeTick > cacheHighTick) {
     // Forward jump: advance incrementally from the highest cached tick.
     price = tickCache.get(cacheHighTick)!;
     for (let currentTick = cacheHighTick; currentTick < safeTick; currentTick += 1) {
