@@ -35,6 +35,12 @@ export type MapPalette = {
   flights: {
     fallbackAccent: string;
   };
+  /** Space, horizon glow and haze around the globe. */
+  sky: {
+    space: string;
+    horizon: string;
+    fog: string;
+  };
 };
 
 /**
@@ -71,6 +77,11 @@ export const DARK_MAP_PALETTE: MapPalette = {
   flights: {
     fallbackAccent: "#94a3b8",
   },
+  sky: {
+    space: "#020617",
+    horizon: "#1e3a5f",
+    fog: "#0b1424",
+  },
 };
 
 export const EARTH_MAP_PALETTE: MapPalette = {
@@ -99,6 +110,11 @@ export const EARTH_MAP_PALETTE: MapPalette = {
   },
   flights: {
     fallbackAccent: "#7dd3fc",
+  },
+  sky: {
+    space: "#0b1a2e",
+    horizon: "#9cc9ef",
+    fog: "#cfe3f3",
   },
 };
 

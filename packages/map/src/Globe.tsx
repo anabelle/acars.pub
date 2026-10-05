@@ -20,6 +20,7 @@ import {
   isMajorAirport,
 } from "./layers/airports.js";
 import { addFlightLayers, registerAircraftIcons } from "./layers/flights.js";
+import { applyGlobeView, globeFitZoom } from "./layers/globeView.js";
 import { addNightOverlay, NIGHT_CANVAS_SOURCE, paintNightCanvas } from "./layers/nightOverlay.js";
 import { addRouteLayers, arcCacheKey, getSegmentCount } from "./layers/routes.js";
 import { addDataSources } from "./layers/sources.js";
@@ -246,7 +247,11 @@ export function Globe({
     // Load saved view state
     const savedView = localStorage.getItem("acars_map_view");
     let initialCenter: [number, number] = [0, 20];
-    let initialZoom = 1.5;
+    // First visit: the whole planet, seen from space.
+    let initialZoom = globeFitZoom(
+      mapContainer.current.clientWidth,
+      mapContainer.current.clientHeight,
+    );
 
     if (savedView) {
       try {
@@ -287,6 +292,9 @@ export function Globe({
     map.on("zoomend", saveView);
     let cursorFrame: number | null = null;
     let pendingCursorPoint: { x: number; y: number } | null = null;
+
+    // Projection and sky are part of the style: re-apply on every style load.
+    map.on("style.load", () => applyGlobeView(map, mapThemePalette));
 
     map.on("load", () => {
       setMapLoaded(true);

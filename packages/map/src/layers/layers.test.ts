@@ -3,6 +3,13 @@ import { DARK_MAP_PALETTE, EARTH_MAP_PALETTE } from "../theme.js";
 import { addAirportLayers, buildPresenceBadge } from "./airports.js";
 import { addFlightLayers, registerAircraftIcons } from "./flights.js";
 import {
+  ATMOSPHERE_FADE_END_ZOOM,
+  applyGlobeView,
+  GLOBE_DIAMETER_AT_ZOOM_0,
+  globeFitZoom,
+  globeSky,
+} from "./globeView.js";
+import {
   addNightOverlay,
   NIGHT_CANVAS_H,
   NIGHT_CANVAS_LAYER,
@@ -181,5 +188,43 @@ describe("buildPresenceBadge", () => {
     expect(buildPresenceBadge([], 16)).toMatchObject({ width: 16, height: 16 });
     vi.stubGlobal("document", { createElement: () => ({ getContext: () => null }) });
     expect(buildPresenceBadge([{ color: "#f00", count: 1 }], 16)).toMatchObject({ width: 16 });
+  });
+});
+
+describe("globe view", () => {
+  it("uses the theme's sky colours and fades the atmosphere as you zoom in", () => {
+    const sky = globeSky(EARTH_MAP_PALETTE);
+    expect(sky["sky-color"]).toBe(EARTH_MAP_PALETTE.sky.space);
+    expect(sky["horizon-color"]).toBe(EARTH_MAP_PALETTE.sky.horizon);
+    expect(sky["fog-color"]).toBe(EARTH_MAP_PALETTE.sky.fog);
+    const blend = sky["atmosphere-blend"] as unknown[];
+    expect(blend.slice(-2)).toEqual([ATMOSPHERE_FADE_END_ZOOM, 0]);
+  });
+
+  it("switches the map to the globe projection with the sky", () => {
+    const calls: unknown[][] = [];
+    const map = {
+      setProjection: (projection: unknown) => calls.push(["projection", projection]),
+      setSky: (sky: unknown) => calls.push(["sky", sky]),
+    };
+    applyGlobeView(map as never, DARK_MAP_PALETTE);
+    expect(calls).toEqual([
+      ["projection", { type: "globe" }],
+      ["sky", globeSky(DARK_MAP_PALETTE)],
+    ]);
+  });
+});
+
+describe("globeFitZoom", () => {
+  it("fits the whole planet in the viewport's shorter side", () => {
+    const zoom = globeFitZoom(390, 844);
+    expect(GLOBE_DIAMETER_AT_ZOOM_0 * 2 ** zoom).toBeCloseTo(0.85 * 390, -1);
+    expect(globeFitZoom(1440, 900)).toBeGreaterThan(zoom);
+  });
+
+  it("stays within sensible bounds", () => {
+    expect(globeFitZoom(8000, 8000)).toBe(1.5);
+    expect(globeFitZoom(10, 10)).toBe(-1);
+    expect(globeFitZoom(0, 0)).toBe(1.5);
   });
 });
