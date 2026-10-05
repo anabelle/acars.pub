@@ -75,3 +75,52 @@ export function estimateHistoricRevenue(fleet: AircraftInstance[], routes: Route
   const routeBonus = fp(Math.min(activeRoutes, 25) * 2_000_000);
   return fpSum([fleetValue, routeBonus]);
 }
+
+export interface TierProgress {
+  tier: number;
+  /** Null at the top tier. */
+  nextTier: number | null;
+  /** 0–100, capped; 100 at the top tier. */
+  revenuePct: number;
+  routesPct: number;
+  revenueMet: boolean;
+  routesMet: boolean;
+  revenueTarget: FixedPoint | null;
+  routesTarget: number | null;
+}
+
+/**
+ * How far an airline is towards its next tier on each requirement
+ * (cumulative revenue and active routes). Pure and O(1).
+ */
+export function getTierProgress(
+  tier: number,
+  cumulativeRevenue: FixedPoint,
+  activeRouteCount: number,
+): TierProgress {
+  const next = TIER_THRESHOLDS[tier + 1];
+  if (!next) {
+    return {
+      tier,
+      nextTier: null,
+      revenuePct: 100,
+      routesPct: 100,
+      revenueMet: true,
+      routesMet: true,
+      revenueTarget: null,
+      routesTarget: null,
+    };
+  }
+  const pct = (value: number, target: number) =>
+    Math.max(0, Math.min(100, Math.floor((value / target) * 100)));
+  return {
+    tier,
+    nextTier: tier + 1,
+    revenuePct: pct(cumulativeRevenue, next.minCumulativeRevenue),
+    routesPct: pct(activeRouteCount, next.minActiveRoutes),
+    revenueMet: cumulativeRevenue >= next.minCumulativeRevenue,
+    routesMet: activeRouteCount >= next.minActiveRoutes,
+    revenueTarget: next.minCumulativeRevenue,
+    routesTarget: next.minActiveRoutes,
+  };
+}

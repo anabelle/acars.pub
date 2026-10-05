@@ -101,6 +101,7 @@ describe("Topbar", () => {
       (selector?: (state: { airline: AirlineEntity }) => unknown) => {
         const state = {
           airline,
+          routes: [],
           initializeIdentity: vi.fn(),
           isLoading: false,
           isEphemeral: false,
@@ -118,7 +119,9 @@ describe("Topbar", () => {
     expect(screen.getAllByText("Test Air")).toHaveLength(2);
     expect(screen.getByText("TEST")).toBeInTheDocument();
     expect(screen.getByText("Corporate Balance")).toBeInTheDocument();
-    expect(screen.getByText(/T2/)).toBeInTheDocument();
+    // Tier 2 with nothing earned yet: progress towards tier 3 starts at 0%.
+    expect(screen.getByTestId("topbar-tier")).toHaveTextContent("T2 → 3");
+    expect(screen.getByTestId("topbar-tier")).toHaveTextContent("Rev 0%");
     expect(screen.getByTestId("topbar-metrics").className).not.toMatch(/\bhidden\b/);
   });
 
@@ -148,6 +151,7 @@ describe("Topbar", () => {
       (selector?: (state: { airline: AirlineEntity }) => unknown) => {
         const state = {
           airline,
+          routes: [],
           initializeIdentity: vi.fn(),
           isLoading: false,
           isEphemeral: false,
@@ -199,6 +203,7 @@ describe("Topbar", () => {
       (selector?: (state: { airline: AirlineEntity }) => unknown) => {
         const state = {
           airline,
+          routes: [],
           initializeIdentity: vi.fn(),
           isLoading: false,
           isEphemeral: true,

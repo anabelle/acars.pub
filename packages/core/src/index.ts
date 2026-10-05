@@ -138,7 +138,9 @@ export {
   evaluateTier,
   getMaxHubs,
   getMaxRouteDistanceKm,
+  getTierProgress,
   TIER_THRESHOLDS,
+  type TierProgress,
 } from "./tier.js";
 export type {
   AircraftInstance,

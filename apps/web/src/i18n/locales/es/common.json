@@ -38,7 +38,6 @@
     "competitorMode": "Análisis Competitivo",
     "corporateBalance": "Balance Corporativo",
     "stockPrice": "Precio de Acción",
-    "brandTier": "Marca / Nivel",
     "avgLoadFactor": "Factor de Carga Prom.",
     "relaysOnline": "{{count}} relé en línea",
     "relaysOnline_other": "{{count}} relés en línea",
@@ -47,7 +46,14 @@
     "relaysOffline": "Relés Nostr desconectados",
     "disconnectedWarning": "Desconectado de Nostr — los cambios podrían no guardarse",
     "openPanel": "Abrir {{panel}}",
-    "closePanel": "Cerrar {{panel}}"
+    "closePanel": "Cerrar {{panel}}",
+    "brand": "Marca",
+    "tierProgress": "Nivel",
+    "tierLabel": "N{{tier}}",
+    "tierMax": "nivel máximo",
+    "tierRevenue": "Ingr. {{pct}} %",
+    "tierRoutes": "Rutas {{pct}} %",
+    "tierTitle": "El nivel {{next}} requiere {{revenue}} de ingresos acumulados y {{routes}} rutas activas."
   },
   "bankruptcy": {
     "chapter11Banner": "Bancarrota Capítulo 11 — Todas las operaciones suspendidas",
