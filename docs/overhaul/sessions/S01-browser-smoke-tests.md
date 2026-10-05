@@ -1,9 +1,9 @@
 # S01 — Browser smoke & screenshot tests in CI
 
 > **Status:** ◐ in progress
-> **Next step:** S01.2
+> **Next step:** S01.3
 > **Branch:** claude/zen-darwin-3op878
-> **PR:** —
+> **PR:** https://github.com/anabelle/acars.pub/pull/158
 >
 > **Track:** Foundations · **Size:** M (5 steps) · **Depends on:** — · **Unblocks:** S40, S45 (and every UI session's screenshots)
 >
@@ -39,7 +39,7 @@ Catch blank maps, boot crashes and layout regressions automatically, and give ev
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S01.1** Playwright config + boot smoke spec for `/` (`pnpm test:e2e`). _Done when:_ spec passes locally against `vite preview`.
-- [ ] **S01.2** Smoke specs for all routes + same-origin 4xx/5xx check + relay WebSocket stub. _Done when:_ all routes pass without network relays.
+- [x] **S01.2** Smoke specs for all routes + same-origin 4xx/5xx check + relay WebSocket stub. _Done when:_ all routes pass without network relays.
 - [ ] **S01.3** Map non-blank spec + `window.__acarsMap` test hook. _Done when:_ spec fails if you break the MapLibre worker URL locally.
 - [ ] **S01.4** Mobile overlap spec (`test.fail`, linked to S20) + `pnpm screenshots`. _Done when:_ screenshots written for 390 and 1440.
 - [ ] **S01.5** CI job + screenshot artifact upload. _Done when:_ CI green on the PR.
@@ -63,6 +63,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
 - 2026-10-05 · S01.1 · (this commit) · Added `@playwright/test@1.63.0`, `apps/web/playwright.config.ts` (serves the built app via `vite preview`, `CHROMIUM_PATH` override for local runs), `e2e/smoke.spec.ts` for `/` (waits on `data-app-ready`, asserts no `pageerror`), `e2e/tsconfig.json` chained into `typecheck`, `e2e` added to lint, `pnpm test:e2e` at root and web. Passes locally against `vite preview`.
+- 2026-10-05 · S01.2 · (this commit) · `e2e/fixtures.ts`: an in-browser fake relay via `context.routeWebSocket` (answers `REQ` with `EOSE`, `EVENT` with `OK`; verified it intercepts ~74 messages per page, including the auditor worker), plus a `problems` fixture for page errors and same-origin failures. Probing showed `vite preview` serves missing files as `200 text/html` (the SPA fallback, exactly how the Sept worker bug looked), so the check also flags `.js/.mjs/.css/.json/.wasm` responses with an HTML content type; verified it catches `/maplibre/does-not-exist.mjs`. Smoke spec covers 9 routes. Lint override in `eslint.config.js` disables `react-hooks/rules-of-hooks` for e2e files (it misreads Playwright's fixture `use()`).
 
 ## Follow-ups
 
