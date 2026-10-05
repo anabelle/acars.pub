@@ -144,7 +144,8 @@ export function OperationsCockpit() {
   const identityStatus = useAirlineStore((state) => state.identityStatus);
   const competitors = useAirlineStore((state) => state.competitors);
   const viewAs = useAirlineStore((state) => state.viewAs);
-  const { isConnected, relayCount } = useRelayHealth();
+  // Only a real outage (not the first seconds of connecting) earns cockpit space.
+  const relaysDown = useRelayHealth().status === "offline";
   const pulse = useFinancialPulse(timeline);
   const routePerformance = useRoutePerformance(timeline, routes);
 
@@ -173,7 +174,7 @@ export function OperationsCockpit() {
   const statusCards = useMemo<StatusItem[]>(() => {
     if (!activeAirline) return [];
 
-    return [
+    const cards: StatusItem[] = [
       {
         title: t("cockpit.status.cashPosition", { ns: "game" }),
         value: fpFormat(activeAirline.corporateBalance, 0),
@@ -214,28 +215,18 @@ export function OperationsCockpit() {
                 ? "warn"
                 : "danger",
       },
-      {
-        title: t("cockpit.status.relayState", { ns: "game" }),
-        value: isConnected
-          ? t("cockpit.status.relaysOnline", { ns: "game", count: relayCount })
-          : t("cockpit.status.relaysOffline", { ns: "game" }),
-        detail: isConnected
-          ? t("cockpit.status.relayStateDetail", { ns: "game" })
-          : t("cockpit.status.relayStateDanger", { ns: "game" }),
-        icon: Signal,
-        tone: isConnected ? "good" : "danger",
-      },
     ];
-  }, [
-    activeAirline,
-    activeRoutes.length,
-    fleet.length,
-    isConnected,
-    isViewingOther,
-    pulse,
-    relayCount,
-    t,
-  ]);
+    if (relaysDown) {
+      cards.push({
+        title: t("cockpit.status.relayState", { ns: "game" }),
+        value: t("cockpit.status.relaysOffline", { ns: "game" }),
+        detail: t("cockpit.status.relayStateDanger", { ns: "game" }),
+        icon: Signal,
+        tone: "danger",
+      });
+    }
+    return cards;
+  }, [activeAirline, activeRoutes.length, fleet.length, isViewingOther, pulse, relaysDown, t]);
 
   const insights = useMemo<InsightItem[]>(() => {
     if (!activeAirline) return [];
@@ -272,7 +263,7 @@ export function OperationsCockpit() {
         tone: "danger",
       });
     }
-    if (!isConnected) {
+    if (relaysDown) {
       items.push({
         title: t("cockpit.insights.relayRisk", { ns: "game" }),
         description: t("cockpit.insights.relayRiskDesc", { ns: "game" }),
@@ -337,7 +328,7 @@ export function OperationsCockpit() {
     activeRoutes.length,
     fleet.length,
     idleAircraft.length,
-    isConnected,
+    relaysDown,
     isViewingOther,
     pulse.avgLoadFactor,
     pulse.flightCount,
@@ -599,7 +590,16 @@ export function OperationsCockpit() {
       </div>
 
       <div className="space-y-6 px-4 py-4 sm:px-6 sm:py-5">
-        <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
+        <section
+          className={cn(
+            // An odd last card spans the row in the two-column layout.
+            "grid gap-4 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2",
+            statusCards.length > 3
+              ? "2xl:grid-cols-4"
+              : "2xl:grid-cols-3 2xl:[&>*:last-child:nth-child(odd)]:col-span-1",
+          )}
+          data-testid="cockpit-status-cards"
+        >
           {statusCards.map((item) => (
             <HeaderCard key={item.title} item={item} />
           ))}

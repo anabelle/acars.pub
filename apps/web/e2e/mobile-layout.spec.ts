@@ -25,7 +25,7 @@ for (const path of ["/", "/?panel=cockpit"]) {
     const topBar = page.getByRole("button", { name: "Open identity" }).first();
     // WorkspaceContextBar's root is the nearest bordered ancestor of its badge.
     const contextBar = page
-      .getByText("Read-only mode", { exact: true })
+      .getByText("View only", { exact: true })
       .first()
       .locator("xpath=ancestor::div[contains(@class,'border-b')][1]");
 
