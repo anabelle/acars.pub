@@ -7,8 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src server vite.config.ts capacitor.config.ts eslint.config.js tailwind.config.js postcss.config.js",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit && tsc -p e2e/tsconfig.json --noEmit",
+    "lint": "eslint src server vite.config.ts capacitor.config.ts eslint.config.js tailwind.config.js postcss.config.js e2e playwright.config.ts",
     "preview": "vite preview",
     "screenshots": "node ./scripts/capture-responsive-screenshots.mjs"
   },
@@ -41,6 +42,7 @@
   "devDependencies": {
     "@capacitor/cli": "^8.5.1",
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "1.63.0",
     "@tanstack/router-devtools": "^1.167.1",
     "@tanstack/router-plugin": "^1.168.37",
     "@types/maplibre-gl": "^1.14.0",

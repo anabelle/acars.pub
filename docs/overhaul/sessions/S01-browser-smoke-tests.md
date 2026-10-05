@@ -1,8 +1,8 @@
 # S01 — Browser smoke & screenshot tests in CI
 
-> **Status:** ☐ not started
-> **Next step:** S01.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S01.2
+> **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
 > **Track:** Foundations · **Size:** M (5 steps) · **Depends on:** — · **Unblocks:** S40, S45 (and every UI session's screenshots)
@@ -38,7 +38,7 @@ Catch blank maps, boot crashes and layout regressions automatically, and give ev
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S01.1** Playwright config + boot smoke spec for `/` (`pnpm test:e2e`). _Done when:_ spec passes locally against `vite preview`.
+- [x] **S01.1** Playwright config + boot smoke spec for `/` (`pnpm test:e2e`). _Done when:_ spec passes locally against `vite preview`.
 - [ ] **S01.2** Smoke specs for all routes + same-origin 4xx/5xx check + relay WebSocket stub. _Done when:_ all routes pass without network relays.
 - [ ] **S01.3** Map non-blank spec + `window.__acarsMap` test hook. _Done when:_ spec fails if you break the MapLibre worker URL locally.
 - [ ] **S01.4** Mobile overlap spec (`test.fail`, linked to S20) + `pnpm screenshots`. _Done when:_ screenshots written for 390 and 1440.
@@ -62,11 +62,11 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+- 2026-10-05 · S01.1 · (this commit) · Added `@playwright/test@1.63.0`, `apps/web/playwright.config.ts` (serves the built app via `vite preview`, `CHROMIUM_PATH` override for local runs), `e2e/smoke.spec.ts` for `/` (waits on `data-app-ready`, asserts no `pageerror`), `e2e/tsconfig.json` chained into `typecheck`, `e2e` added to lint, `pnpm test:e2e` at root and web. Passes locally against `vite preview`.
 
 ## Follow-ups
 
-_None yet._
+- `apps/web/src/routeTree.gen.ts` is rewritten (quote style only) by every `vite build`/test run, so the working tree is dirty after any build. Either exclude it from Prettier and commit the generator's format, or configure the router plugin's `quoteStyle`/`semicolons` to match. Small chore, outside S01's scope.
 
 ## Handoff notes
 

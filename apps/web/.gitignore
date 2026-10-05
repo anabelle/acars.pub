@@ -25,3 +25,7 @@ dist-ssr
 *.sln
 *.sw?
 android/
+
+# Playwright e2e output
+test-results/
+playwright-report/

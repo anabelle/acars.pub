@@ -46,13 +46,16 @@ To see where things stand without an agent: `scripts/overhaul-status.sh` (or `--
    - Tests, lint and typecheck green.
    - In the same commit: tick the step's box, append a progress-log line, and advance
      **Next step**.
-   - Commit message `<type>(<scope>): Sxx.n <summary>` (Conventional Commits; commitlint
-     enforces it).
+   - Commit message `<type>(<scope>): <lowercase summary> (Sxx.n)`, e.g.
+     `test(web): add playwright smoke spec (S01.1)`. Commitlint (Conventional Commits)
+     rejects a subject that starts with an uppercase token such as `S01.1`, so the step id
+     goes at the end. Allowed types: feat, fix, test, docs, refactor, perf, build, ci,
+     chore, style, revert.
    - Push immediately.
    - After the first step, open a **draft PR** and record it in the brief's **PR** field.
 6. **Running low on budget mid-step?**
    - Stop adding scope.
-   - If the work in progress is green, commit it as `wip(<scope>): Sxx.n …` with a `WIP` log
+   - If the work in progress is green, commit it as `chore(<scope>): wip <summary> (Sxx.n)` with a `WIP` log
      line saying exactly what's done and what remains. If it isn't green, stash the idea in
      that `WIP` line and revert to the last checkpoint.
    - Push. A pushed `WIP` line is all the next session needs.
