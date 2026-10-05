@@ -13,7 +13,8 @@ async function boxOf(locator: Locator): Promise<Box> {
   return box;
 }
 
-for (const path of ["/", "/?panel=cockpit", "/join"]) {
+// `/join` is an entry page with no top bar at all (S20.3); see smoke.spec.ts.
+for (const path of ["/", "/?panel=cockpit"]) {
   test(`mobile top bar and context bar don't overlap on ${path}`, async ({ page }) => {
     // Regression test for ledger A12 (fixed in overhaul S20.1): on phones the
     // floating top bar used to be drawn over WorkspaceContextBar.

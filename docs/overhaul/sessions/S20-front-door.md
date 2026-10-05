@@ -1,7 +1,7 @@
 # S20 — Front door: honest landing, entry layout, meta
 
 > **Status:** ◐ in progress
-> **Next step:** S20.3
+> **Next step:** S20.4
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** https://github.com/anabelle/acars.pub/pull/159
 >
@@ -43,7 +43,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S20.1** Fix mobile context-bar overlap (flip S01 `test.fail` if present). _Done when:_ overlap spec passes.
 - [x] **S20.2** `index.html` title/description/OG/Twitter + `public/og.png`. _Done when:_ tags present; validator passes.
-- [ ] **S20.3** Guest/`/join` entry layout: no sidebar, single CTA, quiet key-import link. _Done when:_ screenshots at both sizes.
+- [x] **S20.3** Guest/`/join` entry layout: no sidebar, single CTA, quiet key-import link. _Done when:_ screenshots at both sizes.
 - [ ] **S20.4** Honest landing copy + "Roadmap" strip (en + es). _Done when:_ no unshipped feature presented as live.
 - [ ] **S20.5** Map-first guest home card + locked-section copy without "Nostr wallet". _Done when:_ screenshots.
 
@@ -65,6 +65,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 - 2026-10-05 · S20.1 · (this commit) · `WorkspaceContextBar` is now `hidden sm:block`. On phones the floating top bar sits at the top of the screen and the bottom nav already shows the section, while competitor and bankruptcy states have their own mobile surfaces (top bar and full-screen overlay), so nothing important is lost; S22 can add a compact mode chip if wanted. Rewrote `e2e/mobile-layout.spec.ts` without `test.fail`: it now asserts both bars exist (so a renamed label can't pass vacuously) and that any _visible_ context bar doesn't overlap. Verified: passes with the fix, and fails on the real overlap (y 0–38 vs 12–74) with the fix reverted. Desktop screenshot unchanged.
 - 2026-10-05 · S20.2 · (this commit) · `index.html`: title "ACARS — Run a real airline on the real clock" (was "Corporate Console"), meta description, theme-color, canonical, Open Graph + Twitter `summary_large_image` tags with absolute `https://acars.pub/…` URLs. Fixed the favicon link, which pointed at a non-existent `/vite.svg`. `public/og.png` (1200×630, 312 KB) rendered from `scripts/og-image.html` via `node scripts/render-og-image.mjs`; copy only claims shipped things (live map, real routes and times, rivals, free, no ads, open source). `e2e/meta.spec.ts` checks tags, absolute URLs, and that `/og.png` (PNG, 1200×630) and `/favicon.svg` are served.
+- 2026-10-05 · S20.3 · (this commit) · `/join` renders as a standalone **entry layout** (`ENTRY_ROUTES` in `routes/__root.tsx`): map in the background, no top bar, context bar, sidebar, mobile nav or ticker. One brand mark, one CTA ("Play for free"), quiet "I already have a Nostr account →" link. Desktop guest top bar elsewhere: one "Play Free" button plus a quiet "Already have a Nostr key?" link that reveals Browser wallet / nsec / What is Nostr? (`topbar.haveNostrKey`, en + es). **Deviation:** guests keep the sidebar on non-entry routes, since removing it would strand desktop guests without navigation to Rivals/Info; locked items stay dimmed (copy fixed in S20.5). Tests: root-route unit test for the entry layout; Topbar test clicks the disclosure; e2e `/join` entry-page spec (exactly one "play" button, no wallet button, no Fleet nav link). The `/join` mobile-overlap case was dropped since it has no top bar now. Screenshots: `/join` and `/` at 390 and 1440.
 
 ## Follow-ups
 

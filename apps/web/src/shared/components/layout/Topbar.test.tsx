@@ -67,7 +67,11 @@ describe("Topbar", () => {
     render(<Topbar />);
     expect(screen.getAllByText("ACARS")).toHaveLength(2);
     expect(screen.getByRole("button", { name: /Play Free/i })).toBeInTheDocument();
+    // Existing-key sign-in is behind a quiet disclosure link (overhaul S20.3).
+    expect(screen.queryByRole("button", { name: /I already have an nsec key/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Already have a Nostr key\?/i }));
     expect(screen.getByRole("button", { name: /I already have an nsec key/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Browser wallet/i })).toBeInTheDocument();
     expect(screen.getByText(/New here\? Start free in one click/i)).toBeInTheDocument();
   });
 

@@ -31,6 +31,7 @@
     "playFree": "Play Free",
     "browserWallet": "Browser wallet",
     "haveNsec": "I already have an nsec key",
+    "haveNostrKey": "Already have a Nostr key?",
     "whatIsNostr": "What is Nostr?",
     "cancelNsecLogin": "Cancel nsec login",
     "backToYourAirline": "Back to Your Airline",

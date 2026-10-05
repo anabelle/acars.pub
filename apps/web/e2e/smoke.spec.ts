@@ -16,3 +16,13 @@ for (const { path } of GUEST_ROUTES) {
     expect(problems.badResponses, "same-origin HTTP failures").toEqual([]);
   });
 }
+
+// `/join` is a standalone entry page (overhaul S20.3): one call to action and
+// none of the HUD chrome (top bar auth cluster, sidebar, ticker) around it.
+test("/join is an entry page with a single call to action", async ({ page }) => {
+  await gotoReady(page, "/join");
+  await expect(page.getByRole("button", { name: /play/i })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /browser wallet/i })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /^fleet$/i })).toHaveCount(0);
+  await expect(page.locator('[data-layout="entry"]')).toHaveCount(1);
+});
