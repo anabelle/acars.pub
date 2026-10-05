@@ -1,7 +1,7 @@
 # S22 — Shell clarity: naming, status bar, real health
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting review)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #167)
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** https://github.com/anabelle/acars.pub/pull/167
 >
