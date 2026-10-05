@@ -5,6 +5,12 @@
 > (`calculateDemand`, `scaleToAddressableMarket`, `allocatePassengers`, `calculateSupplyPressure`,
 > `calculatePriceElasticity`, `calculateFlightRevenue`, `calculateFlightCost`) the same way
 > `processFlightEngine` chains them for a solo player on a route.
+>
+> **Revision (2026-10-05, second pass):** every claim was re-checked. The fare and oversupply
+> numbers now come from the real `processFlightEngine` (through the `simulateSingleLanding`
+> test helper), and several claims were corrected: pacing, thin-market fares, oversupply
+> magnitude, hub-suggestion delay and production exposure of the black map. The full
+> verified / corrected / unverified ledger is in [`overhaul/README.md`](overhaul/README.md#1-assumption-ledger).
 
 ---
 
@@ -16,11 +22,11 @@ and the UI makes the few decisions that exist expensive to reach.**
 
 The three complaints map to three root causes:
 
-| Complaint       | Root cause                                                                                                                                                                                                                                                                     |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Dull**        | Decisions don't matter. Every Tier-1 route runs at the same 88% load factor and the same ~$24k/day profit, whichever city you pick. There's nothing to react to between check-ins: no recap, no events, no goals, and progression gates sit weeks out.                         |
-| **Complicated** | Onboarding front-loads protocol concepts (keys, ICAO, callsign, relays) before the player has done anything fun. The cockpit talks about "relay state" and "signed actions". Five top-level sections for what is essentially one loop.                                         |
-| **Cumbersome**  | Getting the first plane airborne spans ~5 screens and 3 separate signed actions (open route → buy/lease → assign). The fare editor is three bare number inputs with a demand multiplier but no projected profit. Maintenance is a manual chore that silently grounds aircraft. |
+| Complaint       | Root cause                                                                                                                                                                                                                                                                                                                       |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dull**        | Decisions don't matter. Every Tier-1 route runs at the same ~87% load factor and the same ~$24k/day profit, whichever city you pick, and overpricing always wins. The optimal play is solved: lease as many planes as cash allows and raise fares. There's nothing to react to between check-ins: no recap, no events, no goals. |
+| **Complicated** | Onboarding front-loads protocol concepts (keys, ICAO, callsign, relays) before the player has done anything fun. The cockpit talks about "relay state" and "signed actions". Five top-level sections for what is essentially one loop.                                                                                           |
+| **Cumbersome**  | Getting the first plane airborne spans ~5 screens and 3 separate signed actions (open route → buy/lease → assign). The fare editor is three bare number inputs with a demand multiplier but no projected profit. Maintenance is a manual chore that silently grounds aircraft.                                                   |
 
 The fix is a mix of **economy tuning in `@acars/core`** (so choices have consequences) and
 **UX collapse in `apps/web`** (so choices are one click away), followed by a **check-in loop**
@@ -47,43 +53,48 @@ core strategic act of an airline game, is effectively cosmetic. Cause: `PLAYER_M
 of gravity demand is still orders of magnitude larger than one aircraft's weekly seats, so
 `calculateSupplyPressure` always returns the `NATURAL_LF_CEILING` (0.88).
 
-**F2 — Fare exploit on large markets.** For the same reason, price elasticity almost never
-bites on big markets:
+**F2 — Fare exploit everywhere.** For the same reason, price elasticity barely bites.
+These numbers come from the real `processFlightEngine` (ATR 72, one aircraft):
 
-| MAD–BCN fare vs suggested | Load factor | Profit / leg |
-| ------------------------: | ----------: | -----------: |
-|                      1.0× |         88% |       $3,629 |
-|                      2.0× |         88% |      $11,071 |
-|                      5.0× |         88% |      $33,397 |
-|                     10.0× |         88% |      $70,607 |
-|                     40.0× |         73% |     $245,119 |
+| Fare vs suggested | MAD–BCN LF | MAD–BCN profit / leg | DEN–SLC LF | DEN–SLC profit / leg |
+| ----------------: | ---------: | -------------------: | ---------: | -------------------: |
+|                1× |        87% |               $3,056 |        87% |               $3,735 |
+|                2× |        87% |              $10,498 |        87% |              $12,519 |
+|                5× |        87% |              $32,824 |        47% |              $18,928 |
+|               10× |        87% |              $70,034 |        20% |              $15,475 |
+|               40× |        87% |             $293,294 |         4% |              $12,680 |
 
-`MAX_FARE` is a flat $10,000 (`actionReducer.ts`, `networkSlice.ts`) regardless of distance. A
-player who discovers this goes from ~$24k/day to ~$1.6M/day per turboprop, which breaks tier
-pacing and the leaderboard. Thin markets (DEN–SLC) do punish it (LF 44% at 3×), which is the
-behavior we want everywhere.
+`MAX_FARE` is a flat $10,000 (`actionReducer.ts`, `networkSlice.ts`) regardless of distance. On
+a big market the player goes from ~$3k to ~$290k per flight with no load-factor penalty. Even
+the thin market only _caps_ the exploit: the best fare is around 5×, and 40× still beats the
+suggested fare by 3×. There is no market where the suggested fare is close to optimal.
 
 **F3 — Brand score rewards the exploit.** Brand only rises when average LF > 0.85
 (`engineSlice.ts`). Price-gouging a big market keeps LF at 88%, so it _improves_ brand.
 
 **F4 — Oversupply looks double-penalized.** Per-flight pax = `(weeklyAllocation / frequency) × pressure`.
 Dividing by frequency already spreads demand across more flights; `calculateSupplyPressure`
-then penalizes the same oversupply again. DEN–SLC with 10 ATRs gives ~4% LF where a naive
-seats-vs-demand ratio gives ~24%. Players who over-assign see a cliff, not a curve. _Verify
+then penalizes the same oversupply again. In the real engine, DEN–SLC with 10 ATRs gives 14%
+LF where a single seats-vs-demand division gives ~24%. Players who over-assign see a cliff, not a curve. _Verify
 intent before changing; this may be deliberate saturation tuning._
 
 ### 2.2 Pacing: the real-time clock has nothing to fill it (🔴 critical)
 
 - Start: $100M cash (`identitySlice.ts`), hub open fee $250k–$5M, route slot $100k.
-- 3 × ATR 72 on three routes ≈ **$176k revenue/day** → Tier 2 ($5M + 3 routes) in **~28 real days**.
-- Tier 3 ($50M) at that fleet size ≈ **284 days**; reinvesting shortens it, but expansion is
-  still measured in weeks of real time with no intermediate rewards.
-- Leasing ($4k/day for an ATR 72) is strictly dominant over buying ($26M) for a new player.
-  That isn't a decision; it's a trap for anyone who doesn't do the math.
+- A lease needs only a **10% deposit** ($2.6M for an ATR 72) plus $120k/month, and nothing
+  caps route count. So $100M can fund ~30 leased turboprops on ~30 routes on day one.
+- **Pacing is bimodal, not simply slow.**
+  - A cautious player (3 × ATR 72, suggested fares, ≈ $176k revenue/day) needs ~28 real days
+    for Tier 2 ($5M + 3 routes) and ~284 days for Tier 3 ($50M) without reinvesting.
+  - A player who finds the dominant strategy (lease everything, raise fares) reaches Tier 2
+    within days.
+  - Neither experience has intermediate goals.
+- Buying ($26M) only beats leasing after ~16 years of lease payments (ignoring resale).
+  Leasing is strictly dominant, so it isn't a decision; it's a trap for anyone who buys.
 
 Rule 2 (1:1 UTC) is a great idea, but real-time games survive on **short-horizon goals and
-check-in payoffs** (Idle/Farm games, EVE skill queues, stock apps). ACARS has the long horizon
-and lacks the short one.
+check-in payoffs** (Idle/Farm games, EVE skill queues, stock apps). ACARS has the long horizon,
+a solved optimum, and no short horizon.
 
 ### 2.3 Check-in loop: opening the app says nothing (🟠 high)
 
@@ -180,8 +191,9 @@ only when they want to keep it.
   even when every relay has failed.
 - "You'll be flying in under a minute" heads a long form: hub, name, ICAO code, radio
   callsign, two colors, and key tools.
-- The hub suggestion waits 15–30 s on "Finding your best starting hub…". It's derived from
-  the browser time zone, so UTC users get Dakar (DSS).
+- The hub suggestion tries geolocation (3 s timeout), then falls back to the browser time
+  zone, so UTC users get Dakar (DSS). The 15–30 s wait I saw is likely sandbox-specific (slow
+  catalog load), so treat it as unverified.
 - The hub card shows "Tier / Setup / Monthly" without saying why the choice matters for
   routes and demand.
 
@@ -257,15 +269,15 @@ What's there today (`packages/map/src/Globe.tsx`, `apps/web/src/features/fleet`)
 
 Gaps against what players now expect:
 
-| Area               | Today                                                                                                                              | State of the art (genre + "map as product" apps)                                                                                                        |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| World              | Flat dark map, raster tiles                                                                                                        | 3D globe with atmosphere/fog, starfield at low zoom, smooth zoom from space to the airport. MapLibre ≥ 5 globe + sky gets most of the way at zero cost. |
-| Routes             | Static 2D lines                                                                                                                    | Great-circle arcs that _rise_ off the globe, thickness by frequency, animated dash flow showing direction and traffic, colored by profit.               |
-| Aircraft           | Same small icon for every type                                                                                                     | Icons scaled and shaped per family (turboprop / narrowbody / widebody), tinted in the airline livery, contrails, smooth interpolation.                  |
-| Your airline       | Hub glow                                                                                                                           | Your network instantly recognizable in your livery colors; rivals in theirs; "my network" vs "world" toggle.                                            |
-| Economy on the map | Nothing                                                                                                                            | Floating `+$` on landings, demand heatmap from your hub, pulsing airports with events, profit-colored routes.                                           |
-| Identity art       | Livery images hidden in fleet details                                                                                              | Livery as the hero: hangar/gallery view, aircraft card on the route panel, shareable "fleet poster".                                                    |
-| Regression safety  | None. The map was a **black canvas in production for ~13 days** (MapLibre 6 bump on 2026-09-10, fixed in `fc6b969` on 2026-09-23). | A Playwright smoke test in CI that boots the app, waits for map idle, and asserts non-blank canvas pixels and zero worker 404s.                         |
+| Area               | Today                                                                                                                                                                                                                                       | State of the art (genre + "map as product" apps)                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| World              | Flat dark map, raster tiles                                                                                                                                                                                                                 | 3D globe with atmosphere/fog, starfield at low zoom, smooth zoom from space to the airport. MapLibre ≥ 5 globe + sky gets most of the way at zero cost. |
+| Routes             | Static 2D lines                                                                                                                                                                                                                             | Great-circle arcs that _rise_ off the globe, thickness by frequency, animated dash flow showing direction and traffic, colored by profit.               |
+| Aircraft           | Same small icon for every type                                                                                                                                                                                                              | Icons scaled and shaped per family (turboprop / narrowbody / widebody), tinted in the airline livery, contrails, smooth interpolation.                  |
+| Your airline       | Hub glow                                                                                                                                                                                                                                    | Your network instantly recognizable in your livery colors; rivals in theirs; "my network" vs "world" toggle.                                            |
+| Economy on the map | Nothing                                                                                                                                                                                                                                     | Floating `+$` on landings, demand heatmap from your hub, pulsing airports with events, profit-colored routes.                                           |
+| Identity art       | Livery images hidden in fleet details                                                                                                                                                                                                       | Livery as the hero: hangar/gallery view, aircraft card on the route panel, shareable "fleet poster".                                                    |
+| Regression safety  | None. The map was a **black canvas on `main` for ~13 days** (MapLibre 6 bump `238cfae` on 2026-09-10, fixed in `fc6b969` on 2026-09-23). It very likely reached production through Cloudflare Pages, whose deploy config isn't in the repo. | A Playwright smoke test in CI that boots the app, waits for map idle, and asserts non-blank canvas pixels and zero worker 404s.                         |
 
 The map _is_ the product's screenshot, trailer and store listing. It's the single most
 leveraged visual surface, and it currently looks like a monitoring dashboard rather than a
@@ -308,6 +320,10 @@ persistent multiplayer worlds with real-time flights:
 ---
 
 ## 3. Improvement Plan
+
+> **Execution plan:** the phases below are the rationale. The executable, session-by-session
+> breakdown (with dependencies, decisions and acceptance criteria) is in
+> [`overhaul/README.md`](overhaul/README.md).
 
 Guiding principle: **every check-in should surface a decision, and every decision should be
 one click from where it's surfaced.**
