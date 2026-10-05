@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { countLandingsBetween, enumerateFlightEvents, getCyclePhase } from "./cycle.js";
-import type { Route } from "./types.js";
+import {
+  countLandingsBetween,
+  enumerateFlightEvents,
+  getCyclePhase,
+  maxWeeklyFrequency,
+  nextDepartureTick,
+  physicalRoundTripTicks,
+  scheduledRoundTripTicks,
+} from "./cycle.js";
+import { type Route, TICKS_PER_WEEK } from "./types.js";
 
 const makeRoute = (overrides: Partial<Route> = {}): Route =>
   ({
@@ -369,5 +377,125 @@ describe("countLandingsBetween — direct edge cases", () => {
   it("returns 0 (skip) when toTick is before the first landing offset", () => {
     // First landing at cycleStart + durationTicks = 1000. Query (0, 500] → skip both offsets.
     expect(countLandingsBetween(0, 0, 500, durationTicks, turnaroundTicks)).toBe(0);
+  });
+});
+
+describe("scheduled cadence (S14)", () => {
+  const route = makeRoute({ originIata: "MAD", destinationIata: "BCN" });
+  // An ATR-like short hop: 60-minute legs, 40-minute turnarounds.
+  const durationTicks = 1200;
+  const turnaroundTicks = 800;
+  const physical = physicalRoundTripTicks(durationTicks, turnaroundTicks);
+
+  it("caps the frequency at what the fleet can physically fly", () => {
+    expect(physical).toBe(4000);
+    expect(maxWeeklyFrequency(durationTicks, turnaroundTicks, 1)).toBe(
+      Math.floor(TICKS_PER_WEEK / 4000),
+    );
+    expect(maxWeeklyFrequency(durationTicks, turnaroundTicks, 3)).toBe(
+      Math.floor((3 * TICKS_PER_WEEK) / 4000),
+    );
+    expect(maxWeeklyFrequency(durationTicks, turnaroundTicks, 0)).toBe(0);
+  });
+
+  it("spreads the weekly frequency over the route's aircraft, never faster than physics", () => {
+    // 7 round trips a week with one aircraft: one per day.
+    expect(scheduledRoundTripTicks(durationTicks, turnaroundTicks, 7, 1)).toBe(TICKS_PER_WEEK / 7);
+    // Two aircraft share 14 a week: each still flies one a day.
+    expect(scheduledRoundTripTicks(durationTicks, turnaroundTicks, 14, 2)).toBe(TICKS_PER_WEEK / 7);
+    // Asking for more than physics allows flies back to back.
+    expect(scheduledRoundTripTicks(durationTicks, turnaroundTicks, 10_000, 1)).toBe(physical);
+    // No frequency (legacy routes) also means back to back.
+    expect(scheduledRoundTripTicks(durationTicks, turnaroundTicks, undefined, 1)).toBe(physical);
+    expect(scheduledRoundTripTicks(durationTicks, turnaroundTicks, 0, 1)).toBe(physical);
+  });
+
+  it("finds the next departure slot arithmetically", () => {
+    expect(nextDepartureTick(100, 100, 5000)).toBe(100);
+    expect(nextDepartureTick(100, 101, 5000)).toBe(5100);
+    expect(nextDepartureTick(100, 5100, 5000)).toBe(5100);
+    expect(nextDepartureTick(100, 99, 5000)).toBe(100);
+    expect(nextDepartureTick(100, -4901, 5000)).toBe(-4900);
+  });
+
+  it("waits idle at the origin between the inbound turnaround and the next slot", () => {
+    const period = TICKS_PER_WEEK / 7; // 28,800: one round trip a day
+    const start = 1000;
+    const idle = getCyclePhase(
+      start,
+      start + physical + 10,
+      durationTicks,
+      turnaroundTicks,
+      route,
+      period,
+    );
+    expect(idle.status).toBe("idle");
+    expect(idle.baseAirportIata).toBe("MAD");
+    expect(idle.departureTick).toBe(start + period);
+    expect(idle.arrivalTick).toBe(start + durationTicks * 2 + turnaroundTicks);
+
+    // The next cycle starts exactly at the slot.
+    const next = getCyclePhase(
+      start,
+      start + period,
+      durationTicks,
+      turnaroundTicks,
+      route,
+      period,
+    );
+    expect(next).toMatchObject({
+      status: "enroute",
+      direction: "outbound",
+      departureTick: start + period,
+    });
+  });
+
+  it("keeps the physical cycle identical when no period is given", () => {
+    for (const offset of [0, 1199, 1200, 1999, 2000, 3199, 3200, 3999, 4000, 12_345]) {
+      expect(getCyclePhase(0, offset, durationTicks, turnaroundTicks, route)).toEqual(
+        getCyclePhase(0, offset, durationTicks, turnaroundTicks, route, physical),
+      );
+    }
+    expect(countLandingsBetween(0, 0, 50_000, durationTicks, turnaroundTicks)).toBe(
+      countLandingsBetween(0, 0, 50_000, durationTicks, turnaroundTicks, physical),
+    );
+  });
+
+  it("counts and enumerates scheduled landings: two a day at one round trip a day", () => {
+    const period = TICKS_PER_WEEK / 7;
+    const day = period;
+    expect(countLandingsBetween(0, 0, 7 * day, durationTicks, turnaroundTicks, period)).toBe(14);
+    const events = enumerateFlightEvents(
+      0,
+      0,
+      2 * day,
+      durationTicks,
+      turnaroundTicks,
+      route,
+      200,
+      period,
+    );
+    // Day 1: outbound takeoff at 0 is excluded (half-open), then land, takeoff, land; day 2: four more.
+    expect(events.filter((e) => e.type === "landing").map((e) => e.tick)).toEqual([
+      1200,
+      3200,
+      day + 1200,
+      day + 3200,
+    ]);
+    expect(events.filter((e) => e.type === "takeoff").map((e) => e.tick)).toEqual([
+      2000,
+      day,
+      day + 2000,
+      2 * day, // the window end is inclusive
+    ]);
+  });
+
+  it("rejects a period shorter than the physical cycle", () => {
+    expect(() =>
+      getCyclePhase(0, 10, durationTicks, turnaroundTicks, route, physical - 1),
+    ).toThrow();
+    expect(() =>
+      countLandingsBetween(0, 0, 10, durationTicks, turnaroundTicks, physical - 1),
+    ).toThrow();
   });
 });

@@ -1,8 +1,8 @@
 # S14 — Flights follow the route schedule
 
-> **Status:** ☐ not started
-> **Next step:** S14.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S14.2
+> **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
 > **Track:** Economy · **Size:** L (4 steps) · **Depends on:** S02, decision D8 (decided: respect the frequency) · **Unblocks:** S10 (calibration), S24 (fare editor numbers)
@@ -40,7 +40,7 @@ Aircraft fly the route's weekly frequency, not back to back. Frequency becomes a
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S14.1** Schedule math in core (`getNextDepartureTick(route, aircraftIndex, aircraftCount, tick, cycleTicks)`, `maxWeeklyFrequency`) + unit tests. _Done when:_ tests green.
+- [x] **S14.1** Schedule math in core (`getNextDepartureTick(route, aircraftIndex, aircraftCount, tick, cycleTicks)`, `maxWeeklyFrequency`) + unit tests. _Done when:_ tests green.
 - [ ] **S14.2** Engine and catch-up follow the schedule; existing engine tests updated where they assumed back-to-back flying. _Done when:_ live-ticking vs `reconcileFleetToTick` equivalence test green; `pnpm balance` shows legs/day = scheduled frequency.
 - [ ] **S14.3** Editable frequency (UI + reducer validation, cap shown). _Done when:_ unit tests + e2e of changing a frequency.
 - [ ] **S14.4** Projection/route card use the schedule; regenerate `latest.md` and commit the before/after in the PR. _Done when:_ route card profit/day matches the engine (projection test) and the S30 away report agrees with it.
@@ -59,7 +59,13 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+- 2026-10-05 · S14.1 · (this commit) · Changes in `packages/core/src/cycle.ts`:
+  - `physicalRoundTripTicks`.
+  - `scheduledRoundTripTicks(duration, turnaround, frequencyPerWeek, aircraftCount)`: each aircraft's period is `ceil(TICKS_PER_WEEK × aircraft / frequency)`, never shorter than the physical cycle. With no or zero frequency it flies back to back, which keeps legacy routes valid.
+  - `maxWeeklyFrequency(duration, turnaround, aircraftCount)` and `nextDepartureTick(anchor, tick, period)`, both O(1).
+  - `getCyclePhase`, `countLandingsBetween` and `enumerateFlightEvents` take an optional `roundTripTicks` (default: the physical cycle, so existing behavior is identical). The extra time is a new `"idle"` phase at the origin, whose `departureTick` is the next slot.
+  - New `TICKS_PER_WEEK`. 7 new tests; the 287 existing core tests unchanged. `pnpm balance` output unchanged (not wired yet).
+  - **Design for S14.2:** the engine anchors each aircraft's cycle at its existing cycle start, offset by `index × period / aircraftCount` so the route's aircraft spread over the period. The live engine holds an idle, assigned aircraft until `nextDepartureTick`, and catch-up passes the same period to the cycle helpers.
 
 ## Follow-ups
 
