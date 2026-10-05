@@ -51,6 +51,15 @@ done
 [[ $found -eq 0 ]] && echo "| — | nothing in progress | | | | | |"
 
 echo
+echo "## Awaiting review / merge (done by agents; owner action needed)"
+header
+found=0
+for f in "$DIR"/S*.md; do
+  if field "$f" Status | grep -q "ready for review"; then row "$f"; found=1; fi
+done
+[[ $found -eq 0 ]] && echo "| — | nothing awaiting review | | | | | |"
+
+echo
 echo "## Up next (recommended order, not yet done)"
 header
 shown=0
@@ -59,7 +68,7 @@ for id in $(sed -n '/^## 3\. Recommended order/,/^## 4\./p' "$STATUS_MD" | grep 
   f="$(ls "$DIR"/"$id"-*.md 2>/dev/null | head -1)"
   [[ -z "$f" ]] && continue
   st="$(field "$f" Status)"
-  if ! echo "$st" | grep -qE "merged|in progress"; then
+  if ! echo "$st" | grep -qE "merged|in progress|ready for review"; then
     row "$f"; shown=$((shown + 1))
   fi
   [[ $shown -ge 5 ]] && break
