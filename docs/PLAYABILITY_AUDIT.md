@@ -240,6 +240,71 @@ aren't visible:
 
 These cheap touches are what make a slow real-time game feel alive.
 
+### 2.8 Graphics (🟠 high)
+
+What's there today (`packages/map/src/Globe.tsx`, `apps/web/src/features/fleet`):
+
+- A **flat Web-Mercator map**, not a globe. No `projection: "globe"` is set anywhere, even
+  though the package, README and design bible all say "globe". MapLibre ≥ 5 supports globe
+  projection natively.
+- Carto **dark-matter / voyager** raster-style basemaps, plus a day/night terminator raster.
+- Airports as flat `circle` layers, routes as flat `line` arcs, aircraft as 2D ADS-B-style
+  `symbol` icons (tar1090 markers) with a glow circle.
+- **AI-generated per-aircraft livery images** (`functions/api/generate-livery.ts`,
+  `AircraftLiveryImage.tsx`). Nobody in the genre does this, and almost nobody sees it: it
+  lives inside the fleet panel.
+- An SVG family silhouette as the fallback for aircraft art.
+
+Gaps against what players now expect:
+
+| Area               | Today                                                                                                                              | State of the art (genre + "map as product" apps)                                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| World              | Flat dark map, raster tiles                                                                                                        | 3D globe with atmosphere/fog, starfield at low zoom, smooth zoom from space to the airport. MapLibre ≥ 5 globe + sky gets most of the way at zero cost. |
+| Routes             | Static 2D lines                                                                                                                    | Great-circle arcs that _rise_ off the globe, thickness by frequency, animated dash flow showing direction and traffic, colored by profit.               |
+| Aircraft           | Same small icon for every type                                                                                                     | Icons scaled and shaped per family (turboprop / narrowbody / widebody), tinted in the airline livery, contrails, smooth interpolation.                  |
+| Your airline       | Hub glow                                                                                                                           | Your network instantly recognizable in your livery colors; rivals in theirs; "my network" vs "world" toggle.                                            |
+| Economy on the map | Nothing                                                                                                                            | Floating `+$` on landings, demand heatmap from your hub, pulsing airports with events, profit-colored routes.                                           |
+| Identity art       | Livery images hidden in fleet details                                                                                              | Livery as the hero: hangar/gallery view, aircraft card on the route panel, shareable "fleet poster".                                                    |
+| Regression safety  | None. The map was a **black canvas in production for ~13 days** (MapLibre 6 bump on 2026-09-10, fixed in `fc6b969` on 2026-09-23). | A Playwright smoke test in CI that boots the app, waits for map idle, and asserts non-blank canvas pixels and zero worker 404s.                         |
+
+The map _is_ the product's screenshot, trailer and store listing. It's the single most
+leveraged visual surface, and it currently looks like a monitoring dashboard rather than a
+game.
+
+### 2.9 Market & traction (🔴 critical)
+
+**The genre is huge and proven.**
+
+- **Airlines Manager: Plane Tycoon** (Playrion) claims 15M+ players. It offers a real-time
+  "PRO" mode _and_ a fast "TYCOON" mode, and has an IATA data partnership.
+- **Airline Manager 4** (Trophy Games) has 360+ aircraft and 3,600+ airports, an Easy and a
+  Realism mode, alliances, and fuel/CO₂ market timing.
+- Trophy Games' "Transport Game Series" (Airline, Truck and Farm Manager) made 67% of a
+  record 2025 revenue. The studio reported **27M installs and 1.28M paying users** in 2025.
+- Browser veterans AirlineSim and AirwaySim prove a hardcore real-time niche exists too.
+
+**What ACARS really has that they don't.** Be precise here, because the leaders are _also_
+persistent multiplayer worlds with real-time flights:
+
+1. **No ads, no pay-to-win, no energy timers.** This is the #1 complaint in mobile-tycoon
+   reviews.
+2. **Open source + player-owned state** (Nostr). It's a story for a niche, not a hook for the
+   mass market.
+3. **A live-map spectacle tied to the real clock**: "my airline on Flightradar". This is the
+   strongest _visual_ hook, and it's under-exploited (§2.8).
+4. **AI liveries**: a unique, inherently shareable visual.
+
+**Why traction is near zero.** It's not the concept:
+
+| #   | Cause                                                                                                                                                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| T1  | **Wrong front door.** The audience it speaks to is Nostr users: roughly 144k daily active pubkeys in late 2025, flat since. The audience that actually plays airline tycoons, aviation enthusiasts and Flightradar24/MSFS/AM4 players, is orders of magnitude larger and is greeted with "nsec key" and "What is Nostr?".                              |
+| T2  | **No distribution surface.** Web-only SPA. There's an Android Capacitor scaffold, but no store listing is linked anywhere. No PWA manifest or service worker, so no install and no web push. The `<title>` is "ACARS - Corporate Console", with **no meta description and no Open Graph/Twitter card**, so every shared link previews as a blank card. |
+| T3  | **No share loop.** Nothing a player can post: no route-map image, no livery card, no "my airline" public page, no milestone post to Nostr or X. The AI livery and the live map are natural share objects.                                                                                                                                              |
+| T4  | **Broken first impressions.** The black map (§2.8), landing promises that don't exist (U1), flat economy (§2.1), and silent check-ins (§2.3). Even players who arrive bounce.                                                                                                                                                                          |
+| T5  | **No measurement.** There's no analytics, so nobody can see where the funnel leaks. Nostr _is_ the analytics for the in-game part: `AIRLINE_CREATE` → first `ROUTE_OPEN` → first assignment → day-7 activity are all public, signed events. Only landing-page visits need a privacy-respecting counter.                                                |
+| T6  | **No retention hooks to compound.** No push notifications, no streaks, no daily objectives. Organic growth needs D7 retention first. Spending on reach before fixing T4 leaks the bucket.                                                                                                                                                              |
+
 ---
 
 ## 3. Improvement Plan
@@ -323,6 +388,36 @@ mobile; zero hard-coded strings in `RouteManager.tsx` (lint rule).
   matters as well as route count.
 - Audio and polish from Phase 7 (T-092/T-093), now that there are moments worth sounding.
 
+### Phase E: "Make the map the trailer" (graphics) · ~2–4 weeks
+
+| #   | Change                                                                                                                                                                                                               |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E0  | **Map smoke test in CI first**: Playwright boots the built app, waits for `idle`, asserts non-blank canvas pixels and no worker/style 404s. Without this, every item below can regress silently.                     |
+| E1  | **Real globe**: `projection: { type: "globe" }` with sky/atmosphere and a fog horizon, globe at low zoom and Mercator when close. Fly-to on hub selection ("zoom from space to your hub" as the onboarding moment).  |
+| E2  | **Living routes**: great-circle arcs colored by profit (green → red), width by weekly frequency, animated dash flow for direction. Rival routes thinner and in their livery color.                                   |
+| E3  | **Aircraft identity on the map**: per-family icon set (turboprop, regional jet, narrowbody, widebody, A380/747), tinted with the airline's livery primary; short contrail trail; smooth interpolation between ticks. |
+| E4  | **Economy on the map**: floating `+$8.6k` on landing, airport pulse for events and objectives, an opportunity heatmap from the selected hub (projected profit/day).                                                  |
+| E5  | **Livery as hero**: hangar gallery, livery thumbnail in the route/aircraft panels and flight board, and a generated "fleet poster" image for sharing.                                                                |
+| E6  | **Cinematic / spectator mode**: auto-camera that follows your busiest flights with a minimal HUD. It doubles as the landing-page hero, a stream overlay, and a screensaver-style check-in.                           |
+
+Keep Rule 5 in mind: all of this stays WebGL-layer work (data-driven styling, instancing),
+never DOM per aircraft.
+
+### Phase F: Traction · runs after A/A′ ship, in parallel with B/C
+
+| #   | Change                                                                                                                                                                                                                                                                      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1  | **Position for aviation fans, not protocol fans**: "Run a real airline on the real clock. No ads. No pay-to-win." Nostr becomes the "your airline can't be taken away" footnote, not the gate.                                                                              |
+| F2  | **Meta and shareability**: real `<title>`, description, OG/Twitter card with a live-map image; public `/airline/{npub}` pages with server-rendered OG images (Cloudflare Functions already exist) showing route map, livery and stats.                                      |
+| F3  | **Share loop**: one-tap "share my network" image (map + livery + KPIs), milestone posts (first jet, tier-up) to Nostr kind 1 and X, and a referral link that gives both airlines a small hub-fee discount.                                                                  |
+| F4  | **Installable + notifiable**: PWA manifest + service worker (install, web push for groundings/tier-ups/rival entry), then ship the existing Capacitor Android build to Google Play. Store presence is where AM4/Airlines Manager get their millions.                        |
+| F5  | **Funnel metrics from Nostr**: a small dashboard counting creates → first route → first landing → D1/D7 active pubkeys, plus a cookie-less page-view counter. Review weekly; don't spend on reach until D7 is healthy.                                                      |
+| F6  | **Seed the community where aviation people are**: r/aviation and r/flightsim showcases of the live map, a YouTube/TikTok timelapse of a network growing over a week, a Discord, and creator outreach to Airline Manager/flight-sim streamers ("ad-free alternative" angle). |
+| F7  | **Optional fast "Tycoon" sandbox mode** (separate, non-ranked world with time ×N) for the first session, mirroring Airlines Manager's PRO/TYCOON split. The persistent 1:1 world stays canonical and ranked. This answers "I opened it and nothing happened".               |
+
+**Success metric:** share-link CTR, organic signups/week, D7 retention ≥ 15% before any paid or
+creator push.
+
 ---
 
 ## 4. Suggested Sequencing
@@ -333,7 +428,20 @@ mobile; zero hard-coded strings in `RouteManager.tsx` (lint rule).
 2. **B1 + B2 together**, behind one activation tick. These are the most important game-design
    changes; ship before the player base grows around the exploit.
 3. **C1 + C4** next (cheap, big perceived improvement), then C2/C3/C6.
-4. Phase D as the player base grows.
+4. **E0 immediately** (it's small and protects everything), then E1–E3 alongside A/A′. A
+   globe with profit-colored living routes is the screenshot that sells the game.
+5. **F2, F4 and F5 as soon as A/A′ land**; F3/F6 once D7 retention is measured and healthy.
+6. Phase D as the player base grows.
+
+## Sources (market data, retrieved 2026-10-05)
+
+- Trophy Games 2025 results (installs, paying users, Transport Game Series share):
+  [inderes.se](https://www.inderes.se/en/releases/trophy-games-reports-record-year-for-2025-with-40percent-revenue-growth),
+  [Q3 2025 update (PDF)](https://storage.mfn.se/b072df99-2239-4b70-8242-06cbd4635145/tg-q3-update-2025-final.pdf)
+- Airline Manager 4: [Steam](https://store.steampowered.com/app/1641650/Airline_Manager/)
+- Airlines Manager: Plane Tycoon (15M+ players, PRO/TYCOON modes): [App Store](https://apps.apple.com/app/id823481079)
+- AirwaySim: [about](https://www.airwaysim.com/About)
+- Nostr activity estimates: [glukhov.org overview](https://glukhov.org/post/2025/10/nostr-overview-and-statistics/)
 
 ## 5. Open Questions
 
