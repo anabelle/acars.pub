@@ -1,7 +1,7 @@
 # S02 — Economy balance harness
 
-> **Status:** ◐ in progress
-> **Next step:** S02.4
+> **Status:** ☑ ready for review
+> **Next step:** — (all steps done; awaiting review)
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -40,7 +40,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S02.1** Move engine fixtures to `src/testing/engineFixtures.ts` (re-exported; no behavior change). _Done when:_ existing tests green.
 - [x] **S02.2** Scenario matrix + per-landing metrics + markdown report writer. _Done when:_ report lists LF/profit for the matrix.
 - [x] **S02.3** Strategy sims (cautious / greedy / balanced) with days-to-tier. _Done when:_ report includes the strategy table.
-- [ ] **S02.4** `pnpm balance` script + commit `docs/overhaul/balance/baseline-v1.md` + generator smoke test. _Done when:_ baseline matches ledger A1–A4.
+- [x] **S02.4** `pnpm balance` script + commit `docs/overhaul/balance/baseline-v1.md` + generator smoke test. _Done when:_ baseline matches ledger A1–A4.
 
 ## Details & guidance
 
@@ -52,7 +52,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] `pnpm balance` reproduces ledger A1–A4 numbers (within rounding) and commits the baseline.
+- [x] `pnpm balance` reproduces ledger A1–A4 numbers (within rounding) and commits the baseline.
 
 ## Progress log
 
@@ -79,6 +79,12 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
     | Greedy: 37 ATR 72s (all the cash allows), 5× |     $19.8M | 1 / 3 / 11                    |
 
   - **Corrects ledger A4:** the cautious player reaches Tier 2 in **13 days, not 28**. The audit assumed a schedule, but the engine flies back to back. The rest of A4 (bimodal pacing, $100M funds ~37 leased planes on day one) is confirmed and sharper: greedy reaches Tier 4 in 11 days.
+- 2026-10-05 · S02.4 · (this commit) · Changes:
+  - **`pnpm balance`** (root) → `@acars/store` `balance`, which runs `vitest run --config vitest.balance.config.ts`. It picks up only `src/balance/*.run.ts`, so `pnpm test` never writes files, and it needs no new dependency. It writes `docs/overhaul/balance/latest.md`; `BALANCE_OUT` writes elsewhere.
+  - Committed `baseline-v1.md`, identical to `latest.md`. The output is deterministic: two runs are byte-identical.
+  - `docs/overhaul/balance/` is in a new `.prettierignore`, so the commit hook doesn't reformat the tables away from the generator output.
+  - Smoke test: `balance/report.test.ts` (runs the generator and checks every section, not the values).
+  - Acceptance: A1–A3 reproduced exactly. A4 reproduced in shape (bimodal pacing) but corrected in number (13 days, not 28, see S02.3).
 
 ## Follow-ups
 
@@ -86,4 +92,16 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+**Shipped:** `pnpm balance` runs the real flight engine over a scenario matrix (market size, a fare sweep from 0.5× to 40×, oversupply, aircraft families) plus day-one strategy sims (cautious, balanced, greedy, with days to each tier). It writes a deterministic markdown report. `docs/overhaul/balance/baseline-v1.md` is the "before" for every economy session (S03, S10, S11, S12): regenerate `latest.md` in the same commit as the change.
+
+**What the baseline says (for S10/S11/S12):**
+
+- **Aircraft fly back to back:** an ATR 72 does 17.6 MAD–BCN legs a day; `frequencyPerWeek` doesn't limit flying. This is the biggest single lever on the economy, and it also makes the S23 card's profit/day ~8–9× too low.
+- **Overpricing still dominates:** 99% of the best profit on thick markets comes from pricing above the suggested fare, and the best is 40× (87% LF holds).
+- **Pacing is broken at the top end:** greedy reaches Tier 4 in 11 days with ~$595M after 30 days. The cautious player takes 13 days to Tier 2 and never reaches Tier 3 with 3 routes.
+- **Thin markets are hard losses:** LIH–KOA has 3% LF.
+
+**Gotchas:**
+
+- Scenarios start at tick 1 (fixed fuel and season) and are solo markets with brand 0.5. Rivals and network effects aren't modelled; add scenarios rather than changing these defaults, or the baseline comparison breaks.
+- `src/testing/engineFixtures.ts` is not exported from the package index. Import it by path.
