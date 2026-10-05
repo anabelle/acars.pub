@@ -1,6 +1,41 @@
 import { fp } from "@acars/core";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({
+    children,
+    to,
+    params,
+    search,
+    onClick,
+    className,
+  }: {
+    children: React.ReactNode;
+    to: string;
+    params?: Record<string, string>;
+    search?: Record<string, string>;
+    onClick?: () => void;
+    className?: string;
+  }) => {
+    let href = to;
+    for (const [key, value] of Object.entries(params ?? {})) href = href.replace(`$${key}`, value);
+    if (search) href += `?${new URLSearchParams(search)}`;
+    return (
+      <a
+        href={href}
+        className={className}
+        onClick={(event) => {
+          event.preventDefault();
+          onClick?.();
+        }}
+      >
+        {children}
+      </a>
+    );
+  },
+}));
+
 import type { TimelineSummary } from "@/features/airline/utils/summarizeTimeline";
 import { AwayReportDialog } from "./AwayReport";
 
@@ -34,7 +69,7 @@ const base: TimelineSummary = {
   groundedAircraft: [{ id: "a1", name: "EC-AAA" }],
   deliveries: 1,
   newTier: 2,
-  priceWarRoutes: [],
+  priceWarRoutes: ["MAD-LIS"],
   bankrupt: false,
   complete: true,
   coveredFromTick: 0,
@@ -49,7 +84,8 @@ describe("AwayReportDialog", () => {
     expect(screen.getByText("MAD ⇄ BCN")).toBeInTheDocument();
     expect(screen.getByText("-$4,000")).toBeInTheDocument();
     expect(screen.getByText(/Promoted to Tier 2/)).toBeInTheDocument();
-    expect(screen.getByText(/Grounded for maintenance: EC-AAA/)).toBeInTheDocument();
+    expect(screen.getByText(/Grounded for maintenance:/)).toBeInTheDocument();
+    expect(screen.getByText(/price war/)).toBeInTheDocument();
     expect(screen.queryByText(/Only the most recent events/)).toBeNull();
   });
 
@@ -82,5 +118,21 @@ describe("AwayReportDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /back to my airline/i }));
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("deep-links routes, grounded aircraft, price wars and the activity log, closing on navigation", () => {
+    const onClose = vi.fn();
+    render(<AwayReportDialog summary={base} onClose={onClose} />);
+
+    const hrefOf = (name: RegExp | string) =>
+      screen.getByRole("link", { name }).getAttribute("href");
+    expect(hrefOf(/Best route/)).toBe("/airport/BCN");
+    expect(hrefOf(/Weakest route/)).toBe("/airport/LIS");
+    expect(hrefOf("EC-AAA")).toBe("/aircraft/a1");
+    expect(hrefOf("MAD-LIS")).toBe("/airport/LIS");
+    expect(hrefOf(/Full activity log/)).toBe("/corporate?section=activity");
+
+    fireEvent.click(screen.getByRole("link", { name: "EC-AAA" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

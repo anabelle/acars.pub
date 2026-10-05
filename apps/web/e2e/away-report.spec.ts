@@ -3,7 +3,10 @@ import { createAirline, MADRID_PLAYER, navigateInApp } from "./signup";
 
 test.use(MADRID_PLAYER);
 
-test("after 12 hours away, the report tells what the airline did", async ({ page, problems }) => {
+test("after 12 hours away, the report tells what the airline did and links to it", async ({
+  page,
+  problems,
+}) => {
   test.setTimeout(240_000);
   // Fake timers with time flowing normally, so we can jump ahead later.
   await page.clock.install();
@@ -36,7 +39,12 @@ test("after 12 hours away, the report tells what the airline did", async ({ page
     await page.screenshot({ path: process.env.AWAY_REPORT_SCREENSHOT });
   }
 
-  await report.getByRole("button", { name: /back to my airline/i }).click();
+  // The catch-up is told by the report, not replayed as a burst of stale toasts.
+  await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
+
+  // Deep link: the best route opens its airport panel and closes the report.
+  await report.getByRole("link", { name: /best route/i }).click();
   await expect(report).toHaveCount(0);
+  await expect(page).toHaveURL(/\/airport\/BCN/);
   expect(problems.pageErrors).toEqual([]);
 });

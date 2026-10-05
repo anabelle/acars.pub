@@ -732,12 +732,13 @@
     "promoted": "Ascendiste al Nivel {{tier}}: nuevos aviones y rutas más largas desbloqueados.",
     "deliveries_one": "{{count}} avión entregado.",
     "deliveries_other": "{{count}} aviones entregados.",
-    "grounded_one": "En tierra por mantenimiento: {{names}}.",
-    "grounded_other": "{{count}} aviones en tierra por mantenimiento: {{names}}.",
-    "priceWar": "Guerra de precios en {{routes}}: tus rebajas están dañando tu marca.",
+    "grounded_one": "En tierra por mantenimiento:",
+    "grounded_other": "{{count}} aviones en tierra por mantenimiento:",
+    "priceWar": "Tus rebajas iniciaron una guerra de precios que daña tu marca en",
     "bankrupt": "Tu aerolínea se declaró en Capítulo 11. Las operaciones están suspendidas.",
     "partial": "Solo se guardan los eventos más recientes, así que esto cubre la última parte de tu ausencia.",
     "continue": "Volver a mi aerolínea",
-    "close": "Cerrar informe"
+    "close": "Cerrar informe",
+    "activity": "Registro completo"
   }
 }

@@ -4,14 +4,13 @@ import ReactDOM from "react-dom/client";
 // Import the generated route tree
 import { routeTree } from "../routeTree.gen";
 import "../index.css";
-import { AwayReport } from "@/features/airline/components/AwayReport";
+// Initialize i18n before rendering so the detected locale's lazy bundles are
+// loaded before any component that uses useTranslation mounts
+import { initI18n } from "../i18n";
 import { BankruptcyOverlay } from "@/features/identity/components/BankruptcyOverlay";
 import { TimelineToastBridge } from "@/shared/components/feedback/TimelineToastBridge";
 import { ToastHost } from "@/shared/components/feedback/ToastHost";
 import { ConfirmProvider } from "@/shared/lib/useConfirm";
-// Initialize i18n before rendering so the detected locale's lazy bundles are
-// loaded before any component that uses useTranslation mounts
-import { initI18n } from "../i18n";
 
 // Create a new router instance
 const router = createRouter({
@@ -45,7 +44,6 @@ if (!rootElement.innerHTML) {
         <ToastHost />
         <TimelineToastBridge />
         <BankruptcyOverlay />
-        <AwayReport />
       </ConfirmProvider>
     </React.StrictMode>,
   );

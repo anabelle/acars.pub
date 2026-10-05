@@ -1,5 +1,6 @@
 import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
-import { Suspense, lazy } from "react";
+import { lazy, Suspense } from "react";
+import { AwayReport } from "@/features/airline/components/AwayReport";
 import { IdentityGate } from "@/features/identity/components/IdentityGate";
 import { Ticker } from "@/features/network/components/Ticker";
 import { MOBILE_TOPBAR_PANEL_PADDING_CLASS } from "@/shared/components/layout/mobileLayout";
@@ -68,6 +69,8 @@ function RootLayout() {
         {/* Layer 2: The Global Edge Ticker (hidden on entry pages) */}
         {!isEntry && <Ticker />}
       </div>
+      {/* "While you were away" report (portaled; needs the router for its links) */}
+      <AwayReport />
     </AppInitializer>
   );
 }

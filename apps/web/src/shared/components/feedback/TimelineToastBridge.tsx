@@ -3,6 +3,7 @@ import { useAirlineStore, useEngineStore } from "@acars/store";
 import React from "react";
 import { toast } from "sonner";
 import i18n from "@/i18n";
+import { isCatchupBatch } from "@/shared/lib/catchupBatch";
 
 const MAX_TOASTS_PER_BATCH = 5;
 
@@ -89,7 +90,12 @@ export const TimelineToastBridge = (): null => {
         return;
       }
 
-      if (isCatchupRef.current) {
+      // Long catch-ups (an absence of an hour or more, or loading the airline)
+      // are summarized by the away report instead of a burst of stale toasts.
+      if (
+        isCatchupRef.current ||
+        isCatchupBatch(prevState.airline?.lastTick, state.airline?.lastTick)
+      ) {
         lastEventIdRef.current = timeline[0]?.id ?? null;
         return;
       }

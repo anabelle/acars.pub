@@ -732,12 +732,13 @@
     "promoted": "Promoted to Tier {{tier}}: new aircraft and longer routes unlocked.",
     "deliveries_one": "{{count}} aircraft delivered.",
     "deliveries_other": "{{count}} aircraft delivered.",
-    "grounded_one": "Grounded for maintenance: {{names}}.",
-    "grounded_other": "{{count}} aircraft grounded for maintenance: {{names}}.",
-    "priceWar": "Price war on {{routes}}: your undercutting is hurting your brand.",
+    "grounded_one": "Grounded for maintenance:",
+    "grounded_other": "{{count}} aircraft grounded for maintenance:",
+    "priceWar": "Your undercutting started a price war that hurts your brand on",
     "bankrupt": "Your airline filed for Chapter 11. Operations are suspended.",
     "partial": "Only the most recent events are kept, so this covers the latest part of your absence.",
     "continue": "Back to my airline",
-    "close": "Close report"
+    "close": "Close report",
+    "activity": "Full activity log"
   }
 }
