@@ -98,6 +98,8 @@ export function Topbar() {
   const [nsecInputError, setNsecInputError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showKeyTools, setShowKeyTools] = useState(false);
+  // Desktop guests see one call to action; existing-key sign-in is a quiet link.
+  const [showSignInOptions, setShowSignInOptions] = useState(false);
   const { t } = useTranslation("common");
 
   const mobilePanelTitle = hasAirline ? t("topbar.flightDeck") : t("topbar.identity");
@@ -419,35 +421,47 @@ export function Topbar() {
                     </button>
                     <button
                       type="button"
-                      onClick={initializeIdentity}
-                      disabled={isLoading}
-                      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-60 sm:w-auto"
+                      aria-expanded={showSignInOptions}
+                      onClick={() => setShowSignInOptions((open) => !open)}
+                      className="min-h-11 px-2 text-xs font-medium text-muted-foreground underline-offset-4 transition hover:text-foreground hover:underline"
                     >
-                      <Wallet className="h-4 w-4 shrink-0" />
-                      {isLoading ? t("topbar.connecting") : t("topbar.browserWallet")}
+                      {t("topbar.haveNostrKey")}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNsecInputError(null);
-                        setShowNsecInput(true);
-                      }}
-                      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground sm:w-auto"
-                      title={t("topbar.nsecLabel")}
-                    >
-                      <KeyRound className="h-4 w-4 shrink-0" />
-                      {t("topbar.haveNsec")}
-                    </button>
-                    <a
-                      href="https://nostr.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hidden min-h-11 items-center gap-2 rounded-md border border-border/60 bg-background/50 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-border hover:text-foreground xl:inline-flex"
-                    >
-                      <CircleHelp className="h-4 w-4 shrink-0" />
-                      {t("topbar.whatIsNostr")}
-                    </a>
                   </div>
+                  {showSignInOptions && (
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={initializeIdentity}
+                        disabled={isLoading}
+                        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-60 sm:w-auto"
+                      >
+                        <Wallet className="h-4 w-4 shrink-0" />
+                        {isLoading ? t("topbar.connecting") : t("topbar.browserWallet")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNsecInputError(null);
+                          setShowNsecInput(true);
+                        }}
+                        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground sm:w-auto"
+                        title={t("topbar.nsecLabel")}
+                      >
+                        <KeyRound className="h-4 w-4 shrink-0" />
+                        {t("topbar.haveNsec")}
+                      </button>
+                      <a
+                        href="https://nostr.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                      >
+                        <CircleHelp className="h-4 w-4 shrink-0" />
+                        {t("topbar.whatIsNostr")}
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

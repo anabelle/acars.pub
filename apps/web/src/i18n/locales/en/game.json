@@ -359,7 +359,10 @@
     "mapChipAirports": "Inspect airports",
     "mapChipPanels": "Open live panels",
     "openCockpit": "Open operator cockpit",
-    "mapSecondary": "The world map stays live as your default command surface."
+    "mapSecondary": "The world map stays live as your default command surface.",
+    "guestTitle": "Watch the world fly",
+    "guestDescription": "Click any airport to see who flies there. When you're ready, start your own airline — free, about a minute, no sign-up.",
+    "guestCta": "Start your airline"
   },
   "corporate": {
     "title": "Corporate",

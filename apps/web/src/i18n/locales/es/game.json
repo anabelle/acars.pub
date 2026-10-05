@@ -359,7 +359,10 @@
     "mapChipAirports": "Inspecciona aeropuertos",
     "mapChipPanels": "Abre paneles en vivo",
     "openCockpit": "Abrir cabina operativa",
-    "mapSecondary": "El mapa mundial permanece como tu superficie de mando por defecto."
+    "mapSecondary": "El mapa mundial permanece como tu superficie de mando por defecto.",
+    "guestTitle": "Mira el mundo volar",
+    "guestDescription": "Haz clic en cualquier aeropuerto para ver quién vuela allí. Cuando quieras, crea tu propia aerolínea: gratis, en un minuto y sin registro.",
+    "guestCta": "Crea tu aerolínea"
   },
   "corporate": {
     "title": "Corporativo",

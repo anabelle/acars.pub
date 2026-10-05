@@ -18,7 +18,7 @@
     "acars": "ACARS",
     "acarsLong": "Aircraft Communication Addressing and Relay System",
     "createYourAirline": "Create Your Airline",
-    "buildOnNostr": "Build your airline on Nostr. New here? Start with a browser wallet.",
+    "buildOnNostr": "Free to play. Your airline is saved on the open Nostr network.",
     "newHereStart": "New here? Create a free account instantly — no sign-up needed.",
     "newHereStartDesktop": "New here? Start free in one click.",
     "enterValidNsec": "Enter a valid nsec1 key.",
@@ -31,6 +31,7 @@
     "playFree": "Play Free",
     "browserWallet": "Browser wallet",
     "haveNsec": "I already have an nsec key",
+    "haveNostrKey": "Already have a Nostr key?",
     "whatIsNostr": "What is Nostr?",
     "cancelNsecLogin": "Cancel nsec login",
     "backToYourAirline": "Back to Your Airline",
@@ -130,28 +131,46 @@
     "badge": "Free to play · No account needed",
     "heroTitleLineOne": "Build the world's",
     "heroTitleLineTwo": "most powerful airline.",
-    "heroDescription": "An open-source, real-time airline tycoon where you own everything — your fleet, your routes, your data. No middlemen. No subscriptions.",
+    "heroDescription": "A free, open-source airline tycoon on a live world map. Real routes, real flight times, rival airlines — and your planes keep flying while you're away. No ads, no pay-to-win.",
     "footer": "Open source · MIT License · Powered by the Nostr protocol",
     "features": {
       "realTimeFlights": {
         "title": "Real-time flights",
         "description": "Routes resolve in actual real-world time. A 7-hour transatlantic flight takes 7 real hours — check in anytime."
       },
-      "corporation": {
-        "title": "Run a real corporation",
-        "description": "Issue stock, manage a cap table, file for IPO, weather bankruptcies, or launch a hostile takeover."
+      "network": {
+        "title": "Real routes, real demand",
+        "description": "Open routes between 6,000+ real airports. Passenger demand follows real population and economy data, and shifts with the seasons."
       },
-      "bitcoin": {
-        "title": "Earn real Bitcoin",
-        "description": "Play-to-earn prize pools and Lightning Zaps. Trade airline stock slots P2P."
+      "fleet": {
+        "title": "A real fleet",
+        "description": "35 real aircraft, from turboprops to the A380, unlocked as your airline grows. Lease or buy, maintain, and trade on the used market."
       },
       "decentralized": {
-        "title": "Fully decentralized",
-        "description": "No servers, no central database. Your airline lives on the open Nostr network — you own it completely."
+        "title": "Yours to keep",
+        "description": "Your airline lives on the open Nostr network — no central game server, and nobody can take it away from you."
       },
       "competition": {
-        "title": "Compete globally",
-        "description": "Thousands of airlines, live leaderboards, and a global route marketplace."
+        "title": "One shared live world",
+        "description": "Every airline flies on the same map. Rivals compete for the same passengers on the same routes, ranked on live leaderboards."
+      }
+    },
+    "roadmap": {
+      "title": "On the roadmap",
+      "subtitle": "Planned — not in the game yet.",
+      "items": {
+        "company": {
+          "title": "Public companies",
+          "description": "Shares, IPOs, mergers and hostile takeovers."
+        },
+        "bitcoin": {
+          "title": "Bitcoin rewards",
+          "description": "Lightning zaps and prize pools."
+        },
+        "alliances": {
+          "title": "Alliances",
+          "description": "Codeshares and joint networks with other players."
+        }
       }
     }
   },

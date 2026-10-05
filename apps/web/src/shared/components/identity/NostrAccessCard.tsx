@@ -25,6 +25,9 @@ export function NostrAccessCard({
   const { t } = useTranslation(["common", "identity"]);
   const [showNsecInput, setShowNsecInput] = useState(false);
   const [nsecError, setNsecError] = useState<string | null>(null);
+  // One call to action: with a free-play option, existing-key sign-in sits
+  // behind a quiet link (overhaul S20.5). Without one, show the options directly.
+  const [showSignInOptions, setShowSignInOptions] = useState(!onCreateFree);
 
   return (
     <div className="w-full max-w-sm space-y-4 rounded-[24px] border border-border/60 bg-background/74 p-5 text-center shadow-2xl backdrop-blur-xl sm:p-6">
@@ -109,41 +112,56 @@ export function NostrAccessCard({
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={onConnect}
-            disabled={isLoading}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-60"
-          >
-            <Wallet className="h-4 w-4 shrink-0" />
-            {isLoading
-              ? t("topbar.connecting", { ns: "common" })
-              : t("topbar.browserWallet", { ns: "common" })}
-          </button>
-
-          {onLoginWithNsec && (
+          {onCreateFree && (
             <button
               type="button"
-              onClick={() => {
-                setNsecError(null);
-                setShowNsecInput(true);
-              }}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+              aria-expanded={showSignInOptions}
+              onClick={() => setShowSignInOptions((open) => !open)}
+              className="min-h-11 w-full text-xs font-medium text-muted-foreground underline-offset-4 transition hover:text-foreground hover:underline"
             >
-              <KeyRound className="h-4 w-4 shrink-0" />
-              {t("topbar.haveNsec", { ns: "common" })}
+              {t("topbar.haveNostrKey", { ns: "common" })}
             </button>
           )}
 
-          <a
-            href="https://nostr.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-          >
-            {t("topbar.whatIsNostr", { ns: "common" })}
-            <ExternalLink className="h-4 w-4 shrink-0" />
-          </a>
+          {showSignInOptions && (
+            <>
+              <button
+                type="button"
+                onClick={onConnect}
+                disabled={isLoading}
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-60"
+              >
+                <Wallet className="h-4 w-4 shrink-0" />
+                {isLoading
+                  ? t("topbar.connecting", { ns: "common" })
+                  : t("topbar.browserWallet", { ns: "common" })}
+              </button>
+
+              {onLoginWithNsec && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNsecError(null);
+                    setShowNsecInput(true);
+                  }}
+                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                >
+                  <KeyRound className="h-4 w-4 shrink-0" />
+                  {t("topbar.haveNsec", { ns: "common" })}
+                </button>
+              )}
+
+              <a
+                href="https://nostr.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+              >
+                {t("topbar.whatIsNostr", { ns: "common" })}
+                <ExternalLink className="h-4 w-4 shrink-0" />
+              </a>
+            </>
+          )}
         </>
       )}
     </div>

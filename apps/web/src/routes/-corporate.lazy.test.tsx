@@ -1,5 +1,5 @@
 import { fp } from "@acars/core";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -188,8 +188,11 @@ describe("Corporate route", () => {
   it("renders beginner-friendly locked state when no airline is connected", () => {
     corporateRouteState.airline = null;
     render(<CorporateRoute />);
-    expect(screen.getByText("Corporate access locked")).toBeInTheDocument();
+    expect(screen.getByText("Your airline’s finances live here")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Play Free/i })).toBeInTheDocument();
+    // Existing-key options sit behind a quiet disclosure (overhaul S20.5).
+    expect(screen.queryByRole("button", { name: /Browser wallet/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Already have a Nostr key\?/i }));
     expect(screen.getByRole("button", { name: /Browser wallet/i })).toBeInTheDocument();
     expect(screen.getByText("What is Nostr?").closest("a")).toHaveAttribute(
       "href",

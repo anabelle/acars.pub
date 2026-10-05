@@ -1,6 +1,6 @@
 import { useActiveAirline } from "@acars/store";
 import { Link, useSearch } from "@tanstack/react-router";
-import { Radar, X } from "lucide-react";
+import { Plane, Radar, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { OperationsCockpit } from "@/features/cockpit/components/OperationsCockpit";
@@ -98,19 +98,18 @@ export default function HomeRoute() {
             </div>
           </div>
         ) : (
+          // Guests: a small map-first card with one call to action. The world
+          // map behind it is the pitch; the card just says where to start.
           <div className="pointer-events-none flex h-full w-full items-start justify-start px-3 pt-2 pb-24 sm:items-end sm:justify-start sm:px-6 sm:pt-0 sm:pb-6">
-            <div className="pointer-events-auto flex max-h-full w-full max-w-[23rem] flex-col gap-3 overflow-y-auto rounded-[24px] border border-border/70 bg-background/76 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:max-h-none sm:max-w-sm sm:p-5">
+            <div className="pointer-events-auto flex w-full max-w-[22rem] flex-col gap-3 rounded-[24px] border border-border/70 bg-background/74 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">
                     {t("home.mapKicker", { ns: "game" })}
                   </p>
-                  <h1 className="mt-2 text-xl font-black tracking-tight text-foreground sm:text-[1.75rem]">
-                    {t("home.mapTitle", { ns: "game" })}
+                  <h1 className="mt-2 text-xl font-black tracking-tight text-foreground">
+                    {t("home.guestTitle", { ns: "game" })}
                   </h1>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:max-w-[30ch]">
-                    {t("home.mapDescription", { ns: "game" })}
-                  </p>
                 </div>
                 <button
                   type="button"
@@ -123,19 +122,17 @@ export default function HomeRoute() {
                 </button>
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Link
-                  to="/"
-                  search={{ panel: "cockpit" }}
-                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.01] active:scale-[0.99]"
-                >
-                  <Radar className="h-4 w-4" aria-hidden="true" />
-                  {t("home.openCockpit", { ns: "game" })}
-                </Link>
-                <div className="inline-flex min-h-11 flex-1 items-center justify-center rounded-2xl border border-border/60 bg-background/55 px-4 py-3 text-center text-xs font-semibold leading-relaxed text-muted-foreground sm:max-w-[12rem]">
-                  {t("home.mapSecondary", { ns: "game" })}
-                </div>
-              </div>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {t("home.guestDescription", { ns: "game" })}
+              </p>
+
+              <Link
+                to="/join"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <Plane className="h-4 w-4" aria-hidden="true" />
+                {t("home.guestCta", { ns: "game" })}
+              </Link>
             </div>
           </div>
         ))}

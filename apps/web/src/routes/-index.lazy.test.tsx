@@ -75,13 +75,13 @@ describe("MapView", () => {
     mockUseActiveAirline.mockReturnValue({ airline: null });
     mockUseSearch.mockReturnValue({ panel: undefined });
     render(<MapView />);
-    expect(screen.getByText("Start from the map")).toBeInTheDocument();
-    expect(screen.queryByText("Click aircraft")).not.toBeInTheDocument();
-    expect(screen.queryByText("Inspect airports")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /open operator cockpit/i })).toHaveAttribute(
+    // Guests get one call to action: start an airline (overhaul S20.5).
+    expect(screen.getByText("Watch the world fly")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /start your airline/i })).toHaveAttribute(
       "href",
-      "/?panel=cockpit",
+      "/join",
     );
+    expect(screen.queryByRole("link", { name: /open operator cockpit/i })).not.toBeInTheDocument();
   });
 
   it("renders the operations cockpit when requested", () => {
@@ -98,7 +98,7 @@ describe("MapView", () => {
     // The cockpit wrapper stays mounted (state/memos survive) but is hidden.
     expect(container.firstChild).not.toBeNull();
     expect((container.firstChild as HTMLElement).className).toContain("hidden");
-    expect(screen.queryByText("Start from the map")).not.toBeInTheDocument();
+    expect(screen.queryByText("Watch the world fly")).not.toBeInTheDocument();
   });
 
   it("renders the airline map card when an airline is active", () => {
@@ -120,10 +120,11 @@ describe("MapView", () => {
     mockUseSearch.mockReturnValue({ panel: undefined });
 
     render(<MapView />);
+    expect(screen.getByText("Watch the world fly")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /close panel and return to cockpit/i }));
 
-    expect(screen.queryByText("Start from the map")).not.toBeInTheDocument();
+    expect(screen.queryByText("Watch the world fly")).not.toBeInTheDocument();
     expect(localStorage.getItem(LIVE_WORLD_DISMISSED_UNTIL_KEY)).toBe(
       String(Date.now() + 1000 * 60 * 60 * 24 * 15),
     );
@@ -137,7 +138,7 @@ describe("MapView", () => {
     const { container } = render(<MapView />);
 
     // Intro card hidden; cockpit remains mounted-but-hidden.
-    expect(screen.queryByText("Start from the map")).not.toBeInTheDocument();
+    expect(screen.queryByText("Watch the world fly")).not.toBeInTheDocument();
     expect(container.firstChild).not.toBeNull();
     expect((container.firstChild as HTMLElement).className).toContain("hidden");
   });

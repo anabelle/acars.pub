@@ -18,7 +18,7 @@
     "acars": "ACARS",
     "acarsLong": "Sistema de Comunicación y Reporte de Aeronaves",
     "createYourAirline": "Crea Tu Aerolínea",
-    "buildOnNostr": "Construye tu aerolínea en Nostr. ¿Eres nuevo? Comienza con una billetera del navegador.",
+    "buildOnNostr": "Gratis para jugar. Tu aerolínea se guarda en la red abierta de Nostr.",
     "newHereStart": "¿Eres nuevo? Crea una cuenta gratuita al instante — sin registro.",
     "newHereStartDesktop": "¿Eres nuevo? Empieza gratis con un clic.",
     "enterValidNsec": "Ingresa una clave nsec1 válida.",
@@ -31,6 +31,7 @@
     "playFree": "Jugar Gratis",
     "browserWallet": "Billetera del navegador",
     "haveNsec": "Ya tengo una clave nsec",
+    "haveNostrKey": "¿Ya tienes una clave de Nostr?",
     "whatIsNostr": "¿Qué es Nostr?",
     "cancelNsecLogin": "Cancelar inicio de sesión nsec",
     "backToYourAirline": "Volver a Tu Aerolínea",
@@ -130,28 +131,46 @@
     "badge": "Gratis para jugar · No se necesita cuenta",
     "heroTitleLineOne": "Construye la",
     "heroTitleLineTwo": "aerolínea más poderosa del mundo.",
-    "heroDescription": "Un tycoon aéreo de código abierto y en tiempo real donde tú eres dueño de todo: tu flota, tus rutas y tus datos. Sin intermediarios. Sin suscripciones.",
+    "heroDescription": "Un tycoon aéreo gratuito y de código abierto sobre un mapa mundial en vivo. Rutas reales, tiempos de vuelo reales, aerolíneas rivales — y tus aviones siguen volando mientras no estás. Sin anuncios, sin pagar para ganar.",
     "footer": "Código abierto · Licencia MIT · Impulsado por el protocolo Nostr",
     "features": {
       "realTimeFlights": {
         "title": "Vuelos en tiempo real",
         "description": "Las rutas se resuelven en tiempo real. Un vuelo transatlántico de 7 horas tarda 7 horas reales — vuelve cuando quieras."
       },
-      "corporation": {
-        "title": "Dirige una corporación real",
-        "description": "Emite acciones, gestiona una tabla de capitalización, sal a bolsa, supera bancarrotas o lanza una adquisición hostil."
+      "network": {
+        "title": "Rutas reales, demanda real",
+        "description": "Abre rutas entre más de 6.000 aeropuertos reales. La demanda de pasajeros sigue datos reales de población y economía, y cambia con las estaciones."
       },
-      "bitcoin": {
-        "title": "Gana Bitcoin real",
-        "description": "Pozos de premios play-to-earn y zaps de Lightning. Intercambia slots de acciones de aerolíneas P2P."
+      "fleet": {
+        "title": "Una flota real",
+        "description": "35 aviones reales, desde turbohélices hasta el A380, que se desbloquean a medida que crece tu aerolínea. Arrienda o compra, mantén y comercia en el mercado de segunda mano."
       },
       "decentralized": {
-        "title": "Totalmente descentralizado",
-        "description": "Sin servidores ni base de datos central. Tu aerolínea vive en la red abierta de Nostr — te pertenece por completo."
+        "title": "Tuya para siempre",
+        "description": "Tu aerolínea vive en la red abierta de Nostr — sin servidor de juego central, y nadie te la puede quitar."
       },
       "competition": {
-        "title": "Compite globalmente",
-        "description": "Miles de aerolíneas, clasificaciones en vivo y un mercado global de rutas."
+        "title": "Un mismo mundo en vivo",
+        "description": "Todas las aerolíneas vuelan en el mismo mapa. Los rivales compiten por los mismos pasajeros en las mismas rutas, con clasificaciones en vivo."
+      }
+    },
+    "roadmap": {
+      "title": "En la hoja de ruta",
+      "subtitle": "Planeado — todavía no está en el juego.",
+      "items": {
+        "company": {
+          "title": "Empresas públicas",
+          "description": "Acciones, salidas a bolsa, fusiones y adquisiciones hostiles."
+        },
+        "bitcoin": {
+          "title": "Recompensas en Bitcoin",
+          "description": "Zaps de Lightning y pozos de premios."
+        },
+        "alliances": {
+          "title": "Alianzas",
+          "description": "Códigos compartidos y redes conjuntas con otros jugadores."
+        }
       }
     }
   },

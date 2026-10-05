@@ -1,6 +1,6 @@
 import { useAirlineStore } from "@acars/store";
 import { useNavigate } from "@tanstack/react-router";
-import { Globe, Plane, TrendingUp, Users, Zap } from "lucide-react";
+import { Clock, Globe, Map as MapIcon, Plane, ShieldCheck, Users } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { GuestKeyOnboarding } from "@/features/identity/components/GuestKeyOnboarding";
@@ -13,22 +13,22 @@ export default function JoinPage() {
   const features = useMemo(
     () => [
       {
-        icon: Plane,
+        icon: Clock,
         title: t("join.features.realTimeFlights.title", { ns: "common" }),
         description: t("join.features.realTimeFlights.description", { ns: "common" }),
       },
       {
-        icon: TrendingUp,
-        title: t("join.features.corporation.title", { ns: "common" }),
-        description: t("join.features.corporation.description", { ns: "common" }),
+        icon: MapIcon,
+        title: t("join.features.network.title", { ns: "common" }),
+        description: t("join.features.network.description", { ns: "common" }),
       },
       {
-        icon: Zap,
-        title: t("join.features.bitcoin.title", { ns: "common" }),
-        description: t("join.features.bitcoin.description", { ns: "common" }),
+        icon: Plane,
+        title: t("join.features.fleet.title", { ns: "common" }),
+        description: t("join.features.fleet.description", { ns: "common" }),
       },
       {
-        icon: Globe,
+        icon: ShieldCheck,
         title: t("join.features.decentralized.title", { ns: "common" }),
         description: t("join.features.decentralized.description", { ns: "common" }),
       },
@@ -38,6 +38,18 @@ export default function JoinPage() {
         description: t("join.features.competition.description", { ns: "common" }),
       },
     ],
+    [t],
+  );
+
+  // Planned features, shown separately and labelled as such so the landing
+  // page never presents unshipped mechanics as live (overhaul S20.4).
+  const roadmap = useMemo(
+    () =>
+      (["company", "bitcoin", "alliances"] as const).map((key) => ({
+        key,
+        title: t(`join.roadmap.items.${key}.title`, { ns: "common" }),
+        description: t(`join.roadmap.items.${key}.description`, { ns: "common" }),
+      })),
     [t],
   );
 
@@ -112,6 +124,31 @@ export default function JoinPage() {
               </div>
             </div>
           ))}
+        </section>
+
+        {/* Roadmap: planned, not shipped */}
+        <section
+          aria-labelledby="join-roadmap-title"
+          className="rounded-xl border border-dashed border-border/60 bg-background/30 p-4"
+        >
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <h3 id="join-roadmap-title" className="text-sm font-semibold text-foreground">
+              <Globe className="mr-1.5 inline h-4 w-4 align-[-2px] text-muted-foreground" />
+              {t("join.roadmap.title", { ns: "common" })}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {t("join.roadmap.subtitle", { ns: "common" })}
+            </p>
+          </div>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-3">
+            {roadmap.map((item) => (
+              <li key={item.key} className="text-xs leading-relaxed text-muted-foreground">
+                <span className="font-semibold text-foreground/80">{item.title}</span>
+                {" — "}
+                {item.description}
+              </li>
+            ))}
+          </ul>
         </section>
 
         {/* Footer note */}

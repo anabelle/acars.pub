@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { Suspense, lazy } from "react";
 import { IdentityGate } from "@/features/identity/components/IdentityGate";
 import { Ticker } from "@/features/network/components/Ticker";
@@ -14,6 +14,63 @@ import { AppInitializer } from "../app/AppInitializer";
 const WorldMap = lazy(() =>
   import("@/features/network/components/WorldMap").then((m) => ({ default: m.WorldMap })),
 );
+
+// Routes that render as a standalone entry page: no HUD chrome (top bar,
+// context bar, sidebar, nav, ticker) competing with the page's own single
+// call to action. The live map stays in the background.
+const ENTRY_ROUTES = new Set(["/join"]);
+
+function RootLayout() {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const isEntry = ENTRY_ROUTES.has(pathname);
+
+  return (
+    <AppInitializer>
+      <div className="relative flex h-[100dvh] w-screen overflow-hidden bg-background text-foreground">
+        {/* Layer 0: The WebGL Map (Always rendering in background; chunk
+            loads lazily after first paint) */}
+        <Suspense fallback={null}>
+          <WorldMap />
+        </Suspense>
+
+        {/* Layer 1: the Tycoon HUD Shell (Overlaying the Map) */}
+        <div className="absolute inset-0 z-20 flex flex-col pointer-events-none">
+          <IdentityGate>
+            {isEntry ? (
+              <div
+                data-layout="entry"
+                className="pointer-events-auto flex h-full w-full min-h-0 flex-col overflow-auto"
+              >
+                <Outlet />
+              </div>
+            ) : (
+              /* Shell is only visible when Identity is fully established */
+              <div className="flex h-full w-full min-h-0 flex-col">
+                <Topbar />
+                <WorkspaceContextBar />
+
+                <div className="flex flex-1 min-h-0 overflow-hidden relative pb-0 sm:pb-10">
+                  <Sidebar />
+
+                  <main
+                    className={`relative flex min-h-0 min-w-0 flex-1 overflow-hidden px-3 pb-3 ${MOBILE_TOPBAR_PANEL_PADDING_CLASS} pointer-events-none sm:p-6`}
+                  >
+                    <Outlet />
+                  </main>
+                </div>
+
+                <MobileNav />
+              </div>
+            )}
+          </IdentityGate>
+        </div>
+
+        {/* Layer 2: The Global Edge Ticker (hidden on entry pages) */}
+        {!isEntry && <Ticker />}
+      </div>
+    </AppInitializer>
+  );
+}
 
 type RootSearch = {
   airportTab?: "info" | "flights";
@@ -40,41 +97,5 @@ export const Route = createRootRoute({
           : undefined,
     };
   },
-  component: () => (
-    <AppInitializer>
-      <div className="relative flex h-[100dvh] w-screen overflow-hidden bg-background text-foreground">
-        {/* Layer 0: The WebGL Map (Always rendering in background; chunk
-            loads lazily after first paint) */}
-        <Suspense fallback={null}>
-          <WorldMap />
-        </Suspense>
-
-        {/* Layer 1: the Tycoon HUD Shell (Overlaying the Map) */}
-        <div className="absolute inset-0 z-20 flex flex-col pointer-events-none">
-          <IdentityGate>
-            {/* Shell is only visible when Identity is fully established */}
-            <div className="flex h-full w-full min-h-0 flex-col">
-              <Topbar />
-              <WorkspaceContextBar />
-
-              <div className="flex flex-1 min-h-0 overflow-hidden relative pb-0 sm:pb-10">
-                <Sidebar />
-
-                <main
-                  className={`relative flex min-h-0 min-w-0 flex-1 overflow-hidden px-3 pb-3 ${MOBILE_TOPBAR_PANEL_PADDING_CLASS} pointer-events-none sm:p-6`}
-                >
-                  <Outlet />
-                </main>
-              </div>
-
-              <MobileNav />
-            </div>
-          </IdentityGate>
-        </div>
-
-        {/* Layer 2: The Global Edge Ticker (Always rendering) */}
-        <Ticker />
-      </div>
-    </AppInitializer>
-  ),
+  component: RootLayout,
 });

@@ -2,9 +2,13 @@ import { cleanup, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const location = { pathname: "/" };
+
 vi.mock("@tanstack/react-router", () => ({
   createRootRoute: (options: Record<string, unknown>) => options,
   Outlet: () => <div data-testid="outlet" />,
+  useLocation: (options?: { select?: (value: typeof location) => unknown }) =>
+    options?.select ? options.select(location) : location,
 }));
 
 vi.mock("@/app/AppInitializer", () => ({
@@ -38,7 +42,10 @@ vi.mock("@/shared/components/layout/WorkspaceContextBar", () => ({
 
 import { Route } from "./__root";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  location.pathname = "/";
+});
 
 describe("root route layout", () => {
   it("reserves mobile clearance for the floating topbar above outlet panels", () => {
@@ -48,5 +55,17 @@ describe("root route layout", () => {
     const main = container.querySelector("main");
     expect(main).toHaveClass("pt-[4.75rem]");
     expect(main).toHaveClass("px-3", "pb-3");
+  });
+
+  it("renders /join as a standalone entry page without HUD chrome", () => {
+    location.pathname = "/join";
+    const Component = (Route as unknown as { component: () => ReactNode }).component;
+    const { getByTestId, queryByTestId, container } = render(<Component />);
+
+    expect(getByTestId("outlet")).toBeInTheDocument();
+    expect(container.querySelector('[data-layout="entry"]')).not.toBeNull();
+    for (const chrome of ["topbar", "workspace-context", "sidebar", "mobile-nav", "ticker"]) {
+      expect(queryByTestId(chrome)).toBeNull();
+    }
   });
 });
