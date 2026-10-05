@@ -713,5 +713,31 @@
     "switchToLightTheme": "Switch to light map theme",
     "switchToDarkTheme": "Switch to dark map theme",
     "focus": "Focus: {{iata}}"
+  },
+  "awayReport": {
+    "eyebrow": "While you were away · {{duration}}",
+    "title": "Here’s how your airline did",
+    "quietTitle": "Your airline was quiet",
+    "quietBody": "No flights landed while you were away. Open a route from any airport to get your fleet flying.",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "profit": "Profit while you were away",
+    "revenueCosts": "{{revenue}} revenue · {{costs}} costs and leases",
+    "flights": "Flights",
+    "passengers": "Passengers",
+    "bestRoute": "Best route",
+    "worstRoute": "Weakest route",
+    "promoted": "Promoted to Tier {{tier}}: new aircraft and longer routes unlocked.",
+    "deliveries_one": "{{count}} aircraft delivered.",
+    "deliveries_other": "{{count}} aircraft delivered.",
+    "grounded_one": "Grounded for maintenance: {{names}}.",
+    "grounded_other": "{{count}} aircraft grounded for maintenance: {{names}}.",
+    "priceWar": "Price war on {{routes}}: your undercutting is hurting your brand.",
+    "bankrupt": "Your airline filed for Chapter 11. Operations are suspended.",
+    "partial": "Only the most recent events are kept, so this covers the latest part of your absence.",
+    "continue": "Back to my airline",
+    "close": "Close report"
   }
 }
