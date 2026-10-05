@@ -1,7 +1,7 @@
 # S10 — Market model v2: incumbent carriers + distance-scaled fare cap
 
 > **Status:** ◐ in progress
-> **Next step:** S10.2
+> **Next step:** S10.3
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -40,7 +40,7 @@ Make route choice and pricing real decisions: big markets are contested and pric
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S10.1** `getIncumbentOffer` pure function + unit tests (not wired). _Done when:_ tests green.
-- [ ] **S10.2** Wire the incumbent offer into landing allocation and the fare cap into reducer + slice (constants in core, in place per D2). _Done when:_ engine tests green; `pnpm balance` regenerated.
+- [x] **S10.2** Wire the incumbent offer into landing allocation and the fare cap into reducer + slice (constants in core, in place per D2). _Done when:_ engine tests green; `pnpm balance` regenerated.
 - [ ] **S10.3** Calibrate with S02; commit before/after report. _Done when:_ README §6 balance targets met in the report.
 - [ ] **S10.4** Selector exposing incumbent strength / projected share for UI. _Done when:_ unit tests green.
 - [ ] **S10.5** Route card shows incumbent strength and the fare cap; commit `baseline-v2.md`. _Done when:_ screenshot + report committed.
@@ -68,6 +68,15 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - So a player leg draws roughly **one incumbent planeload** of demand whatever the market size, and the engine's existing price elasticity starts to bite.
   - Markets that can't sustain 3 incumbent round trips a week have no incumbent and stay uncontested.
   - `packages/core/src/incumbent.ts`: `getIncumbentOffer`, `entrantMarketShare`, `incumbentSeatsPerFlight` and the tuning constants (`INCUMBENT_TARGET_LOAD_FACTOR`, `INCUMBENT_MIN_WEEKLY_FREQUENCY`, `INCUMBENT_FARE_SENSITIVITY`), calibrated in S10.3. Pure; `detPow` for determinism. 7 tests, 100% coverage. Not wired yet.
+- 2026-10-05 · S10.2 · (this commit) · Changes:
+  - **Wired.** `computeFlightPassengers` sizes the incumbent from the addressable weekly demand, gives the players `entrantMarketShare` of each class (every player offer's frequency × fareRatio^-1), and splits that with the existing QSI. The projection and route card share the function, so they follow.
+  - **Fare cap:** core `FARE_CAP_MULTIPLIER = 3` and `getMaxFares(distance)`. It's enforced in the reducer (`ROUTE_OPEN`, `ROUTE_UPDATE_FARES`), the optimistic slice (same clamp), and the engine, so routes saved above the cap fly at the cap (D2).
+  - Tests: all 230 existing store tests pass unchanged; new reducer test for the cap on open and update; core test for `getMaxFares`. Coverage gate, 264 web unit tests and 18 e2e green.
+  - **Uncalibrated result (`latest.md`), the input for S10.3:**
+    - The overpricing exploit is gone: the best fare is 1× everywhere; the greedy 5× strategy loses $518k/day; MAD–BCN at 40× flies at 3% LF.
+    - Too steep, though: at 1.5× load factor drops to ~33% (target: best fare 0.8–1.6×). Price is penalised twice, by the share term and the engine's −1.2 elasticity.
+    - LIH–KOA now meets a small incumbent and falls to 14%; thin markets should be uncontested.
+    - A player leg draws ~one incumbent planeload whatever its own size, so an A320 at 7/week flies at ~22%; the incumbent's gauge should grow with market size.
 
 ## Follow-ups
 

@@ -350,3 +350,24 @@ describe("getSuggestedFares", () => {
     expect(fpToNumber(fares.first)).toBeGreaterThan(fpToNumber(fares.business));
   });
 });
+
+describe("getMaxFares (S10)", () => {
+  it("caps each class at FARE_CAP_MULTIPLIER × the suggested fare", async () => {
+    const { FARE_CAP_MULTIPLIER, getMaxFares, getSuggestedFares } = await import("./finance.js");
+    const { fpToNumber } = await import("./fixed-point.js");
+    const suggested = getSuggestedFares(483);
+    const caps = getMaxFares(483);
+    expect(fpToNumber(caps.economy)).toBeCloseTo(
+      fpToNumber(suggested.economy) * FARE_CAP_MULTIPLIER,
+      6,
+    );
+    expect(fpToNumber(caps.business)).toBeCloseTo(
+      fpToNumber(suggested.business) * FARE_CAP_MULTIPLIER,
+      6,
+    );
+    expect(fpToNumber(caps.first)).toBeCloseTo(
+      fpToNumber(suggested.first) * FARE_CAP_MULTIPLIER,
+      6,
+    );
+  });
+});

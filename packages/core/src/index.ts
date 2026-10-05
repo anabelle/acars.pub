@@ -61,6 +61,8 @@ export {
   calculateFlightRevenue,
   calculateHubLandingFee,
   detectPriceWar,
+  FARE_CAP_MULTIPLIER,
+  getMaxFares,
   getSuggestedFares,
   ROUTE_SLOT_FEE,
 } from "./finance.js";

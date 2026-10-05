@@ -1201,3 +1201,77 @@ describe("ROUTE_UPDATE_FREQUENCY (S14)", () => {
     expect(unknown.routes[0]?.frequencyPerWeek).toBe(7);
   });
 });
+
+describe("fare cap (S10)", () => {
+  it("caps fares at a multiple of the suggested fare on open and on update", async () => {
+    const { getMaxFares } = await import("@acars/core");
+    const pubkey = "pubkey-cap";
+    const huge = { economy: fp(9000), business: fp(9000), first: fp(9000) };
+    const result = await replayActionLog({
+      pubkey,
+      actions: [
+        {
+          eventId: "evt-1",
+          authorPubkey: pubkey,
+          createdAt: 1,
+          action: {
+            schemaVersion: 2,
+            action: "AIRLINE_CREATE",
+            payload: { name: "Cap Air", hubs: ["MAD"], corporateBalance: fp(100000000), tick: 1 },
+          },
+        },
+        {
+          eventId: "evt-2",
+          authorPubkey: pubkey,
+          createdAt: 2,
+          action: {
+            schemaVersion: 2,
+            action: "ROUTE_OPEN",
+            payload: {
+              routeId: "rt-1",
+              originIata: "MAD",
+              destinationIata: "BCN",
+              distanceKm: 483,
+              fares: huge,
+              tick: 2,
+            },
+          },
+        },
+        {
+          eventId: "evt-3",
+          authorPubkey: pubkey,
+          createdAt: 3,
+          action: {
+            schemaVersion: 2,
+            action: "ROUTE_OPEN",
+            payload: {
+              routeId: "rt-2",
+              originIata: "MAD",
+              destinationIata: "LIS",
+              distanceKm: 513,
+              tick: 3,
+            },
+          },
+        },
+        {
+          eventId: "evt-4",
+          authorPubkey: pubkey,
+          createdAt: 4,
+          action: {
+            schemaVersion: 2,
+            action: "ROUTE_UPDATE_FARES",
+            payload: { routeId: "rt-2", fares: huge, tick: 4 },
+          },
+        },
+      ],
+    });
+    const caps483 = getMaxFares(483);
+    const caps513 = getMaxFares(513);
+    const opened = result.routes.find((r) => r.id === "rt-1");
+    const updated = result.routes.find((r) => r.id === "rt-2");
+    expect(opened?.fareEconomy).toBe(caps483.economy);
+    expect(opened?.fareFirst).toBe(caps483.first);
+    expect(updated?.fareEconomy).toBe(caps513.economy);
+    expect(updated?.fareBusiness).toBe(caps513.business);
+  });
+});
