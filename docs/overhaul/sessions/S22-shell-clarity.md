@@ -3,7 +3,7 @@
 > **Status:** ◐ in progress
 > **Next step:** S22.2
 > **Branch:** claude/zen-darwin-3op878
-> **PR:** —
+> **PR:** https://github.com/anabelle/acars.pub/pull/167
 >
 > **Track:** UX · **Size:** M (3 steps) · **Depends on:** S20 · **Unblocks:** S31
 >
@@ -56,7 +56,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-2026-10-05 · S22.1 · (this commit) · Nav names are now Cockpit, Fleet, Routes, Rivals, Finance, Info on desktop, mobile and page titles (en + es; the separate mobile labels are gone). `/routes`, `/rivals`, `/finance` and `/info` redirect to `/network`, `/leaderboard`, `/corporate` and `/about`, keeping search params (`shared/lib/routeAliases.ts`). The old paths stay canonical, so existing links and tests are unaffected. Unit tests cover the mapping; `e2e/url-aliases.spec.ts` checks every redirect in the browser.
+2026-10-05 · S22.1 · bb106d3 · Nav names are now Cockpit, Fleet, Routes, Rivals, Finance, Info on desktop, mobile and page titles (en + es; the separate mobile labels are gone). `/routes`, `/rivals`, `/finance` and `/info` redirect to `/network`, `/leaderboard`, `/corporate` and `/about`, keeping search params (`shared/lib/routeAliases.ts`). The old paths stay canonical, so existing links and tests are unaffected. Unit tests cover the mapping; `e2e/url-aliases.spec.ts` checks every redirect in the browser.
 
 ## Follow-ups
 
