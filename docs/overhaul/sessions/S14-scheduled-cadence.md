@@ -3,7 +3,7 @@
 > **Status:** ☑ ready for review
 > **Next step:** — (all steps done; awaiting review)
 > **Branch:** claude/zen-darwin-3op878
-> **PR:** —
+> **PR:** https://github.com/anabelle/acars.pub/pull/164
 >
 > **Track:** Economy · **Size:** L (4 steps) · **Depends on:** S02, decision D8 (decided: respect the frequency) · **Unblocks:** S10 (calibration), S24 (fare editor numbers)
 >
