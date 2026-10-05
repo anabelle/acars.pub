@@ -624,7 +624,23 @@
     "distanceFrom": "Distancia desde",
     "distanceFromHq": "Distancia desde HQ",
     "showAllAirlines": "Mostrar todas las aerolíneas ({{count}})",
-    "showFewerAirlines": "Mostrar menos aerolíneas"
+    "showFewerAirlines": "Mostrar menos aerolíneas",
+    "details": "Detalles del aeropuerto"
+  },
+  "routeCard": {
+    "title": "Ruta {{origin}} → {{destination}}",
+    "profitLabel": "Beneficio diario estimado, después del arriendo",
+    "perDay": "{{amount}}/día",
+    "loadFactor": "Ocupación",
+    "flightsPerDay": "Vuelos/día",
+    "rivals": "Rivales",
+    "noRivals": "Ninguno",
+    "share": "{{share}}% del mercado",
+    "aircraft": "Mejor avión: {{model}} (arriendo {{lease}}/día)",
+    "beyondTier": "Más allá del alcance de {{limit}} km de tu nivel: la demanda se reduce a la mitad hasta que desbloquees rutas más largas.",
+    "unprofitable": "No es rentable con los aviones que puedes volar todavía. Prueba un mercado más cercano o más grande.",
+    "outOfRange": "Ninguno de tus aviones desbloqueados puede volar {{distance}} km todavía. Haz crecer tu aerolínea para desbloquear aviones de mayor alcance.",
+    "estimateNote": "Estimación de la simulación en vivo para la temporada y el precio del combustible de hoy. Los rivales, las tarifas y las estaciones la cambiarán."
   },
   "aircraftPanel": {
     "title": "Aeronave",

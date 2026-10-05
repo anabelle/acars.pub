@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fp, fpSub, fpToNumber } from "./fixed-point.js";
 import type { FixedPoint } from "./types.js";
 import {
@@ -139,5 +139,25 @@ describe("getFuelPriceAtTick memoization", () => {
   it("clamps fractional and negative ticks like the naive walk", () => {
     expect(getFuelPriceAtTick(17.9)).toBe(naiveFuelPrice(17));
     expect(getFuelPriceAtTick(-3)).toBe(FUEL_PRICE_MEAN_PER_KG);
+  });
+});
+
+describe("getFuelPriceAtTick past the Map size limit", () => {
+  // Regression: the first lookup of a session walks from tick 0 to "now".
+  // Caching every intermediate tick overflowed the Map's 2^24-entry limit once
+  // the game clock passed ~16.8M ticks (late Sept 2026), throwing
+  // "RangeError: Map maximum size exceeded" at every landing and on the
+  // Finance page. A fresh module must answer for a tick beyond 2^24.
+  it("answers a cold lookup beyond 2^24 ticks without throwing", { timeout: 120_000 }, async () => {
+    vi.resetModules();
+    const fresh = await import("./fuel.js");
+    const tick = 2 ** 24 + 166_000;
+    const price = fresh.getFuelPriceAtTick(tick);
+    expect(price).toBeGreaterThanOrEqual(FUEL_PRICE_MIN_PER_KG);
+    expect(price).toBeLessThanOrEqual(FUEL_PRICE_MAX_PER_KG);
+    // Consistent with the per-tick random walk: price(t) = step(price(t-1), t-1).
+    expect(fresh.stepFuelPrice(fresh.getFuelPriceAtTick(tick - 1), tick - 1)).toBe(
+      fresh.getFuelPriceAtTick(tick),
+    );
   });
 });
