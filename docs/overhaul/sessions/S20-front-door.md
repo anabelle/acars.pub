@@ -1,7 +1,7 @@
 # S20 — Front door: honest landing, entry layout, meta
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting owner review/merge)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #159)
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** https://github.com/anabelle/acars.pub/pull/159
 >

@@ -179,6 +179,10 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
       ) ?? null
     );
   }, [routes, airport.iata, originHubIata]);
+  // A route opened without an aircraft (e.g. an interrupted one-click launch) keeps the
+  // decision card so the player can finish the setup.
+  const routeAwaitingAircraft =
+    !!originHubRoute && !fleet.some((aircraft) => aircraft.assignedRouteId === originHubRoute.id);
 
   const stationedFleet = useMemo(
     () => fleet.filter((ac) => ac.baseAirportIata === airport.iata),
@@ -404,7 +408,7 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
               ) : null}
             </div>
 
-            {canOpenRoute && originHubIata && distanceKm ? (
+            {(canOpenRoute || routeAwaitingAircraft) && originHubIata && distanceKm ? (
               <RouteDecisionCard
                 originIata={originHubIata}
                 destinationIata={airport.iata}

@@ -1,20 +1,26 @@
 import type { FixedPoint } from "@acars/core";
 import {
   canonicalRouteKey,
+  fp,
   fpScale,
   fpToNumber,
   getMaxRouteDistanceKm,
+  ROUTE_SLOT_FEE,
   TICKS_PER_HOUR,
 } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { Loader2, PlaneTakeoff, TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { useLaunchRoute } from "@/features/network/hooks/useLaunchRoute";
+import { findAvailableAircraft } from "@/features/network/utils/launchRoute";
 import {
   DAYS_PER_LEASE_MONTH,
   NEW_ROUTE_WEEKLY_FREQUENCY,
   recommendAircraftForRoute,
 } from "@/features/network/utils/routeRecommendation";
+import { useConfirm } from "@/shared/lib/useConfirm";
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -32,9 +38,15 @@ type RouteDecisionCardProps = {
   distanceKm: number;
 };
 
+/** Lease deposit charged up front (see fleetSlice.purchaseAircraft). */
+const LEASE_DEPOSIT_SHARE = 0.1;
+
 /**
  * Answers "is a route here worth it?" for the airport panel, using the
- * engine-exact projection. Read-only (the launch action is wired in S23.4).
+ * engine-exact projection, and launches it in one click: open the route,
+ * lease the recommended aircraft (or reuse an idle one), assign it. When the
+ * route already exists without an aircraft (e.g. an interrupted launch), the
+ * same button finishes the setup.
  */
 export function RouteDecisionCard({
   originIata,
@@ -44,10 +56,21 @@ export function RouteDecisionCard({
   const { t } = useTranslation(["game"]);
   const airline = useAirlineStore((s) => s.airline);
   const routes = useAirlineStore((s) => s.routes);
+  const fleet = useAirlineStore((s) => s.fleet);
   const pubkey = useAirlineStore((s) => s.pubkey);
   const registry = useAirlineStore((s) => s.globalRouteRegistry);
   // Re-project at most once per game hour; season, prosperity and fuel move slowly.
   const hourTick = useEngineStore((s) => Math.floor(s.tick / TICKS_PER_HOUR) * TICKS_PER_HOUR);
+
+  const confirm = useConfirm();
+  const { state: launchState, launch } = useLaunchRoute();
+
+  const existingRoute = routes.find(
+    (route) => route.originIata === originIata && route.destinationIata === destinationIata,
+  );
+  const routeHasAircraft = existingRoute
+    ? fleet.some((aircraft) => aircraft.assignedRouteId === existingRoute.id)
+    : false;
 
   const tier = airline?.tier ?? 1;
   const distanceLimitKm = getMaxRouteDistanceKm(tier);
@@ -63,12 +86,26 @@ export function RouteDecisionCard({
       brandScore: airline.brandScore ?? 0.5,
       playerPubkey: pubkey ?? "",
       competitorOffers: registry?.get(canonicalRouteKey(originIata, destinationIata)) ?? [],
-      networkRoutes: [
-        ...routes,
-        { originIata, destinationIata, frequencyPerWeek: NEW_ROUTE_WEEKLY_FREQUENCY },
-      ],
+      // The airline's network once this route flies (counted once if it already exists).
+      networkRoutes: existingRoute
+        ? routes
+        : [
+            ...routes,
+            { originIata, destinationIata, frequencyPerWeek: NEW_ROUTE_WEEKLY_FREQUENCY },
+          ],
     });
-  }, [airline, originIata, destinationIata, distanceKm, tier, hourTick, pubkey, registry, routes]);
+  }, [
+    airline,
+    originIata,
+    destinationIata,
+    distanceKm,
+    tier,
+    hourTick,
+    pubkey,
+    registry,
+    routes,
+    existingRoute,
+  ]);
 
   if (!airline) return null;
 
@@ -87,6 +124,59 @@ export function RouteDecisionCard({
   const profitable = profitAfterLeasePerDay > 0;
   const rivals = projection.competitorShares.length;
   const ProfitIcon = profitable ? TrendingUp : TrendingDown;
+  const modelLabel = model.name.startsWith(model.manufacturer)
+    ? model.name
+    : `${model.manufacturer} ${model.name}`;
+  // launchRoute reuses an unassigned aircraft parked at the origin before leasing one.
+  const reusableAircraft = findAvailableAircraft(fleet, { originIata, distanceKm });
+  const isRunning = launchState.phase === "running";
+  const lastResult = launchState.phase === "done" ? launchState.result : null;
+
+  const handleLaunch = async () => {
+    const deliveryMinutes = Math.max(
+      1,
+      Math.round((model.deliveryTimeTicks / TICKS_PER_HOUR) * 60),
+    );
+    const approved = await confirm({
+      title: existingRoute
+        ? t("routeCard.finishConfirmTitle", {
+            ns: "game",
+            origin: originIata,
+            destination: destinationIata,
+          })
+        : t("routeCard.launchConfirmTitle", {
+            ns: "game",
+            origin: originIata,
+            destination: destinationIata,
+          }),
+      description: reusableAircraft
+        ? t("routeCard.reuseConfirmDescription", {
+            ns: "game",
+            slotFee: formatMoney(existingRoute ? fp(0) : ROUTE_SLOT_FEE),
+            aircraft: reusableAircraft.name,
+          })
+        : t("routeCard.launchConfirmDescription", {
+            ns: "game",
+            slotFee: formatMoney(existingRoute ? fp(0) : ROUTE_SLOT_FEE),
+            model: modelLabel,
+            deposit: formatMoney(fpScale(model.price, LEASE_DEPOSIT_SHARE)),
+            lease: formatMoney(fpScale(model.monthlyLease, 1 / DAYS_PER_LEASE_MONTH)),
+            minutes: deliveryMinutes,
+          }),
+      confirmLabel: t("routeCard.launchConfirmLabel", { ns: "game" }),
+    });
+    if (!approved) return;
+
+    const result = await launch({ originIata, destinationIata, distanceKm, model });
+    if (result.status === "complete") {
+      toast.success(
+        t("routeCard.launched", { ns: "game", origin: originIata, destination: destinationIata }),
+        { description: t("routeCard.launchedDetail", { ns: "game", minutes: deliveryMinutes }) },
+      );
+    } else {
+      toast.error(t("routeCard.launchFailed", { ns: "game" }), { description: result.error });
+    }
+  };
 
   return (
     <section
@@ -149,9 +239,7 @@ export function RouteDecisionCard({
       <p className="text-xs text-muted-foreground">
         {t("routeCard.aircraft", {
           ns: "game",
-          model: model.name.startsWith(model.manufacturer)
-            ? model.name
-            : `${model.manufacturer} ${model.name}`,
+          model: modelLabel,
           lease: formatMoney(fpScale(model.monthlyLease, 1 / DAYS_PER_LEASE_MONTH)),
         })}
       </p>
@@ -164,6 +252,36 @@ export function RouteDecisionCard({
       {!profitable ? (
         <p className="text-xs text-rose-300">{t("routeCard.unprofitable", { ns: "game" })}</p>
       ) : null}
+      {lastResult && lastResult.status !== "complete" ? (
+        <p role="alert" className="text-xs text-rose-300">
+          {t(`routeCard.failedStep.${lastResult.failedStep ?? "openRoute"}`, { ns: "game" })}{" "}
+          {lastResult.error}
+        </p>
+      ) : null}
+
+      {routeHasAircraft ? null : (
+        <button
+          type="button"
+          onClick={handleLaunch}
+          disabled={isRunning}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 touch-manipulation"
+        >
+          {isRunning ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <PlaneTakeoff className="h-4 w-4" aria-hidden="true" />
+          )}
+          {isRunning
+            ? t("routeCard.launching", { ns: "game" })
+            : existingRoute
+              ? t("routeCard.finishSetup", { ns: "game" })
+              : t("routeCard.launch", {
+                  ns: "game",
+                  model: reusableAircraft ? reusableAircraft.name : modelLabel,
+                })}
+        </button>
+      )}
+
       <p className="text-[11px] text-muted-foreground/80">
         {t("routeCard.estimateNote", { ns: "game" })}
       </p>
