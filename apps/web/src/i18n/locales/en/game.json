@@ -540,6 +540,24 @@
       "detail": "{{legs}} legs/day · max {{max}}/wk with this fleet",
       "noAircraft": "Assign an aircraft to fly it",
       "failed": "Couldn’t change the frequency"
+    },
+    "fareEditor": {
+      "presets": "Fare presets",
+      "preset": {
+        "aggressive": "Aggressive",
+        "suggested": "Suggested",
+        "premium": "Premium"
+      },
+      "outcomeTitle": "If you charge these fares",
+      "seatsFilled": "Seats filled",
+      "profitPerDay": "Profit / day",
+      "marketShare": "Market share",
+      "vsNow": "{{delta}} vs now",
+      "sameAsNow": "Same as now",
+      "points_one": "{{count}} pt",
+      "points_other": "{{count}} pts",
+      "outcomeNote": "Forecast for today's season, fuel price and rivals, before lease and hub costs.",
+      "assignToProject": "Assign an aircraft to this route to see what these fares would earn."
     }
   },
   "hubPicker": {

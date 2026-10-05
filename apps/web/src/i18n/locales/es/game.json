@@ -540,6 +540,24 @@
       "detail": "{{legs}} vuelos/día · máx. {{max}}/sem con esta flota",
       "noAircraft": "Asigna un avión para operarla",
       "failed": "No se pudo cambiar la frecuencia"
+    },
+    "fareEditor": {
+      "presets": "Tarifas predefinidas",
+      "preset": {
+        "aggressive": "Agresiva",
+        "suggested": "Sugerida",
+        "premium": "Premium"
+      },
+      "outcomeTitle": "Si cobras estas tarifas",
+      "seatsFilled": "Asientos ocupados",
+      "profitPerDay": "Beneficio / día",
+      "marketShare": "Cuota de mercado",
+      "vsNow": "{{delta}} vs. ahora",
+      "sameAsNow": "Igual que ahora",
+      "points_one": "{{count}} pt",
+      "points_other": "{{count}} pts",
+      "outcomeNote": "Previsión con la temporada, el combustible y los rivales de hoy, antes del alquiler y los costes de hub.",
+      "assignToProject": "Asigna un avión a esta ruta para ver lo que ganarían estas tarifas."
     }
   },
   "hubPicker": {

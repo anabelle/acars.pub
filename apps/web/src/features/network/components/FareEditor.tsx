@@ -1,23 +1,28 @@
 import {
   FARE_CAP_MULTIPLIER,
-  computeRouteFrequency,
+  canonicalRouteKey,
   type FixedPoint,
   fp,
-  fpAdd,
   fpFormat,
-  fpScale,
   fpToNumber,
   getSuggestedFares,
   PRICE_ELASTICITY_BUSINESS,
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
+  TICKS_PER_HOUR,
 } from "@acars/core";
-import { useActiveAirline, useAirlineStore, useEngineStore } from "@acars/store";
+import { getAircraftById } from "@acars/data";
+import {
+  projectRouteEconomics,
+  type RouteProjection,
+  useActiveAirline,
+  useAirlineStore,
+  useEngineStore,
+} from "@acars/store";
 import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { getRouteDemandSnapshotCached } from "@/features/network/hooks/useRouteDemand";
 import {
   calculateElasticityDisplay,
   formatSignedPercent,
@@ -26,6 +31,13 @@ import {
   toneDotClass,
   toneTextClass,
 } from "@/features/network/utils/fareTones";
+import {
+  FARE_PRESETS,
+  type FarePresetId,
+  fareProjectionBase,
+  matchingPreset,
+  presetFares,
+} from "@/features/network/utils/fareProjection";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 
@@ -54,7 +66,11 @@ export function FareEditor({
 }) {
   const { t } = useTranslation(["common", "game"]);
   const { routes, fleet } = useActiveAirline();
-  const tick = useEngineStore((s) => s.tick);
+  const airline = useAirlineStore((s) => s.airline);
+  const pubkey = useAirlineStore((s) => s.pubkey);
+  const registry = useAirlineStore((s) => s.globalRouteRegistry);
+  // Re-project at most once per game hour; season, prosperity and fuel move slowly.
+  const hourTick = useEngineStore((s) => Math.floor(s.tick / TICKS_PER_HOUR) * TICKS_PER_HOUR);
   const updateRouteFares = useAirlineStore((s) => s.updateRouteFares);
   const [fareInputs, setFareInputs] = useState<{ e: string; b: string; f: string }>(() =>
     faresOf(routes.find((route) => route.id === fareEditor.routeId)),
@@ -65,9 +81,6 @@ export function FareEditor({
   const fareData = useMemo(() => {
     const suggestedFares = getSuggestedFares(fareEditor.distanceKm);
     const activeFareRoute = routes.find((route) => route.id === fareEditor.routeId) ?? null;
-    const fareDemandSnapshot = activeFareRoute
-      ? getRouteDemandSnapshotCached(activeFareRoute, tick, fleet, routes)
-      : null;
     const fareInputValues = {
       economy: parseFareInput(fareInputs.e),
       business: parseFareInput(fareInputs.b),
@@ -99,100 +112,74 @@ export function FareEditor({
       ),
     };
 
-    let fareProjection: {
-      currentRevenue: FixedPoint;
-      suggestedRevenue: FixedPoint;
-      currentPassengers: number;
-      suggestedPassengers: number;
-      deltaRevenue: number;
-      deltaPassengers: number;
-    } | null = null;
-
-    if (suggestedFares && fareDemandSnapshot && activeFareRoute) {
-      const assignedFleet = activeFareRoute.assignedAircraftIds
-        .map((id) => fleet.find((item) => item.id === id))
-        .filter((item): item is NonNullable<typeof item> => Boolean(item));
-      if (assignedFleet.length > 0) {
-        const weeklyDemand = fareDemandSnapshot.addressableDemand;
-        const frequency = computeRouteFrequency(
-          activeFareRoute.distanceKm,
-          activeFareRoute.assignedAircraftIds.length,
-        );
-        if (frequency > 0) {
-          const pressureMultiplier = fareDemandSnapshot.pressureMultiplier;
-          const currentEconomy = resolvedFareInputs.economy;
-          const currentBusiness = resolvedFareInputs.business;
-          const currentFirst = resolvedFareInputs.first;
-
-          const currentElasticity = {
-            economy: fareElasticity.economy.multiplier,
-            business: fareElasticity.business.multiplier,
-            first: fareElasticity.first.multiplier,
-          };
-
-          const currentPassengers = {
-            economy: Math.floor(
-              (weeklyDemand.economy / frequency) * pressureMultiplier * currentElasticity.economy,
-            ),
-            business: Math.floor(
-              (weeklyDemand.business / frequency) * pressureMultiplier * currentElasticity.business,
-            ),
-            first: Math.floor(
-              (weeklyDemand.first / frequency) * pressureMultiplier * currentElasticity.first,
-            ),
-          };
-
-          const suggestedPassengers = {
-            economy: Math.floor((weeklyDemand.economy / frequency) * pressureMultiplier),
-            business: Math.floor((weeklyDemand.business / frequency) * pressureMultiplier),
-            first: Math.floor((weeklyDemand.first / frequency) * pressureMultiplier),
-          };
-
-          const currentRevenue = fpAdd(
-            fpAdd(
-              fpScale(fp(currentEconomy), currentPassengers.economy),
-              fpScale(fp(currentBusiness), currentPassengers.business),
-            ),
-            fpScale(fp(currentFirst), currentPassengers.first),
-          );
-
-          const suggestedRevenue = fpAdd(
-            fpAdd(
-              fpScale(suggestedFares.economy, suggestedPassengers.economy),
-              fpScale(suggestedFares.business, suggestedPassengers.business),
-            ),
-            fpScale(suggestedFares.first, suggestedPassengers.first),
-          );
-
-          const currentTotalPassengers =
-            currentPassengers.economy + currentPassengers.business + currentPassengers.first;
-          const suggestedTotalPassengers =
-            suggestedPassengers.economy + suggestedPassengers.business + suggestedPassengers.first;
-
-          fareProjection = {
-            currentRevenue,
-            suggestedRevenue,
-            currentPassengers: currentTotalPassengers,
-            suggestedPassengers: suggestedTotalPassengers,
-            deltaRevenue: fpToNumber(currentRevenue) - fpToNumber(suggestedRevenue),
-            deltaPassengers: currentTotalPassengers - suggestedTotalPassengers,
-          };
-        }
-      }
-    }
-
     return {
       suggestedFares,
       activeFareRoute,
-      fareDemandSnapshot,
       fareInputValues,
       resolvedFareInputs,
       fareElasticity,
-      fareProjection,
     };
-  }, [fareEditor, fareInputs, routes, tick, fleet]);
+  }, [fareEditor, fareInputs, routes]);
 
-  const { suggestedFares, fareElasticity, fareProjection } = fareData;
+  const { suggestedFares, fareElasticity, activeFareRoute, resolvedFareInputs } = fareData;
+
+  // Outcome-first pricing: forecast the route with the engine's own functions
+  // at the fares being typed, next to the fares it flies with today. O(1).
+  const projectionBase = useMemo(() => {
+    if (!activeFareRoute || !airline) return null;
+    return fareProjectionBase({
+      route: activeFareRoute,
+      fleet,
+      getModel: getAircraftById,
+      tick: hourTick,
+      tier: airline.tier ?? 1,
+      brandScore: airline.brandScore ?? 0.5,
+      playerPubkey: pubkey ?? "",
+      competitorOffers:
+        registry?.get(
+          canonicalRouteKey(activeFareRoute.originIata, activeFareRoute.destinationIata),
+        ) ?? [],
+      networkRoutes: routes,
+    });
+  }, [activeFareRoute, airline, fleet, hourTick, pubkey, registry, routes]);
+
+  const savedOutcome = useMemo(
+    () =>
+      projectionBase && activeFareRoute
+        ? projectRouteEconomics({
+            ...projectionBase,
+            fares: {
+              economy: activeFareRoute.fareEconomy,
+              business: activeFareRoute.fareBusiness,
+              first: activeFareRoute.fareFirst,
+            },
+          })
+        : null,
+    [projectionBase, activeFareRoute],
+  );
+  const typedOutcome = useMemo(
+    () =>
+      projectionBase
+        ? projectRouteEconomics({
+            ...projectionBase,
+            fares: {
+              economy: fp(resolvedFareInputs.economy),
+              business: fp(resolvedFareInputs.business),
+              first: fp(resolvedFareInputs.first),
+            },
+          })
+        : null,
+    [projectionBase, resolvedFareInputs],
+  );
+  const activePreset = matchingPreset(fareEditor.distanceKm, resolvedFareInputs);
+  const applyPreset = (preset: FarePresetId) => {
+    const fares = presetFares(fareEditor.distanceKm, preset);
+    setFareInputs({
+      e: fares.economy.toString(),
+      b: fares.business.toString(),
+      f: fares.first.toString(),
+    });
+  };
 
   const handleSaveFares = async () => {
     const eVal = parseInt(fareInputs.e.replace(/[^0-9]/g, ""), 10);
@@ -276,6 +263,27 @@ export function FareEditor({
             </button>
           </div>
           <div className="custom-scrollbar flex-1 min-h-0 overflow-y-auto px-4 py-4 pb-10 space-y-4 sm:px-6 sm:py-5 sm:pb-12 sm:space-y-5">
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="group"
+              aria-label={t("routeManager.fareEditor.presets", { ns: "game" })}
+            >
+              {(Object.keys(FARE_PRESETS) as FarePresetId[]).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  aria-pressed={activePreset === preset}
+                  onClick={() => applyPreset(preset)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    activePreset === preset
+                      ? "border-primary/60 bg-primary/15 text-primary"
+                      : "border-border/50 bg-background/60 text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {t(`routeManager.fareEditor.preset.${preset}`, { ns: "game" })}
+                </button>
+              ))}
+            </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="rounded-xl border border-border/50 bg-background/60 p-4">
                 <label
@@ -467,61 +475,14 @@ export function FareEditor({
                 ) : null}
               </div>
             </div>
-            {fareProjection ? (
-              <div className="rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase text-muted-foreground">
-                  Revenue Projection
-                </div>
-                <div className="mt-2 grid grid-cols-1 gap-2 text-xs font-mono">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">At current fares</span>
-                    <span className="font-bold text-foreground">
-                      {fpFormat(fareProjection.currentRevenue, 0)} / flight
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">At suggested fares</span>
-                    <span className="font-bold text-muted-foreground">
-                      {fpFormat(fareProjection.suggestedRevenue, 0)} / flight
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Delta</span>
-                    <span
-                      className={`font-bold ${fareProjection.deltaRevenue >= 0 ? "text-emerald-400" : "text-rose-400"}`}
-                    >
-                      {fareProjection.deltaRevenue >= 0 ? "+" : "-"}
-                      {Math.abs(fareProjection.deltaRevenue).toLocaleString()} revenue{" "}
-                      {fareProjection.deltaPassengers !== 0 && (
-                        <span className="text-muted-foreground">
-                          ({fareProjection.deltaPassengers > 0 ? "+" : "-"}
-                          {Math.abs(fareProjection.deltaPassengers)} pax)
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
+            {typedOutcome ? (
+              <FareOutcome typed={typedOutcome} saved={savedOutcome} />
             ) : (
-              <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-[10px] text-muted-foreground">
-                Assign aircraft to see revenue projection.
+              <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+                {t("routeManager.fareEditor.assignToProject", { ns: "game" })}
               </div>
             )}
             {fareError ? <p className="text-xs font-semibold text-red-400">{fareError}</p> : null}
-            <button
-              type="button"
-              onClick={() => {
-                if (!suggestedFares) return;
-                setFareInputs({
-                  e: fpToNumber(suggestedFares.economy).toString(),
-                  b: fpToNumber(suggestedFares.business).toString(),
-                  f: fpToNumber(suggestedFares.first).toString(),
-                });
-              }}
-              className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-background/60 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent"
-            >
-              Use suggested fares
-            </button>
           </div>
           <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border/50 px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-4">
             <button
@@ -546,5 +507,81 @@ export function FareEditor({
         </div>
       </div>
     </ModalPortal>
+  );
+}
+
+const signed = (value: number, format: (v: number) => string) =>
+  `${value > 0 ? "+" : value < 0 ? "−" : ""}${format(Math.abs(value))}`;
+
+/** What the typed fares do to the route, next to what it earns today. */
+function FareOutcome({ typed, saved }: { typed: RouteProjection; saved: RouteProjection | null }) {
+  const { t } = useTranslation(["game"]);
+  const loadDelta = saved ? Math.round((typed.loadFactor - saved.loadFactor) * 100) : 0;
+  const profitDelta = saved
+    ? Math.round(fpToNumber(typed.profitPerDay) - fpToNumber(saved.profitPerDay))
+    : 0;
+  // Shares of a big market are small: keep one decimal below 10%.
+  const sharePrecision = Math.max(typed.marketShare, saved?.marketShare ?? 0) < 0.1 ? 10 : 1;
+  const shareDelta = saved
+    ? Math.round((typed.marketShare - saved.marketShare) * 100 * sharePrecision) / sharePrecision
+    : 0;
+  const points = (v: number) => t("routeManager.fareEditor.points", { count: v });
+  const rows = [
+    {
+      key: "load",
+      label: t("routeManager.fareEditor.seatsFilled"),
+      value: `${Math.round(typed.loadFactor * 100)}%`,
+      delta: loadDelta,
+      deltaText: signed(loadDelta, points),
+      tone: "text-foreground",
+    },
+    {
+      key: "profit",
+      label: t("routeManager.fareEditor.profitPerDay"),
+      value: fpFormat(typed.profitPerDay, 0),
+      delta: profitDelta,
+      deltaText: signed(profitDelta, (v) => fpFormat(fp(v), 0)),
+      tone: fpToNumber(typed.profitPerDay) < 0 ? "text-rose-400" : "text-foreground",
+    },
+    {
+      key: "share",
+      label: t("routeManager.fareEditor.marketShare"),
+      value: `${Math.round(typed.marketShare * 100 * sharePrecision) / sharePrecision}%`,
+      delta: shareDelta,
+      deltaText: signed(shareDelta, points),
+      tone: "text-foreground",
+    },
+  ];
+  return (
+    <div
+      className="rounded-xl border border-border/50 bg-muted/30 px-4 py-3"
+      data-testid="fare-outcome"
+    >
+      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        {t("routeManager.fareEditor.outcomeTitle")}
+      </p>
+      <div className="mt-2 grid grid-cols-3 gap-3">
+        {rows.map((row) => (
+          <div key={row.key} data-testid={`fare-outcome-${row.key}`}>
+            <p className="text-[10px] uppercase text-muted-foreground">{row.label}</p>
+            <p className={`font-mono text-lg font-bold ${row.tone}`}>{row.value}</p>
+            {saved && row.delta !== 0 ? (
+              <p
+                className={`font-mono text-[11px] font-semibold ${row.delta > 0 ? "text-emerald-400" : "text-rose-400"}`}
+              >
+                {t("routeManager.fareEditor.vsNow", { delta: row.deltaText })}
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                {t("routeManager.fareEditor.sameAsNow")}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[10px] text-muted-foreground">
+        {t("routeManager.fareEditor.outcomeNote")}
+      </p>
+    </div>
   );
 }
