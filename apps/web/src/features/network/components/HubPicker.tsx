@@ -204,15 +204,22 @@ export function HubPicker({
                         </div>
                         <div className="ml-2 shrink-0 flex flex-col items-end text-[10px] font-semibold uppercase opacity-70">
                           <span>{airport.country}</span>
-                          <span className="text-[9px] text-muted-foreground">Setup {openFee}</span>
                           <span className="text-[9px] text-muted-foreground">
-                            OPEX {monthlyOpex}/mo
+                            {t("hubPicker.setupShort", { ns: "game", fee: openFee })}
                           </span>
                           <span className="text-[9px] text-muted-foreground">
-                            Cap {capacityPerHour ?? "—"}/hr
+                            {t("hubPicker.opexShort", { ns: "game", cost: monthlyOpex })}
+                          </span>
+                          <span className="text-[9px] text-muted-foreground">
+                            {t("hubPicker.capacityShort", {
+                              ns: "game",
+                              value: capacityPerHour ?? "—",
+                            })}
                           </span>
                           {isSlotControlled && (
-                            <span className="text-[9px] text-amber-300">Slot Ctrl</span>
+                            <span className="text-[9px] text-amber-300">
+                              {t("hubPicker.slotControlledShort", { ns: "game" })}
+                            </span>
                           )}
                         </div>
                       </button>

@@ -1,28 +1,18 @@
 import {
-  FARE_CAP_MULTIPLIER,
   type Airport,
   calculateDemand,
-  calculatePriceElasticity,
   calculateShares,
   canonicalRouteKey,
   computeRouteFrequency,
-  type FixedPoint,
   type FlightOffer,
-  fp,
   fpAdd,
   fpFormat,
   fpScale,
-  fpToNumber,
   getProsperityIndex,
   getSeason,
   getSuggestedFares,
   haversineDistance,
   NATURAL_LF_CEILING,
-  PRICE_ELASTICITY_BUSINESS,
-  PRICE_ELASTICITY_ECONOMY,
-  PRICE_ELASTICITY_FIRST,
-  ROUTE_SLOT_FEE,
-  type Season,
   scaleToAddressableMarket,
   TICKS_PER_DAY,
 } from "@acars/core";
@@ -37,77 +27,35 @@ import {
   CheckCircle2,
   Globe,
   MapPin,
-  PlusCircle,
   Search,
   TrendingUp,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { AirlineFlightBoard } from "@/features/network/components/AirlineFlightBoard";
+import { FareEditor, type FareEditorTarget } from "@/features/network/components/FareEditor";
+import {
+  OpportunitiesList,
+  type ProspectMarket,
+} from "@/features/network/components/OpportunitiesList";
 import { getRouteDemandSnapshotCached } from "@/features/network/hooks/useRouteDemand";
+import {
+  getElasticityTone,
+  getFareTone,
+  toneDotClass,
+  toneTextClass,
+} from "@/features/network/utils/fareTones";
 import {
   estimateRouteEconomics,
   getPrimaryAssignedAircraft,
 } from "@/features/network/utils/routeEconomics";
 import { PanelHeader } from "@/shared/components/layout/PanelLayout";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
-import { ModalPortal } from "@/shared/components/ModalPortal";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { RouteFrequencyControl } from "@/features/network/components/RouteFrequencyControl";
 import { useConfirm } from "@/shared/lib/useConfirm";
-
-const toneDotClass = {
-  emerald: "bg-emerald-500",
-  amber: "bg-amber-500",
-  rose: "bg-rose-500",
-} as const;
-
-const toneTextClass = {
-  emerald: "text-emerald-400",
-  amber: "text-amber-400",
-  rose: "text-rose-400",
-  muted: "text-muted-foreground",
-} as const;
-
-const getFareTone = (actual: FixedPoint, suggested: FixedPoint) => {
-  const actualValue = fpToNumber(actual);
-  const suggestedValue = fpToNumber(suggested);
-  if (suggestedValue <= 0) return null;
-  const ratio = actualValue / suggestedValue;
-  if (ratio <= 1) return "emerald" as const;
-  if (ratio <= 1.2) return null;
-  if (ratio <= 1.5) return "amber" as const;
-  return "rose" as const;
-};
-
-const getElasticityTone = (multiplier: number) => {
-  if (multiplier >= 0.85) return "emerald" as const;
-  if (multiplier >= 0.6) return "amber" as const;
-  return "rose" as const;
-};
-
-const formatSignedPercent = (value: number) => {
-  const signed = value > 0 ? "+" : value < 0 ? "-" : "";
-  return `${signed}${Math.abs(value).toFixed(0)}%`;
-};
-
-const parseFareInput = (value: string) => {
-  const parsed = parseInt(value.replace(/[^0-9]/g, ""), 10);
-  return Number.isNaN(parsed) ? null : parsed;
-};
-
-type ProspectMarket = {
-  origin: Airport;
-  destination: Airport;
-  distance: number;
-  demand: { economy: number; business: number; first: number };
-  estimatedDailyRevenue: FixedPoint;
-  season: Season;
-  routeEconomics: ReturnType<typeof estimateRouteEconomics> | null;
-};
 
 // ---------------------------------------------------------------------------
 // Prospect markets: sorting the ~6k airport catalog by distance per render
@@ -210,19 +158,6 @@ function getProspectMarkets(origin: Airport, tick: number): ProspectMarket[] {
   return built;
 }
 
-const calculateElasticityDisplay = (
-  actualFare: FixedPoint,
-  referenceFare: FixedPoint,
-  elasticity: number,
-) => {
-  const multiplier = calculatePriceElasticity(actualFare, referenceFare, elasticity);
-  const referenceValue = fpToNumber(referenceFare);
-  const actualValue = fpToNumber(actualFare);
-  const ratio = referenceValue > 0 ? actualValue / referenceValue : 1;
-  const deltaPercent = referenceValue > 0 ? (ratio - 1) * 100 : 0;
-  return { multiplier, deltaPercent };
-};
-
 export function RouteManager() {
   const { t } = useTranslation(["common", "game"]);
   const { airline, routes, fleet, isViewingOther } = useActiveAirline();
@@ -231,10 +166,8 @@ export function RouteManager() {
   const pubkey = useAirlineStore((s) => s.pubkey);
   const globalRouteRegistry = useAirlineStore((s) => s.globalRouteRegistry);
   const competitors = useAirlineStore((s) => s.competitors);
-  const { openRoute, updateRouteFares, rebaseRoute, closeRoute } = useAirlineStore(
+  const { rebaseRoute, closeRoute } = useAirlineStore(
     useShallow((s) => ({
-      openRoute: s.openRoute,
-      updateRouteFares: s.updateRouteFares,
       rebaseRoute: s.rebaseRoute,
       closeRoute: s.closeRoute,
     })),
@@ -248,24 +181,7 @@ export function RouteManager() {
   const setTab = (newTab: "active" | "opportunities") => {
     navigate({ search: { tab: newTab } });
   };
-  const [fareEditor, setFareEditor] = useState<{
-    routeId: string;
-    originIata: string;
-    destinationIata: string;
-    distanceKm: number;
-  } | null>(null);
-  const [fareInputs, setFareInputs] = useState<{
-    e: string;
-    b: string;
-    f: string;
-  }>({
-    e: "",
-    b: "",
-    f: "",
-  });
-  const [fareError, setFareError] = useState<string | null>(null);
-  const [isSavingFares, setIsSavingFares] = useState(false);
-  const [openingRouteIata, setOpeningRouteIata] = useState<string | null>(null);
+  const [fareEditor, setFareEditor] = useState<FareEditorTarget | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [rebaseTargets, setRebaseTargets] = useState<Record<string, string>>({});
   const [planningOriginIata, setPlanningOriginIata] = useState<string | null>(
@@ -417,189 +333,6 @@ export function RouteManager() {
   const projectedOriginHourly = currentOriginHourlyFlights + nextRouteHourly;
   const canOpenFromOrigin = !originSlotControlled || projectedOriginHourly <= originCapacityPerHour;
 
-  const fareData = useMemo(() => {
-    if (!fareEditor) {
-      return {
-        suggestedFares: null,
-        activeFareRoute: null,
-        fareDemandSnapshot: null,
-        fareInputValues: {
-          economy: parseFareInput(fareInputs.e),
-          business: parseFareInput(fareInputs.b),
-          first: parseFareInput(fareInputs.f),
-        },
-        resolvedFareInputs: {
-          economy: 0,
-          business: 0,
-          first: 0,
-        },
-        fareElasticity: null,
-        fareProjection: null,
-      };
-    }
-
-    const suggestedFares = getSuggestedFares(fareEditor.distanceKm);
-    const activeFareRoute = routes.find((route) => route.id === fareEditor.routeId) ?? null;
-    const fareDemandSnapshot = activeFareRoute
-      ? getRouteDemandSnapshotCached(activeFareRoute, tick, fleet, routes)
-      : null;
-    const fareInputValues = {
-      economy: parseFareInput(fareInputs.e),
-      business: parseFareInput(fareInputs.b),
-      first: parseFareInput(fareInputs.f),
-    };
-    const resolvedFareInputs = {
-      economy:
-        fareInputValues.economy ?? (activeFareRoute ? fpToNumber(activeFareRoute.fareEconomy) : 0),
-      business:
-        fareInputValues.business ??
-        (activeFareRoute ? fpToNumber(activeFareRoute.fareBusiness) : 0),
-      first: fareInputValues.first ?? (activeFareRoute ? fpToNumber(activeFareRoute.fareFirst) : 0),
-    };
-    const fareElasticity = {
-      economy: calculateElasticityDisplay(
-        fp(resolvedFareInputs.economy),
-        suggestedFares.economy,
-        PRICE_ELASTICITY_ECONOMY,
-      ),
-      business: calculateElasticityDisplay(
-        fp(resolvedFareInputs.business),
-        suggestedFares.business,
-        PRICE_ELASTICITY_BUSINESS,
-      ),
-      first: calculateElasticityDisplay(
-        fp(resolvedFareInputs.first),
-        suggestedFares.first,
-        PRICE_ELASTICITY_FIRST,
-      ),
-    };
-
-    let fareProjection: {
-      currentRevenue: FixedPoint;
-      suggestedRevenue: FixedPoint;
-      currentPassengers: number;
-      suggestedPassengers: number;
-      deltaRevenue: number;
-      deltaPassengers: number;
-    } | null = null;
-
-    if (suggestedFares && fareDemandSnapshot && activeFareRoute) {
-      const assignedFleet = activeFareRoute.assignedAircraftIds
-        .map((id) => fleet.find((item) => item.id === id))
-        .filter((item): item is NonNullable<typeof item> => Boolean(item));
-      if (assignedFleet.length > 0) {
-        const weeklyDemand = fareDemandSnapshot.addressableDemand;
-        const frequency = computeRouteFrequency(
-          activeFareRoute.distanceKm,
-          activeFareRoute.assignedAircraftIds.length,
-        );
-        if (frequency > 0) {
-          const pressureMultiplier = fareDemandSnapshot.pressureMultiplier;
-          const currentEconomy = resolvedFareInputs.economy;
-          const currentBusiness = resolvedFareInputs.business;
-          const currentFirst = resolvedFareInputs.first;
-
-          const currentElasticity = {
-            economy: fareElasticity.economy.multiplier,
-            business: fareElasticity.business.multiplier,
-            first: fareElasticity.first.multiplier,
-          };
-
-          const currentPassengers = {
-            economy: Math.floor(
-              (weeklyDemand.economy / frequency) * pressureMultiplier * currentElasticity.economy,
-            ),
-            business: Math.floor(
-              (weeklyDemand.business / frequency) * pressureMultiplier * currentElasticity.business,
-            ),
-            first: Math.floor(
-              (weeklyDemand.first / frequency) * pressureMultiplier * currentElasticity.first,
-            ),
-          };
-
-          const suggestedPassengers = {
-            economy: Math.floor((weeklyDemand.economy / frequency) * pressureMultiplier),
-            business: Math.floor((weeklyDemand.business / frequency) * pressureMultiplier),
-            first: Math.floor((weeklyDemand.first / frequency) * pressureMultiplier),
-          };
-
-          const currentRevenue = fpAdd(
-            fpAdd(
-              fpScale(fp(currentEconomy), currentPassengers.economy),
-              fpScale(fp(currentBusiness), currentPassengers.business),
-            ),
-            fpScale(fp(currentFirst), currentPassengers.first),
-          );
-
-          const suggestedRevenue = fpAdd(
-            fpAdd(
-              fpScale(suggestedFares.economy, suggestedPassengers.economy),
-              fpScale(suggestedFares.business, suggestedPassengers.business),
-            ),
-            fpScale(suggestedFares.first, suggestedPassengers.first),
-          );
-
-          const currentTotalPassengers =
-            currentPassengers.economy + currentPassengers.business + currentPassengers.first;
-          const suggestedTotalPassengers =
-            suggestedPassengers.economy + suggestedPassengers.business + suggestedPassengers.first;
-
-          fareProjection = {
-            currentRevenue,
-            suggestedRevenue,
-            currentPassengers: currentTotalPassengers,
-            suggestedPassengers: suggestedTotalPassengers,
-            deltaRevenue: fpToNumber(currentRevenue) - fpToNumber(suggestedRevenue),
-            deltaPassengers: currentTotalPassengers - suggestedTotalPassengers,
-          };
-        }
-      }
-    }
-
-    return {
-      suggestedFares,
-      activeFareRoute,
-      fareDemandSnapshot,
-      fareInputValues,
-      resolvedFareInputs,
-      fareElasticity,
-      fareProjection,
-    };
-  }, [fareEditor, fareInputs, routes, tick, fleet]);
-
-  const { suggestedFares, fareElasticity, fareProjection } = fareData;
-
-  const handleSaveFares = async () => {
-    if (!fareEditor) return;
-    const eVal = parseInt(fareInputs.e.replace(/[^0-9]/g, ""), 10);
-    const bVal = parseInt(fareInputs.b.replace(/[^0-9]/g, ""), 10);
-    const fVal = parseInt(fareInputs.f.replace(/[^0-9]/g, ""), 10);
-
-    if ([eVal, bVal, fVal].every((val) => Number.isNaN(val))) {
-      setFareError(t("routeManager.fares.enterAtLeastOne", { ns: "game" }));
-      return;
-    }
-
-    setFareError(null);
-    setIsSavingFares(true);
-    try {
-      await updateRouteFares(fareEditor.routeId, {
-        economy: Number.isNaN(eVal) ? undefined : fp(eVal),
-        business: Number.isNaN(bVal) ? undefined : fp(bVal),
-        first: Number.isNaN(fVal) ? undefined : fp(fVal),
-      });
-      setFareEditor(null);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : t("routeManager.unknownError", { ns: "game" });
-      toast.error(t("routeManager.fareUpdateFailed", { ns: "game" }), {
-        description: message,
-      });
-    } finally {
-      setIsSavingFares(false);
-    }
-  };
-
   // --- Virtualization (hooks must come before any conditional return) ---
   const panelScrollRef = usePanelScrollRef();
   const listParentRef = useRef<HTMLDivElement>(null);
@@ -624,14 +357,6 @@ export function RouteManager() {
     getScrollElement: () => panelScrollRef.current,
     estimateSize: () => 420,
     overscan: 3,
-    scrollMargin: listScrollMargin,
-  });
-
-  const opportunitiesVirtualizer = useVirtualizer({
-    count: displayedOpportunities.length,
-    getScrollElement: () => panelScrollRef.current,
-    estimateSize: () => 220,
-    overscan: 5,
     scrollMargin: listScrollMargin,
   });
 
@@ -744,7 +469,10 @@ export function RouteManager() {
                         </button>
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        Distance {Math.round(route.distanceKm).toLocaleString()} km
+                        {t("routeManager.card.distance", {
+                          ns: "game",
+                          km: Math.round(route.distanceKm).toLocaleString(),
+                        })}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -967,10 +695,10 @@ export function RouteManager() {
                             : "bg-rose-500";
                       const supplyLabel =
                         supplyRatio > 1.05
-                          ? "Over-Supplied"
+                          ? t("routeManager.card.supply.over", { ns: "game" })
                           : supplyRatio < 0.7
-                            ? "Underserved"
-                            : "Balanced";
+                            ? t("routeManager.card.supply.under", { ns: "game" })
+                            : t("routeManager.card.supply.balanced", { ns: "game" });
                       const economyTone = getFareTone(
                         route.fareEconomy,
                         demandSnapshot.referenceFareEconomy,
@@ -1089,13 +817,16 @@ export function RouteManager() {
                                 {!isViewingOther ? <RouteFrequencyControl route={route} /> : null}
                                 <div className="flex flex-col text-right">
                                   <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
-                                    Fleet
+                                    {t("routeManager.card.fleet", { ns: "game" })}
                                   </span>
                                   <span
                                     className={`text-sm font-bold mt-1 ${assignedCount > 0 ? "text-foreground" : "text-red-400 flex items-center gap-1 justify-end"}`}
                                   >
                                     {assignedCount === 0 && <AlertCircle className="h-3 w-3" />}
-                                    {assignedCount} Aircraft Assigned
+                                    {t("routeManager.card.aircraftAssigned", {
+                                      ns: "game",
+                                      count: assignedCount,
+                                    })}
                                   </span>
                                 </div>
 
@@ -1111,12 +842,6 @@ export function RouteManager() {
                                             destinationIata: route.destinationIata,
                                             distanceKm: route.distanceKm,
                                           });
-                                          setFareInputs({
-                                            e: fpToNumber(route.fareEconomy).toString(),
-                                            b: fpToNumber(route.fareBusiness).toString(),
-                                            f: fpToNumber(route.fareFirst).toString(),
-                                          });
-                                          setFareError(null);
                                         }}
                                         className="px-4 py-2 bg-white/5 text-white/60 border border-white/5 rounded-xl text-sm font-bold hover:bg-white/10 transition-all"
                                       >
@@ -1191,7 +916,10 @@ export function RouteManager() {
                                       {t("routeManager.totalMarket", { ns: "game" })}
                                     </span>
                                     <span className="text-foreground font-bold">
-                                      {marketDemand.toLocaleString()} / wk
+                                      {t("units.perWeek", {
+                                        ns: "common",
+                                        value: marketDemand.toLocaleString(),
+                                      })}
                                     </span>
                                   </div>
                                   <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
@@ -1199,7 +927,10 @@ export function RouteManager() {
                                       {t("routeManager.addressable", { ns: "game" })}
                                     </span>
                                     <span className="text-foreground font-bold">
-                                      {addressableTotal.toLocaleString()} / wk
+                                      {t("units.perWeek", {
+                                        ns: "common",
+                                        value: addressableTotal.toLocaleString(),
+                                      })}
                                     </span>
                                   </div>
                                   <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
@@ -1207,7 +938,10 @@ export function RouteManager() {
                                       {t("routeManager.yourSeats", { ns: "game" })}
                                     </span>
                                     <span className="text-foreground font-bold">
-                                      {totalWeeklySeats.toLocaleString()} / wk
+                                      {t("units.perWeek", {
+                                        ns: "common",
+                                        value: totalWeeklySeats.toLocaleString(),
+                                      })}
                                     </span>
                                   </div>
                                 </div>
@@ -1215,9 +949,14 @@ export function RouteManager() {
                                 <div className="mt-3">
                                   <div className="flex justify-between text-[10px] font-semibold">
                                     <span className="text-muted-foreground uppercase">
-                                      Supply Pressure
+                                      {t("routeManager.card.supplyPressure", { ns: "game" })}
                                     </span>
-                                    <span className={lfTone}>{loadFactor}% LF</span>
+                                    <span className={lfTone}>
+                                      {t("routeManager.card.seatsFilledPct", {
+                                        ns: "game",
+                                        value: loadFactor,
+                                      })}
+                                    </span>
                                   </div>
                                   <div className="mt-1 h-2 w-full rounded-full bg-background/70 overflow-hidden">
                                     <div
@@ -1228,17 +967,28 @@ export function RouteManager() {
                                     />
                                   </div>
                                   <div className="mt-2 flex justify-between text-[9px] text-muted-foreground">
-                                    <span>Target {Math.round(NATURAL_LF_CEILING * 100)}%</span>
+                                    <span>
+                                      {t("routeManager.card.target", {
+                                        ns: "game",
+                                        value: Math.round(NATURAL_LF_CEILING * 100),
+                                      })}
+                                    </span>
                                     <span>
                                       {supplyRatio > 1.05
-                                        ? `Oversupply ${supplyRatio.toFixed(2)}x`
-                                        : `Coverage ${supplyRatio.toFixed(2)}x`}
+                                        ? t("routeManager.card.oversupply", {
+                                            ns: "game",
+                                            ratio: supplyRatio.toFixed(2),
+                                          })
+                                        : t("routeManager.card.coverage", {
+                                            ns: "game",
+                                            ratio: supplyRatio.toFixed(2),
+                                          })}
                                     </span>
                                   </div>
                                   {showPriceEffect && (
                                     <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
                                       <span className="uppercase text-muted-foreground">
-                                        Price Effect
+                                        {t("routeManager.card.priceEffect", { ns: "game" })}
                                       </span>
                                       <span
                                         className={`font-mono ${toneTextClass[getElasticityTone(economyElasticity)]}`}
@@ -1263,14 +1013,22 @@ export function RouteManager() {
                                         <>
                                           <ArrowUp className="h-3 w-3 text-emerald-400" />
                                           <span className="text-emerald-400">
-                                            +{demandSnapshot.suggestedFleetDelta} aircraft suggested
+                                            {t("routeManager.card.aircraftSuggested", {
+                                              ns: "game",
+                                              count: demandSnapshot.suggestedFleetDelta,
+                                              delta: `+${demandSnapshot.suggestedFleetDelta}`,
+                                            })}
                                           </span>
                                         </>
                                       ) : (
                                         <>
                                           <ArrowDown className="h-3 w-3 text-amber-400" />
                                           <span className="text-amber-400">
-                                            {demandSnapshot.suggestedFleetDelta} aircraft suggested
+                                            {t("routeManager.card.aircraftSuggested", {
+                                              ns: "game",
+                                              count: demandSnapshot.suggestedFleetDelta,
+                                              delta: demandSnapshot.suggestedFleetDelta,
+                                            })}
                                           </span>
                                         </>
                                       )}
@@ -1281,7 +1039,7 @@ export function RouteManager() {
                                     <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3 text-[10px] font-mono">
                                       <div className="rounded-lg border border-border/30 bg-background/40 px-2 py-2">
                                         <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                          Profit / flight
+                                          {t("routeManager.card.profitPerFlight", { ns: "game" })}
                                         </div>
                                         <div
                                           className={`mt-1 font-bold ${routeEconomics.profitPerFlight >= 0 ? "text-emerald-400" : "text-rose-400"}`}
@@ -1289,37 +1047,56 @@ export function RouteManager() {
                                           {fpFormat(routeEconomics.profitPerFlight, 0)}
                                         </div>
                                         <div className="mt-1 text-[9px] text-muted-foreground">
-                                          Rev {fpFormat(routeEconomics.revenuePerFlight, 0)} • Cost{" "}
-                                          {fpFormat(routeEconomics.costPerFlight, 0)}
+                                          {t("routeManager.card.revCost", {
+                                            ns: "game",
+                                            revenue: fpFormat(routeEconomics.revenuePerFlight, 0),
+                                            cost: fpFormat(routeEconomics.costPerFlight, 0),
+                                          })}
                                         </div>
                                       </div>
                                       <div className="rounded-lg border border-border/30 bg-background/40 px-2 py-2">
                                         <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                          Break-even LF
+                                          {t("routeManager.card.breakEven", { ns: "game" })}
                                         </div>
                                         <div className="mt-1 font-bold text-foreground">
                                           {Math.round(routeEconomics.breakEvenLoadFactor * 100)}%
                                         </div>
                                         <div className="mt-1 text-[9px] text-muted-foreground">
-                                          Current est.{" "}
-                                          {Math.round(routeEconomics.estimatedLoadFactor * 100)}%
+                                          {t("routeManager.card.currentEstimate", {
+                                            ns: "game",
+                                            value: Math.round(
+                                              routeEconomics.estimatedLoadFactor * 100,
+                                            ),
+                                          })}
                                         </div>
                                       </div>
                                       <div className="rounded-lg border border-border/30 bg-background/40 px-2 py-2">
                                         <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                          Action
+                                          {t("routeManager.card.action", { ns: "game" })}
                                         </div>
                                         <div className="mt-1 font-bold text-foreground">
                                           {routeEconomics.recommendedAircraftCount < assignedCount
-                                            ? `Remove ${assignedCount - routeEconomics.recommendedAircraftCount}`
+                                            ? t("routeManager.card.removeAircraft", {
+                                                ns: "game",
+                                                count:
+                                                  assignedCount -
+                                                  routeEconomics.recommendedAircraftCount,
+                                              })
                                             : routeEconomics.recommendedAircraftCount >
                                                 assignedCount
-                                              ? `Add ${routeEconomics.recommendedAircraftCount - assignedCount}`
-                                              : "Hold fleet"}
+                                              ? t("routeManager.card.addAircraft", {
+                                                  ns: "game",
+                                                  count:
+                                                    routeEconomics.recommendedAircraftCount -
+                                                    assignedCount,
+                                                })
+                                              : t("routeManager.card.holdFleet", { ns: "game" })}
                                         </div>
                                         <div className="mt-1 text-[9px] text-muted-foreground">
-                                          Supports ~{routeEconomics.recommendedAircraftCount}{" "}
-                                          aircraft
+                                          {t("routeManager.card.supportsAircraft", {
+                                            ns: "game",
+                                            count: routeEconomics.recommendedAircraftCount,
+                                          })}
                                         </div>
                                       </div>
                                     </div>
@@ -1333,25 +1110,25 @@ export function RouteManager() {
                               <div className="flex items-center justify-between mb-3">
                                 <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
                                   <Globe className="h-3 w-3" />
-                                  Market Health
+                                  {t("routeManager.card.marketHealth", { ns: "game" })}
                                 </h4>
                                 <div className="flex gap-2">
                                   <div className="flex items-center gap-1">
                                     <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
                                     <span className="text-[8px] text-muted-foreground font-bold uppercase">
-                                      Econ
+                                      {t("routeManager.fareEditor.class.economy", { ns: "game" })}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                                     <span className="text-[8px] text-muted-foreground font-bold uppercase">
-                                      Bus
+                                      {t("routeManager.fareEditor.class.business", { ns: "game" })}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
                                     <span className="text-[8px] text-muted-foreground font-bold uppercase">
-                                      First
+                                      {t("routeManager.fareEditor.class.first", { ns: "game" })}
                                     </span>
                                   </div>
                                 </div>
@@ -1408,7 +1185,7 @@ export function RouteManager() {
                                     <div className="bg-emerald-500/5 rounded-xl p-3 border border-emerald-500/10">
                                       <p className="text-[11px] text-emerald-400/80 font-medium flex items-center gap-2">
                                         <CheckCircle2 className="h-3 w-3" />
-                                        Monopoly Market: No active competitors found on this route.
+                                        {t("routeManager.card.noRivals", { ns: "game" })}
                                       </p>
                                     </div>
                                   );
@@ -1456,11 +1233,16 @@ export function RouteManager() {
                                             </div>
                                             <div className="flex flex-col">
                                               <span className="text-xs font-bold text-foreground">
-                                                {comp?.name || "Unknown Airline"}
+                                                {comp?.name ||
+                                                  t("routeManager.card.unknownAirline", {
+                                                    ns: "game",
+                                                  })}
                                               </span>
                                               <span className="text-[9px] text-muted-foreground uppercase font-semibold">
-                                                Freq: {offer.frequencyPerWeek}
-                                                /wk
+                                                {t("routeManager.card.rivalFrequency", {
+                                                  ns: "game",
+                                                  value: offer.frequencyPerWeek,
+                                                })}
                                               </span>
                                             </div>
                                           </div>
@@ -1480,7 +1262,7 @@ export function RouteManager() {
                                             <div className="h-8 w-px bg-border/50" />
                                             <div className="flex flex-col text-right">
                                               <span className="text-[9px] text-muted-foreground uppercase font-bold">
-                                                Est. Share
+                                                {t("routeManager.card.estShare", { ns: "game" })}
                                               </span>
                                               <span className="text-xs font-bold text-accent">
                                                 {compShare.toFixed(1)}%
@@ -1503,596 +1285,23 @@ export function RouteManager() {
               )}
             </>
           ) : (
-            <div ref={listParentRef}>
-              <div
-                style={{
-                  height: `${opportunitiesVirtualizer.getTotalSize()}px`,
-                  position: "relative",
-                }}
-              >
-                {opportunitiesVirtualizer.getVirtualItems().map((virtualItem) => {
-                  const market = displayedOpportunities[virtualItem.index];
-                  const isAlreadyOpen = activeRoutes.some(
-                    (r) =>
-                      r.originIata === market.origin.iata &&
-                      r.destinationIata === market.destination.iata,
-                  );
-                  const totalDemand =
-                    market.demand.economy + market.demand.business + market.demand.first;
-                  const addressableDemand = scaleToAddressableMarket({
-                    origin: market.origin.iata,
-                    destination: market.destination.iata,
-                    economy: market.demand.economy,
-                    business: market.demand.business,
-                    first: market.demand.first,
-                  });
-                  const addressableTotal =
-                    addressableDemand.economy +
-                    addressableDemand.business +
-                    addressableDemand.first;
-                  const destinationMeta = HUB_CLASSIFICATIONS[market.destination.iata];
-                  const destinationCapacity = destinationMeta?.baseCapacityPerHour ?? null;
-                  const destinationSlotControlled = destinationMeta?.slotControlled ?? false;
-                  const routeEconomics = market.routeEconomics;
-
-                  return (
-                    <div
-                      key={virtualItem.key}
-                      data-index={virtualItem.index}
-                      ref={opportunitiesVirtualizer.measureElement}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        transform: `translateY(${virtualItem.start - opportunitiesVirtualizer.options.scrollMargin}px)`,
-                      }}
-                    >
-                      <div className="group relative rounded-2xl bg-card border border-border overflow-hidden p-5 transition-all hover:border-primary/50 mb-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="flex flex-wrap items-center gap-3 sm:gap-8">
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-2">
-                                <span className="text-2xl font-black text-foreground tracking-tighter">
-                                  {market.destination.iata}
-                                  {market.destination.icao &&
-                                    market.destination.icao !== market.destination.iata && (
-                                      <span className="ml-2 text-xs text-muted-foreground font-mono font-normal">
-                                        [{market.destination.icao}]
-                                      </span>
-                                    )}
-                                </span>
-                                <TrendingUp className="h-4 w-4 text-accent" />
-                              </div>
-                              <span className="text-sm font-bold text-muted-foreground">
-                                {market.destination.city}, {market.destination.country}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-col">
-                              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                Total Market
-                              </span>
-                              <span className="text-lg font-mono font-bold">
-                                {totalDemand.toLocaleString()}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-col">
-                              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                Addressable
-                              </span>
-                              <span className="text-lg font-mono font-bold text-foreground">
-                                {addressableTotal.toLocaleString()}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-col">
-                              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                Distance
-                              </span>
-                              <span className="text-lg font-mono font-bold text-accent">
-                                {Math.round(market.distance).toLocaleString()} km
-                              </span>
-                            </div>
-
-                            <div className="flex flex-col">
-                              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                Est. Profit / flight
-                              </span>
-                              <span
-                                className={`text-lg font-mono font-bold ${routeEconomics && routeEconomics.profitPerFlight >= 0 ? "text-green-400" : "text-rose-400"}`}
-                              >
-                                {routeEconomics
-                                  ? fpFormat(routeEconomics.profitPerFlight, 0)
-                                  : fpFormat(market.estimatedDailyRevenue, 0)}
-                              </span>
-                            </div>
-                            {destinationCapacity && (
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                  Destination Capacity
-                                </span>
-                                <span className="text-xs font-semibold text-foreground">
-                                  {destinationCapacity}/hr
-                                  {destinationSlotControlled ? " • Slot Controlled" : ""}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {isAlreadyOpen ? (
-                            <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-xl text-sm font-bold">
-                              <CheckCircle2 className="h-4 w-4" />
-                              Route Open
-                            </div>
-                          ) : !isViewingOther ? (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const approved = await confirm({
-                                  title: t("routeManager.openRouteConfirmTitle", { ns: "game" }),
-                                  description: t("routeManager.openRouteConfirmDescription", {
-                                    ns: "game",
-                                    fee: fpFormat(ROUTE_SLOT_FEE, 0),
-                                    origin: market.origin.iata,
-                                    destination: market.destination.iata,
-                                  }),
-                                  confirmLabel: t("routeManager.openRouteConfirmLabel", {
-                                    ns: "game",
-                                  }),
-                                });
-                                if (!approved) return;
-                                setOpeningRouteIata(market.destination.iata);
-                                try {
-                                  await openRoute(
-                                    market.origin.iata,
-                                    market.destination.iata,
-                                    market.distance,
-                                  );
-                                } catch (error) {
-                                  const message =
-                                    error instanceof Error
-                                      ? error.message
-                                      : t("routeManager.unknownError", { ns: "game" });
-                                  toast.error(t("routeManager.routeOpenFailed", { ns: "game" }), {
-                                    description: message,
-                                  });
-                                } finally {
-                                  setOpeningRouteIata(null);
-                                }
-                              }}
-                              disabled={!canOpenFromOrigin || openingRouteIata !== null}
-                              className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-primary/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                            >
-                              {openingRouteIata === market.destination.iata ? (
-                                <>
-                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                  {t("routeManager.opening", { ns: "game" })}
-                                </>
-                              ) : (
-                                <>
-                                  <PlusCircle className="h-4 w-4" />
-                                  {t("routeManager.openRouteWithFee", {
-                                    ns: "game",
-                                    fee: fpFormat(ROUTE_SLOT_FEE, 0),
-                                  })}
-                                </>
-                              )}
-                            </button>
-                          ) : null}
-                        </div>
-                        {!isAlreadyOpen && originSlotControlled && !canOpenFromOrigin && (
-                          <div className="mt-3 text-xs text-amber-400">
-                            Slot capacity reached at {market.origin.iata}. Reduce frequency or
-                            choose another hub.
-                          </div>
-                        )}
-                        <div className="mt-4 flex h-1 w-full rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full bg-zinc-500"
-                            style={{
-                              width: `${(market.demand.economy / (totalDemand || 1)) * 100}%`,
-                            }}
-                            title="Economy"
-                          />
-                          <div
-                            className="h-full bg-blue-500"
-                            style={{
-                              width: `${(market.demand.business / (totalDemand || 1)) * 100}%`,
-                            }}
-                            title="Business"
-                          />
-                          <div
-                            className="h-full bg-yellow-500"
-                            style={{
-                              width: `${(market.demand.first / (totalDemand || 1)) * 100}%`,
-                            }}
-                            title="First"
-                          />
-                        </div>
-                        {routeEconomics && (
-                          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 text-[10px] font-mono">
-                            <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                              <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                Cost / flight
-                              </div>
-                              <div className="mt-1 font-bold text-foreground">
-                                {fpFormat(routeEconomics.costPerFlight, 0)}
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                              <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                Break-even LF
-                              </div>
-                              <div className="mt-1 font-bold text-foreground">
-                                {Math.round(routeEconomics.breakEvenLoadFactor * 100)}%
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                              <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                Suggested fleet
-                              </div>
-                              <div className="mt-1 font-bold text-foreground">
-                                {routeEconomics.recommendedAircraftCount} aircraft
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                              <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                Cost split
-                              </div>
-                              <div className="mt-1 text-[9px] text-muted-foreground">
-                                Fuel {fpFormat(routeEconomics.costBreakdown.fuel, 0)} • Crew{" "}
-                                {fpFormat(routeEconomics.costBreakdown.crew, 0)}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {searchQuery.length > 0 && searchQuery.length < 2 && (
-                <div className="p-8 text-center text-muted-foreground font-bold italic">
-                  Type at least 2 characters to search…
-                </div>
-              )}
-              {searchQuery.length >= 2 && searchResults.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground font-bold italic">
-                  No airports found matching "{searchQuery}"
-                </div>
-              )}
-            </div>
+            <OpportunitiesList
+              markets={displayedOpportunities}
+              activeRoutes={activeRoutes}
+              isViewingOther={isViewingOther}
+              canOpenFromOrigin={canOpenFromOrigin}
+              originSlotControlled={originSlotControlled}
+              searchQuery={searchQuery}
+              searchResultCount={searchResults.length}
+            />
           )}
         </div>
         {fareEditor && (
-          <ModalPortal>
-            <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
-              <button
-                type="button"
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={() => !isSavingFares && setFareEditor(null)}
-                aria-label="Close fare editor"
-              />
-              <div className="relative z-10 flex w-full max-h-[100dvh] flex-col overflow-hidden rounded-t-[24px] border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:max-h-[85vh] sm:max-w-xl sm:rounded-2xl">
-                <div className="shrink-0 flex items-start justify-between border-b border-border/50 px-4 py-4 sm:px-6 sm:py-5">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                      Route Pricing
-                    </p>
-                    <h3 className="flex items-center gap-1.5 text-lg font-bold text-foreground">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFareEditor(null);
-                          navigateToAirport(fareEditor.originIata);
-                        }}
-                        className="hover:text-primary transition-colors cursor-pointer"
-                      >
-                        {fareEditor.originIata}
-                      </button>
-                      <span className="text-muted-foreground">→</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFareEditor(null);
-                          navigateToAirport(fareEditor.destinationIata);
-                        }}
-                        className="hover:text-primary transition-colors cursor-pointer"
-                      >
-                        {fareEditor.destinationIata}
-                      </button>
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Distance: {Math.round(fareEditor.distanceKm).toLocaleString()} km
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => !isSavingFares && setFareEditor(null)}
-                    className="rounded-full bg-background/60 p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    aria-label="Close fare editor"
-                  >
-                    <X className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                </div>
-                <div className="custom-scrollbar flex-1 min-h-0 overflow-y-auto px-4 py-4 pb-10 space-y-4 sm:px-6 sm:py-5 sm:pb-12 sm:space-y-5">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="rounded-xl border border-border/50 bg-background/60 p-4">
-                      <label
-                        htmlFor="fare-economy"
-                        className="text-[10px] uppercase text-muted-foreground font-semibold"
-                      >
-                        Economy
-                      </label>
-                      <input
-                        id="fare-economy"
-                        type="number"
-                        min="0"
-                        step="1"
-                        max={
-                          suggestedFares
-                            ? Math.round(fpToNumber(suggestedFares.economy) * FARE_CAP_MULTIPLIER)
-                            : undefined
-                        }
-                        value={fareInputs.e}
-                        onChange={(e) => setFareInputs({ ...fareInputs, e: e.target.value })}
-                        className="mt-2 h-10 w-full rounded-lg bg-background border border-border/50 px-3 text-sm font-medium outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
-                      />
-                      {suggestedFares ? (
-                        <p className="mt-2 text-[10px] text-muted-foreground">
-                          Suggested: {fpToNumber(suggestedFares.economy)} · max{" "}
-                          {Math.round(fpToNumber(suggestedFares.economy) * FARE_CAP_MULTIPLIER)}
-                        </p>
-                      ) : null}
-                      {suggestedFares && fareElasticity ? (
-                        <div className="mt-3 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-                          <div className="flex items-center justify-between text-[10px] font-semibold">
-                            <span className="uppercase text-muted-foreground">Demand Impact</span>
-                            <span
-                              className={`font-mono ${toneTextClass[getElasticityTone(fareElasticity.economy.multiplier)]}`}
-                            >
-                              {fareElasticity.economy.multiplier.toFixed(2)}x
-                            </span>
-                          </div>
-                          <div className="mt-2 h-2 w-full rounded-full bg-background/70 overflow-hidden relative">
-                            <div
-                              className={`h-full transition-all duration-500 ${toneDotClass[getElasticityTone(fareElasticity.economy.multiplier)]}`}
-                              style={{
-                                width: `${Math.min(100, (fareElasticity.economy.multiplier / 1.5) * 100)}%`,
-                              }}
-                            />
-                            <div
-                              className="absolute inset-y-0 left-[66.7%] w-px bg-white/30"
-                              aria-hidden
-                            />
-                            {fareElasticity.economy.multiplier > 1 && (
-                              <div
-                                className="absolute inset-y-0 left-[66.7%] bg-sky-500/70"
-                                style={{
-                                  width: `${Math.min(33.3, ((fareElasticity.economy.multiplier - 1) / 0.5) * 33.3)}%`,
-                                }}
-                              />
-                            )}
-                          </div>
-                          <p className="mt-2 text-[10px] text-muted-foreground">
-                            Fare is {formatSignedPercent(fareElasticity.economy.deltaPercent)} vs
-                            market
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="rounded-xl border border-border/50 bg-background/60 p-4">
-                      <label
-                        htmlFor="fare-business"
-                        className="text-[10px] uppercase text-muted-foreground font-semibold"
-                      >
-                        Business
-                      </label>
-                      <input
-                        id="fare-business"
-                        type="number"
-                        min="0"
-                        step="1"
-                        max={
-                          suggestedFares
-                            ? Math.round(fpToNumber(suggestedFares.business) * FARE_CAP_MULTIPLIER)
-                            : undefined
-                        }
-                        value={fareInputs.b}
-                        onChange={(e) => setFareInputs({ ...fareInputs, b: e.target.value })}
-                        className="mt-2 h-10 w-full rounded-lg bg-background border border-border/50 px-3 text-sm font-medium outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-blue-400"
-                      />
-                      {suggestedFares ? (
-                        <p className="mt-2 text-[10px] text-blue-400/70">
-                          Suggested: {fpToNumber(suggestedFares.business)} · max{" "}
-                          {Math.round(fpToNumber(suggestedFares.business) * FARE_CAP_MULTIPLIER)}
-                        </p>
-                      ) : null}
-                      {suggestedFares && fareElasticity ? (
-                        <div className="mt-3 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-                          <div className="flex items-center justify-between text-[10px] font-semibold">
-                            <span className="uppercase text-muted-foreground">Demand Impact</span>
-                            <span
-                              className={`font-mono ${toneTextClass[getElasticityTone(fareElasticity.business.multiplier)]}`}
-                            >
-                              {fareElasticity.business.multiplier.toFixed(2)}x
-                            </span>
-                          </div>
-                          <div className="mt-2 h-2 w-full rounded-full bg-background/70 overflow-hidden relative">
-                            <div
-                              className={`h-full transition-all duration-500 ${toneDotClass[getElasticityTone(fareElasticity.business.multiplier)]}`}
-                              style={{
-                                width: `${Math.min(100, (fareElasticity.business.multiplier / 1.5) * 100)}%`,
-                              }}
-                            />
-                            <div
-                              className="absolute inset-y-0 left-[66.7%] w-px bg-white/30"
-                              aria-hidden
-                            />
-                            {fareElasticity.business.multiplier > 1 && (
-                              <div
-                                className="absolute inset-y-0 left-[66.7%] bg-sky-500/70"
-                                style={{
-                                  width: `${Math.min(33.3, ((fareElasticity.business.multiplier - 1) / 0.5) * 33.3)}%`,
-                                }}
-                              />
-                            )}
-                          </div>
-                          <p className="mt-2 text-[10px] text-muted-foreground">
-                            Fare is {formatSignedPercent(fareElasticity.business.deltaPercent)} vs
-                            market
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="rounded-xl border border-border/50 bg-background/60 p-4">
-                      <label
-                        htmlFor="fare-first"
-                        className="text-[10px] uppercase text-muted-foreground font-semibold"
-                      >
-                        First
-                      </label>
-                      <input
-                        id="fare-first"
-                        type="number"
-                        min="0"
-                        step="1"
-                        max={
-                          suggestedFares
-                            ? Math.round(fpToNumber(suggestedFares.first) * FARE_CAP_MULTIPLIER)
-                            : undefined
-                        }
-                        value={fareInputs.f}
-                        onChange={(e) => setFareInputs({ ...fareInputs, f: e.target.value })}
-                        className="mt-2 h-10 w-full rounded-lg bg-background border border-border/50 px-3 text-sm font-medium outline-none focus:border-yellow-500/60 focus:ring-2 focus:ring-yellow-500/20 text-yellow-500"
-                      />
-                      {suggestedFares ? (
-                        <p className="mt-2 text-[10px] text-yellow-500/70">
-                          Suggested: {fpToNumber(suggestedFares.first)} · max{" "}
-                          {Math.round(fpToNumber(suggestedFares.first) * FARE_CAP_MULTIPLIER)}
-                        </p>
-                      ) : null}
-                      {suggestedFares && fareElasticity ? (
-                        <div className="mt-3 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
-                          <div className="flex items-center justify-between text-[10px] font-semibold">
-                            <span className="uppercase text-muted-foreground">Demand Impact</span>
-                            <span
-                              className={`font-mono ${toneTextClass[getElasticityTone(fareElasticity.first.multiplier)]}`}
-                            >
-                              {fareElasticity.first.multiplier.toFixed(2)}x
-                            </span>
-                          </div>
-                          <div className="mt-2 h-2 w-full rounded-full bg-background/70 overflow-hidden relative">
-                            <div
-                              className={`h-full transition-all duration-500 ${toneDotClass[getElasticityTone(fareElasticity.first.multiplier)]}`}
-                              style={{
-                                width: `${Math.min(100, (fareElasticity.first.multiplier / 1.5) * 100)}%`,
-                              }}
-                            />
-                            <div
-                              className="absolute inset-y-0 left-[66.7%] w-px bg-white/30"
-                              aria-hidden
-                            />
-                            {fareElasticity.first.multiplier > 1 && (
-                              <div
-                                className="absolute inset-y-0 left-[66.7%] bg-sky-500/70"
-                                style={{
-                                  width: `${Math.min(33.3, ((fareElasticity.first.multiplier - 1) / 0.5) * 33.3)}%`,
-                                }}
-                              />
-                            )}
-                          </div>
-                          <p className="mt-2 text-[10px] text-muted-foreground">
-                            Fare is {formatSignedPercent(fareElasticity.first.deltaPercent)} vs
-                            market
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  {fareProjection ? (
-                    <div className="rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-muted-foreground">
-                        Revenue Projection
-                      </div>
-                      <div className="mt-2 grid grid-cols-1 gap-2 text-xs font-mono">
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">At current fares</span>
-                          <span className="font-bold text-foreground">
-                            {fpFormat(fareProjection.currentRevenue, 0)} / flight
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">At suggested fares</span>
-                          <span className="font-bold text-muted-foreground">
-                            {fpFormat(fareProjection.suggestedRevenue, 0)} / flight
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Delta</span>
-                          <span
-                            className={`font-bold ${fareProjection.deltaRevenue >= 0 ? "text-emerald-400" : "text-rose-400"}`}
-                          >
-                            {fareProjection.deltaRevenue >= 0 ? "+" : "-"}
-                            {Math.abs(fareProjection.deltaRevenue).toLocaleString()} revenue{" "}
-                            {fareProjection.deltaPassengers !== 0 && (
-                              <span className="text-muted-foreground">
-                                ({fareProjection.deltaPassengers > 0 ? "+" : "-"}
-                                {Math.abs(fareProjection.deltaPassengers)} pax)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-[10px] text-muted-foreground">
-                      Assign aircraft to see revenue projection.
-                    </div>
-                  )}
-                  {fareError ? (
-                    <p className="text-xs font-semibold text-red-400">{fareError}</p>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!suggestedFares) return;
-                      setFareInputs({
-                        e: fpToNumber(suggestedFares.economy).toString(),
-                        b: fpToNumber(suggestedFares.business).toString(),
-                        f: fpToNumber(suggestedFares.first).toString(),
-                      });
-                    }}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-background/60 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-accent"
-                  >
-                    Use suggested fares
-                  </button>
-                </div>
-                <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border/50 px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-4">
-                  <button
-                    type="button"
-                    onClick={() => setFareEditor(null)}
-                    disabled={isSavingFares}
-                    className="rounded-lg border border-border bg-background/70 px-4 py-2 text-sm font-semibold text-foreground hover:bg-accent"
-                  >
-                    {t("actions.cancel", { ns: "common" })}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveFares}
-                    disabled={isSavingFares}
-                    className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-60"
-                  >
-                    {isSavingFares
-                      ? t("routeManager.saving", { ns: "game" })
-                      : t("routeManager.saveFares", { ns: "game" })}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </ModalPortal>
+          <FareEditor
+            key={fareEditor.routeId}
+            target={fareEditor}
+            onClose={() => setFareEditor(null)}
+          />
         )}
       </div>
     </div>

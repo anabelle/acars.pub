@@ -36,7 +36,9 @@
     "status": "Estado",
     "flight": "Vuelo",
     "aircraft": "A/N",
-    "loadFactor": "FC"
+    "loadFactor": "FC",
+    "flightCount_one": "{{count}} vuelo",
+    "flightCount_other": "{{count}} vuelos"
   },
   "timeline": {
     "occupancy": "Ocupación",
@@ -540,6 +542,92 @@
       "detail": "{{legs}} vuelos/día · máx. {{max}}/sem con esta flota",
       "noAircraft": "Asigna un avión para operarla",
       "failed": "No se pudo cambiar la frecuencia"
+    },
+    "fareEditor": {
+      "presets": "Tarifas predefinidas",
+      "preset": {
+        "aggressive": "Agresiva",
+        "suggested": "Sugerida",
+        "premium": "Premium"
+      },
+      "outcomeTitle": "Si cobras estas tarifas",
+      "seatsFilled": "Asientos ocupados",
+      "profitPerDay": "Beneficio / día",
+      "marketShare": "Cuota de mercado",
+      "vsNow": "{{delta}} vs. ahora",
+      "sameAsNow": "Igual que ahora",
+      "points_one": "{{count}} pt",
+      "points_other": "{{count}} pts",
+      "outcomeNote": "Previsión con la temporada, el combustible y los rivales de hoy, antes del alquiler y los costes de hub.",
+      "assignToProject": "Asigna un avión a esta ruta para ver lo que ganarían estas tarifas.",
+      "closeAria": "Cerrar el editor de tarifas",
+      "title": "Precios de la ruta",
+      "distance": "Distancia: {{km}} km",
+      "suggestedAndMax": "Sugerida: {{suggested}} · máx. {{max}}",
+      "vsMarket": "Tarifa {{delta}} vs. mercado",
+      "demandImpact": "Impacto en la demanda",
+      "class": {
+        "economy": "Turista",
+        "business": "Business",
+        "first": "Primera"
+      }
+    },
+    "opportunities": {
+      "profitPerDay": "Beneficio / día",
+      "outOfRange": "Fuera de alcance",
+      "withModel": "con un {{model}}, tras el alquiler",
+      "totalMarket": "Mercado total",
+      "addressable": "Alcanzable",
+      "distance": "Distancia",
+      "destinationCapacity": "Capacidad del destino",
+      "slotControlled": "Con slots",
+      "routeOpen": "Ruta abierta",
+      "slotFull": "{{origin}} no tiene slots libres. Vuela menos desde allí o elige otro hub.",
+      "costPerFlight": "Coste / vuelo",
+      "breakEven": "Ocupación de equilibrio",
+      "suggestedFleet": "Flota sugerida",
+      "aircraftCount_one": "{{count}} avión",
+      "aircraftCount_other": "{{count}} aviones",
+      "costSplit": "Reparto de costes",
+      "fuelCrew": "Combustible {{fuel}} • Tripulación {{crew}}",
+      "searchMinChars": "Escribe al menos 2 caracteres para buscar…",
+      "searchNoResults": "Ningún aeropuerto coincide con «{{query}}»"
+    },
+    "card": {
+      "distance": "Distancia {{km}} km",
+      "fleet": "Flota",
+      "aircraftAssigned_one": "{{count}} avión asignado",
+      "aircraftAssigned_other": "{{count}} aviones asignados",
+      "supplyPressure": "Asientos vs. demanda",
+      "seatsFilledPct": "{{value}} % de ocupación",
+      "target": "Objetivo {{value}} %",
+      "oversupply": "Demasiados asientos: {{ratio}}×",
+      "coverage": "Demanda cubierta: {{ratio}}×",
+      "priceEffect": "Efecto del precio",
+      "aircraftSuggested_one": "{{delta}} avión sugerido",
+      "aircraftSuggested_other": "{{delta}} aviones sugeridos",
+      "profitPerFlight": "Beneficio / vuelo",
+      "revCost": "Ingresos {{revenue}} • Coste {{cost}}",
+      "breakEven": "Ocupación de equilibrio",
+      "currentEstimate": "Ahora cerca del {{value}} %",
+      "action": "Sugerencia",
+      "removeAircraft_one": "Quita {{count}} avión",
+      "removeAircraft_other": "Quita {{count}} aviones",
+      "addAircraft_one": "Añade {{count}} avión",
+      "addAircraft_other": "Añade {{count}} aviones",
+      "holdFleet": "Mantén la flota",
+      "supportsAircraft_one": "La demanda da para {{count}} avión",
+      "supportsAircraft_other": "La demanda da para unos {{count}} aviones",
+      "marketHealth": "Mercado",
+      "noRivals": "Ninguna aerolínea rival vuela esta ruta todavía.",
+      "unknownAirline": "Aerolínea desconocida",
+      "rivalFrequency": "{{value}}×/sem",
+      "estShare": "Cuota est.",
+      "supply": {
+        "over": "Demasiados asientos",
+        "under": "Margen para crecer",
+        "balanced": "Equilibrada"
+      }
     }
   },
   "hubPicker": {
@@ -557,7 +645,11 @@
     "selected": "Seleccionado",
     "setupFee": "Tarifa de apertura",
     "monthlyCost": "Costo mensual",
-    "confirm": "Confirmar hub"
+    "confirm": "Confirmar hub",
+    "setupShort": "Apertura {{fee}}",
+    "opexShort": "Operación {{cost}}/mes",
+    "capacityShort": "Capacidad {{value}}/h",
+    "slotControlledShort": "Con slots"
   },
   "ticker": {
     "airlines": "Aerolíneas",

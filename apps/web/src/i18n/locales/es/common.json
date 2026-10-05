@@ -182,5 +182,11 @@
     "connecting": "Conectando a los relays…",
     "offline": "Sin conexión",
     "retry": "Reintentar"
+  },
+  "units": {
+    "hours": "{{value}} h",
+    "timesPerWeek": "{{value}}×/sem",
+    "perWeek": "{{value}} / sem",
+    "perHour": "{{value}}/h"
   }
 }
