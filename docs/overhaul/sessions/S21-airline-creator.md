@@ -3,7 +3,7 @@
 > **Status:** ☑ ready for review
 > **Next step:** — (all steps done; awaiting review)
 > **Branch:** claude/zen-darwin-3op878
-> **PR:** —
+> **PR:** https://github.com/anabelle/acars.pub/pull/166
 >
 > **Track:** UX · **Size:** M (4 steps) · **Depends on:** — · **Unblocks:** S26
 >
