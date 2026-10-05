@@ -5,7 +5,7 @@
   "creator": {
     "connectedSubtitle": "Connected - create your airline",
     "title": "Launch Your Airline",
-    "subtitle": "Set up your home airport, name your airline, and pick your colors. You'll be flying in under a minute.",
+    "subtitle": "Name your airline and pick a home hub. You'll be flying in under a minute.",
     "creationFailed": "Airline creation failed",
     "homeHub": "Home Hub",
     "homeHubDesc": "This is where your airline will be based. It determines your starting region and costs.",
@@ -15,7 +15,7 @@
     "setup": "Setup",
     "monthly": "Monthly",
     "airlineIdentity": "Airline Identity",
-    "identityDesc": "Choose a name, a short code, and an optional callsign. Other players will see these on the map and leaderboards.",
+    "identityDesc": "Just pick a name. Your code, callsign and colors are suggested from it, and you can change them under Customize.",
     "airlineName": "Airline Name",
     "namePlaceholder": "Apex Global",
     "nameHint": "Keep it short, memorable, and easy to spot on the map.",
@@ -39,7 +39,14 @@
     "exportKeyWarning": "Export your recovery key before launch so this airline stays yours if you lose this browser.",
     "callsignSuggested": "{{icao}} HEAVY",
     "callsignDefaultIcao": "APX",
-    "unknownError": "Unknown error"
+    "unknownError": "Unknown error",
+    "customize": "Customize code, callsign and colors",
+    "hubReason": {
+      "bigMarket": "Biggest market",
+      "nearest": "Closest to you",
+      "cheapest": "Cheapest to run"
+    },
+    "hubCost": "{{setup}} setup · {{monthly}}/mo"
   },
   "guest": {
     "title": "Start your airline",
@@ -53,7 +60,7 @@
     "haveNostrAccount": "I already have a Nostr account →"
   },
   "security": {
-    "notBackedUp": "Your account isn't backed up yet — if you lose this browser/tab, your airline is gone.",
+    "notBackedUp": "Your airline just flew its first flight. Secure it: back up your key so a cleared browser can't take it away.",
     "hide": "Hide",
     "secureIt": "Secure it",
     "dismissWarning": "Dismiss security warning",

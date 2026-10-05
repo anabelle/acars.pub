@@ -7,6 +7,7 @@ type AirlineStoreState = {
   initializeIdentity: () => Promise<void>;
   isLoading: boolean;
   pubkey: string | null;
+  airline?: { cumulativeRevenue: number } | null;
 };
 
 const mockUseAirlineStore = vi.fn();
@@ -68,6 +69,8 @@ describe("SecurityUpgradeBanner", () => {
       initializeIdentity: vi.fn().mockResolvedValue(undefined),
       isLoading: false,
       pubkey: "pubkey-1",
+      // Has flown: the banner only appears after the first landing (S21).
+      airline: { cumulativeRevenue: 1_234_000 },
     });
     mockHasNip07.mockReturnValue(false);
     mockHasStoredEphemeralKey.mockReturnValue(true);
@@ -96,7 +99,7 @@ describe("SecurityUpgradeBanner", () => {
     fireEvent.click(screen.getByRole("button", { name: /Copy my secret key/i }));
 
     await waitFor(() => {
-      expect(screen.queryByText(/isn't backed up yet/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/back up your key/i)).not.toBeInTheDocument();
     });
 
     expect(mockWriteText).toHaveBeenCalledWith("nsec1testvalue");
@@ -108,6 +111,22 @@ describe("SecurityUpgradeBanner", () => {
 
     render(<SecurityUpgradeBanner />);
 
-    expect(screen.queryByText(/isn't backed up yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/back up your key/i)).not.toBeInTheDocument();
+  });
+
+  it("waits for the airline's first landing (S21)", () => {
+    mockUseAirlineStore.mockReturnValue({
+      initializeIdentity: vi.fn().mockResolvedValue(undefined),
+      isLoading: false,
+      pubkey: "pubkey-1",
+      airline: { cumulativeRevenue: 0 },
+    });
+    render(<SecurityUpgradeBanner />);
+    expect(screen.queryByText(/back up your key/i)).not.toBeInTheDocument();
+  });
+
+  it("shows once the airline has flown", () => {
+    render(<SecurityUpgradeBanner />);
+    expect(screen.getByText(/first flight/i)).toBeInTheDocument();
   });
 });

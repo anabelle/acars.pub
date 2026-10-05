@@ -179,5 +179,12 @@
     "confirm": "Confirmar",
     "clear": "Limpiar",
     "close": "Cerrar"
+  },
+  "relay": {
+    "ready_one": "Conectado a {{count}} relay",
+    "ready_other": "Conectado a {{count}} relays",
+    "connecting": "Conectando a los relays…",
+    "offline": "Sin conexión",
+    "retry": "Reintentar"
   }
 }

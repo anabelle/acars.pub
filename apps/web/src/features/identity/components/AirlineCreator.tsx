@@ -2,40 +2,49 @@ import type { Airport } from "@acars/core";
 import { fp, fpFormat } from "@acars/core";
 import { getHubPricingForIata } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
-import { CheckCircle2, KeyRound, PlaneTakeoff, ShieldAlert } from "lucide-react";
+import { CheckCircle2, PlaneTakeoff, ShieldAlert } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { RelayStatusBadge } from "@/shared/components/RelayStatusBadge";
 import { HubPicker } from "../../network/components/HubPicker";
 import { findAirlineConflicts } from "../utils/airlineConflicts";
-import { EphemeralKeyBackupActions } from "./EphemeralKeyBackupActions";
+import { suggestCallsign, suggestIcaoCode, suggestLivery } from "../utils/airlineIdentity";
+import { StarterHubChoices } from "./StarterHubChoices";
 
 export function AirlineCreator() {
   const { t } = useTranslation(["identity", "common"]);
   const { createAirline, identityStatus, isLoading, error, competitors } = useAirlineStore();
-  const isEphemeral = useAirlineStore((state) => state.isEphemeral);
   const homeAirport = useEngineStore((s) => s.homeAirport);
   const setHub = useEngineStore((s) => s.setHub);
 
   const [name, setName] = useState("");
   const [icao, setIcao] = useState("");
   const [callsign, setCallsign] = useState("");
-  const [primary, setPrimary] = useState("#1a1a2e");
-  const [secondary, setSecondary] = useState("#10b981");
-  const [showKeyTools, setShowKeyTools] = useState(false);
+  // Empty / null = use the value suggested from the name (S21).
+  const [primaryOverride, setPrimary] = useState<string | null>(null);
+  const [secondaryOverride, setSecondary] = useState<string | null>(null);
 
+  const takenIcaoCodes = useMemo(
+    () =>
+      new Set([...competitors.values()].map((airline) => airline.icaoCode.trim().toUpperCase())),
+    [competitors],
+  );
+  const generatedIcao = useMemo(
+    () => suggestIcaoCode(name, takenIcaoCodes),
+    [name, takenIcaoCodes],
+  );
+  const normalizedIcao = (icao || generatedIcao).toUpperCase();
   const { nameConflict, icaoConflict } = useMemo(
-    () => findAirlineConflicts(competitors, name, icao),
-    [competitors, name, icao],
+    () => findAirlineConflicts(competitors, name, normalizedIcao),
+    [competitors, name, normalizedIcao],
   );
   const hubPricing = homeAirport ? getHubPricingForIata(homeAirport.iata) : null;
-  const normalizedIcao = icao.toUpperCase();
-  const suggestedCallsign =
-    callsign ||
-    t("creator.callsignSuggested", {
-      ns: "identity",
-      icao: normalizedIcao || t("creator.callsignDefaultIcao", { ns: "identity" }),
-    });
+  const generatedCallsign = suggestCallsign(name, normalizedIcao);
+  const suggestedCallsign = callsign || generatedCallsign;
+  const generatedLivery = useMemo(() => suggestLivery(name), [name]);
+  const primary = primaryOverride ?? generatedLivery.primary;
+  const secondary = secondaryOverride ?? generatedLivery.secondary;
 
   const handleHubChange = (airport: Airport | null) => {
     if (!airport) return;
@@ -87,8 +96,8 @@ export function AirlineCreator() {
       <div className="border-b border-border bg-muted px-4 py-4 sm:px-8 sm:py-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="mb-3 inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              {t("creator.connectedSubtitle")}
+            <div className="mb-3">
+              <RelayStatusBadge />
             </div>
             <h2 className="flex items-center text-xl font-bold tracking-tight text-foreground sm:text-2xl">
               <PlaneTakeoff className="mr-3 h-6 w-6 text-primary" />
@@ -98,32 +107,7 @@ export function AirlineCreator() {
               {t("creator.subtitle")}
             </p>
           </div>
-          {isEphemeral && (
-            <button
-              type="button"
-              onClick={() => setShowKeyTools((open) => !open)}
-              className="inline-flex items-center gap-2 self-start rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-200 transition hover:bg-amber-500/20"
-            >
-              <KeyRound className="h-3.5 w-3.5" />
-              {showKeyTools
-                ? t("topbar.hideKeyTools", { ns: "common" })
-                : t("topbar.accountKey", { ns: "common" })}
-            </button>
-          )}
         </div>
-        {isEphemeral && showKeyTools && (
-          <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-950/30 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300">
-              {t("topbar.localAccountKey", { ns: "common" })}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-200/80">
-              {t("creator.exportKeyWarning")}
-            </p>
-            <div className="mt-3">
-              <EphemeralKeyBackupActions />
-            </div>
-          </div>
-        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5 p-4 pb-6 sm:space-y-6 sm:p-8">
@@ -133,6 +117,37 @@ export function AirlineCreator() {
             <p className="text-sm text-destructive">{error}</p>
           </div>
         )}
+
+        {/* Airline name: the only thing a new player has to type (S21) */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight">{t("creator.airlineIdentity")}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t("creator.identityDesc")}</p>
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="airline-name"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              {t("creator.airlineName")}
+            </label>
+            <input
+              id="airline-name"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("creator.namePlaceholder")}
+              className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            {nameConflict ? (
+              <p className="text-xs text-destructive">
+                {t("creator.nameConflict", { name: nameConflict })}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">{t("creator.nameHint")}</p>
+            )}
+          </div>
+        </div>
 
         {/* Hub Selection */}
         <div className="space-y-4">
@@ -185,6 +200,9 @@ export function AirlineCreator() {
                   </div>
                 </div>
               ) : null}
+              <div className="mt-3">
+                <StarterHubChoices selectedIata={homeAirport.iata} onSelect={handleHubChange} />
+              </div>
               <HubPicker currentHub={homeAirport} onSelect={handleHubChange} />
             </div>
           ) : (
@@ -198,129 +216,110 @@ export function AirlineCreator() {
           )}
         </div>
 
-        <div className="h-px bg-border w-full" />
-
-        {/* Corporate Identity */}
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold tracking-tight">{t("creator.airlineIdentity")}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">{t("creator.identityDesc")}</p>
-          </div>
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
-            <div className="space-y-2">
-              <label
-                htmlFor="airline-name"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                {t("creator.airlineName")}
-              </label>
-              <input
-                id="airline-name"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t("creator.namePlaceholder")}
-                className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              {nameConflict ? (
-                <p className="text-xs text-destructive">
-                  {t("creator.nameConflict", { name: nameConflict })}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">{t("creator.nameHint")}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <label
-                htmlFor="airline-icao"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                {t("creator.icaoCode")}
-              </label>
-              <input
-                id="airline-icao"
-                required
-                maxLength={3}
-                value={icao}
-                onChange={(e) => setIcao(e.target.value.replace(/[^a-z]/gi, "").toUpperCase())}
-                placeholder={t("creator.icaoPlaceholder")}
-                className="flex h-10 w-full uppercase rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              {icaoConflict ? (
-                <p className="text-xs text-destructive">
-                  {t("creator.icaoConflict", { code: icaoConflict })}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">{t("creator.icaoHint")}</p>
-              )}
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <label
-                htmlFor="airline-callsign"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                {t("creator.callsign")}
-              </label>
-              <input
-                id="airline-callsign"
-                value={callsign}
-                onChange={(e) => setCallsign(e.target.value.toUpperCase())}
-                placeholder={t("creator.callsignSuggested", {
-                  ns: "identity",
-                  icao: normalizedIcao || t("creator.callsignDefaultIcao", { ns: "identity" }),
-                })}
-                className="flex h-10 w-full uppercase rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              <p className="text-xs text-muted-foreground">
-                {t("creator.callsignHint", { callsign: suggestedCallsign })}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground">
-                {t("creator.liveryColors")}
-              </h3>
-              <p className="mt-1 text-xs text-muted-foreground">{t("creator.liveryDesc")}</p>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-border/70 bg-background/70 px-2.5 py-1">
+        <details className="group rounded-xl border border-border/60 bg-background/40 px-4 py-3">
+          <summary className="flex cursor-pointer select-none items-center justify-between gap-3 text-sm font-medium">
+            <span>{t("creator.customize")}</span>
+            <span className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+              {normalizedIcao} · {suggestedCallsign}
               <span
-                className="h-3.5 w-3.5 rounded-full border border-black/10"
+                className="h-3 w-3 rounded-full border border-black/10"
                 style={{ backgroundColor: primary }}
               />
               <span
-                className="h-3.5 w-3.5 rounded-full border border-black/10"
+                className="h-3 w-3 rounded-full border border-black/10"
                 style={{ backgroundColor: secondary }}
               />
-              <span className="text-[11px] font-medium text-muted-foreground">
-                {t("creator.preview")}
-              </span>
+            </span>
+          </summary>
+          <div className="mt-4 space-y-5">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
+              <div className="space-y-2">
+                <label
+                  htmlFor="airline-icao"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  {t("creator.icaoCode")}
+                </label>
+                <input
+                  id="airline-icao"
+                  maxLength={3}
+                  value={icao}
+                  onChange={(e) => setIcao(e.target.value.replace(/[^a-z]/gi, "").toUpperCase())}
+                  placeholder={generatedIcao}
+                  className="flex h-10 w-full uppercase rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                {icaoConflict ? (
+                  <p className="text-xs text-destructive">
+                    {t("creator.icaoConflict", { code: icaoConflict })}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{t("creator.icaoHint")}</p>
+                )}
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label
+                  htmlFor="airline-callsign"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  {t("creator.callsign")}
+                </label>
+                <input
+                  id="airline-callsign"
+                  value={callsign}
+                  onChange={(e) => setCallsign(e.target.value.toUpperCase())}
+                  placeholder={generatedCallsign}
+                  className="flex h-10 w-full uppercase rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("creator.callsignHint", { callsign: suggestedCallsign })}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    {t("creator.liveryColors")}
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">{t("creator.liveryDesc")}</p>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-full border border-border/70 bg-background/70 px-2.5 py-1">
+                  <span
+                    className="h-3.5 w-3.5 rounded-full border border-black/10"
+                    style={{ backgroundColor: primary }}
+                  />
+                  <span
+                    className="h-3.5 w-3.5 rounded-full border border-black/10"
+                    style={{ backgroundColor: secondary }}
+                  />
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    {t("creator.preview")}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6">
+                <div className="flex items-center space-x-3 rounded-xl border border-border/60 bg-background/40 px-3 py-3">
+                  <input
+                    type="color"
+                    value={primary}
+                    onChange={(e) => setPrimary(e.target.value)}
+                    className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background"
+                  />
+                  <span className="text-sm font-medium">{t("creator.primary")}</span>
+                </div>
+                <div className="flex items-center space-x-3 rounded-xl border border-border/60 bg-background/40 px-3 py-3">
+                  <input
+                    type="color"
+                    value={secondary}
+                    onChange={(e) => setSecondary(e.target.value)}
+                    className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background"
+                  />
+                  <span className="text-sm font-medium">{t("creator.secondary")}</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6">
-            <div className="flex items-center space-x-3 rounded-xl border border-border/60 bg-background/40 px-3 py-3">
-              <input
-                type="color"
-                value={primary}
-                onChange={(e) => setPrimary(e.target.value)}
-                className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background"
-              />
-              <span className="text-sm font-medium">{t("creator.primary")}</span>
-            </div>
-            <div className="flex items-center space-x-3 rounded-xl border border-border/60 bg-background/40 px-3 py-3">
-              <input
-                type="color"
-                value={secondary}
-                onChange={(e) => setSecondary(e.target.value)}
-                className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background"
-              />
-              <span className="text-sm font-medium">{t("creator.secondary")}</span>
-            </div>
-          </div>
-        </div>
+        </details>
 
         <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -344,8 +343,7 @@ export function AirlineCreator() {
           disabled={
             isLoading ||
             !homeAirport ||
-            !name ||
-            !icao ||
+            !name.trim() ||
             Boolean(nameConflict) ||
             Boolean(icaoConflict)
           }

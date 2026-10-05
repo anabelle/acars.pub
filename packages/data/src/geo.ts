@@ -1,6 +1,7 @@
 import type { Airport } from "@acars/core";
 import { haversineDistance } from "@acars/core";
 import { getAirports } from "./catalog.js";
+import { HUB_CLASSIFICATIONS } from "./hubs.js";
 
 /**
  * Reference distance (km) used to normalise the distance penalty when
@@ -119,4 +120,65 @@ export function findPreferredHub(
 
   // Every airport worldwide is occupied — fall back to biggest in-country
   return bestInCountry;
+}
+
+export type StarterHubReason = "bigMarket" | "nearest" | "cheapest";
+
+export interface StarterHubSuggestion {
+  airport: Airport;
+  reason: StarterHubReason;
+}
+
+/**
+ * Up to three hubs a new airline can start from instantly (S21): the big
+ * market already preselected (`current`), the closest airport in another
+ * city, and the cheapest hub to run (the most populous regional-fee airport
+ * of another city in the same country). Occupied airports, duplicates and
+ * second airfields of a city already offered are skipped. O(airports).
+ */
+export function suggestStarterHubs(
+  latitude: number,
+  longitude: number,
+  current: Airport,
+  airports: Airport[] = getAirports(),
+  occupiedIatas: ReadonlySet<string> = new Set(),
+  hubTier: (iata: string) => string = (iata) => HUB_CLASSIFICATIONS[iata]?.tier ?? "regional",
+): StarterHubSuggestion[] {
+  const suggestions: StarterHubSuggestion[] = [{ airport: current, reason: "bigMarket" }];
+  const used = new Set([current.iata]);
+  // Each suggestion must be a real alternative: another city, not a second
+  // airfield of a city already offered.
+  const usedCities = new Set([`${current.country}:${current.city}`]);
+  const available = (airport: Airport) =>
+    !used.has(airport.iata) &&
+    !usedCities.has(`${airport.country}:${airport.city}`) &&
+    !occupiedIatas.has(airport.iata) &&
+    (airport.population || 0) > 0;
+
+  let nearest: Airport | null = null;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (const airport of airports) {
+    if (!available(airport)) continue;
+    const distance = haversineDistance(latitude, longitude, airport.latitude, airport.longitude);
+    if (distance < nearestDistance) {
+      nearest = airport;
+      nearestDistance = distance;
+    }
+  }
+  if (nearest) {
+    suggestions.push({ airport: nearest, reason: "nearest" });
+    used.add(nearest.iata);
+    usedCities.add(`${nearest.country}:${nearest.city}`);
+  }
+
+  let cheapest: Airport | null = null;
+  for (const airport of airports) {
+    if (airport.country !== current.country || !available(airport)) continue;
+    if (hubTier(airport.iata) !== "regional") continue;
+    // available() guarantees a population above zero.
+    if (!cheapest || airport.population > cheapest.population) cheapest = airport;
+  }
+  if (cheapest) suggestions.push({ airport: cheapest, reason: "cheapest" });
+
+  return suggestions;
 }

@@ -5,7 +5,7 @@
   "creator": {
     "connectedSubtitle": "Conectado - crea tu aerolínea",
     "title": "Lanza Tu Aerolínea",
-    "subtitle": "Configura tu aeropuerto base, nombra tu aerolínea y elige tus colores. Estarás volando en menos de un minuto.",
+    "subtitle": "Ponle nombre a tu aerolínea y elige un hub. Estarás volando en menos de un minuto.",
     "creationFailed": "Error al crear la aerolínea",
     "homeHub": "Hub Principal",
     "homeHubDesc": "Aquí se basará tu aerolínea. Determina tu región inicial y costos.",
@@ -15,7 +15,7 @@
     "setup": "Configuración",
     "monthly": "Mensual",
     "airlineIdentity": "Identidad de la Aerolínea",
-    "identityDesc": "Elige un nombre, un código corto y un indicativo de radio opcional. Otros jugadores los verán en el mapa y clasificaciones.",
+    "identityDesc": "Solo elige un nombre. El código, el indicativo y los colores se sugieren a partir de él, y puedes cambiarlos en Personalizar.",
     "airlineName": "Nombre de la Aerolínea",
     "namePlaceholder": "Apex Global",
     "nameHint": "Mantenlo corto, memorable y fácil de ver en el mapa.",
@@ -39,7 +39,14 @@
     "exportKeyWarning": "Exporta tu clave de recuperación antes del lanzamiento para que esta aerolínea siga siendo tuya si pierdes este navegador.",
     "callsignSuggested": "{{icao}} HEAVY",
     "callsignDefaultIcao": "APX",
-    "unknownError": "Error desconocido"
+    "unknownError": "Error desconocido",
+    "customize": "Personalizar código, indicativo y colores",
+    "hubReason": {
+      "bigMarket": "Mercado más grande",
+      "nearest": "Más cerca de ti",
+      "cheapest": "Más barato de operar"
+    },
+    "hubCost": "{{setup}} de apertura · {{monthly}}/mes"
   },
   "guest": {
     "title": "Inicia tu aerolínea",
@@ -53,7 +60,7 @@
     "haveNostrAccount": "Ya tengo una cuenta de Nostr →"
   },
   "security": {
-    "notBackedUp": "Tu cuenta aún no tiene respaldo — si pierdes este navegador/pestaña, tu aerolínea desaparecerá.",
+    "notBackedUp": "Tu aerolínea acaba de completar su primer vuelo. Protégela: guarda tu clave para que borrar el navegador no te la quite.",
     "hide": "Ocultar",
     "secureIt": "Asegurar",
     "dismissWarning": "Descartar advertencia de seguridad",
