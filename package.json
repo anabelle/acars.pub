@@ -19,6 +19,7 @@
     "test:run": "pnpm -r test -- --run",
     "test:coverage": "pnpm -r test -- --run --coverage.enabled --coverage.thresholds.autoUpdate=false",
     "test:e2e": "pnpm --filter @acars/web test:e2e",
+    "balance": "pnpm --filter @acars/store balance",
     "screenshots": "pnpm --filter @acars/web screenshots:e2e",
     "typecheck:functions": "tsc -p functions --noEmit",
     "verify:contracts": "pnpm -r build && pnpm -r typecheck",
