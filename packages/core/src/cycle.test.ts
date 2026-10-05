@@ -3,10 +3,12 @@ import {
   countLandingsBetween,
   enumerateFlightEvents,
   getCyclePhase,
+  legTicksFor,
   maxWeeklyFrequency,
   nextDepartureTick,
   physicalRoundTripTicks,
   scheduledRoundTripTicks,
+  scheduledWeeklyFrequency,
 } from "./cycle.js";
 import { type Route, TICKS_PER_WEEK } from "./types.js";
 
@@ -498,5 +500,23 @@ describe("scheduled cadence (S14)", () => {
     expect(() =>
       countLandingsBetween(0, 0, 10, durationTicks, turnaroundTicks, physical - 1),
     ).toThrow();
+  });
+
+  it("derives leg and turnaround ticks like the engine, never below one tick", () => {
+    // 483 km at 510 km/h is 0.947 h; 25 minutes of turnaround.
+    expect(legTicksFor(483, 510, 25)).toEqual({ durationTicks: 1137, turnaroundTicks: 500 });
+    // Missing speed falls back to 800 km/h; zero-length values clamp to one tick.
+    expect(legTicksFor(800, 0, 0)).toEqual({ durationTicks: 1200, turnaroundTicks: 1 });
+    expect(legTicksFor(0, 800, 30).durationTicks).toBe(1);
+  });
+
+  it("offers the market the scheduled frequency, capped by physics", () => {
+    const cap = maxWeeklyFrequency(durationTicks, turnaroundTicks, 1);
+    expect(scheduledWeeklyFrequency(durationTicks, turnaroundTicks, 7, 1)).toBe(7);
+    expect(scheduledWeeklyFrequency(durationTicks, turnaroundTicks, 10_000, 1)).toBe(cap);
+    expect(scheduledWeeklyFrequency(durationTicks, turnaroundTicks, 7.4, 1)).toBe(7);
+    // Never below one while an aircraft flies it; nothing without aircraft.
+    expect(scheduledWeeklyFrequency(durationTicks, turnaroundTicks, 0, 1)).toBe(1);
+    expect(scheduledWeeklyFrequency(durationTicks, turnaroundTicks, 7, 0)).toBe(0);
   });
 });

@@ -90,6 +90,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - Tests: the engine-equals-projection landing tests still pass. New projection test: 7/week flies 2.0 legs/day, and 10,000/week is capped at one ATR's physical maximum (~16 legs/day). The multiplayer "competition reduces passengers" test now sets an explicit high frequency to keep its demand-limited setup.
   - Report: thin LIH–KOA goes from 3% to **34% LF** (demand no longer divided by phantom legs). Overpricing now holds further into medium markets (MAD–LIS best 40×, DEN–SLC 10×), which S10 must fix. The oversupply section now flies every aircraft as much as it can: DEN–SLC saturates at 3 ATRs (23% LF), MAD–LIS at 10.
   - Gate: lint, typecheck, all unit tests, 18 e2e.
+- 2026-10-05 · fix · (this commit) · CI `verify` failed on #164: core requires 100% function coverage, and `legTicksFor` / `scheduledWeeklyFrequency` were only exercised from the store. Added core tests for both (rounding, physical cap, one-tick floor, the 800 km/h fallback). `pnpm test:coverage` passes locally.
 
 ## Follow-ups
 
