@@ -558,6 +558,11 @@
       "points_other": "{{count}} pts",
       "outcomeNote": "Forecast for today's season, fuel price and rivals, before lease and hub costs.",
       "assignToProject": "Assign an aircraft to this route to see what these fares would earn."
+    },
+    "opportunities": {
+      "profitPerDay": "Profit / day",
+      "outOfRange": "Out of range",
+      "withModel": "with an {{model}}, after lease"
     }
   },
   "hubPicker": {

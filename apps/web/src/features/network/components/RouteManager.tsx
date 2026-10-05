@@ -4,7 +4,6 @@ import {
   calculateShares,
   canonicalRouteKey,
   computeRouteFrequency,
-  type FixedPoint,
   type FlightOffer,
   fpAdd,
   fpFormat,
@@ -14,8 +13,6 @@ import {
   getSuggestedFares,
   haversineDistance,
   NATURAL_LF_CEILING,
-  ROUTE_SLOT_FEE,
-  type Season,
   scaleToAddressableMarket,
   TICKS_PER_DAY,
 } from "@acars/core";
@@ -30,7 +27,6 @@ import {
   CheckCircle2,
   Globe,
   MapPin,
-  PlusCircle,
   Search,
   TrendingUp,
 } from "lucide-react";
@@ -40,6 +36,10 @@ import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { AirlineFlightBoard } from "@/features/network/components/AirlineFlightBoard";
 import { FareEditor, type FareEditorTarget } from "@/features/network/components/FareEditor";
+import {
+  OpportunitiesList,
+  type ProspectMarket,
+} from "@/features/network/components/OpportunitiesList";
 import { getRouteDemandSnapshotCached } from "@/features/network/hooks/useRouteDemand";
 import {
   getElasticityTone,
@@ -56,16 +56,6 @@ import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { RouteFrequencyControl } from "@/features/network/components/RouteFrequencyControl";
 import { useConfirm } from "@/shared/lib/useConfirm";
-
-type ProspectMarket = {
-  origin: Airport;
-  destination: Airport;
-  distance: number;
-  demand: { economy: number; business: number; first: number };
-  estimatedDailyRevenue: FixedPoint;
-  season: Season;
-  routeEconomics: ReturnType<typeof estimateRouteEconomics> | null;
-};
 
 // ---------------------------------------------------------------------------
 // Prospect markets: sorting the ~6k airport catalog by distance per render
@@ -176,9 +166,8 @@ export function RouteManager() {
   const pubkey = useAirlineStore((s) => s.pubkey);
   const globalRouteRegistry = useAirlineStore((s) => s.globalRouteRegistry);
   const competitors = useAirlineStore((s) => s.competitors);
-  const { openRoute, rebaseRoute, closeRoute } = useAirlineStore(
+  const { rebaseRoute, closeRoute } = useAirlineStore(
     useShallow((s) => ({
-      openRoute: s.openRoute,
       rebaseRoute: s.rebaseRoute,
       closeRoute: s.closeRoute,
     })),
@@ -193,7 +182,6 @@ export function RouteManager() {
     navigate({ search: { tab: newTab } });
   };
   const [fareEditor, setFareEditor] = useState<FareEditorTarget | null>(null);
-  const [openingRouteIata, setOpeningRouteIata] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [rebaseTargets, setRebaseTargets] = useState<Record<string, string>>({});
   const [planningOriginIata, setPlanningOriginIata] = useState<string | null>(
@@ -369,14 +357,6 @@ export function RouteManager() {
     getScrollElement: () => panelScrollRef.current,
     estimateSize: () => 420,
     overscan: 3,
-    scrollMargin: listScrollMargin,
-  });
-
-  const opportunitiesVirtualizer = useVirtualizer({
-    count: displayedOpportunities.length,
-    getScrollElement: () => panelScrollRef.current,
-    estimateSize: () => 220,
-    overscan: 5,
     scrollMargin: listScrollMargin,
   });
 
@@ -1242,267 +1222,15 @@ export function RouteManager() {
               )}
             </>
           ) : (
-            <div ref={listParentRef}>
-              <div
-                style={{
-                  height: `${opportunitiesVirtualizer.getTotalSize()}px`,
-                  position: "relative",
-                }}
-              >
-                {opportunitiesVirtualizer.getVirtualItems().map((virtualItem) => {
-                  const market = displayedOpportunities[virtualItem.index];
-                  const isAlreadyOpen = activeRoutes.some(
-                    (r) =>
-                      r.originIata === market.origin.iata &&
-                      r.destinationIata === market.destination.iata,
-                  );
-                  const totalDemand =
-                    market.demand.economy + market.demand.business + market.demand.first;
-                  const addressableDemand = scaleToAddressableMarket({
-                    origin: market.origin.iata,
-                    destination: market.destination.iata,
-                    economy: market.demand.economy,
-                    business: market.demand.business,
-                    first: market.demand.first,
-                  });
-                  const addressableTotal =
-                    addressableDemand.economy +
-                    addressableDemand.business +
-                    addressableDemand.first;
-                  const destinationMeta = HUB_CLASSIFICATIONS[market.destination.iata];
-                  const destinationCapacity = destinationMeta?.baseCapacityPerHour ?? null;
-                  const destinationSlotControlled = destinationMeta?.slotControlled ?? false;
-                  const routeEconomics = market.routeEconomics;
-
-                  return (
-                    <div
-                      key={virtualItem.key}
-                      data-index={virtualItem.index}
-                      ref={opportunitiesVirtualizer.measureElement}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        transform: `translateY(${virtualItem.start - opportunitiesVirtualizer.options.scrollMargin}px)`,
-                      }}
-                    >
-                      <div className="group relative rounded-2xl bg-card border border-border overflow-hidden p-5 transition-all hover:border-primary/50 mb-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="flex flex-wrap items-center gap-3 sm:gap-8">
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-2">
-                                <span className="text-2xl font-black text-foreground tracking-tighter">
-                                  {market.destination.iata}
-                                  {market.destination.icao &&
-                                    market.destination.icao !== market.destination.iata && (
-                                      <span className="ml-2 text-xs text-muted-foreground font-mono font-normal">
-                                        [{market.destination.icao}]
-                                      </span>
-                                    )}
-                                </span>
-                                <TrendingUp className="h-4 w-4 text-accent" />
-                              </div>
-                              <span className="text-sm font-bold text-muted-foreground">
-                                {market.destination.city}, {market.destination.country}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-col">
-                              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                Total Market
-                              </span>
-                              <span className="text-lg font-mono font-bold">
-                                {totalDemand.toLocaleString()}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-col">
-                              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                Addressable
-                              </span>
-                              <span className="text-lg font-mono font-bold text-foreground">
-                                {addressableTotal.toLocaleString()}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-col">
-                              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                Distance
-                              </span>
-                              <span className="text-lg font-mono font-bold text-accent">
-                                {Math.round(market.distance).toLocaleString()} km
-                              </span>
-                            </div>
-
-                            <div className="flex flex-col">
-                              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                Est. Profit / flight
-                              </span>
-                              <span
-                                className={`text-lg font-mono font-bold ${routeEconomics && routeEconomics.profitPerFlight >= 0 ? "text-green-400" : "text-rose-400"}`}
-                              >
-                                {routeEconomics
-                                  ? fpFormat(routeEconomics.profitPerFlight, 0)
-                                  : fpFormat(market.estimatedDailyRevenue, 0)}
-                              </span>
-                            </div>
-                            {destinationCapacity && (
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                                  Destination Capacity
-                                </span>
-                                <span className="text-xs font-semibold text-foreground">
-                                  {destinationCapacity}/hr
-                                  {destinationSlotControlled ? " • Slot Controlled" : ""}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {isAlreadyOpen ? (
-                            <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-xl text-sm font-bold">
-                              <CheckCircle2 className="h-4 w-4" />
-                              Route Open
-                            </div>
-                          ) : !isViewingOther ? (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const approved = await confirm({
-                                  title: t("routeManager.openRouteConfirmTitle", { ns: "game" }),
-                                  description: t("routeManager.openRouteConfirmDescription", {
-                                    ns: "game",
-                                    fee: fpFormat(ROUTE_SLOT_FEE, 0),
-                                    origin: market.origin.iata,
-                                    destination: market.destination.iata,
-                                  }),
-                                  confirmLabel: t("routeManager.openRouteConfirmLabel", {
-                                    ns: "game",
-                                  }),
-                                });
-                                if (!approved) return;
-                                setOpeningRouteIata(market.destination.iata);
-                                try {
-                                  await openRoute(
-                                    market.origin.iata,
-                                    market.destination.iata,
-                                    market.distance,
-                                  );
-                                } catch (error) {
-                                  const message =
-                                    error instanceof Error
-                                      ? error.message
-                                      : t("routeManager.unknownError", { ns: "game" });
-                                  toast.error(t("routeManager.routeOpenFailed", { ns: "game" }), {
-                                    description: message,
-                                  });
-                                } finally {
-                                  setOpeningRouteIata(null);
-                                }
-                              }}
-                              disabled={!canOpenFromOrigin || openingRouteIata !== null}
-                              className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-primary/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                            >
-                              {openingRouteIata === market.destination.iata ? (
-                                <>
-                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                  {t("routeManager.opening", { ns: "game" })}
-                                </>
-                              ) : (
-                                <>
-                                  <PlusCircle className="h-4 w-4" />
-                                  {t("routeManager.openRouteWithFee", {
-                                    ns: "game",
-                                    fee: fpFormat(ROUTE_SLOT_FEE, 0),
-                                  })}
-                                </>
-                              )}
-                            </button>
-                          ) : null}
-                        </div>
-                        {!isAlreadyOpen && originSlotControlled && !canOpenFromOrigin && (
-                          <div className="mt-3 text-xs text-amber-400">
-                            Slot capacity reached at {market.origin.iata}. Reduce frequency or
-                            choose another hub.
-                          </div>
-                        )}
-                        <div className="mt-4 flex h-1 w-full rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full bg-zinc-500"
-                            style={{
-                              width: `${(market.demand.economy / (totalDemand || 1)) * 100}%`,
-                            }}
-                            title="Economy"
-                          />
-                          <div
-                            className="h-full bg-blue-500"
-                            style={{
-                              width: `${(market.demand.business / (totalDemand || 1)) * 100}%`,
-                            }}
-                            title="Business"
-                          />
-                          <div
-                            className="h-full bg-yellow-500"
-                            style={{
-                              width: `${(market.demand.first / (totalDemand || 1)) * 100}%`,
-                            }}
-                            title="First"
-                          />
-                        </div>
-                        {routeEconomics && (
-                          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 text-[10px] font-mono">
-                            <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                              <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                Cost / flight
-                              </div>
-                              <div className="mt-1 font-bold text-foreground">
-                                {fpFormat(routeEconomics.costPerFlight, 0)}
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                              <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                Break-even LF
-                              </div>
-                              <div className="mt-1 font-bold text-foreground">
-                                {Math.round(routeEconomics.breakEvenLoadFactor * 100)}%
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                              <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                Suggested fleet
-                              </div>
-                              <div className="mt-1 font-bold text-foreground">
-                                {routeEconomics.recommendedAircraftCount} aircraft
-                              </div>
-                            </div>
-                            <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                              <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                Cost split
-                              </div>
-                              <div className="mt-1 text-[9px] text-muted-foreground">
-                                Fuel {fpFormat(routeEconomics.costBreakdown.fuel, 0)} • Crew{" "}
-                                {fpFormat(routeEconomics.costBreakdown.crew, 0)}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {searchQuery.length > 0 && searchQuery.length < 2 && (
-                <div className="p-8 text-center text-muted-foreground font-bold italic">
-                  Type at least 2 characters to search…
-                </div>
-              )}
-              {searchQuery.length >= 2 && searchResults.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground font-bold italic">
-                  No airports found matching "{searchQuery}"
-                </div>
-              )}
-            </div>
+            <OpportunitiesList
+              markets={displayedOpportunities}
+              activeRoutes={activeRoutes}
+              isViewingOther={isViewingOther}
+              canOpenFromOrigin={canOpenFromOrigin}
+              originSlotControlled={originSlotControlled}
+              searchQuery={searchQuery}
+              searchResultCount={searchResults.length}
+            />
           )}
         </div>
         {fareEditor && (
