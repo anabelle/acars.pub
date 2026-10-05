@@ -1,7 +1,7 @@
 # S10 — Market model v2: incumbent carriers + distance-scaled fare cap
 
-> **Status:** ◐ in progress
-> **Next step:** S10.5
+> **Status:** ☑ ready for review
+> **Next step:** — (all steps done; awaiting review)
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -43,7 +43,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S10.2** Wire the incumbent offer into landing allocation and the fare cap into reducer + slice (constants in core, in place per D2). _Done when:_ engine tests green; `pnpm balance` regenerated.
 - [x] **S10.3** Calibrate with S02; commit before/after report. _Done when:_ README §6 balance targets met in the report.
 - [x] **S10.4** Selector exposing incumbent strength / projected share for UI. _Done when:_ unit tests green.
-- [ ] **S10.5** Route card shows incumbent strength and the fare cap; commit `baseline-v2.md`. _Done when:_ screenshot + report committed.
+- [x] **S10.5** Route card shows incumbent strength and the fare cap; commit `baseline-v2.md`. _Done when:_ screenshot + report committed.
 
 ## Details & guidance
 
@@ -56,7 +56,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] The metrics in README §6 "Decisions matter" and "No solved optimum" are met in the S02 report.
+- [x] The metrics in README §6 "Decisions matter" and "No solved optimum" are met in the S02 report.
 
 ## Progress log
 
@@ -92,6 +92,13 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
     - The cautious path still takes 55 days to Tier 2 (pacing is S12).
   - Gate: lint, typecheck, coverage, 18 e2e.
 - 2026-10-05 · S10.4 · (this commit) · `computeFlightPassengers` returns the market's `incumbent` (null when uncontested) and `playersShareOfMarket`. `RouteProjection` exposes `incumbent: { frequencyPerWeek, seatsPerFlight, share }`. Its `marketShare` and `competitorShares` are now shares of the **whole** market (QSI share × what the players win from the incumbent), so ours, the rivals' and the incumbent's add up to 1. Tests: the existing share-sum test includes the incumbent; MAD–BCN has an incumbent with >100 round trips/week and >90% share, and LIH–KOA has none (100% ours). 232 store tests and the coverage gate pass.
+- 2026-10-05 · S10.5 · (this commit) · Changes:
+  - **Route card:** the third tile is now "Your share" (of the whole market; "<1%" / ">99%" for the extremes). A line names the incumbent ("An established airline flies this 1,515 times a week and holds >99% of the market. Win share with frequency and price.") or says the market is uncontested, plus how many other players fly it. The old rivals/noRivals/share keys were replaced. en + es.
+  - **Fare editor:** each fare input gets `max` = 3× suggested and shows "Suggested: X · max Y" (the editor's strings stay English until S24).
+  - 2 new card tests (incumbent line on MAD–BCN, uncontested on LIH–KOA).
+  - Committed `docs/overhaul/balance/baseline-v2.md` (identical to `latest.md`), the "before" for S11/S12.
+  - Screenshot taken (MAD→BCN: $2,380/day after lease, 87% LF, <1% share, launch with an ATR 72).
+  - Gate: lint, typecheck, coverage, 18 e2e.
 
 ## Follow-ups
 
@@ -101,4 +108,20 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+**Shipped:** every market big enough for daily service has an incumbent carrier at the suggested fare. Players win share from it with frequency and price (stage 1: frequency × fareRatio^-1), then split their share with QSI (stage 2, unchanged).
+
+- Fares are capped at 3× suggested in the reducer, slice and engine.
+- `pnpm balance` checks the README §6 targets, and both are met: best fare 0.8–1.6× on every market; profit spread CV 0.52.
+- The overpricing exploit is gone, and aircraft choice now depends on market size (A320 on big markets, ATR on medium, uncontested thin markets).
+- The route card shows the incumbent and our share of the whole market.
+
+**For S11/S12:**
+
+- Start from `baseline-v2.md`.
+- Supply pressure still double-penalizes big aircraft on markets their size doesn't fit (A320 at 31% on MAD–LIS); that's S11's oversupply curve.
+- A first ATR route nets ~$2.4k/day after lease and the cautious path needs 55 days to Tier 2: pacing is S12.
+
+**Gotchas:**
+
+- Tuning lives in `packages/core/src/incumbent.ts` (`INCUMBENT_*`, `incumbentSeatsPerFlight`) and `FARE_CAP_MULTIPLIER` in `finance.ts`. Change them, run `pnpm balance`, and section 0 says whether the targets still hold.
+- `RouteProjection.marketShare` now means the share of the whole market (it used to be the share among players only).

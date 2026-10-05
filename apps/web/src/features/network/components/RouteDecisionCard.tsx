@@ -28,6 +28,13 @@ const money = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
+/** A market share as a whole percent, with "<1%" for tiny but real shares. */
+function formatShare(share: number): string {
+  if (share > 0 && share < 0.01) return "<1%";
+  if (share < 1 && share > 0.99) return ">99%";
+  return `${Math.round(share * 100)}%`;
+}
+
 function formatMoney(value: FixedPoint): string {
   return money.format(Math.round(fpToNumber(value)));
 }
@@ -224,18 +231,24 @@ export function RouteDecisionCard({
         </div>
         <div className="rounded-xl border border-border/50 bg-background/70 p-2">
           <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            {t("routeCard.rivals", { ns: "game" })}
+            {t("routeCard.yourShare", { ns: "game" })}
           </dt>
-          <dd className="font-mono text-sm font-semibold">
-            {rivals === 0
-              ? t("routeCard.noRivals", { ns: "game" })
-              : t("routeCard.share", {
-                  ns: "game",
-                  share: Math.round(projection.marketShare * 100),
-                })}
+          <dd className="font-mono text-sm font-semibold" data-testid="route-decision-share">
+            {formatShare(projection.marketShare)}
           </dd>
         </div>
       </dl>
+
+      <p className="text-xs text-muted-foreground" data-testid="route-decision-market">
+        {projection.incumbent
+          ? t("routeCard.incumbent", {
+              ns: "game",
+              flights: Math.round(projection.incumbent.frequencyPerWeek).toLocaleString(),
+              share: formatShare(projection.incumbent.share),
+            })
+          : t("routeCard.uncontested", { ns: "game" })}
+        {rivals > 0 ? ` ${t("routeCard.otherAirlines", { ns: "game", count: rivals })}` : ""}
+      </p>
 
       <p className="text-xs text-muted-foreground">
         {t("routeCard.aircraft", {
