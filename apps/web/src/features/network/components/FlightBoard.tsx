@@ -158,7 +158,7 @@ export function FlightBoard({ airportIata, airportTimezone }: FlightBoardProps) 
           {t("flightBoard.flightInfo", { iata: airportIata })}
         </span>
         <span className="text-[10px] font-mono tabular-nums text-slate-500">
-          {departures.length + arrivals.length} flights
+          {t("flightBoard.flightCount", { count: departures.length + arrivals.length })}
         </span>
       </div>
 

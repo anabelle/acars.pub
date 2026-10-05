@@ -469,7 +469,10 @@ export function RouteManager() {
                         </button>
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        Distance {Math.round(route.distanceKm).toLocaleString()} km
+                        {t("routeManager.card.distance", {
+                          ns: "game",
+                          km: Math.round(route.distanceKm).toLocaleString(),
+                        })}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -692,10 +695,10 @@ export function RouteManager() {
                             : "bg-rose-500";
                       const supplyLabel =
                         supplyRatio > 1.05
-                          ? "Over-Supplied"
+                          ? t("routeManager.card.supply.over", { ns: "game" })
                           : supplyRatio < 0.7
-                            ? "Underserved"
-                            : "Balanced";
+                            ? t("routeManager.card.supply.under", { ns: "game" })
+                            : t("routeManager.card.supply.balanced", { ns: "game" });
                       const economyTone = getFareTone(
                         route.fareEconomy,
                         demandSnapshot.referenceFareEconomy,
@@ -814,13 +817,16 @@ export function RouteManager() {
                                 {!isViewingOther ? <RouteFrequencyControl route={route} /> : null}
                                 <div className="flex flex-col text-right">
                                   <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
-                                    Fleet
+                                    {t("routeManager.card.fleet", { ns: "game" })}
                                   </span>
                                   <span
                                     className={`text-sm font-bold mt-1 ${assignedCount > 0 ? "text-foreground" : "text-red-400 flex items-center gap-1 justify-end"}`}
                                   >
                                     {assignedCount === 0 && <AlertCircle className="h-3 w-3" />}
-                                    {assignedCount} Aircraft Assigned
+                                    {t("routeManager.card.aircraftAssigned", {
+                                      ns: "game",
+                                      count: assignedCount,
+                                    })}
                                   </span>
                                 </div>
 
@@ -910,7 +916,10 @@ export function RouteManager() {
                                       {t("routeManager.totalMarket", { ns: "game" })}
                                     </span>
                                     <span className="text-foreground font-bold">
-                                      {marketDemand.toLocaleString()} / wk
+                                      {t("units.perWeek", {
+                                        ns: "common",
+                                        value: marketDemand.toLocaleString(),
+                                      })}
                                     </span>
                                   </div>
                                   <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
@@ -918,7 +927,10 @@ export function RouteManager() {
                                       {t("routeManager.addressable", { ns: "game" })}
                                     </span>
                                     <span className="text-foreground font-bold">
-                                      {addressableTotal.toLocaleString()} / wk
+                                      {t("units.perWeek", {
+                                        ns: "common",
+                                        value: addressableTotal.toLocaleString(),
+                                      })}
                                     </span>
                                   </div>
                                   <div className="flex flex-col gap-1 rounded-lg border border-border/30 bg-background/40 px-2 py-1.5">
@@ -926,7 +938,10 @@ export function RouteManager() {
                                       {t("routeManager.yourSeats", { ns: "game" })}
                                     </span>
                                     <span className="text-foreground font-bold">
-                                      {totalWeeklySeats.toLocaleString()} / wk
+                                      {t("units.perWeek", {
+                                        ns: "common",
+                                        value: totalWeeklySeats.toLocaleString(),
+                                      })}
                                     </span>
                                   </div>
                                 </div>
@@ -934,9 +949,14 @@ export function RouteManager() {
                                 <div className="mt-3">
                                   <div className="flex justify-between text-[10px] font-semibold">
                                     <span className="text-muted-foreground uppercase">
-                                      Supply Pressure
+                                      {t("routeManager.card.supplyPressure", { ns: "game" })}
                                     </span>
-                                    <span className={lfTone}>{loadFactor}% LF</span>
+                                    <span className={lfTone}>
+                                      {t("routeManager.card.seatsFilledPct", {
+                                        ns: "game",
+                                        value: loadFactor,
+                                      })}
+                                    </span>
                                   </div>
                                   <div className="mt-1 h-2 w-full rounded-full bg-background/70 overflow-hidden">
                                     <div
@@ -947,17 +967,28 @@ export function RouteManager() {
                                     />
                                   </div>
                                   <div className="mt-2 flex justify-between text-[9px] text-muted-foreground">
-                                    <span>Target {Math.round(NATURAL_LF_CEILING * 100)}%</span>
+                                    <span>
+                                      {t("routeManager.card.target", {
+                                        ns: "game",
+                                        value: Math.round(NATURAL_LF_CEILING * 100),
+                                      })}
+                                    </span>
                                     <span>
                                       {supplyRatio > 1.05
-                                        ? `Oversupply ${supplyRatio.toFixed(2)}x`
-                                        : `Coverage ${supplyRatio.toFixed(2)}x`}
+                                        ? t("routeManager.card.oversupply", {
+                                            ns: "game",
+                                            ratio: supplyRatio.toFixed(2),
+                                          })
+                                        : t("routeManager.card.coverage", {
+                                            ns: "game",
+                                            ratio: supplyRatio.toFixed(2),
+                                          })}
                                     </span>
                                   </div>
                                   {showPriceEffect && (
                                     <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
                                       <span className="uppercase text-muted-foreground">
-                                        Price Effect
+                                        {t("routeManager.card.priceEffect", { ns: "game" })}
                                       </span>
                                       <span
                                         className={`font-mono ${toneTextClass[getElasticityTone(economyElasticity)]}`}
@@ -982,14 +1013,22 @@ export function RouteManager() {
                                         <>
                                           <ArrowUp className="h-3 w-3 text-emerald-400" />
                                           <span className="text-emerald-400">
-                                            +{demandSnapshot.suggestedFleetDelta} aircraft suggested
+                                            {t("routeManager.card.aircraftSuggested", {
+                                              ns: "game",
+                                              count: demandSnapshot.suggestedFleetDelta,
+                                              delta: `+${demandSnapshot.suggestedFleetDelta}`,
+                                            })}
                                           </span>
                                         </>
                                       ) : (
                                         <>
                                           <ArrowDown className="h-3 w-3 text-amber-400" />
                                           <span className="text-amber-400">
-                                            {demandSnapshot.suggestedFleetDelta} aircraft suggested
+                                            {t("routeManager.card.aircraftSuggested", {
+                                              ns: "game",
+                                              count: demandSnapshot.suggestedFleetDelta,
+                                              delta: demandSnapshot.suggestedFleetDelta,
+                                            })}
                                           </span>
                                         </>
                                       )}
@@ -1000,7 +1039,7 @@ export function RouteManager() {
                                     <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3 text-[10px] font-mono">
                                       <div className="rounded-lg border border-border/30 bg-background/40 px-2 py-2">
                                         <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                          Profit / flight
+                                          {t("routeManager.card.profitPerFlight", { ns: "game" })}
                                         </div>
                                         <div
                                           className={`mt-1 font-bold ${routeEconomics.profitPerFlight >= 0 ? "text-emerald-400" : "text-rose-400"}`}
@@ -1008,37 +1047,56 @@ export function RouteManager() {
                                           {fpFormat(routeEconomics.profitPerFlight, 0)}
                                         </div>
                                         <div className="mt-1 text-[9px] text-muted-foreground">
-                                          Rev {fpFormat(routeEconomics.revenuePerFlight, 0)} • Cost{" "}
-                                          {fpFormat(routeEconomics.costPerFlight, 0)}
+                                          {t("routeManager.card.revCost", {
+                                            ns: "game",
+                                            revenue: fpFormat(routeEconomics.revenuePerFlight, 0),
+                                            cost: fpFormat(routeEconomics.costPerFlight, 0),
+                                          })}
                                         </div>
                                       </div>
                                       <div className="rounded-lg border border-border/30 bg-background/40 px-2 py-2">
                                         <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                          Break-even LF
+                                          {t("routeManager.card.breakEven", { ns: "game" })}
                                         </div>
                                         <div className="mt-1 font-bold text-foreground">
                                           {Math.round(routeEconomics.breakEvenLoadFactor * 100)}%
                                         </div>
                                         <div className="mt-1 text-[9px] text-muted-foreground">
-                                          Current est.{" "}
-                                          {Math.round(routeEconomics.estimatedLoadFactor * 100)}%
+                                          {t("routeManager.card.currentEstimate", {
+                                            ns: "game",
+                                            value: Math.round(
+                                              routeEconomics.estimatedLoadFactor * 100,
+                                            ),
+                                          })}
                                         </div>
                                       </div>
                                       <div className="rounded-lg border border-border/30 bg-background/40 px-2 py-2">
                                         <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                                          Action
+                                          {t("routeManager.card.action", { ns: "game" })}
                                         </div>
                                         <div className="mt-1 font-bold text-foreground">
                                           {routeEconomics.recommendedAircraftCount < assignedCount
-                                            ? `Remove ${assignedCount - routeEconomics.recommendedAircraftCount}`
+                                            ? t("routeManager.card.removeAircraft", {
+                                                ns: "game",
+                                                count:
+                                                  assignedCount -
+                                                  routeEconomics.recommendedAircraftCount,
+                                              })
                                             : routeEconomics.recommendedAircraftCount >
                                                 assignedCount
-                                              ? `Add ${routeEconomics.recommendedAircraftCount - assignedCount}`
-                                              : "Hold fleet"}
+                                              ? t("routeManager.card.addAircraft", {
+                                                  ns: "game",
+                                                  count:
+                                                    routeEconomics.recommendedAircraftCount -
+                                                    assignedCount,
+                                                })
+                                              : t("routeManager.card.holdFleet", { ns: "game" })}
                                         </div>
                                         <div className="mt-1 text-[9px] text-muted-foreground">
-                                          Supports ~{routeEconomics.recommendedAircraftCount}{" "}
-                                          aircraft
+                                          {t("routeManager.card.supportsAircraft", {
+                                            ns: "game",
+                                            count: routeEconomics.recommendedAircraftCount,
+                                          })}
                                         </div>
                                       </div>
                                     </div>
@@ -1052,25 +1110,25 @@ export function RouteManager() {
                               <div className="flex items-center justify-between mb-3">
                                 <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
                                   <Globe className="h-3 w-3" />
-                                  Market Health
+                                  {t("routeManager.card.marketHealth", { ns: "game" })}
                                 </h4>
                                 <div className="flex gap-2">
                                   <div className="flex items-center gap-1">
                                     <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
                                     <span className="text-[8px] text-muted-foreground font-bold uppercase">
-                                      Econ
+                                      {t("routeManager.fareEditor.class.economy", { ns: "game" })}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                                     <span className="text-[8px] text-muted-foreground font-bold uppercase">
-                                      Bus
+                                      {t("routeManager.fareEditor.class.business", { ns: "game" })}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
                                     <span className="text-[8px] text-muted-foreground font-bold uppercase">
-                                      First
+                                      {t("routeManager.fareEditor.class.first", { ns: "game" })}
                                     </span>
                                   </div>
                                 </div>
@@ -1127,7 +1185,7 @@ export function RouteManager() {
                                     <div className="bg-emerald-500/5 rounded-xl p-3 border border-emerald-500/10">
                                       <p className="text-[11px] text-emerald-400/80 font-medium flex items-center gap-2">
                                         <CheckCircle2 className="h-3 w-3" />
-                                        Monopoly Market: No active competitors found on this route.
+                                        {t("routeManager.card.noRivals", { ns: "game" })}
                                       </p>
                                     </div>
                                   );
@@ -1175,11 +1233,16 @@ export function RouteManager() {
                                             </div>
                                             <div className="flex flex-col">
                                               <span className="text-xs font-bold text-foreground">
-                                                {comp?.name || "Unknown Airline"}
+                                                {comp?.name ||
+                                                  t("routeManager.card.unknownAirline", {
+                                                    ns: "game",
+                                                  })}
                                               </span>
                                               <span className="text-[9px] text-muted-foreground uppercase font-semibold">
-                                                Freq: {offer.frequencyPerWeek}
-                                                /wk
+                                                {t("routeManager.card.rivalFrequency", {
+                                                  ns: "game",
+                                                  value: offer.frequencyPerWeek,
+                                                })}
                                               </span>
                                             </div>
                                           </div>
@@ -1199,7 +1262,7 @@ export function RouteManager() {
                                             <div className="h-8 w-px bg-border/50" />
                                             <div className="flex flex-col text-right">
                                               <span className="text-[9px] text-muted-foreground uppercase font-bold">
-                                                Est. Share
+                                                {t("routeManager.card.estShare", { ns: "game" })}
                                               </span>
                                               <span className="text-xs font-bold text-accent">
                                                 {compShare.toFixed(1)}%

@@ -218,13 +218,13 @@ export function FareEditor({
           type="button"
           className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={() => !isSavingFares && onClose()}
-          aria-label="Close fare editor"
+          aria-label={t("routeManager.fareEditor.closeAria", { ns: "game" })}
         />
         <div className="relative z-10 flex w-full max-h-[100dvh] flex-col overflow-hidden rounded-t-[24px] border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:max-h-[85vh] sm:max-w-xl sm:rounded-2xl">
           <div className="shrink-0 flex items-start justify-between border-b border-border/50 px-4 py-4 sm:px-6 sm:py-5">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                Route Pricing
+                {t("routeManager.fareEditor.title", { ns: "game" })}
               </p>
               <h3 className="flex items-center gap-1.5 text-lg font-bold text-foreground">
                 <button
@@ -250,14 +250,17 @@ export function FareEditor({
                 </button>
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                Distance: {Math.round(fareEditor.distanceKm).toLocaleString()} km
+                {t("routeManager.fareEditor.distance", {
+                  ns: "game",
+                  km: Math.round(fareEditor.distanceKm).toLocaleString(),
+                })}
               </p>
             </div>
             <button
               type="button"
               onClick={() => !isSavingFares && onClose()}
               className="rounded-full bg-background/60 p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-              aria-label="Close fare editor"
+              aria-label={t("routeManager.fareEditor.closeAria", { ns: "game" })}
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -290,7 +293,7 @@ export function FareEditor({
                   htmlFor="fare-economy"
                   className="text-[10px] uppercase text-muted-foreground font-semibold"
                 >
-                  Economy
+                  {t("routeManager.fareEditor.class.economy", { ns: "game" })}
                 </label>
                 <input
                   id="fare-economy"
@@ -308,14 +311,19 @@ export function FareEditor({
                 />
                 {suggestedFares ? (
                   <p className="mt-2 text-[10px] text-muted-foreground">
-                    Suggested: {fpToNumber(suggestedFares.economy)} · max{" "}
-                    {Math.round(fpToNumber(suggestedFares.economy) * FARE_CAP_MULTIPLIER)}
+                    {t("routeManager.fareEditor.suggestedAndMax", {
+                      ns: "game",
+                      suggested: fpToNumber(suggestedFares.economy),
+                      max: Math.round(fpToNumber(suggestedFares.economy) * FARE_CAP_MULTIPLIER),
+                    })}
                   </p>
                 ) : null}
                 {suggestedFares && fareElasticity ? (
                   <div className="mt-3 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
                     <div className="flex items-center justify-between text-[10px] font-semibold">
-                      <span className="uppercase text-muted-foreground">Demand Impact</span>
+                      <span className="uppercase text-muted-foreground">
+                        {t("routeManager.fareEditor.demandImpact", { ns: "game" })}
+                      </span>
                       <span
                         className={`font-mono ${toneTextClass[getElasticityTone(fareElasticity.economy.multiplier)]}`}
                       >
@@ -343,7 +351,10 @@ export function FareEditor({
                       )}
                     </div>
                     <p className="mt-2 text-[10px] text-muted-foreground">
-                      Fare is {formatSignedPercent(fareElasticity.economy.deltaPercent)} vs market
+                      {t("routeManager.fareEditor.vsMarket", {
+                        ns: "game",
+                        delta: formatSignedPercent(fareElasticity.economy.deltaPercent),
+                      })}
                     </p>
                   </div>
                 ) : null}
@@ -353,7 +364,7 @@ export function FareEditor({
                   htmlFor="fare-business"
                   className="text-[10px] uppercase text-muted-foreground font-semibold"
                 >
-                  Business
+                  {t("routeManager.fareEditor.class.business", { ns: "game" })}
                 </label>
                 <input
                   id="fare-business"
@@ -371,14 +382,19 @@ export function FareEditor({
                 />
                 {suggestedFares ? (
                   <p className="mt-2 text-[10px] text-blue-400/70">
-                    Suggested: {fpToNumber(suggestedFares.business)} · max{" "}
-                    {Math.round(fpToNumber(suggestedFares.business) * FARE_CAP_MULTIPLIER)}
+                    {t("routeManager.fareEditor.suggestedAndMax", {
+                      ns: "game",
+                      suggested: fpToNumber(suggestedFares.business),
+                      max: Math.round(fpToNumber(suggestedFares.business) * FARE_CAP_MULTIPLIER),
+                    })}
                   </p>
                 ) : null}
                 {suggestedFares && fareElasticity ? (
                   <div className="mt-3 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
                     <div className="flex items-center justify-between text-[10px] font-semibold">
-                      <span className="uppercase text-muted-foreground">Demand Impact</span>
+                      <span className="uppercase text-muted-foreground">
+                        {t("routeManager.fareEditor.demandImpact", { ns: "game" })}
+                      </span>
                       <span
                         className={`font-mono ${toneTextClass[getElasticityTone(fareElasticity.business.multiplier)]}`}
                       >
@@ -406,7 +422,10 @@ export function FareEditor({
                       )}
                     </div>
                     <p className="mt-2 text-[10px] text-muted-foreground">
-                      Fare is {formatSignedPercent(fareElasticity.business.deltaPercent)} vs market
+                      {t("routeManager.fareEditor.vsMarket", {
+                        ns: "game",
+                        delta: formatSignedPercent(fareElasticity.business.deltaPercent),
+                      })}
                     </p>
                   </div>
                 ) : null}
@@ -416,7 +435,7 @@ export function FareEditor({
                   htmlFor="fare-first"
                   className="text-[10px] uppercase text-muted-foreground font-semibold"
                 >
-                  First
+                  {t("routeManager.fareEditor.class.first", { ns: "game" })}
                 </label>
                 <input
                   id="fare-first"
@@ -434,14 +453,19 @@ export function FareEditor({
                 />
                 {suggestedFares ? (
                   <p className="mt-2 text-[10px] text-yellow-500/70">
-                    Suggested: {fpToNumber(suggestedFares.first)} · max{" "}
-                    {Math.round(fpToNumber(suggestedFares.first) * FARE_CAP_MULTIPLIER)}
+                    {t("routeManager.fareEditor.suggestedAndMax", {
+                      ns: "game",
+                      suggested: fpToNumber(suggestedFares.first),
+                      max: Math.round(fpToNumber(suggestedFares.first) * FARE_CAP_MULTIPLIER),
+                    })}
                   </p>
                 ) : null}
                 {suggestedFares && fareElasticity ? (
                   <div className="mt-3 rounded-lg border border-border/50 bg-background/70 px-3 py-2">
                     <div className="flex items-center justify-between text-[10px] font-semibold">
-                      <span className="uppercase text-muted-foreground">Demand Impact</span>
+                      <span className="uppercase text-muted-foreground">
+                        {t("routeManager.fareEditor.demandImpact", { ns: "game" })}
+                      </span>
                       <span
                         className={`font-mono ${toneTextClass[getElasticityTone(fareElasticity.first.multiplier)]}`}
                       >
@@ -469,7 +493,10 @@ export function FareEditor({
                       )}
                     </div>
                     <p className="mt-2 text-[10px] text-muted-foreground">
-                      Fare is {formatSignedPercent(fareElasticity.first.deltaPercent)} vs market
+                      {t("routeManager.fareEditor.vsMarket", {
+                        ns: "game",
+                        delta: formatSignedPercent(fareElasticity.first.deltaPercent),
+                      })}
                     </p>
                   </div>
                 ) : null}

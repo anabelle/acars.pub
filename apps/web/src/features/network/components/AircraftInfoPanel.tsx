@@ -728,7 +728,10 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
                       {t("aircraftPanel.sinceCheck", { ns: "game" })}
                     </p>
                     <p className="mt-0.5 text-sm font-mono font-semibold">
-                      {numberFormat.format(Math.round(aircraft.flightHoursSinceCheck))} hrs
+                      {t("units.hours", {
+                        ns: "common",
+                        value: numberFormat.format(Math.round(aircraft.flightHoursSinceCheck)),
+                      })}
                     </p>
                   </div>
                 </div>
@@ -1018,7 +1021,9 @@ export function RouteTab({
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
               {t("aircraftPanel.frequency", { ns: "game" })}
             </p>
-            <p className="mt-0.5 text-sm font-mono font-semibold">{frequency}x/wk</p>
+            <p className="mt-0.5 text-sm font-mono font-semibold">
+              {t("units.timesPerWeek", { ns: "common", value: frequency })}
+            </p>
           </div>
         </div>
       </div>

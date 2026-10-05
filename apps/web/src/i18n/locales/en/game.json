@@ -36,7 +36,9 @@
     "status": "Status",
     "flight": "Flight",
     "aircraft": "A/C",
-    "loadFactor": "LF"
+    "loadFactor": "LF",
+    "flightCount_one": "{{count}} flight",
+    "flightCount_other": "{{count}} flights"
   },
   "timeline": {
     "occupancy": "Occupancy",
@@ -557,12 +559,75 @@
       "points_one": "{{count}} pt",
       "points_other": "{{count}} pts",
       "outcomeNote": "Forecast for today's season, fuel price and rivals, before lease and hub costs.",
-      "assignToProject": "Assign an aircraft to this route to see what these fares would earn."
+      "assignToProject": "Assign an aircraft to this route to see what these fares would earn.",
+      "closeAria": "Close fare editor",
+      "title": "Route pricing",
+      "distance": "Distance: {{km}} km",
+      "suggestedAndMax": "Suggested: {{suggested}} · max {{max}}",
+      "vsMarket": "Fare is {{delta}} vs market",
+      "demandImpact": "Demand impact",
+      "class": {
+        "economy": "Economy",
+        "business": "Business",
+        "first": "First"
+      }
     },
     "opportunities": {
       "profitPerDay": "Profit / day",
       "outOfRange": "Out of range",
-      "withModel": "with an {{model}}, after lease"
+      "withModel": "with an {{model}}, after lease",
+      "totalMarket": "Total market",
+      "addressable": "Addressable",
+      "distance": "Distance",
+      "destinationCapacity": "Destination capacity",
+      "slotControlled": "Slot-controlled",
+      "routeOpen": "Route open",
+      "slotFull": "{{origin}} has no free slots. Fly less often from it or choose another hub.",
+      "costPerFlight": "Cost / flight",
+      "breakEven": "Break-even seats filled",
+      "suggestedFleet": "Suggested fleet",
+      "aircraftCount_one": "{{count}} aircraft",
+      "aircraftCount_other": "{{count}} aircraft",
+      "costSplit": "Cost split",
+      "fuelCrew": "Fuel {{fuel}} • Crew {{crew}}",
+      "searchMinChars": "Type at least 2 characters to search…",
+      "searchNoResults": "No airports found matching “{{query}}”"
+    },
+    "card": {
+      "distance": "Distance {{km}} km",
+      "fleet": "Fleet",
+      "aircraftAssigned_one": "{{count}} aircraft assigned",
+      "aircraftAssigned_other": "{{count}} aircraft assigned",
+      "supplyPressure": "Seats vs demand",
+      "seatsFilledPct": "{{value}}% seats filled",
+      "target": "Target {{value}}%",
+      "oversupply": "Too many seats: {{ratio}}×",
+      "coverage": "Demand covered: {{ratio}}×",
+      "priceEffect": "Price effect",
+      "aircraftSuggested_one": "{{delta}} aircraft suggested",
+      "aircraftSuggested_other": "{{delta}} aircraft suggested",
+      "profitPerFlight": "Profit / flight",
+      "revCost": "Revenue {{revenue}} • Cost {{cost}}",
+      "breakEven": "Break-even seats filled",
+      "currentEstimate": "Now about {{value}}%",
+      "action": "Suggestion",
+      "removeAircraft_one": "Remove {{count}} aircraft",
+      "removeAircraft_other": "Remove {{count}} aircraft",
+      "addAircraft_one": "Add {{count}} aircraft",
+      "addAircraft_other": "Add {{count}} aircraft",
+      "holdFleet": "Keep the fleet as is",
+      "supportsAircraft_one": "Demand supports about {{count}} aircraft",
+      "supportsAircraft_other": "Demand supports about {{count}} aircraft",
+      "marketHealth": "Market",
+      "noRivals": "No rival airlines fly this route yet.",
+      "unknownAirline": "Unknown airline",
+      "rivalFrequency": "{{value}}×/wk",
+      "estShare": "Est. share",
+      "supply": {
+        "over": "Too many seats",
+        "under": "Room to grow",
+        "balanced": "Balanced"
+      }
     }
   },
   "hubPicker": {
@@ -580,7 +645,11 @@
     "selected": "Selected",
     "setupFee": "Setup Fee",
     "monthlyCost": "Monthly Cost",
-    "confirm": "Confirm Hub"
+    "confirm": "Confirm Hub",
+    "setupShort": "Setup {{fee}}",
+    "opexShort": "Running {{cost}}/mo",
+    "capacityShort": "Capacity {{value}}/h",
+    "slotControlledShort": "Slot-controlled"
   },
   "ticker": {
     "airlines": "Airlines",

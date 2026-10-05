@@ -184,7 +184,7 @@ export function OpportunitiesList({
 
                     <div className="flex flex-col">
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                        Total Market
+                        {t("routeManager.opportunities.totalMarket", { ns: "game" })}
                       </span>
                       <span className="text-lg font-mono font-bold">
                         {totalDemand.toLocaleString()}
@@ -193,7 +193,7 @@ export function OpportunitiesList({
 
                     <div className="flex flex-col">
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                        Addressable
+                        {t("routeManager.opportunities.addressable", { ns: "game" })}
                       </span>
                       <span className="text-lg font-mono font-bold text-foreground">
                         {addressableTotal.toLocaleString()}
@@ -202,7 +202,7 @@ export function OpportunitiesList({
 
                     <div className="flex flex-col">
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                        Distance
+                        {t("routeManager.opportunities.distance", { ns: "game" })}
                       </span>
                       <span className="text-lg font-mono font-bold text-accent">
                         {Math.round(market.distance).toLocaleString()} km
@@ -232,11 +232,13 @@ export function OpportunitiesList({
                     {destinationCapacity && (
                       <div className="flex flex-col">
                         <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                          Destination Capacity
+                          {t("routeManager.opportunities.destinationCapacity", { ns: "game" })}
                         </span>
                         <span className="text-xs font-semibold text-foreground">
-                          {destinationCapacity}/hr
-                          {destinationSlotControlled ? " • Slot Controlled" : ""}
+                          {t("units.perHour", { ns: "common", value: destinationCapacity })}
+                          {destinationSlotControlled
+                            ? ` • ${t("routeManager.opportunities.slotControlled", { ns: "game" })}`
+                            : ""}
                         </span>
                       </div>
                     )}
@@ -245,7 +247,7 @@ export function OpportunitiesList({
                   {isAlreadyOpen ? (
                     <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-xl text-sm font-bold">
                       <CheckCircle2 className="h-4 w-4" />
-                      Route Open
+                      {t("routeManager.opportunities.routeOpen", { ns: "game" })}
                     </div>
                   ) : !isViewingOther ? (
                     <button
@@ -305,8 +307,10 @@ export function OpportunitiesList({
                 </div>
                 {!isAlreadyOpen && originSlotControlled && !canOpenFromOrigin && (
                   <div className="mt-3 text-xs text-amber-400">
-                    Slot capacity reached at {market.origin.iata}. Reduce frequency or choose
-                    another hub.
+                    {t("routeManager.opportunities.slotFull", {
+                      ns: "game",
+                      origin: market.origin.iata,
+                    })}
                   </div>
                 )}
                 <div className="mt-4 flex h-1 w-full rounded-full bg-muted overflow-hidden">
@@ -315,28 +319,28 @@ export function OpportunitiesList({
                     style={{
                       width: `${(market.demand.economy / (totalDemand || 1)) * 100}%`,
                     }}
-                    title="Economy"
+                    title={t("routeManager.fareEditor.class.economy", { ns: "game" })}
                   />
                   <div
                     className="h-full bg-blue-500"
                     style={{
                       width: `${(market.demand.business / (totalDemand || 1)) * 100}%`,
                     }}
-                    title="Business"
+                    title={t("routeManager.fareEditor.class.business", { ns: "game" })}
                   />
                   <div
                     className="h-full bg-yellow-500"
                     style={{
                       width: `${(market.demand.first / (totalDemand || 1)) * 100}%`,
                     }}
-                    title="First"
+                    title={t("routeManager.fareEditor.class.first", { ns: "game" })}
                   />
                 </div>
                 {routeEconomics && (
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 text-[10px] font-mono">
                     <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
                       <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                        Cost / flight
+                        {t("routeManager.opportunities.costPerFlight", { ns: "game" })}
                       </div>
                       <div className="mt-1 font-bold text-foreground">
                         {fpFormat(routeEconomics.costPerFlight, 0)}
@@ -344,7 +348,7 @@ export function OpportunitiesList({
                     </div>
                     <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
                       <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                        Break-even LF
+                        {t("routeManager.opportunities.breakEven", { ns: "game" })}
                       </div>
                       <div className="mt-1 font-bold text-foreground">
                         {Math.round(routeEconomics.breakEvenLoadFactor * 100)}%
@@ -352,19 +356,25 @@ export function OpportunitiesList({
                     </div>
                     <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
                       <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                        Suggested fleet
+                        {t("routeManager.opportunities.suggestedFleet", { ns: "game" })}
                       </div>
                       <div className="mt-1 font-bold text-foreground">
-                        {routeEconomics.recommendedAircraftCount} aircraft
+                        {t("routeManager.opportunities.aircraftCount", {
+                          ns: "game",
+                          count: routeEconomics.recommendedAircraftCount,
+                        })}
                       </div>
                     </div>
                     <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
                       <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                        Cost split
+                        {t("routeManager.opportunities.costSplit", { ns: "game" })}
                       </div>
                       <div className="mt-1 text-[9px] text-muted-foreground">
-                        Fuel {fpFormat(routeEconomics.costBreakdown.fuel, 0)} • Crew{" "}
-                        {fpFormat(routeEconomics.costBreakdown.crew, 0)}
+                        {t("routeManager.opportunities.fuelCrew", {
+                          ns: "game",
+                          fuel: fpFormat(routeEconomics.costBreakdown.fuel, 0),
+                          crew: fpFormat(routeEconomics.costBreakdown.crew, 0),
+                        })}
                       </div>
                     </div>
                   </div>
@@ -376,12 +386,12 @@ export function OpportunitiesList({
       </div>
       {searchQuery.length > 0 && searchQuery.length < 2 && (
         <div className="p-8 text-center text-muted-foreground font-bold italic">
-          Type at least 2 characters to search…
+          {t("routeManager.opportunities.searchMinChars", { ns: "game" })}
         </div>
       )}
       {searchQuery.length >= 2 && searchResultCount === 0 && (
         <div className="p-8 text-center text-muted-foreground font-bold italic">
-          No airports found matching "{searchQuery}"
+          {t("routeManager.opportunities.searchNoResults", { ns: "game", query: searchQuery })}
         </div>
       )}
     </div>
