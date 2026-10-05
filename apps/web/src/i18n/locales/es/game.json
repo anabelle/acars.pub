@@ -713,5 +713,32 @@
     "switchToLightTheme": "Cambiar al mapa claro",
     "switchToDarkTheme": "Cambiar al mapa oscuro",
     "focus": "Enfoque: {{iata}}"
+  },
+  "awayReport": {
+    "eyebrow": "Mientras no estabas · {{duration}}",
+    "title": "Así le fue a tu aerolínea",
+    "quietTitle": "Tu aerolínea estuvo tranquila",
+    "quietBody": "No aterrizó ningún vuelo mientras no estabas. Abre una ruta desde cualquier aeropuerto para poner tu flota a volar.",
+    "hours_one": "{{count}} hora",
+    "hours_other": "{{count}} horas",
+    "days_one": "{{count}} día",
+    "days_other": "{{count}} días",
+    "profit": "Beneficio mientras no estabas",
+    "revenueCosts": "{{revenue}} de ingresos · {{costs}} de costes y alquileres",
+    "flights": "Vuelos",
+    "passengers": "Pasajeros",
+    "bestRoute": "Mejor ruta",
+    "worstRoute": "Ruta más floja",
+    "promoted": "Ascendiste al Nivel {{tier}}: nuevos aviones y rutas más largas desbloqueados.",
+    "deliveries_one": "{{count}} avión entregado.",
+    "deliveries_other": "{{count}} aviones entregados.",
+    "grounded_one": "En tierra por mantenimiento:",
+    "grounded_other": "{{count}} aviones en tierra por mantenimiento:",
+    "priceWar": "Tus rebajas iniciaron una guerra de precios que daña tu marca en",
+    "bankrupt": "Tu aerolínea se declaró en Capítulo 11. Las operaciones están suspendidas.",
+    "partial": "Solo se guardan los eventos más recientes, así que esto cubre la última parte de tu ausencia.",
+    "continue": "Volver a mi aerolínea",
+    "close": "Cerrar informe",
+    "activity": "Registro completo"
   }
 }

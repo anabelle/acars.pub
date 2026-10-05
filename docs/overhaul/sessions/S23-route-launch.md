@@ -1,7 +1,7 @@
 # S23 — Route projection + airport decision card + one-click launch
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting review of PR #161)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #160 and #161)
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** https://github.com/anabelle/acars.pub/pull/160 (S23.1–S23.2 + fuel fix, merged); https://github.com/anabelle/acars.pub/pull/161 (S23.3–S23.5)
 >
