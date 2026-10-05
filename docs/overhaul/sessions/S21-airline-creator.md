@@ -1,7 +1,7 @@
 # S21 — Quick-start airline creator
 
-> **Status:** ◐ in progress
-> **Next step:** S21.4
+> **Status:** ☑ ready for review
+> **Next step:** — (all steps done; awaiting review)
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -38,7 +38,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S21.1** Auto-generated ICAO/callsign/colors behind "Customize". _Done when:_ form submits with name + hub only.
 - [x] **S21.2** Three instant hub suggestions with reasons and costs. _Done when:_ unit tests for suggestion picker.
 - [x] **S21.3** Real relay-state badge. _Done when:_ badge test with relays stubbed down.
-- [ ] **S21.4** Key backup moved to post-first-landing banner. _Done when:_ screenshots.
+- [x] **S21.4** Key backup moved to post-first-landing banner. _Done when:_ screenshots.
 
 ## Details & guidance
 
@@ -79,11 +79,30 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - `shared/components/RelayStatusBadge`: "Connected to N relays" / "Connecting to relays…" / "Offline" with a Retry button. It replaces the creator's hard-coded "Connected - create your airline" (ledger A10). en + es.
   - 3 tests with `@acars/nostr` stubbed: connecting → offline with retry (relays stay down); ready with the count once relays connect; recovers from offline when a retry connects.
   - Gate + 18 e2e green.
+- 2026-10-05 · S21.4 · (this commit) · **Key backup moved to after the first landing.**
+  - `SecurityUpgradeBanner` shows only once the airline has revenue (revenue accrues only on landings; an O(1) check). New copy: "Your airline just flew its first flight. Secure it: back up your key so a cleared browser can't take it away." The existing "Secure it" actions are unchanged.
+  - The creator no longer carries the "Account key" button or the backup tools, so the form is just name + hub (+ optional Customize).
+  - Tests: the banner waits for the first landing and shows once the airline has flown; the creator shows no key tools even for ephemeral identities.
+  - Screenshots via a clock-driven e2e run: no banner after signup; after launching MAD→BCN and fast-forwarding 2 h, the away report shows 1 flight, and closing it reveals the banner.
+  - Also: the suggested callsign skips one- and two-letter fragments ("E2E Air" gave "E", now "AIR").
+  - Gate + 18 e2e green.
 
 ## Follow-ups
 
-_None yet._
+- **Topbar "Account key" button:** the shell still offers key tools in the top bar for ephemeral accounts before the first landing. That's fine as an opt-in, but S22 (shell clarity) could fold it into the same "Secure your airline" flow.
+- **Unused i18n keys:** `creator.connectedSubtitle`, `creator.icaoPlaceholder`, `creator.callsignSuggested` and `creator.callsignDefaultIcao` are no longer used; remove them with the i18n parity test (S30 follow-up).
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+**Shipped:** creating an airline takes a name and a hub.
+
+- The ICAO code (unique-checked), callsign and livery colors are suggested from the name, under a collapsed "Customize".
+- Three one-click hubs (biggest market, closest other city, cheapest to run) show their setup and monthly costs.
+- The header badge shows the real relay state, with a retry.
+- Key backup waits until the first landing.
+- The `createAirline` payload is unchanged.
+
+**Gotchas:**
+
+- The e2e signup helper (`e2e/signup.ts#createAirline`) now types only the name. Specs that need a specific ICAO must open "Customize" first.
+- `StarterHubChoices` anchors its suggestions on the player's first detected location. If a feature changes `userLocation` on purpose and wants new suggestions, remount it.

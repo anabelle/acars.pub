@@ -60,7 +60,7 @@
     "haveNostrAccount": "Ya tengo una cuenta de Nostr →"
   },
   "security": {
-    "notBackedUp": "Tu cuenta aún no tiene respaldo — si pierdes este navegador/pestaña, tu aerolínea desaparecerá.",
+    "notBackedUp": "Tu aerolínea acaba de completar su primer vuelo. Protégela: guarda tu clave para que borrar el navegador no te la quite.",
     "hide": "Ocultar",
     "secureIt": "Asegurar",
     "dismissWarning": "Descartar advertencia de seguridad",

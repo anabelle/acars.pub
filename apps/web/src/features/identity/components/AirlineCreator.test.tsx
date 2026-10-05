@@ -154,7 +154,7 @@ describe("AirlineCreator", () => {
     });
   });
 
-  it("shows account key tools for ephemeral identities", () => {
+  it("keeps key backup out of the creator, even for ephemeral identities (S21)", () => {
     mockUseAirlineStore.mockReturnValue({
       createAirline: vi.fn(),
       identityStatus: "ready",
@@ -177,8 +177,9 @@ describe("AirlineCreator", () => {
     });
 
     render(<AirlineCreator />);
-    fireEvent.click(screen.getByRole("button", { name: /Account key/i }));
 
-    expect(screen.getByText("Backup Actions")).toBeInTheDocument();
+    // Backup is offered after the first landing (SecurityUpgradeBanner), not here.
+    expect(screen.queryByRole("button", { name: /Account key/i })).toBeNull();
+    expect(screen.queryByText("Backup Actions")).toBeNull();
   });
 });

@@ -2,7 +2,7 @@ import type { Airport } from "@acars/core";
 import { fp, fpFormat } from "@acars/core";
 import { getHubPricingForIata } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
-import { CheckCircle2, KeyRound, PlaneTakeoff, ShieldAlert } from "lucide-react";
+import { CheckCircle2, PlaneTakeoff, ShieldAlert } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -10,13 +10,11 @@ import { RelayStatusBadge } from "@/shared/components/RelayStatusBadge";
 import { HubPicker } from "../../network/components/HubPicker";
 import { findAirlineConflicts } from "../utils/airlineConflicts";
 import { suggestCallsign, suggestIcaoCode, suggestLivery } from "../utils/airlineIdentity";
-import { EphemeralKeyBackupActions } from "./EphemeralKeyBackupActions";
 import { StarterHubChoices } from "./StarterHubChoices";
 
 export function AirlineCreator() {
   const { t } = useTranslation(["identity", "common"]);
   const { createAirline, identityStatus, isLoading, error, competitors } = useAirlineStore();
-  const isEphemeral = useAirlineStore((state) => state.isEphemeral);
   const homeAirport = useEngineStore((s) => s.homeAirport);
   const setHub = useEngineStore((s) => s.setHub);
 
@@ -26,7 +24,6 @@ export function AirlineCreator() {
   // Empty / null = use the value suggested from the name (S21).
   const [primaryOverride, setPrimary] = useState<string | null>(null);
   const [secondaryOverride, setSecondary] = useState<string | null>(null);
-  const [showKeyTools, setShowKeyTools] = useState(false);
 
   const takenIcaoCodes = useMemo(
     () =>
@@ -110,32 +107,7 @@ export function AirlineCreator() {
               {t("creator.subtitle")}
             </p>
           </div>
-          {isEphemeral && (
-            <button
-              type="button"
-              onClick={() => setShowKeyTools((open) => !open)}
-              className="inline-flex items-center gap-2 self-start rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-200 transition hover:bg-amber-500/20"
-            >
-              <KeyRound className="h-3.5 w-3.5" />
-              {showKeyTools
-                ? t("topbar.hideKeyTools", { ns: "common" })
-                : t("topbar.accountKey", { ns: "common" })}
-            </button>
-          )}
         </div>
-        {isEphemeral && showKeyTools && (
-          <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-950/30 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300">
-              {t("topbar.localAccountKey", { ns: "common" })}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-200/80">
-              {t("creator.exportKeyWarning")}
-            </p>
-            <div className="mt-3">
-              <EphemeralKeyBackupActions />
-            </div>
-          </div>
-        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5 p-4 pb-6 sm:space-y-6 sm:p-8">

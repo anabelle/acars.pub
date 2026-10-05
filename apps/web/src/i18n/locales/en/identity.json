@@ -60,7 +60,7 @@
     "haveNostrAccount": "I already have a Nostr account →"
   },
   "security": {
-    "notBackedUp": "Your account isn't backed up yet — if you lose this browser/tab, your airline is gone.",
+    "notBackedUp": "Your airline just flew its first flight. Secure it: back up your key so a cleared browser can't take it away.",
     "hide": "Hide",
     "secureIt": "Secure it",
     "dismissWarning": "Dismiss security warning",

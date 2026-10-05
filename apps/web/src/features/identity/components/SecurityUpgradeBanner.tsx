@@ -14,7 +14,9 @@ import { EphemeralKeyBackupActions } from "./EphemeralKeyBackupActions";
  * Non-blocking banner shown when the user is playing with an
  * in-browser generated key that hasn't been backed up yet.
  *
- * Displayed when identityStatus === "ready" && isEphemeral === true.
+ * Displayed when identityStatus === "ready" && isEphemeral === true, from the
+ * airline's first landing on (S21): before that there's nothing to lose and
+ * the warning would only get in the way of launching.
  * Dismissed per-session for the current account via sessionStorage, and
  * permanently hidden for that account once the user copies or downloads
  * their secret key.
@@ -22,6 +24,8 @@ import { EphemeralKeyBackupActions } from "./EphemeralKeyBackupActions";
 export function SecurityUpgradeBanner() {
   const { t } = useTranslation("identity");
   const pubkey = useAirlineStore((state) => state.pubkey);
+  // Revenue only accrues on landings, so this is "has flown its first flight". O(1).
+  const hasLanded = useAirlineStore((state) => Number(state.airline?.cumulativeRevenue ?? 0) > 0);
   const [dismissedAccounts, setDismissedAccounts] = useState<Record<string, true>>({});
   const [securityRefreshToken, setSecurityRefreshToken] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -39,7 +43,7 @@ export function SecurityUpgradeBanner() {
     });
   }, [pubkey]);
 
-  if (dismissed || secured) return null;
+  if (!hasLanded || dismissed || secured) return null;
 
   function dismiss() {
     if (!pubkey) return;

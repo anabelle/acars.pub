@@ -63,10 +63,15 @@ export function suggestIcaoCode(name: string, taken: ReadonlySet<string>): strin
   return "XXX";
 }
 
-/** The radio callsign: the name's first word ("Iberia Express" → IBERIA), else the code. */
+/**
+ * The radio callsign: the name's first real word ("Iberia Express" → IBERIA;
+ * "E2E Air" → AIR, skipping one- and two-letter fragments), else all its
+ * letters, else the code.
+ */
 export function suggestCallsign(name: string, icaoCode: string): string {
-  const first = nameWords(name)[0];
-  return first ? first.slice(0, 12) : icaoCode;
+  const words = nameWords(name);
+  const word = words.find((candidate) => candidate.length >= 3) ?? words.join("");
+  return word ? word.slice(0, 12) : icaoCode;
 }
 
 function hslToHex(hue: number, saturation: number, lightness: number): string {

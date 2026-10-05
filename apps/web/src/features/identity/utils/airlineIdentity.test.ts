@@ -38,6 +38,8 @@ describe("suggestCallsign and suggestLivery", () => {
     expect(suggestCallsign("Iberia Express", "IBE")).toBe("IBERIA");
     expect(suggestCallsign("Supercalifragilistic Air", "SUP")).toBe("SUPERCALIFRA");
     expect(suggestCallsign("", "XYZ")).toBe("XYZ");
+    expect(suggestCallsign("E2E Air", "EEA")).toBe("AIR");
+    expect(suggestCallsign("J & B", "JBX")).toBe("JB");
   });
 
   it("derives stable, valid hex colours from the name", () => {
