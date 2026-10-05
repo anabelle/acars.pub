@@ -1,3 +1,4 @@
+import { MAX_ROUTE_FREQUENCY_PER_WEEK } from "@acars/core";
 import { dollars, type LegMetrics, runLegScenario } from "./legScenario.js";
 import { STRATEGIES, simulateStrategy } from "./strategy.js";
 
@@ -127,6 +128,8 @@ function oversupplyTable(): string {
         modelId: BASE_MODEL,
         fareMultiplier: 1,
         aircraftCount,
+        // Each aircraft flies as much as it can: that is what oversupply means.
+        frequencyPerWeek: MAX_ROUTE_FREQUENCY_PER_WEEK,
       });
       cells.push(pct(m.loadFactor), money(dollars(m.profitPerDay)));
     }
@@ -215,7 +218,7 @@ export function generateBalanceReport(extraSections: ReportSection[] = []): stri
       body: `${fareTable(sweeps)}\n\n_Overpricing share: how much of the best profit/leg comes from pricing above the suggested fare._`,
     },
     {
-      title: `3. Oversupply (${BASE_MODEL} at suggested fares)`,
+      title: `3. Oversupply (${BASE_MODEL} at suggested fares, every aircraft flying as much as it can)`,
       body: oversupplyTable(),
     },
     { title: "4. Aircraft families at suggested fares", body: familyTable() },

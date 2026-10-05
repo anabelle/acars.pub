@@ -199,6 +199,9 @@ describe("FlightEngine — Multiplayer scenarios", () => {
       destinationIata: "LAX",
       distanceKm: 3000,
       assignedAircraftIds,
+      // A very high schedule (S14: the market sees the scheduled frequency)
+      // spreads demand thin, so a rival visibly takes passengers per leg.
+      frequencyPerWeek: 2000,
     });
 
     const monopoly = simulateSingleLanding(aircraft, route);

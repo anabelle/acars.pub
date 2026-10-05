@@ -9,6 +9,7 @@ import {
   TICKS_PER_HOUR,
 } from "@acars/core";
 import { getAirports } from "@acars/data";
+import { DEFAULT_FREQUENCY_PER_WEEK } from "../routeProjection.js";
 import {
   findLastEvent,
   initState,
@@ -30,9 +31,6 @@ export interface LegScenario {
   /** Round trips a week on the route; defaults to what `openRoute` stores (7). */
   frequencyPerWeek?: number;
 }
-
-/** The weekly frequency a newly opened route gets (`openRoute`). */
-export const DEFAULT_FREQUENCY_PER_WEEK = 7;
 
 export interface LegMetrics extends LegScenario {
   distanceKm: number;

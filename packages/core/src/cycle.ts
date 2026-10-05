@@ -56,6 +56,23 @@ export function maxWeeklyFrequency(
   return Math.floor((TICKS_PER_WEEK * aircraftCount) / physical);
 }
 
+/**
+ * Round trips a week a route actually offers the market: its scheduled
+ * frequency, capped by what its aircraft can physically fly (never below one
+ * while any aircraft is assigned). Market share and the per-leg demand split
+ * use this, so they match the flights the engine flies.
+ */
+export function scheduledWeeklyFrequency(
+  durationTicks: number,
+  turnaroundTicks: number,
+  frequencyPerWeek: number,
+  aircraftCount: number,
+): number {
+  if (aircraftCount <= 0) return 0;
+  const physicalMax = maxWeeklyFrequency(durationTicks, turnaroundTicks, aircraftCount);
+  return Math.max(1, Math.min(Math.round(frequencyPerWeek), physicalMax));
+}
+
 /** First departure slot at or after `tick` for a cycle anchored at `anchorTick`. O(1). */
 export function nextDepartureTick(
   anchorTick: number,

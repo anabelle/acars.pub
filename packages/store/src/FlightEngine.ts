@@ -41,6 +41,7 @@ import {
   PRICE_ELASTICITY_FIRST,
   scaleToAddressableMarket,
   scheduledRoundTripTicks,
+  scheduledWeeklyFrequency,
   TICK_DURATION,
   TICKS_PER_HOUR,
   TICKS_PER_MONTH,
@@ -204,7 +205,12 @@ export interface FlightPassengerInput {
   /** The player's assigned route, or null for an orphaned flight priced from its fare snapshot. */
   route: Pick<
     Route,
-    "distanceKm" | "assignedAircraftIds" | "fareEconomy" | "fareBusiness" | "fareFirst"
+    | "distanceKm"
+    | "assignedAircraftIds"
+    | "fareEconomy"
+    | "fareBusiness"
+    | "fareFirst"
+    | "frequencyPerWeek"
   > | null;
   /** Flight snapshot used when the route is gone (orphaned flights). */
   fallback?: Pick<
@@ -302,15 +308,29 @@ export function computeFlightPassengers({
 
   // --- NEW MP ALLOCATION LOGIC ---
 
-  // Frequency for our offer: how many planes we (the player) have on this route?
+  // Frequency for our offer (S14): the round trips the route is scheduled to
+  // fly, capped by what its aircraft can physically fly, so market share and
+  // the per-leg demand split match the flights the engine actually flies.
+  // Routes without a stored frequency keep the capacity estimate.
+  const aircraftOnRoute = Math.max(1, route?.assignedAircraftIds.length ?? 1);
   const ourFrequency = route
-    ? computeRouteFrequency(
-        route.distanceKm,
-        Math.max(1, route.assignedAircraftIds.length),
-        model.speedKmh || 800,
-        model.turnaroundTimeMinutes,
-        model.blockHoursPerDay,
-      )
+    ? route.frequencyPerWeek && route.frequencyPerWeek > 0
+      ? (() => {
+          const legs = legTicksFor(route.distanceKm, model.speedKmh, model.turnaroundTimeMinutes);
+          return scheduledWeeklyFrequency(
+            legs.durationTicks,
+            legs.turnaroundTicks,
+            route.frequencyPerWeek,
+            aircraftOnRoute,
+          );
+        })()
+      : computeRouteFrequency(
+          route.distanceKm,
+          aircraftOnRoute,
+          model.speedKmh || 800,
+          model.turnaroundTimeMinutes,
+          model.blockHoursPerDay,
+        )
     : Math.max(1, fallback?.frequencyPerWeek ?? 7);
 
   // Travel time for our current aircraft

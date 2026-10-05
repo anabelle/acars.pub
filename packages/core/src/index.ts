@@ -23,6 +23,7 @@ export {
   nextDepartureTick,
   physicalRoundTripTicks,
   scheduledRoundTripTicks,
+  scheduledWeeklyFrequency,
 } from "./cycle.js";
 // Demand
 export {

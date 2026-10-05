@@ -1,7 +1,7 @@
 # S14 — Flights follow the route schedule
 
-> **Status:** ◐ in progress
-> **Next step:** S14.4
+> **Status:** ☑ ready for review
+> **Next step:** — (all steps done; awaiting review)
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -43,7 +43,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S14.1** Schedule math in core (`getNextDepartureTick(route, aircraftIndex, aircraftCount, tick, cycleTicks)`, `maxWeeklyFrequency`) + unit tests. _Done when:_ tests green.
 - [x] **S14.2** Engine and catch-up follow the schedule; existing engine tests updated where they assumed back-to-back flying. _Done when:_ live-ticking vs `reconcileFleetToTick` equivalence test green; `pnpm balance` shows legs/day = scheduled frequency.
 - [x] **S14.3** Editable frequency (UI + reducer validation, cap shown). _Done when:_ unit tests + e2e of changing a frequency.
-- [ ] **S14.4** Projection/route card use the schedule; regenerate `latest.md` and commit the before/after in the PR. _Done when:_ route card profit/day matches the engine (projection test) and the S30 away report agrees with it.
+- [x] **S14.4** Projection/route card use the schedule; regenerate `latest.md` and commit the before/after in the PR. _Done when:_ route card profit/day matches the engine (projection test) and the S30 away report agrees with it.
 
 ## Details & guidance
 
@@ -53,7 +53,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] Legs/day in the S02 report equal the scheduled frequency (capped by physics); route card profit/day equals the engine's; catch-up equals live ticking.
+- [x] Legs/day in the S02 report equal the scheduled frequency (capped by physics); route card profit/day equals the engine's; catch-up equals live ticking.
 
 ## Progress log
 
@@ -84,6 +84,12 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - Tests: reducer set/clamp/garbage/unknown (2); control steps, applies once, stops at the physical cap, floors at 1 (3); e2e `route-frequency.spec.ts` launches MAD→BCN, takes it from 7/wk (2.0 legs/day) to 9/wk (2.6 legs/day).
   - Default on open stays 7/week; the route card's projection already uses the stored frequency.
   - Gate: lint, typecheck, all unit tests, 18 e2e; `pnpm balance` unchanged.
+- 2026-10-05 · S14.4 · (this commit) · **The market now sees the flights actually flown.**
+  - **Correction to my S14.2 note:** the per-leg demand split and QSI market share did _not_ use `frequencyPerWeek`. They used `computeRouteFrequency`, a capacity estimate (~40 round trips/week for one ATR on MAD–BCN). So after S14.2 the route flew 7/week while the market assumed ~40, and each leg got 1/40 of the weekly demand.
+  - Now `computeFlightPassengers` uses core `scheduledWeeklyFrequency`: the stored frequency capped by the physical maximum for the assigned aircraft. Routes without a stored frequency keep the capacity estimate. The projection (`RouteProjectionInput.frequencyPerWeek`, default 7), the route card (passes the existing route's frequency) and the recommendation all use it, so card = engine.
+  - Tests: the engine-equals-projection landing tests still pass. New projection test: 7/week flies 2.0 legs/day, and 10,000/week is capped at one ATR's physical maximum (~16 legs/day). The multiplayer "competition reduces passengers" test now sets an explicit high frequency to keep its demand-limited setup.
+  - Report: thin LIH–KOA goes from 3% to **34% LF** (demand no longer divided by phantom legs). Overpricing now holds further into medium markets (MAD–LIS best 40×, DEN–SLC 10×), which S10 must fix. The oversupply section now flies every aircraft as much as it can: DEN–SLC saturates at 3 ATRs (23% LF), MAD–LIS at 10.
+  - Gate: lint, typecheck, all unit tests, 18 e2e.
 
 ## Follow-ups
 
@@ -92,4 +98,19 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+**Shipped:** a route flies its weekly frequency, capped by physics, and the market model sees exactly those flights.
+
+- The live engine and catch-up share one schedule; a test proves they land the same flights at the same ticks.
+- Players set the frequency per route with a stepper that shows legs/day and the cap for the assigned fleet (`ROUTE_UPDATE_FREQUENCY`, clamped identically in reducer and slice).
+- The route card, projection and S02 harness agree with the engine. A new route (7/week) flies 2 legs a day.
+
+**For S10 (next):**
+
+- Frequency is now a real lever, but on thick markets the best move is still to fly as much as possible at as high a fare as possible: 87% LF holds up to 40×. The incumbent carrier and fare cap must make extra frequency and price compete for a finite market.
+- Recalibrate against `latest.md`, not `baseline-v1.md`: S14 changed the baseline (2 legs/day per route, thin markets at 34% LF).
+- Consider a default frequency above 7 when a route opens (a new ATR route nets only ~$2k/day after lease at 7/week), or let the S23 launch pick a sensible one.
+
+**Gotchas:**
+
+- Existing airlines change behavior on their next load (D2: no versioning): their aircraft stop flying back to back and earn less.
+- `BACK_TO_BACK` in `FlightEngine.test.ts` keeps the cycle-mechanics tests at the physical cycle. New engine tests that care about the schedule should set an explicit `frequencyPerWeek`.
