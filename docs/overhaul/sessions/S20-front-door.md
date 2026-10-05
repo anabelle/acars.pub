@@ -1,7 +1,7 @@
 # S20 — Front door: honest landing, entry layout, meta
 
 > **Status:** ◐ in progress
-> **Next step:** S20.4
+> **Next step:** S20.5
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** https://github.com/anabelle/acars.pub/pull/159
 >
@@ -44,7 +44,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S20.1** Fix mobile context-bar overlap (flip S01 `test.fail` if present). _Done when:_ overlap spec passes.
 - [x] **S20.2** `index.html` title/description/OG/Twitter + `public/og.png`. _Done when:_ tags present; validator passes.
 - [x] **S20.3** Guest/`/join` entry layout: no sidebar, single CTA, quiet key-import link. _Done when:_ screenshots at both sizes.
-- [ ] **S20.4** Honest landing copy + "Roadmap" strip (en + es). _Done when:_ no unshipped feature presented as live.
+- [x] **S20.4** Honest landing copy + "Roadmap" strip (en + es). _Done when:_ no unshipped feature presented as live.
 - [ ] **S20.5** Map-first guest home card + locked-section copy without "Nostr wallet". _Done when:_ screenshots.
 
 ## Details & guidance
@@ -66,6 +66,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - 2026-10-05 · S20.1 · (this commit) · `WorkspaceContextBar` is now `hidden sm:block`. On phones the floating top bar sits at the top of the screen and the bottom nav already shows the section, while competitor and bankruptcy states have their own mobile surfaces (top bar and full-screen overlay), so nothing important is lost; S22 can add a compact mode chip if wanted. Rewrote `e2e/mobile-layout.spec.ts` without `test.fail`: it now asserts both bars exist (so a renamed label can't pass vacuously) and that any _visible_ context bar doesn't overlap. Verified: passes with the fix, and fails on the real overlap (y 0–38 vs 12–74) with the fix reverted. Desktop screenshot unchanged.
 - 2026-10-05 · S20.2 · (this commit) · `index.html`: title "ACARS — Run a real airline on the real clock" (was "Corporate Console"), meta description, theme-color, canonical, Open Graph + Twitter `summary_large_image` tags with absolute `https://acars.pub/…` URLs. Fixed the favicon link, which pointed at a non-existent `/vite.svg`. `public/og.png` (1200×630, 312 KB) rendered from `scripts/og-image.html` via `node scripts/render-og-image.mjs`; copy only claims shipped things (live map, real routes and times, rivals, free, no ads, open source). `e2e/meta.spec.ts` checks tags, absolute URLs, and that `/og.png` (PNG, 1200×630) and `/favicon.svg` are served.
 - 2026-10-05 · S20.3 · (this commit) · `/join` renders as a standalone **entry layout** (`ENTRY_ROUTES` in `routes/__root.tsx`): map in the background, no top bar, context bar, sidebar, mobile nav or ticker. One brand mark, one CTA ("Play for free"), quiet "I already have a Nostr account →" link. Desktop guest top bar elsewhere: one "Play Free" button plus a quiet "Already have a Nostr key?" link that reveals Browser wallet / nsec / What is Nostr? (`topbar.haveNostrKey`, en + es). **Deviation:** guests keep the sidebar on non-entry routes, since removing it would strand desktop guests without navigation to Rivals/Info; locked items stay dimmed (copy fixed in S20.5). Tests: root-route unit test for the entry layout; Topbar test clicks the disclosure; e2e `/join` entry-page spec (exactly one "play" button, no wallet button, no Fleet nav link). The `/join` mobile-overlap case was dropped since it has no top bar now. Screenshots: `/join` and `/` at 390 and 1440.
+- 2026-10-05 · S20.4 · (this commit) · Honest landing copy (en + es). `/join` hero now describes the shipped game (live map, real routes and times, rivals, keeps flying while away, no ads or pay-to-win). Feature cards: "Run a real corporation" (IPO/takeovers) → **Real routes, real demand**; "Earn real Bitcoin" → **A real fleet** (35 aircraft, lease/buy, used market); "Compete globally" ("thousands of airlines, route marketplace") → **One shared live world**; "No servers" → "no central game server". New dashed **On the roadmap** strip ("Planned — not in the game yet"): public companies, Bitcoin rewards, alliances. Onboarding chip "Earn Bitcoin" → "No ads: no pay-to-win, no energy timers". About → Bitcoin & Lightning description prefixed "On the roadmap… Not in the game yet" (title kept; its test asserts it). New e2e check: no Bitcoin/IPO/takeover/sats/zaps text on `/join` outside the roadmap section.
 
 ## Follow-ups
 

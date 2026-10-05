@@ -26,3 +26,22 @@ test("/join is an entry page with a single call to action", async ({ page }) => 
   await expect(page.getByRole("link", { name: /^fleet$/i })).toHaveCount(0);
   await expect(page.locator('[data-layout="entry"]')).toHaveCount(1);
 });
+
+// Honest landing (overhaul S20.4): unshipped mechanics may only appear inside
+// the labelled roadmap section, never as live features.
+test("/join only mentions planned features inside the roadmap", async ({ page }) => {
+  await gotoReady(page, "/join");
+  const body = page.locator("body");
+  await expect(body).not.toContainText("Earn real Bitcoin");
+  await expect(body).not.toContainText("Run a real corporation");
+  await expect(body).not.toContainText("Earn Bitcoin");
+
+  const roadmap = page.locator('section[aria-labelledby="join-roadmap-title"]');
+  await expect(roadmap).toContainText("On the roadmap");
+  const outsideRoadmap = await page.evaluate(() => {
+    const clone = document.body.cloneNode(true) as HTMLElement;
+    clone.querySelector('section[aria-labelledby="join-roadmap-title"]')?.remove();
+    return clone.textContent ?? "";
+  });
+  expect(outsideRoadmap).not.toMatch(/\bIPO|takeover|Bitcoin|sats\b|zaps?\b/i);
+});

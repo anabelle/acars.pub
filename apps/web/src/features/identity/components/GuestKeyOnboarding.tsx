@@ -1,5 +1,5 @@
 import { useAirlineStore } from "@acars/store";
-import { Loader2, Plane, Sparkles, Zap } from "lucide-react";
+import { Loader2, Plane, ShieldCheck, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 /**
@@ -49,7 +49,7 @@ export function GuestKeyOnboarding({ onExistingAccount }: { onExistingAccount?: 
       <div className="grid grid-cols-2 gap-2">
         {[
           { icon: Plane, label: t("guest.realTimeFlights"), sub: t("guest.realTimeFlightsDesc") },
-          { icon: Zap, label: t("guest.earnBitcoin"), sub: t("guest.earnBitcoinDesc") },
+          { icon: ShieldCheck, label: t("guest.noAds"), sub: t("guest.noAdsDesc") },
         ].map((item) => (
           <div
             key={item.label}

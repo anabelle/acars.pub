@@ -48,8 +48,8 @@
     "playFree": "Juega gratis — sin registro requerido",
     "realTimeFlights": "Vuelos en tiempo real",
     "realTimeFlightsDesc": "Las rutas se resuelven en horas reales",
-    "earnBitcoin": "Gana Bitcoin",
-    "earnBitcoinDesc": "Sats reales vía Lightning zaps",
+    "noAds": "Sin anuncios",
+    "noAdsDesc": "Sin pagar para ganar, sin temporizadores de energía",
     "haveNostrAccount": "Ya tengo una cuenta de Nostr →"
   },
   "security": {

@@ -48,8 +48,8 @@
     "playFree": "Play for free — no sign-up required",
     "realTimeFlights": "Real-time flights",
     "realTimeFlightsDesc": "Routes resolve in actual hours",
-    "earnBitcoin": "Earn Bitcoin",
-    "earnBitcoinDesc": "Real sats via Lightning zaps",
+    "noAds": "No ads",
+    "noAdsDesc": "No pay-to-win, no energy timers",
     "haveNostrAccount": "I already have a Nostr account →"
   },
   "security": {
