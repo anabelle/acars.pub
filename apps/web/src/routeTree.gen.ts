@@ -12,10 +12,14 @@ import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as AboutRouteImport } from "./routes/about";
 import { Route as CorporateRouteImport } from "./routes/corporate";
+import { Route as FinanceRouteImport } from "./routes/finance";
 import { Route as FleetRouteImport } from "./routes/fleet";
+import { Route as InfoRouteImport } from "./routes/info";
 import { Route as JoinRouteImport } from "./routes/join";
 import { Route as LeaderboardRouteImport } from "./routes/leaderboard";
 import { Route as NetworkRouteImport } from "./routes/network";
+import { Route as RivalsRouteImport } from "./routes/rivals";
+import { Route as RoutesRouteImport } from "./routes/routes";
 import { Route as AircraftIdRouteImport } from "./routes/aircraft.$id";
 import { Route as AirportIataRouteImport } from "./routes/airport.$iata";
 
@@ -34,9 +38,19 @@ const CorporateRoute = CorporateRouteImport.update({
   path: "/corporate",
   getParentRoute: () => rootRouteImport,
 } as any);
+const FinanceRoute = FinanceRouteImport.update({
+  id: "/finance",
+  path: "/finance",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const FleetRoute = FleetRouteImport.update({
   id: "/fleet",
   path: "/fleet",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const InfoRoute = InfoRouteImport.update({
+  id: "/info",
+  path: "/info",
   getParentRoute: () => rootRouteImport,
 } as any);
 const JoinRoute = JoinRouteImport.update({
@@ -54,6 +68,16 @@ const NetworkRoute = NetworkRouteImport.update({
   path: "/network",
   getParentRoute: () => rootRouteImport,
 } as any);
+const RivalsRoute = RivalsRouteImport.update({
+  id: "/rivals",
+  path: "/rivals",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const RoutesRoute = RoutesRouteImport.update({
+  id: "/routes",
+  path: "/routes",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const AircraftIdRoute = AircraftIdRouteImport.update({
   id: "/aircraft/$id",
   path: "/aircraft/$id",
@@ -69,10 +93,14 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
   "/corporate": typeof CorporateRoute;
+  "/finance": typeof FinanceRoute;
   "/fleet": typeof FleetRoute;
+  "/info": typeof InfoRoute;
   "/join": typeof JoinRoute;
   "/leaderboard": typeof LeaderboardRoute;
   "/network": typeof NetworkRoute;
+  "/rivals": typeof RivalsRoute;
+  "/routes": typeof RoutesRoute;
   "/aircraft/$id": typeof AircraftIdRoute;
   "/airport/$iata": typeof AirportIataRoute;
 }
@@ -80,10 +108,14 @@ export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
   "/corporate": typeof CorporateRoute;
+  "/finance": typeof FinanceRoute;
   "/fleet": typeof FleetRoute;
+  "/info": typeof InfoRoute;
   "/join": typeof JoinRoute;
   "/leaderboard": typeof LeaderboardRoute;
   "/network": typeof NetworkRoute;
+  "/rivals": typeof RivalsRoute;
+  "/routes": typeof RoutesRoute;
   "/aircraft/$id": typeof AircraftIdRoute;
   "/airport/$iata": typeof AirportIataRoute;
 }
@@ -92,10 +124,14 @@ export interface FileRoutesById {
   "/": typeof IndexRoute;
   "/about": typeof AboutRoute;
   "/corporate": typeof CorporateRoute;
+  "/finance": typeof FinanceRoute;
   "/fleet": typeof FleetRoute;
+  "/info": typeof InfoRoute;
   "/join": typeof JoinRoute;
   "/leaderboard": typeof LeaderboardRoute;
   "/network": typeof NetworkRoute;
+  "/rivals": typeof RivalsRoute;
+  "/routes": typeof RoutesRoute;
   "/aircraft/$id": typeof AircraftIdRoute;
   "/airport/$iata": typeof AirportIataRoute;
 }
@@ -105,10 +141,14 @@ export interface FileRouteTypes {
     | "/"
     | "/about"
     | "/corporate"
+    | "/finance"
     | "/fleet"
+    | "/info"
     | "/join"
     | "/leaderboard"
     | "/network"
+    | "/rivals"
+    | "/routes"
     | "/aircraft/$id"
     | "/airport/$iata";
   fileRoutesByTo: FileRoutesByTo;
@@ -116,10 +156,14 @@ export interface FileRouteTypes {
     | "/"
     | "/about"
     | "/corporate"
+    | "/finance"
     | "/fleet"
+    | "/info"
     | "/join"
     | "/leaderboard"
     | "/network"
+    | "/rivals"
+    | "/routes"
     | "/aircraft/$id"
     | "/airport/$iata";
   id:
@@ -127,10 +171,14 @@ export interface FileRouteTypes {
     | "/"
     | "/about"
     | "/corporate"
+    | "/finance"
     | "/fleet"
+    | "/info"
     | "/join"
     | "/leaderboard"
     | "/network"
+    | "/rivals"
+    | "/routes"
     | "/aircraft/$id"
     | "/airport/$iata";
   fileRoutesById: FileRoutesById;
@@ -139,10 +187,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   AboutRoute: typeof AboutRoute;
   CorporateRoute: typeof CorporateRoute;
+  FinanceRoute: typeof FinanceRoute;
   FleetRoute: typeof FleetRoute;
+  InfoRoute: typeof InfoRoute;
   JoinRoute: typeof JoinRoute;
   LeaderboardRoute: typeof LeaderboardRoute;
   NetworkRoute: typeof NetworkRoute;
+  RivalsRoute: typeof RivalsRoute;
+  RoutesRoute: typeof RoutesRoute;
   AircraftIdRoute: typeof AircraftIdRoute;
   AirportIataRoute: typeof AirportIataRoute;
 }
@@ -170,11 +222,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof CorporateRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/finance": {
+      id: "/finance";
+      path: "/finance";
+      fullPath: "/finance";
+      preLoaderRoute: typeof FinanceRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/fleet": {
       id: "/fleet";
       path: "/fleet";
       fullPath: "/fleet";
       preLoaderRoute: typeof FleetRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/info": {
+      id: "/info";
+      path: "/info";
+      fullPath: "/info";
+      preLoaderRoute: typeof InfoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/join": {
@@ -198,6 +264,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof NetworkRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/rivals": {
+      id: "/rivals";
+      path: "/rivals";
+      fullPath: "/rivals";
+      preLoaderRoute: typeof RivalsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/routes": {
+      id: "/routes";
+      path: "/routes";
+      fullPath: "/routes";
+      preLoaderRoute: typeof RoutesRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/aircraft/$id": {
       id: "/aircraft/$id";
       path: "/aircraft/$id";
@@ -219,10 +299,14 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   CorporateRoute: CorporateRoute,
+  FinanceRoute: FinanceRoute,
   FleetRoute: FleetRoute,
+  InfoRoute: InfoRoute,
   JoinRoute: JoinRoute,
   LeaderboardRoute: LeaderboardRoute,
   NetworkRoute: NetworkRoute,
+  RivalsRoute: RivalsRoute,
+  RoutesRoute: RoutesRoute,
   AircraftIdRoute: AircraftIdRoute,
   AirportIataRoute: AirportIataRoute,
 };

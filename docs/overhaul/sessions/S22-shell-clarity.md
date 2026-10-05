@@ -1,8 +1,8 @@
 # S22 — Shell clarity: naming, status bar, real health
 
-> **Status:** ☐ not started
-> **Next step:** S22.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S22.2
+> **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
 > **Track:** UX · **Size:** M (3 steps) · **Depends on:** S20 · **Unblocks:** S31
@@ -38,7 +38,7 @@ One name per place, a status bar that speaks player language, and health indicat
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S22.1** Unified names + URL aliases with redirects from old paths. _Done when:_ redirect tests green.
+- [x] **S22.1** Unified names + URL aliases with redirects from old paths. _Done when:_ redirect tests green.
 - [ ] **S22.2** Ticker: UTC clock, next landing, cash delta, "World economy", real LIVE health. _Done when:_ LIVE dot amber when relays down.
 - [ ] **S22.3** Cockpit: relay card only when degraded + jargon-free copy (en + es). _Done when:_ screenshots.
 
@@ -56,7 +56,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-05 · S22.1 · (this commit) · Nav names are now Cockpit, Fleet, Routes, Rivals, Finance, Info on desktop, mobile and page titles (en + es; the separate mobile labels are gone). `/routes`, `/rivals`, `/finance` and `/info` redirect to `/network`, `/leaderboard`, `/corporate` and `/about`, keeping search params (`shared/lib/routeAliases.ts`). The old paths stay canonical, so existing links and tests are unaffected. Unit tests cover the mapping; `e2e/url-aliases.spec.ts` checks every redirect in the browser.
 
 ## Follow-ups
 

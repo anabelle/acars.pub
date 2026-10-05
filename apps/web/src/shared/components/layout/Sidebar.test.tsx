@@ -47,8 +47,8 @@ describe("Sidebar", () => {
     render(<Sidebar />);
     expect(screen.getAllByText("Cockpit").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Fleet").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Planning").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Competition").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Routes").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Rivals").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Finance").length).toBeGreaterThan(0);
   });
 
@@ -61,14 +61,14 @@ describe("Sidebar", () => {
 describe("MobileNav", () => {
   it("renders navigation items", () => {
     render(<MobileNav />);
-    expect(screen.getByText("Ops")).toBeInTheDocument();
+    expect(screen.getByText("Cockpit")).toBeInTheDocument();
     expect(screen.getByText("Fleet")).toBeInTheDocument();
-    expect(screen.getByText("Plan")).toBeInTheDocument();
+    expect(screen.getByText("Routes")).toBeInTheDocument();
     expect(screen.getByText("Rivals")).toBeInTheDocument();
-    expect(screen.getByText("Cash")).toBeInTheDocument();
+    expect(screen.getByText("Finance")).toBeInTheDocument();
     expect(screen.getByText("Info")).toBeInTheDocument();
     expect(screen.queryByText("Competition")).not.toBeInTheDocument();
-    expect(screen.queryByText("Finance")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cash")).not.toBeInTheDocument();
   });
 
   it("uses evenly sized slots for mobile navigation items", () => {

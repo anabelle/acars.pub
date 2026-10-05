@@ -2,15 +2,11 @@
   "nav": {
     "map": "Cockpit",
     "fleet": "Fleet",
-    "network": "Planning",
-    "leaderboard": "Competition",
+    "network": "Routes",
+    "leaderboard": "Rivals",
     "corporate": "Finance",
-    "about": "Briefing",
-    "info": "Info",
-    "mobileOps": "Ops",
-    "mobileNet": "Plan",
-    "mobileRank": "Rivals",
-    "mobileCorp": "Cash"
+    "about": "Info",
+    "info": "Info"
   },
   "topbar": {
     "flightDeck": "Flight deck",
