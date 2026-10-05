@@ -563,14 +563,11 @@
     "confirm": "Confirm Hub"
   },
   "ticker": {
-    "liveData": "Live Data",
-    "gameTime": "Game Time",
-    "cycle": "Cycle {{tick}}",
     "airlines": "Airlines",
     "planes": "Planes",
     "routes": "Routes",
     "season": "Season",
-    "economy": "Economy",
+    "economy": "World economy",
     "status": "Status",
     "catchingUp": "Catching up ({{phase}} {{percent}}%)",
     "yourAirline": "Your Airline",
@@ -581,6 +578,15 @@
       "summer": "Summer",
       "autumn": "Autumn",
       "winter": "Winter"
+    },
+    "nextLanding": "Next landing",
+    "nextLandingValue": "{{iata}} in {{time}}",
+    "noLanding": "None in the air",
+    "cashToday": "Today",
+    "relay": {
+      "ready": "Live",
+      "connecting": "Connecting",
+      "offline": "Offline"
     }
   },
   "airportPanel": {

@@ -563,14 +563,11 @@
     "confirm": "Confirmar hub"
   },
   "ticker": {
-    "liveData": "Datos en vivo",
-    "gameTime": "Hora del juego",
-    "cycle": "Ciclo {{tick}}",
     "airlines": "Aerolíneas",
     "planes": "Aviones",
     "routes": "Rutas",
     "season": "Temporada",
-    "economy": "Economía",
+    "economy": "Economía mundial",
     "status": "Estado",
     "catchingUp": "Sincronizando ({{phase}} {{percent}}%)",
     "yourAirline": "Tu aerolínea",
@@ -581,6 +578,15 @@
       "summer": "Verano",
       "autumn": "Otoño",
       "winter": "Invierno"
+    },
+    "nextLanding": "Próximo aterrizaje",
+    "nextLandingValue": "{{iata}} en {{time}}",
+    "noLanding": "Ninguno en vuelo",
+    "cashToday": "Hoy",
+    "relay": {
+      "ready": "En vivo",
+      "connecting": "Conectando",
+      "offline": "Sin conexión"
     }
   },
   "airportPanel": {
