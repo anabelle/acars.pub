@@ -431,7 +431,8 @@ describe("scheduled cadence (S14)", () => {
     );
     expect(idle.status).toBe("idle");
     expect(idle.baseAirportIata).toBe("MAD");
-    expect(idle.departureTick).toBe(start + period);
+    expect(idle.nextDepartureTick).toBe(start + period);
+    expect(idle.departureTick).toBe(start + durationTicks + turnaroundTicks);
     expect(idle.arrivalTick).toBe(start + durationTicks * 2 + turnaroundTicks);
 
     // The next cycle starts exactly at the slot.

@@ -64,6 +64,8 @@ export interface CyclePhase {
   departureTick: number;
   arrivalTick: number;
   turnaroundEndTick: number | null;
+  /** "idle" only: the next scheduled outbound departure. */
+  nextDepartureTick?: number;
   baseAirportIata: string;
   originIata: string;
   destinationIata: string;
@@ -149,9 +151,11 @@ export function getCyclePhase(
       status: "idle",
       direction: "inbound",
       positionInCycle,
-      departureTick: targetTick - positionInCycle + roundTripTicks,
+      // The inbound leg it just flew, like the live engine keeps it.
+      departureTick: arrivalTick - durationTicks,
       arrivalTick,
       turnaroundEndTick: null,
+      nextDepartureTick: targetTick - positionInCycle + roundTripTicks,
       baseAirportIata: route.originIata,
       originIata: route.destinationIata,
       destinationIata: route.originIata,

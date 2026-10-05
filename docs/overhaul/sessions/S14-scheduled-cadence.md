@@ -1,7 +1,7 @@
 # S14 — Flights follow the route schedule
 
 > **Status:** ◐ in progress
-> **Next step:** S14.2
+> **Next step:** S14.3
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -41,7 +41,7 @@ Aircraft fly the route's weekly frequency, not back to back. Frequency becomes a
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S14.1** Schedule math in core (`getNextDepartureTick(route, aircraftIndex, aircraftCount, tick, cycleTicks)`, `maxWeeklyFrequency`) + unit tests. _Done when:_ tests green.
-- [ ] **S14.2** Engine and catch-up follow the schedule; existing engine tests updated where they assumed back-to-back flying. _Done when:_ live-ticking vs `reconcileFleetToTick` equivalence test green; `pnpm balance` shows legs/day = scheduled frequency.
+- [x] **S14.2** Engine and catch-up follow the schedule; existing engine tests updated where they assumed back-to-back flying. _Done when:_ live-ticking vs `reconcileFleetToTick` equivalence test green; `pnpm balance` shows legs/day = scheduled frequency.
 - [ ] **S14.3** Editable frequency (UI + reducer validation, cap shown). _Done when:_ unit tests + e2e of changing a frequency.
 - [ ] **S14.4** Projection/route card use the schedule; regenerate `latest.md` and commit the before/after in the PR. _Done when:_ route card profit/day matches the engine (projection test) and the S30 away report agrees with it.
 
@@ -66,10 +66,22 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - `getCyclePhase`, `countLandingsBetween` and `enumerateFlightEvents` take an optional `roundTripTicks` (default: the physical cycle, so existing behavior is identical). The extra time is a new `"idle"` phase at the origin, whose `departureTick` is the next slot.
   - New `TICKS_PER_WEEK`. 7 new tests; the 287 existing core tests unchanged. `pnpm balance` output unchanged (not wired yet).
   - **Design for S14.2:** the engine anchors each aircraft's cycle at its existing cycle start, offset by `index × period / aircraftCount` so the route's aircraft spread over the period. The live engine holds an idle, assigned aircraft until `nextDepartureTick`, and catch-up passes the same period to the cycle helpers.
+- 2026-10-05 · S14.2 · (this commit) · **Aircraft now fly the route's weekly frequency.**
+  - Live engine: after the inbound turnaround at the origin, an aircraft goes `idle` and waits until one period after the outbound departure of the round trip it just finished (`nextScheduledOutboundTick`). The first departure after assignment or delivery is still immediate, so the S23 "flying in 3 min" still holds.
+  - Catch-up (`reconcileFleetToTick`): every path uses the same period (`routeRoundTripTicks` = `scheduledRoundTripTicks(…, route.frequencyPerWeek, assigned aircraft)`), and an idle, waiting aircraft is anchored on its last round trip like the live engine.
+  - The core idle phase now keeps the inbound leg in `flight` and reports the slot as `nextDepartureTick`.
+  - New tests: 7/week flies one round trip a day on the same slot; a frequency above physics still flies back to back; **catch-up lands the same flights at the same ticks as live ticking**, with the same final state.
+  - The 28 existing reconcile tests pin the cycle mechanics, so their routes use `BACK_TO_BACK` (above the physical maximum).
+  - Harness: legs/day = 2 × day ÷ the scheduled period (frequency parameter, default 7 = `openRoute`). `latest.md`: every route at 7/week flies **2.0 legs/day** (was 14–26). The ATR on MAD–BCN makes $6,113/day (was $53,838). Strategies: cautious 55 days to Tier 2 (was 13); greedy still reaches Tier 4 in 50 days (overpricing: S10).
+  - The fix also stops demand being counted many times over: the engine splits weekly demand by `frequencyPerWeek` per leg, but flew ~8× that many legs.
+  - **Found by e2e:** the S30 away report labelled a route by the newest landing's direction ("BCN ⇄ MAD" when only the return leg landed). `summarizeTimeline` now takes the airline's routes and labels each as the player opened it; the hook passes them in. New unit test.
+  - Tooling: the pre-commit ESLint failed when one commit touched both `apps/web` and `packages/` ("multiple candidate TSConfigRootDirs"). Both ESLint configs now pin `parserOptions.tsconfigRootDir`.
+  - Gate: lint, typecheck, all unit tests, 17 e2e.
 
 ## Follow-ups
 
-_None yet._
+- **Frequency must scale with the fleet (S14.3):** at a fixed 7/week, extra aircraft on a route fly nothing extra (the period is spread over them). S14.3's editor and default must raise the frequency when aircraft are added, or the "Oversupply" table and multi-aircraft routes mean little.
+- **Departure stagger:** aircraft assigned at the same tick depart together and stay bunched. Cosmetic (demand is split by frequency); spread them by `index × period / aircraftCount` if it shows on the map.
 
 ## Handoff notes
 

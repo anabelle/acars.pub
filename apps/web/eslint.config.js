@@ -17,6 +17,9 @@ export default defineConfig([
     ],
     languageOptions: {
       ecmaVersion: 2020,
+      // Pin the root so one lint run over web and package files (the
+      // pre-commit hook) isn't ambiguous between the two configs.
+      parserOptions: { tsconfigRootDir: import.meta.dirname },
       globals: globals.browser,
     },
   },

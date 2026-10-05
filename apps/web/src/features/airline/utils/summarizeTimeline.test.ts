@@ -129,4 +129,15 @@ describe("summarizeTimeline", () => {
   it("detects bankruptcy", () => {
     expect(summarizeTimeline([event({ type: "bankruptcy", tick: 5 })], 0, 10).bankrupt).toBe(true);
   });
+
+  it("labels a route as the player opened it, even when only its return leg landed", () => {
+    const inboundOnly = [landing(10, "r1", ["BCN", "MAD"], 1, 0, 1)];
+    const routes = [{ id: "r1", originIata: "MAD", destinationIata: "BCN" }];
+    expect(summarizeTimeline(inboundOnly, 0, 20, undefined, routes).bestRoute).toMatchObject({
+      originIata: "MAD",
+      destinationIata: "BCN",
+    });
+    // Without the route list it falls back to the leg's own airports.
+    expect(summarizeTimeline(inboundOnly, 0, 20).bestRoute?.originIata).toBe("BCN");
+  });
 });

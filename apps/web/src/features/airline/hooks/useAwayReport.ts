@@ -52,7 +52,7 @@ export function useAwayReport() {
 
     const check = () => {
       if (decidedRef.current || !visible()) return;
-      const { pubkey, timeline } = useAirlineStore.getState();
+      const { pubkey, timeline, routes } = useAirlineStore.getState();
       if (!pubkey || useEngineStore.getState().catchupProgress) return;
 
       const decision = decideAwayReport({
@@ -64,7 +64,9 @@ export function useAwayReport() {
 
       decidedRef.current = true;
       if (decision.kind === "report") {
-        setSummary(summarizeTimeline(timeline, decision.fromTick, decision.toTick));
+        setSummary(
+          summarizeTimeline(timeline, decision.fromTick, decision.toTick, undefined, routes),
+        );
       }
       recordLastSeen();
     };
