@@ -67,6 +67,7 @@ export interface AirlineState {
     routeId: string,
     fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint },
   ) => Promise<void>;
+  updateRouteFrequency: (routeId: string, frequencyPerWeek: number) => Promise<void>;
   updateHub: (newHubIata: string) => Promise<void>;
   processTick: (tick: number) => Promise<void>;
   // World / Multi-player

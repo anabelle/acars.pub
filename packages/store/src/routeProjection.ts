@@ -31,6 +31,8 @@ export interface RouteProjectionInput {
   model: AircraftModel;
   /** Aircraft flying the route, including this one. Default 1. */
   aircraftCount?: number;
+  /** Round trips a week the route is scheduled to fly (S14). Default 7, what `openRoute` stores. */
+  frequencyPerWeek?: number;
   /** Defaults to the suggested fares for the distance. */
   fares?: { economy: FixedPoint; business: FixedPoint; first: FixedPoint };
   /** Seat configuration; defaults to the model's standard capacity. */
@@ -89,7 +91,13 @@ function projectLeg(
   input: Required<
     Pick<
       RouteProjectionInput,
-      "distanceKm" | "model" | "aircraftCount" | "fares" | "seatConfig" | "tick"
+      | "distanceKm"
+      | "model"
+      | "aircraftCount"
+      | "fares"
+      | "seatConfig"
+      | "tick"
+      | "frequencyPerWeek"
     >
   > &
     Pick<RouteProjectionInput, "competitorOffers" | "playerBrandScore" | "distanceLimitKm"> & {
@@ -116,6 +124,7 @@ function projectLeg(
       fareEconomy: fares.economy,
       fareBusiness: fares.business,
       fareFirst: fares.first,
+      frequencyPerWeek: input.frequencyPerWeek,
     },
     competitorOffers: input.competitorOffers ?? [],
     playerPubkey: input.playerPubkey,
@@ -173,6 +182,9 @@ function projectLeg(
   };
 }
 
+/** The weekly frequency a newly opened route gets (`openRoute`). */
+export const DEFAULT_FREQUENCY_PER_WEEK = 7;
+
 export function projectRouteEconomics(input: RouteProjectionInput): RouteProjection {
   const aircraftCount = Math.max(1, input.aircraftCount ?? 1);
   const fares = input.fares ?? getSuggestedFares(input.distanceKm);
@@ -183,7 +195,16 @@ export function projectRouteEconomics(input: RouteProjectionInput): RouteProject
   };
   const playerPubkey = input.playerPubkey ?? PROJECTION_PUBKEY;
   const network = buildNetworkContext(input.networkRoutes ?? []);
-  const shared = { ...input, aircraftCount, fares, seatConfig, playerPubkey, network };
+  const frequencyPerWeek = input.frequencyPerWeek ?? DEFAULT_FREQUENCY_PER_WEEK;
+  const shared = {
+    ...input,
+    aircraftCount,
+    frequencyPerWeek,
+    fares,
+    seatConfig,
+    playerPubkey,
+    network,
+  };
 
   const outbound = projectLeg(shared);
   const inbound = projectLeg({
@@ -197,8 +218,9 @@ export function projectRouteEconomics(input: RouteProjectionInput): RouteProject
   const profitPerFlight = fpSub(revenuePerFlight, costPerFlight);
 
   // Each round trip is two landings (one per direction).
-  const frequencyPerWeek = outbound.frequencyPerWeek;
-  const flightsPerDay = (frequencyPerWeek * 2) / 7;
+  // What the route actually flies: its schedule, capped by physics (S14).
+  const flownPerWeek = outbound.frequencyPerWeek;
+  const flightsPerDay = (flownPerWeek * 2) / 7;
 
   const shares = calculateShares(outbound.allOffers).economy;
   const competitorShares = outbound.allOffers
@@ -217,7 +239,7 @@ export function projectRouteEconomics(input: RouteProjectionInput): RouteProject
     revenuePerFlight,
     costPerFlight,
     profitPerFlight,
-    frequencyPerWeek,
+    frequencyPerWeek: flownPerWeek,
     flightsPerDay,
     revenuePerDay: fpScale(revenuePerFlight, flightsPerDay),
     profitPerDay: fpScale(profitPerFlight, flightsPerDay),

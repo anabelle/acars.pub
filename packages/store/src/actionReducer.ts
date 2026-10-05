@@ -8,7 +8,6 @@ import type {
   TimelineEventType,
 } from "@acars/core";
 import {
-  REPLACEABLE_ACTION_TYPES,
   calculateBookValue,
   computeActionChainHash,
   fp,
@@ -19,6 +18,9 @@ import {
   GENESIS_TIME,
   getMaintenanceDowntimeTicks,
   getSuggestedFares,
+  MAX_ROUTE_FREQUENCY_PER_WEEK,
+  MIN_ROUTE_FREQUENCY_PER_WEEK,
+  REPLACEABLE_ACTION_TYPES,
   ROUTE_SLOT_FEE,
   TICK_DURATION,
   TICKS_PER_HOUR,
@@ -1048,6 +1050,30 @@ export async function replayActionLog(params: {
           originIata: route.originIata,
           destinationIata: route.destinationIata,
           description: `Updated fares for ${route.originIata} ↔ ${route.destinationIata}.`,
+        });
+        break;
+      }
+      case "ROUTE_UPDATE_FREQUENCY": {
+        const routeId = resolveRouteId(clampString(payload.routeId, 64));
+        if (!routeId) break;
+        const route = routesById.get(routeId);
+        const frequencyPerWeek = clampInt(
+          payload.frequencyPerWeek,
+          MIN_ROUTE_FREQUENCY_PER_WEEK,
+          MAX_ROUTE_FREQUENCY_PER_WEEK,
+        );
+        if (!route || frequencyPerWeek === null) break;
+        routesById.set(routeId, { ...route, frequencyPerWeek });
+        updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "route_change",
+          routeId,
+          originIata: route.originIata,
+          destinationIata: route.destinationIata,
+          description: `${route.originIata} ↔ ${route.destinationIata} now flies ${frequencyPerWeek} round trips a week.`,
         });
         break;
       }

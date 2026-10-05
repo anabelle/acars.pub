@@ -24,6 +24,8 @@ export interface RouteCandidateInput {
   playerPubkey: string;
   competitorOffers: FlightOffer[];
   networkRoutes: ReadonlyArray<Pick<Route, "originIata" | "destinationIata" | "frequencyPerWeek">>;
+  /** Round trips a week the route flies (S14); a new route gets 7. */
+  frequencyPerWeek?: number;
   catalog?: readonly AircraftModel[];
 }
 
@@ -52,6 +54,7 @@ export function recommendAircraftForRoute(input: RouteCandidateInput): RouteReco
       playerBrandScore: input.brandScore,
       distanceLimitKm: getMaxRouteDistanceKm(input.tier),
       networkRoutes: input.networkRoutes,
+      frequencyPerWeek: input.frequencyPerWeek ?? NEW_ROUTE_WEEKLY_FREQUENCY,
     });
     const leasePerDay = fpScale(model.monthlyLease, 1 / DAYS_PER_LEASE_MONTH);
     return {

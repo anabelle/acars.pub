@@ -1,4 +1,4 @@
-import type { FixedPoint, TimelineEvent } from "@acars/core";
+import type { FixedPoint, Route, TimelineEvent } from "@acars/core";
 import { fp, fpAdd, fpSub } from "@acars/core";
 
 /** The store keeps at most this many timeline events (newest first). */
@@ -59,7 +59,10 @@ export function summarizeTimeline(
   fromTick: number,
   toTick: number,
   capacity: number = TIMELINE_CAPACITY,
+  /** The airline's routes: label each as the player opened it (origin ⇄ destination). */
+  airlineRoutes: readonly Pick<Route, "id" | "originIata" | "destinationIata">[] = [],
 ): TimelineSummary {
+  const routeById = new Map(airlineRoutes.map((route) => [route.id, route]));
   let flights = 0;
   let passengers = 0;
   let revenue = fp(0);
@@ -84,9 +87,10 @@ export function summarizeTimeline(
         passengers += pax;
         revenue = fpAdd(revenue, event.revenue ?? fp(0));
         costs = fpAdd(costs, event.cost ?? fp(0));
-        const origin = event.originIata ?? "";
-        const destination = event.destinationIata ?? "";
         const routeId = event.routeId ?? event.details?.routeId ?? null;
+        const known = routeId ? routeById.get(routeId) : undefined;
+        const origin = known?.originIata ?? event.originIata ?? "";
+        const destination = known?.destinationIata ?? event.destinationIata ?? "";
         const key = routeId ?? `${origin}-${destination}`;
         const route = routes.get(key);
         const legProfit = event.profit ?? fpSub(event.revenue ?? fp(0), event.cost ?? fp(0));

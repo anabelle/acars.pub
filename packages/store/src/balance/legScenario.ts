@@ -5,9 +5,11 @@ import {
   fpToNumber,
   getSuggestedFares,
   haversineDistance,
+  scheduledRoundTripTicks,
   TICKS_PER_HOUR,
 } from "@acars/core";
 import { getAirports } from "@acars/data";
+import { DEFAULT_FREQUENCY_PER_WEEK } from "../routeProjection.js";
 import {
   findLastEvent,
   initState,
@@ -26,6 +28,8 @@ export interface LegScenario {
   fareMultiplier: number;
   /** Aircraft assigned to the route (they share its demand). */
   aircraftCount: number;
+  /** Round trips a week on the route; defaults to what `openRoute` stores (7). */
+  frequencyPerWeek?: number;
 }
 
 export interface LegMetrics extends LegScenario {
@@ -34,7 +38,7 @@ export interface LegMetrics extends LegScenario {
   passengers: number;
   revenuePerLeg: FixedPoint;
   profitPerLeg: FixedPoint;
-  /** Legs one aircraft flies per day at the engine's real cadence (block time + turnaround). */
+  /** Legs one aircraft flies per day: the route's schedule, capped by block time + turnaround (S14). */
   legsPerDayPerAircraft: number;
   /** Route profit per day: every aircraft, both directions, at this leg's result. */
   profitPerDay: FixedPoint;
@@ -74,6 +78,7 @@ export function runLegScenario(scenario: LegScenario): LegMetrics {
     originIata: scenario.originIata,
     destinationIata: scenario.destinationIata,
     distanceKm,
+    frequencyPerWeek: scenario.frequencyPerWeek ?? DEFAULT_FREQUENCY_PER_WEEK,
     assignedAircraftIds: Array.from({ length: scenario.aircraftCount }, (_, i) =>
       i === 0 ? "ac-1" : `ac-${i + 1}`,
     ),
@@ -102,8 +107,13 @@ export function runLegScenario(scenario: LegScenario): LegMetrics {
     throw new Error(`No landing for ${scenario.originIata}-${scenario.destinationIata}`);
   }
 
-  const cycleTicks = landed.turnaroundEndTick - flight.departureTick;
-  const legsPerDayPerAircraft = TICKS_PER_DAY / cycleTicks;
+  const periodTicks = scheduledRoundTripTicks(
+    flight.arrivalTick - flight.departureTick,
+    landed.turnaroundEndTick - flight.arrivalTick,
+    route.frequencyPerWeek,
+    scenario.aircraftCount,
+  );
+  const legsPerDayPerAircraft = (2 * TICKS_PER_DAY) / periodTicks;
   const profitPerLeg = landing.profit ?? fp(0);
 
   return {

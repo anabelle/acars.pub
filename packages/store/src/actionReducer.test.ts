@@ -1134,3 +1134,70 @@ describe("replayActionLog", () => {
     expect(result.airline?.corporateBalance).toBe(fp(100000000));
   });
 });
+
+describe("ROUTE_UPDATE_FREQUENCY (S14)", () => {
+  const pubkey = "pubkey-freq";
+  const base = [
+    {
+      eventId: "evt-1",
+      authorPubkey: pubkey,
+      createdAt: 1,
+      action: {
+        schemaVersion: 2,
+        action: "AIRLINE_CREATE",
+        payload: { name: "Freq Air", hubs: ["MAD"], corporateBalance: fp(100000000), tick: 1 },
+      },
+    },
+    {
+      eventId: "evt-2",
+      authorPubkey: pubkey,
+      createdAt: 2,
+      action: {
+        schemaVersion: 2,
+        action: "ROUTE_OPEN",
+        payload: {
+          routeId: "rt-1",
+          originIata: "MAD",
+          destinationIata: "BCN",
+          distanceKm: 483,
+          tick: 2,
+        },
+      },
+    },
+  ];
+  const setFrequency = (eventId: string, frequencyPerWeek: unknown, routeId = "rt-1") => ({
+    eventId,
+    authorPubkey: pubkey,
+    createdAt: 3,
+    action: {
+      schemaVersion: 2,
+      action: "ROUTE_UPDATE_FREQUENCY",
+      payload: { routeId, frequencyPerWeek, tick: 3 },
+    },
+  });
+
+  it("sets the route's weekly frequency", async () => {
+    const result = await replayActionLog({ pubkey, actions: [...base, setFrequency("evt-3", 21)] });
+    expect(result.routes[0]?.frequencyPerWeek).toBe(21);
+  });
+
+  it("clamps out-of-range values and ignores garbage or unknown routes", async () => {
+    const tooHigh = await replayActionLog({
+      pubkey,
+      actions: [...base, setFrequency("evt-3", 99_999)],
+    });
+    expect(tooHigh.routes[0]?.frequencyPerWeek).toBe(1000);
+    const zero = await replayActionLog({ pubkey, actions: [...base, setFrequency("evt-3", 0)] });
+    expect(zero.routes[0]?.frequencyPerWeek).toBe(1);
+    const garbage = await replayActionLog({
+      pubkey,
+      actions: [...base, setFrequency("evt-3", "lots")],
+    });
+    expect(garbage.routes[0]?.frequencyPerWeek).toBe(7);
+    const unknown = await replayActionLog({
+      pubkey,
+      actions: [...base, setFrequency("evt-3", 21, "rt-nope")],
+    });
+    expect(unknown.routes[0]?.frequencyPerWeek).toBe(7);
+  });
+});

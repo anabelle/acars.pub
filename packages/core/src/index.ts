@@ -10,12 +10,20 @@ export {
   verifyCheckpoint,
 } from "./checkpoint.js";
 export * from "./compression.js";
-export type { CycleFlightEvent } from "./cycle.js";
+export type { CycleFlightEvent, CyclePhase } from "./cycle.js";
 // Cycle
 export {
   countLandingsBetween,
   enumerateFlightEvents,
   getCyclePhase,
+  legTicksFor,
+  MAX_ROUTE_FREQUENCY_PER_WEEK,
+  MIN_ROUTE_FREQUENCY_PER_WEEK,
+  maxWeeklyFrequency,
+  nextDepartureTick,
+  physicalRoundTripTicks,
+  scheduledRoundTripTicks,
+  scheduledWeeklyFrequency,
 } from "./cycle.js";
 // Demand
 export {
@@ -150,10 +158,10 @@ export type {
 export {
   CHAPTER11_BALANCE_THRESHOLD_USD,
   GENESIS_TIME,
+  REPLACEABLE_ACTION_TYPES,
   TICK_DURATION,
   TICKS_PER_DAY,
   TICKS_PER_HOUR,
   TICKS_PER_MONTH,
+  TICKS_PER_WEEK,
 } from "./types.js";
-
-export { REPLACEABLE_ACTION_TYPES } from "./types.js";

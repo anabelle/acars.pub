@@ -84,7 +84,7 @@ export function hubDestinations(hubIata: string, maxKm: number, count: number): 
 /**
  * Simulates a day-one strategy for `days` days: one leased aircraft per
  * route from `hubIata`, each route's economics taken from a real engine leg
- * (see runLegScenario) at the engine's back-to-back cadence. Pure and O(days).
+ * (see runLegScenario) at the route's scheduled cadence. Pure and O(days).
  * Ignores the 3-minute delivery and network effects between routes.
  */
 export function simulateStrategy(

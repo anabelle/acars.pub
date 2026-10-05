@@ -57,7 +57,9 @@ anything marked _Unverified_ without checking it first.
 
 ## 2. Decisions the owner must make
 
-Sessions marked "gated" stop and ask if their decision is still open.
+Sessions marked "gated" stop and ask if their decision is still open. Outcomes are in [`STATUS.md` §4](STATUS.md#4-decisions-log).
+
+> **D2 was decided "no versioning" (2026-10-05):** there are no real players yet, so economy rules change **in place**. Wherever a brief says `ruleset`, "ruleset-gated", `RULESET_V2` or "activation tick", read: change the constant or function in `@acars/core` directly and regenerate the S02 report (`pnpm balance`) in the same commit. S03 is skipped.
 
 | ID  | Decision                                                                                                | Blocks    | Recommendation                                                                                              |
 | --- | ------------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
@@ -68,6 +70,7 @@ Sessions marked "gated" stop and ask if their decision is still open.
 | D5  | Build a non-ranked fast "Tycoon" sandbox world?                                                         | S53       | Design doc first; build only if D7 retention data supports it.                                              |
 | D6  | How are rewards (objectives, referrals) validated without an arbiter?                                   | S32, S51  | Rewards are pure functions of the action log + date seed; any client recomputes and rejects invalid claims. |
 | D7  | Who owns store accounts (Google Play), domain and social channels?                                      | S52, S50  | Owner action; sessions only prepare the artifacts.                                                          |
+| D8  | Should aircraft fly the route's weekly frequency instead of back to back? (found by S02)                | S14, S10  | Yes. Frequency becomes a decision and daily profit becomes predictable.                                     |
 
 ---
 
@@ -78,21 +81,22 @@ Live status is **not** kept here: it lives in each brief and is printed by `scri
 
 ### Track 0 — Foundations
 
-| ID                                             | Title                                  | Size | Depends on |
-| ---------------------------------------------- | -------------------------------------- | ---- | ---------- |
-| [S01](sessions/S01-browser-smoke-tests.md)     | Browser smoke & screenshot tests in CI | M    | —          |
-| [S02](sessions/S02-economy-balance-harness.md) | Economy balance harness                | M    | —          |
-| [S03](sessions/S03-ruleset-versioning.md)      | Ruleset versioning by activation tick  | L    | S02, D2    |
-| [S04](sessions/S04-funnel-metrics.md)          | Funnel metrics from Nostr events       | M    | —          |
+| ID                                             | Title                                                   | Size | Depends on |
+| ---------------------------------------------- | ------------------------------------------------------- | ---- | ---------- |
+| [S01](sessions/S01-browser-smoke-tests.md)     | Browser smoke & screenshot tests in CI                  | M    | —          |
+| [S02](sessions/S02-economy-balance-harness.md) | Economy balance harness                                 | M    | —          |
+| [S03](sessions/S03-ruleset-versioning.md)      | Ruleset versioning by activation tick (**skipped**, D2) | L    | S02, D2    |
+| [S04](sessions/S04-funnel-metrics.md)          | Funnel metrics from Nostr events                        | M    | —          |
 
 ### Track E — Economy (sequential; all changes go through S03)
 
 | ID                                            | Title                                      | Size | Depends on |
 | --------------------------------------------- | ------------------------------------------ | ---- | ---------- |
-| [S10](sessions/S10-market-model-v2.md)        | Market model v2: incumbents + fare cap     | L    | S03, D1    |
+| [S10](sessions/S10-market-model-v2.md)        | Market model v2: incumbents + fare cap     | L    | S14, D1    |
 | [S11](sessions/S11-oversupply-and-brand.md)   | Oversupply curve + brand score v2          | M    | S10        |
 | [S12](sessions/S12-fleet-economics-pacing.md) | Lease vs buy, tier pacing, milestone rungs | M    | S11        |
-| [S13](sessions/S13-auto-maintenance.md)       | Auto-maintenance policy                    | M    | S03        |
+| [S13](sessions/S13-auto-maintenance.md)       | Auto-maintenance policy                    | M    | —          |
+| [S14](sessions/S14-scheduled-cadence.md)      | Flights follow the route schedule          | L    | S02, D8    |
 
 ### Track U — UX
 
@@ -145,15 +149,13 @@ Sessions in the same wave touch disjoint files and can run at the same time.
 | Wave | Sessions                               | Why this order                                                                                           |
 | ---- | -------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | 1    | S01, S02, S04, S20, S21, S23, S30, S44 | No dependencies. They build the safety net and measurement, and ship the biggest first-impression fixes. |
-| 2    | S03, S22, S24, S25, S40, S45, S34, S50 | Need wave-1 foundations (S01 for map work, S02 for S03, S23 for route UI, S20 for shell and meta).       |
+| 2    | S14, S22, S24, S25, S40, S45, S34, S50 | Need wave-1 foundations (S01 for map work, S02 for S03, S23 for route UI, S20 for shell and meta).       |
 | 3    | S10, S11, S31, S41, S42, S26, S51      | Economy v2 on the ruleset; graphics build on the globe; growth builds on public pages.                   |
 | 4    | S12, S13, S32, S33, S43, S52, S53      | Pacing tuned against v2 economics; loop content on the ruleset; release once notifications exist.        |
 
 ```
-S02 ─► S03 ─► S10 ─► S11 ─► S12
-          ├─► S13
-          ├─► S32
-          └─► S33
+S02 ─► S14 ─► S10 ─► S11 ─► S12
+(S03 skipped by D2; S13, S32 and S33 no longer wait on it)
 S01 ─► S40 ─► S41 ─► S42 ─► S43 ◄─ S23
    └─► S45 (decision D4)
 S20 ─► S22 ─► S31
@@ -168,7 +170,7 @@ S04 ─► S53
 **Hot files**: only one active session at a time per file.
 
 - `packages/map/src/Globe.tsx`: S40 → S41 → S42 → S43 (S45 uses new files only).
-- `packages/store/src/FlightEngine.ts` and `packages/core/src/demand.ts`/`qsi.ts`: S03 → S10 → S11 → S12/S13/S32/S33. Run S32 and S33 one after the other.
+- `packages/store/src/FlightEngine.ts` and `packages/core/src/demand.ts`/`qsi.ts`: S14 → S10 → S11 → S12/S13/S32/S33. Run S32 and S33 one after the other.
 - `apps/web/src/features/network/components/RouteManager.tsx`: S23 → S24 → S25.
 - `apps/web/src/shared/components/layout/*`: S20 → S22 → S31.
 

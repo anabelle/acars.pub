@@ -1,12 +1,107 @@
 import type { Route } from "./types.js";
+import { TICKS_PER_HOUR, TICKS_PER_WEEK } from "./types.js";
+
+/**
+ * Block time and turnaround of one leg, in ticks, exactly as the flight
+ * engine applies them (each at least one tick).
+ */
+export function legTicksFor(
+  distanceKm: number,
+  speedKmh: number,
+  turnaroundTimeMinutes: number,
+): { durationTicks: number; turnaroundTicks: number } {
+  return {
+    durationTicks: Math.max(1, Math.ceil((distanceKm / (speedKmh || 800)) * TICKS_PER_HOUR)),
+    turnaroundTicks: Math.max(1, Math.ceil((turnaroundTimeMinutes / 60) * TICKS_PER_HOUR)),
+  };
+}
+
+/** Bounds for a route's weekly frequency (round trips), as the reducer clamps it. */
+export const MIN_ROUTE_FREQUENCY_PER_WEEK = 1;
+export const MAX_ROUTE_FREQUENCY_PER_WEEK = 1000;
+
+/** Out, turnaround, back, turnaround: the fastest an aircraft can repeat a route. */
+export function physicalRoundTripTicks(durationTicks: number, turnaroundTicks: number): number {
+  return durationTicks * 2 + turnaroundTicks * 2;
+}
+
+/**
+ * Round-trip period of each aircraft on a route flown `frequencyPerWeek`
+ * round trips a week, shared by `aircraftCount` aircraft: the scheduled
+ * interval, never shorter than the physical cycle. The difference is spent
+ * waiting at the route's origin. Without a usable frequency the aircraft
+ * flies back to back (the physical cycle).
+ */
+export function scheduledRoundTripTicks(
+  durationTicks: number,
+  turnaroundTicks: number,
+  frequencyPerWeek: number | undefined,
+  aircraftCount: number,
+): number {
+  const physical = physicalRoundTripTicks(durationTicks, turnaroundTicks);
+  if (!frequencyPerWeek || frequencyPerWeek <= 0 || aircraftCount <= 0) return physical;
+  const scheduled = Math.ceil((TICKS_PER_WEEK * aircraftCount) / frequencyPerWeek);
+  return Math.max(physical, scheduled);
+}
+
+/** Most round trips a week `aircraftCount` aircraft can physically fly on a route. */
+export function maxWeeklyFrequency(
+  durationTicks: number,
+  turnaroundTicks: number,
+  aircraftCount: number,
+): number {
+  if (aircraftCount <= 0) return 0;
+  const physical = physicalRoundTripTicks(durationTicks, turnaroundTicks);
+  if (physical <= 0) return 0;
+  return Math.floor((TICKS_PER_WEEK * aircraftCount) / physical);
+}
+
+/**
+ * Round trips a week a route actually offers the market: its scheduled
+ * frequency, capped by what its aircraft can physically fly (never below one
+ * while any aircraft is assigned). Market share and the per-leg demand split
+ * use this, so they match the flights the engine flies.
+ */
+export function scheduledWeeklyFrequency(
+  durationTicks: number,
+  turnaroundTicks: number,
+  frequencyPerWeek: number,
+  aircraftCount: number,
+): number {
+  if (aircraftCount <= 0) return 0;
+  const physicalMax = maxWeeklyFrequency(durationTicks, turnaroundTicks, aircraftCount);
+  return Math.max(1, Math.min(Math.round(frequencyPerWeek), physicalMax));
+}
+
+/** First departure slot at or after `tick` for a cycle anchored at `anchorTick`. O(1). */
+export function nextDepartureTick(
+  anchorTick: number,
+  tick: number,
+  roundTripTicks: number,
+): number {
+  if (roundTripTicks <= 0) return tick;
+  const offset = (((tick - anchorTick) % roundTripTicks) + roundTripTicks) % roundTripTicks;
+  return offset === 0 ? tick : tick + (roundTripTicks - offset);
+}
+
+function assertRoundTrip(roundTripTicks: number, physical: number, fn: string): void {
+  if (!Number.isFinite(roundTripTicks) || roundTripTicks < physical) {
+    throw new Error(
+      `${fn}: roundTripTicks=${roundTripTicks} is shorter than the physical cycle (${physical})`,
+    );
+  }
+}
 
 export interface CyclePhase {
-  status: "enroute" | "turnaround";
+  /** "idle": back at the origin, waiting for the next scheduled departure. */
+  status: "enroute" | "turnaround" | "idle";
   direction: "outbound" | "inbound";
   positionInCycle: number;
   departureTick: number;
   arrivalTick: number;
   turnaroundEndTick: number | null;
+  /** "idle" only: the next scheduled outbound departure. */
+  nextDepartureTick?: number;
   baseAirportIata: string;
   originIata: string;
   destinationIata: string;
@@ -18,13 +113,15 @@ export function getCyclePhase(
   durationTicks: number,
   turnaroundTicks: number,
   route: Route,
+  roundTripTicks: number = physicalRoundTripTicks(durationTicks, turnaroundTicks),
 ): CyclePhase {
   if (durationTicks <= 0 || turnaroundTicks < 0) {
     throw new Error(
       `getCyclePhase: invalid inputs — durationTicks=${durationTicks}, turnaroundTicks=${turnaroundTicks}`,
     );
   }
-  const roundTripTicks = durationTicks * 2 + turnaroundTicks * 2;
+  const physical = physicalRoundTripTicks(durationTicks, turnaroundTicks);
+  assertRoundTrip(roundTripTicks, physical, "getCyclePhase");
   const elapsed = targetTick - cycleStartTick;
   const positionInCycle = ((elapsed % roundTripTicks) + roundTripTicks) % roundTripTicks;
 
@@ -68,7 +165,7 @@ export function getCyclePhase(
       originIata: route.destinationIata,
       destinationIata: route.originIata,
     };
-  } else {
+  } else if (positionInCycle < physical) {
     const inboundArrival = durationTicks * 2 + turnaroundTicks;
     const arrivalTick = targetTick - (positionInCycle - inboundArrival);
     return {
@@ -78,6 +175,23 @@ export function getCyclePhase(
       departureTick: arrivalTick - durationTicks,
       arrivalTick,
       turnaroundEndTick: arrivalTick + turnaroundTicks,
+      baseAirportIata: route.originIata,
+      originIata: route.destinationIata,
+      destinationIata: route.originIata,
+    };
+  } else {
+    // Back at the origin after the inbound turnaround: wait for the next slot.
+    const inboundArrival = durationTicks * 2 + turnaroundTicks;
+    const arrivalTick = targetTick - (positionInCycle - inboundArrival);
+    return {
+      status: "idle",
+      direction: "inbound",
+      positionInCycle,
+      // The inbound leg it just flew, like the live engine keeps it.
+      departureTick: arrivalTick - durationTicks,
+      arrivalTick,
+      turnaroundEndTick: null,
+      nextDepartureTick: targetTick - positionInCycle + roundTripTicks,
       baseAirportIata: route.originIata,
       originIata: route.destinationIata,
       destinationIata: route.originIata,
@@ -101,10 +215,15 @@ export function countLandingsBetween(
   toTick: number,
   durationTicks: number,
   turnaroundTicks: number,
+  roundTripTicks: number = physicalRoundTripTicks(durationTicks, turnaroundTicks),
 ): number {
   if (toTick <= fromTick) return 0;
   if (durationTicks <= 0 || turnaroundTicks < 0) return 0;
-  const roundTripTicks = durationTicks * 2 + turnaroundTicks * 2;
+  assertRoundTrip(
+    roundTripTicks,
+    physicalRoundTripTicks(durationTicks, turnaroundTicks),
+    "countLandingsBetween",
+  );
   const landingOffsets = [durationTicks, durationTicks * 2 + turnaroundTicks];
   let count = 0;
 
@@ -158,11 +277,15 @@ export function enumerateFlightEvents(
   turnaroundTicks: number,
   route: Route,
   maxEvents: number = DEFAULT_MAX_EVENTS,
+  roundTripTicks: number = physicalRoundTripTicks(durationTicks, turnaroundTicks),
 ): CycleFlightEvent[] {
   if (toTick <= fromTick) return [];
   if (durationTicks <= 0 || turnaroundTicks < 0) return [];
-
-  const roundTripTicks = durationTicks * 2 + turnaroundTicks * 2;
+  assertRoundTrip(
+    roundTripTicks,
+    physicalRoundTripTicks(durationTicks, turnaroundTicks),
+    "enumerateFlightEvents",
+  );
 
   // The 4 transition points within each cycle, described by their offset from
   // cycle start, event type, direction, and origin/destination airports.

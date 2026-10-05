@@ -157,4 +157,21 @@ describe("projectRouteEconomics", () => {
     ]);
     expect(projection.marketShare + projection.competitorShares[0].share).toBeCloseTo(1, 6);
   });
+
+  it("flies the scheduled frequency, capped by what the aircraft can do (S14)", () => {
+    const model = getAircraftById("atr72-600");
+    if (!model) throw new Error("model");
+    const base = { originIata: "MAD", destinationIata: "BCN", distanceKm: 483, model, tick: 1000 };
+
+    // A new route (7 round trips a week) flies two legs a day.
+    const weekly = projectRouteEconomics(base);
+    expect(weekly.frequencyPerWeek).toBe(7);
+    expect(weekly.flightsPerDay).toBeCloseTo(2, 10);
+
+    // Asking for more than one ATR can fly is capped at its physical maximum.
+    const greedy = projectRouteEconomics({ ...base, frequencyPerWeek: 10_000 });
+    expect(greedy.frequencyPerWeek).toBeLessThan(10_000);
+    expect(greedy.flightsPerDay).toBeGreaterThan(14);
+    expect(greedy.flightsPerDay).toBeLessThan(20);
+  });
 });

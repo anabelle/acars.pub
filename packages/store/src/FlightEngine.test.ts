@@ -199,6 +199,9 @@ describe("FlightEngine — Multiplayer scenarios", () => {
       destinationIata: "LAX",
       distanceKm: 3000,
       assignedAircraftIds,
+      // A very high schedule (S14: the market sees the scheduled frequency)
+      // spreads demand thin, so a rival visibly takes passengers per leg.
+      frequencyPerWeek: 2000,
     });
 
     const monopoly = simulateSingleLanding(aircraft, route);
@@ -678,10 +681,19 @@ describe("FlightEngine — Economic variation", () => {
   });
 });
 
+/**
+ * The reconcile tests below pin the cycle mechanics (phase placement,
+ * stagger, synthetic events) at the physical cycle: a route asking for more
+ * flights than an aircraft can fly is flown back to back. The S14 schedule
+ * (waiting at the origin) has its own tests at the end of this file.
+ */
+const BACK_TO_BACK = 1_000_000;
+
 describe("reconcileFleetToTick — flight cycle fast-forward", () => {
   it("places enroute aircraft mid-flight when targetTick is within the flight", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-r1",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -715,6 +727,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
   it("fast-forwards past arrival into turnaround phase", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-r2",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -748,6 +761,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
   it("fast-forwards into inbound leg", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-r3",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -783,6 +797,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
   it("wraps around full cycles correctly", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-r4",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -818,6 +833,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
   it("caps analytical landings when maintenance is overdue", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-ground",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -864,6 +880,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
       turnaroundEndTick: 200,
     });
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-r5b",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -880,6 +897,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
   it("reconciles idle aircraft WITH assigned route to correct cycle phase", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-r5b",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -928,6 +946,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
   it("idle aircraft with different routeAssignedAtTick end up at different cycle positions", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-r5c",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -974,6 +993,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
   it("idle aircraft falls back to purchasedAtTick when routeAssignedAtTick is missing", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-r5d",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1036,6 +1056,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
 
   it("does not modify aircraft whose flight is still in the future", () => {
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-r7",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1063,6 +1084,7 @@ describe("reconcileFleetToTick — flight cycle fast-forward", () => {
   it("multiple aircraft at different phases remain offset after reconciliation", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-r8",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1118,6 +1140,7 @@ describe("reconcileFleetToTick — delivery aircraft", () => {
   it("delivered aircraft with assigned route is placed at correct cycle phase", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-del1",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1181,6 +1204,7 @@ describe("reconcileFleetToTick — delivery aircraft", () => {
 
   it("aircraft still in delivery period stays in delivery", () => {
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-del3",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1203,6 +1227,7 @@ describe("reconcileFleetToTick — delivery aircraft", () => {
   it("delivered aircraft uses deliveryAtTick as fallback when routeAssignedAtTick is missing", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-del4",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1246,6 +1271,7 @@ describe("reconcileFleetToTick — delivery aircraft", () => {
 
   it("delivered aircraft with route assigned at same tick as delivery is reconciled correctly", () => {
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-del5",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1273,6 +1299,7 @@ describe("reconcileFleetToTick — destination-aware stagger", () => {
   it("idle aircraft at destination gets inbound-start cycle via routeAssignedAtIata", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-stag1",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1320,6 +1347,7 @@ describe("reconcileFleetToTick — destination-aware stagger", () => {
   it("falls back to baseAirportIata when routeAssignedAtIata is missing", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-stag-fallback",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1359,6 +1387,7 @@ describe("reconcileFleetToTick — destination-aware stagger", () => {
   it("stale enroute state is overridden when routeAssignedAtTick >= departureTick", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-stag2",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1416,6 +1445,7 @@ describe("reconcileFleetToTick — destination-aware stagger", () => {
   it("stale enroute state is overridden when routeAssignedAtTick equals departureTick", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-stag2-eq",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1468,6 +1498,7 @@ describe("reconcileFleetToTick — destination-aware stagger", () => {
   it("staggered aircraft maintain separation after reconcileFleetToTick across reload", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-stag3",
       originIata: "BOG",
       destinationIata: "CCS",
@@ -1523,6 +1554,7 @@ describe("reconcileFleetToTick — synthetic timeline events", () => {
   it("returns takeoff and landing events for an idle aircraft with assigned route", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-evt1",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1561,6 +1593,7 @@ describe("reconcileFleetToTick — synthetic timeline events", () => {
   it("events have correct ID format matching processFlightEngine", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-evt2",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1595,6 +1628,7 @@ describe("reconcileFleetToTick — synthetic timeline events", () => {
   it("landing events include financial details", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-evt3",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1640,6 +1674,7 @@ describe("reconcileFleetToTick — synthetic timeline events", () => {
 
   it("returns no events when targetTick equals cycleStartTick", () => {
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-evt5",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1662,6 +1697,7 @@ describe("reconcileFleetToTick — synthetic timeline events", () => {
   it("landing event count matches countLandingsBetween for the same parameters", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-evt6",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1698,6 +1734,7 @@ describe("reconcileFleetToTick — synthetic timeline events", () => {
   it("enroute aircraft past arrival generates events for missed period", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-evt7",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1735,6 +1772,7 @@ describe("reconcileFleetToTick — synthetic timeline events", () => {
   it("destination-start aircraft generates correctly shifted events", () => {
     const model = getAircraftById("a320neo")!;
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-evt8",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1770,6 +1808,7 @@ describe("reconcileFleetToTick — synthetic timeline events", () => {
 
   it("grounded aircraft produces no events (cappedLandings = 0)", () => {
     const route = makeRoute({
+      frequencyPerWeek: BACK_TO_BACK,
       id: "route-evt9",
       originIata: "JFK",
       destinationIata: "LAX",
@@ -1791,5 +1830,74 @@ describe("reconcileFleetToTick — synthetic timeline events", () => {
     // From the existing test, this should cap landings to 0
     const { events } = reconcileFleetToTick([aircraft], [route], 50000);
     expect(events.length).toBe(0);
+  });
+});
+
+describe("S14 — flights follow the route's weekly frequency", () => {
+  const DAY = TICKS_PER_HOUR * 24;
+
+  function scheduledSetup(frequencyPerWeek: number) {
+    const route = makeRoute({
+      id: "route-s14",
+      originIata: "MAD",
+      destinationIata: "BCN",
+      distanceKm: 483,
+      frequencyPerWeek,
+      assignedAircraftIds: ["ac-s14"],
+    });
+    const aircraft = makeAircraft({
+      id: "ac-s14",
+      modelId: "atr72-600",
+      assignedRouteId: route.id,
+      baseAirportIata: "MAD",
+      routeAssignedAtTick: 0,
+    });
+    return { route, aircraft };
+  }
+
+  function tickThrough(frequencyPerWeek: number, toTick: number) {
+    const { route, aircraft } = scheduledSetup(frequencyPerWeek);
+    let state = initState([aircraft], [route]);
+    for (let tick = 1; tick <= toTick; tick += 1) state = runTick(state, tick);
+    return { route, aircraft, state };
+  }
+
+  it("flies one round trip a day at 7 a week, departing on the same slot each day", () => {
+    const { state } = tickThrough(7, 3 * DAY);
+    const takeoffs = state.events.filter((e) => e.type === "takeoff" && e.originIata === "MAD");
+    const landings = state.events.filter((e) => e.type === "landing");
+    expect(takeoffs.map((e) => e.tick)).toEqual([1, 1 + DAY, 1 + 2 * DAY]);
+    expect(landings).toHaveLength(6);
+    // Between round trips it waits at the origin, idle.
+    expect(state.fleet[0].status).toBe("idle");
+    expect(state.fleet[0].baseAirportIata).toBe("MAD");
+  });
+
+  it("still flies back to back when the frequency asks for more than physics allows", () => {
+    const { state } = tickThrough(BACK_TO_BACK, DAY);
+    const landings = state.events.filter((e) => e.type === "landing");
+    expect(landings.length).toBeGreaterThan(10);
+  });
+
+  it("catch-up lands the same flights at the same ticks as live ticking", () => {
+    // Live: tick through two days, then three more.
+    const live = tickThrough(7, 5 * DAY);
+    const twoDays = tickThrough(7, 2 * DAY);
+
+    // Catch-up: from the two-day state straight to day five.
+    const caughtUp = reconcileFleetToTick(twoDays.state.fleet, [twoDays.route], 5 * DAY);
+
+    const liveLandings = live.state.events
+      .filter((e) => e.type === "landing" && e.tick > 2 * DAY)
+      .map((e) => e.tick);
+    const reconciledLandings = caughtUp.events
+      .filter((e) => e.type === "landing")
+      .map((e) => e.tick)
+      .sort((a, b) => a - b);
+    expect(liveLandings).toHaveLength(6);
+    expect(reconciledLandings).toEqual(liveLandings);
+    expect(caughtUp.fleet[0].status).toBe(live.state.fleet[0].status);
+    expect(caughtUp.fleet[0].baseAirportIata).toBe(live.state.fleet[0].baseAirportIata);
+    expect(caughtUp.fleet[0].flight?.departureTick).toBe(live.state.fleet[0].flight?.departureTick);
   });
 });

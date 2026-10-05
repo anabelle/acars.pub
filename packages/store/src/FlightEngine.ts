@@ -8,7 +8,6 @@ import type {
   Route,
   TimelineEvent,
 } from "@acars/core";
-import type { HubClassification } from "@acars/data";
 import {
   allocatePassengers,
   calculateDemand,
@@ -35,15 +34,19 @@ import {
   getProsperityIndex,
   getSeason,
   getSuggestedFares,
+  legTicksFor,
   NATURAL_LF_CEILING,
   PRICE_ELASTICITY_BUSINESS,
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
   scaleToAddressableMarket,
+  scheduledRoundTripTicks,
+  scheduledWeeklyFrequency,
   TICK_DURATION,
   TICKS_PER_HOUR,
   TICKS_PER_MONTH,
 } from "@acars/core";
+import type { HubClassification } from "@acars/data";
 import { getAircraftById, getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
 
 /** Module-level O(1) airport lookup — avoids O(N) airports.find() on every
@@ -202,7 +205,12 @@ export interface FlightPassengerInput {
   /** The player's assigned route, or null for an orphaned flight priced from its fare snapshot. */
   route: Pick<
     Route,
-    "distanceKm" | "assignedAircraftIds" | "fareEconomy" | "fareBusiness" | "fareFirst"
+    | "distanceKm"
+    | "assignedAircraftIds"
+    | "fareEconomy"
+    | "fareBusiness"
+    | "fareFirst"
+    | "frequencyPerWeek"
   > | null;
   /** Flight snapshot used when the route is gone (orphaned flights). */
   fallback?: Pick<
@@ -300,15 +308,29 @@ export function computeFlightPassengers({
 
   // --- NEW MP ALLOCATION LOGIC ---
 
-  // Frequency for our offer: how many planes we (the player) have on this route?
+  // Frequency for our offer (S14): the round trips the route is scheduled to
+  // fly, capped by what its aircraft can physically fly, so market share and
+  // the per-leg demand split match the flights the engine actually flies.
+  // Routes without a stored frequency keep the capacity estimate.
+  const aircraftOnRoute = Math.max(1, route?.assignedAircraftIds.length ?? 1);
   const ourFrequency = route
-    ? computeRouteFrequency(
-        route.distanceKm,
-        Math.max(1, route.assignedAircraftIds.length),
-        model.speedKmh || 800,
-        model.turnaroundTimeMinutes,
-        model.blockHoursPerDay,
-      )
+    ? route.frequencyPerWeek && route.frequencyPerWeek > 0
+      ? (() => {
+          const legs = legTicksFor(route.distanceKm, model.speedKmh, model.turnaroundTimeMinutes);
+          return scheduledWeeklyFrequency(
+            legs.durationTicks,
+            legs.turnaroundTicks,
+            route.frequencyPerWeek,
+            aircraftOnRoute,
+          );
+        })()
+      : computeRouteFrequency(
+          route.distanceKm,
+          aircraftOnRoute,
+          model.speedKmh || 800,
+          model.turnaroundTimeMinutes,
+          model.blockHoursPerDay,
+        )
     : Math.max(1, fallback?.frequencyPerWeek ?? 7);
 
   // Travel time for our current aircraft
@@ -575,6 +597,17 @@ export function processFlightEngine(
           continue;
         }
 
+        if (isAtOrigin) {
+          const legs = legTicks(route, model);
+          const slot = nextScheduledOutboundTick(
+            ac,
+            route,
+            legs.durationTicks,
+            legs.turnaroundTicks,
+          );
+          if (slot !== null && tick < slot) continue; // waiting for the scheduled departure
+        }
+
         const hours = route.distanceKm / (model.speedKmh || 800);
         const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
         const originIata = isAtOrigin ? route.originIata : route.destinationIata;
@@ -808,6 +841,23 @@ export function processFlightEngine(
         const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
         const isReturning = ac.flight.direction === "outbound";
 
+        // Back at the origin: wait for the next scheduled departure (S14).
+        if (!isReturning) {
+          const legs = legTicks(route, model);
+          const slot = nextScheduledOutboundTick(
+            ac,
+            route,
+            legs.durationTicks,
+            legs.turnaroundTicks,
+          );
+          if (slot !== null && tick < slot) {
+            ac.status = "idle";
+            ac.turnaroundEndTick = undefined;
+            hasChanges = true;
+            continue;
+          }
+        }
+
         ac.status = "enroute";
         ac.arrivalTickProcessed = undefined;
         ac.flight = {
@@ -880,6 +930,51 @@ export function processFlightEngine(
 }
 
 /**
+ * Each aircraft's round-trip period on `route`: the route's weekly frequency
+ * spread over its assigned aircraft, never faster than the physical cycle
+ * (S14). Live ticking and catch-up both use this, so they agree.
+ */
+function routeRoundTripTicks(route: Route, durationTicks: number, turnaroundTicks: number): number {
+  return scheduledRoundTripTicks(
+    durationTicks,
+    turnaroundTicks,
+    route.frequencyPerWeek,
+    Math.max(1, route.assignedAircraftIds.length),
+  );
+}
+
+/**
+ * When an aircraft is back at the origin after flying `route`'s inbound leg,
+ * the tick of its next scheduled outbound departure: one period after the
+ * outbound departure of the round trip it just finished. Null when the last
+ * flight isn't this route's inbound leg (first departure, reassignment,
+ * delivery): those depart right away and anchor a new cycle.
+ */
+function nextScheduledOutboundTick(
+  ac: AircraftInstance,
+  route: Route,
+  durationTicks: number,
+  turnaroundTicks: number,
+): number | null {
+  const flight = ac.flight;
+  if (!flight || flight.purpose === "ferry" || flight.direction !== "inbound") return null;
+  if (flight.originIata !== route.destinationIata || flight.destinationIata !== route.originIata) {
+    return null;
+  }
+  if (ac.routeAssignedAtTick != null && ac.routeAssignedAtTick >= flight.departureTick) return null;
+  const outboundDepartureTick = flight.departureTick - durationTicks - turnaroundTicks;
+  return outboundDepartureTick + routeRoundTripTicks(route, durationTicks, turnaroundTicks);
+}
+
+/** Leg and turnaround lengths, exactly as the live engine applies them. */
+function legTicks(
+  route: Route,
+  model: NonNullable<ReturnType<typeof getAircraftById>>,
+): { durationTicks: number; turnaroundTicks: number } {
+  return legTicksFor(route.distanceKm, model.speedKmh, model.turnaroundTimeMinutes);
+}
+
+/**
  * Given a position within a round-trip cycle, apply the correct flight state
  * to the aircraft clone. This delegates to getCyclePhase from @acars/core
  * to ensure a single source of truth for cycle algebra.
@@ -891,9 +986,17 @@ function applyCyclePhase(
   positionInCycle: number,
   durationTicks: number,
   turnaroundTicks: number,
+  roundTripTicks: number,
 ): void {
   const cycleStartTick = targetTick - positionInCycle;
-  const phase = getCyclePhase(cycleStartTick, targetTick, durationTicks, turnaroundTicks, route);
+  const phase = getCyclePhase(
+    cycleStartTick,
+    targetTick,
+    durationTicks,
+    turnaroundTicks,
+    route,
+    roundTripTicks,
+  );
 
   updated.status = phase.status;
   updated.flight = {
@@ -904,7 +1007,7 @@ function applyCyclePhase(
     direction: phase.direction,
   };
   updated.turnaroundEndTick = phase.turnaroundEndTick ?? undefined;
-  updated.arrivalTickProcessed = phase.status === "turnaround" ? phase.arrivalTick : undefined;
+  updated.arrivalTickProcessed = phase.status !== "enroute" ? phase.arrivalTick : undefined;
   updated.baseAirportIata = phase.baseAirportIata;
 }
 
@@ -923,6 +1026,7 @@ interface ReconciledEventParams {
   fromTick: number;
   durationTicks: number;
   turnaroundTicks: number;
+  roundTripTicks: number;
   phaseOffset: number;
   cappedLandings: number;
 }
@@ -941,6 +1045,8 @@ function getCappedReconciledFlightEvents(
     params.durationTicks,
     params.turnaroundTicks,
     params.route,
+    undefined,
+    params.roundTripTicks,
   );
 
   const events: CycleFlightEvent[] = [];
@@ -1245,7 +1351,7 @@ export function reconcileFleetToTick(
       1,
       Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR),
     );
-    const roundTripTicks = durationTicks * 2 + turnaroundTicks * 2;
+    const roundTripTicks = routeRoundTripTicks(route, durationTicks, turnaroundTicks);
 
     // Determine the reference tick from which we know the aircraft's state.
     // For enroute aircraft, use departureTick; for turnaround, use arrivalTick;
@@ -1274,6 +1380,7 @@ export function reconcileFleetToTick(
           positionInCycle,
           durationTicks,
           turnaroundTicks,
+          roundTripTicks,
         );
         updated.lastTickProcessed = targetTick;
         const referenceTick =
@@ -1284,6 +1391,7 @@ export function reconcileFleetToTick(
           targetTick,
           durationTicks,
           turnaroundTicks,
+          roundTripTicks,
         );
         const hoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
         landings = capLandingsForGrounding(updated, landings, hoursPerLeg, false);
@@ -1295,6 +1403,7 @@ export function reconcileFleetToTick(
           fromTick: referenceTick,
           durationTicks,
           turnaroundTicks,
+          roundTripTicks,
           phaseOffset: stalePhaseOffset,
           cappedLandings: landings,
         };
@@ -1341,6 +1450,7 @@ export function reconcileFleetToTick(
           positionInCycle,
           durationTicks,
           turnaroundTicks,
+          roundTripTicks,
         );
         updated.lastTickProcessed = targetTick;
         const referenceTick =
@@ -1351,6 +1461,7 @@ export function reconcileFleetToTick(
           targetTick,
           durationTicks,
           turnaroundTicks,
+          roundTripTicks,
         );
         const hoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
         landings = capLandingsForGrounding(updated, landings, hoursPerLeg, false);
@@ -1362,6 +1473,7 @@ export function reconcileFleetToTick(
           fromTick: referenceTick,
           durationTicks,
           turnaroundTicks,
+          roundTripTicks,
           phaseOffset: stalePhaseOffset,
           cappedLandings: landings,
         };
@@ -1397,14 +1509,24 @@ export function reconcileFleetToTick(
       // (or purchasedAtTick as fallback) as the cycle anchor.
       if (!ac.assignedRouteId) return ac;
 
-      const cycleStartTick = ac.routeAssignedAtTick ?? ac.purchasedAtTick;
+      // Waiting at the origin for its next scheduled departure (S14): the
+      // cycle started at the outbound departure of the round trip it just
+      // finished, exactly as the live engine anchors it.
+      const scheduledSlot = nextScheduledOutboundTick(ac, route, durationTicks, turnaroundTicks);
+      const lastCycleStart =
+        scheduledSlot !== null && ac.flight
+          ? ac.flight.departureTick - durationTicks - turnaroundTicks
+          : null;
+
+      const cycleStartTick = lastCycleStart ?? ac.routeAssignedAtTick ?? ac.purchasedAtTick;
       if (targetTick <= cycleStartTick) return ac;
 
       // If the aircraft was at the destination when assigned, its first leg
       // is inbound (not outbound). Offset by half a round-trip so the cycle
       // model places it correctly.
       const startedAtIata = ac.routeAssignedAtIata ?? ac.baseAirportIata ?? null;
-      const startedAtDest = startedAtIata != null && startedAtIata === route.destinationIata;
+      const startedAtDest =
+        lastCycleStart === null && startedAtIata != null && startedAtIata === route.destinationIata;
       const phaseOffset = startedAtDest ? durationTicks + turnaroundTicks : 0;
 
       const elapsed = targetTick - cycleStartTick;
@@ -1412,7 +1534,15 @@ export function reconcileFleetToTick(
       const positionInCycle = (rawPos + phaseOffset) % roundTripTicks;
 
       const updated = { ...ac };
-      applyCyclePhase(updated, route, targetTick, positionInCycle, durationTicks, turnaroundTicks);
+      applyCyclePhase(
+        updated,
+        route,
+        targetTick,
+        positionInCycle,
+        durationTicks,
+        turnaroundTicks,
+        roundTripTicks,
+      );
       updated.lastTickProcessed = targetTick;
       const referenceTick =
         typeof ac.lastTickProcessed === "number" ? ac.lastTickProcessed : cycleStartTick;
@@ -1422,6 +1552,7 @@ export function reconcileFleetToTick(
         targetTick,
         durationTicks,
         turnaroundTicks,
+        roundTripTicks,
       );
       const hoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
       landings = capLandingsForGrounding(updated, landings, hoursPerLeg, false);
@@ -1433,6 +1564,7 @@ export function reconcileFleetToTick(
         fromTick: referenceTick,
         durationTicks,
         turnaroundTicks,
+        roundTripTicks,
         phaseOffset,
         cappedLandings: landings,
       };
@@ -1479,6 +1611,7 @@ export function reconcileFleetToTick(
           positionInCycle,
           durationTicks,
           turnaroundTicks,
+          roundTripTicks,
         );
         updated.lastTickProcessed = targetTick;
         const referenceTick =
@@ -1489,6 +1622,7 @@ export function reconcileFleetToTick(
           targetTick,
           durationTicks,
           turnaroundTicks,
+          roundTripTicks,
         );
         const hoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
         landings = capLandingsForGrounding(updated, landings, hoursPerLeg, false);
@@ -1500,6 +1634,7 @@ export function reconcileFleetToTick(
           fromTick: referenceTick,
           durationTicks,
           turnaroundTicks,
+          roundTripTicks,
           phaseOffset: delPhaseOffset,
           cappedLandings: landings,
         };
@@ -1541,7 +1676,15 @@ export function reconcileFleetToTick(
     const positionInCycle = ((elapsed % roundTripTicks) + roundTripTicks) % roundTripTicks;
 
     const updated = { ...ac };
-    applyCyclePhase(updated, route, targetTick, positionInCycle, durationTicks, turnaroundTicks);
+    applyCyclePhase(
+      updated,
+      route,
+      targetTick,
+      positionInCycle,
+      durationTicks,
+      turnaroundTicks,
+      roundTripTicks,
+    );
     updated.lastTickProcessed = targetTick;
     const referenceTick =
       typeof ac.lastTickProcessed === "number" ? ac.lastTickProcessed : cycleStartTick;
@@ -1551,6 +1694,7 @@ export function reconcileFleetToTick(
       targetTick,
       durationTicks,
       turnaroundTicks,
+      roundTripTicks,
     );
     const hoursPerLeg = Math.min(24, durationTicks / TICKS_PER_HOUR);
     landings = capLandingsForGrounding(updated, landings, hoursPerLeg, ac.status === "enroute");
@@ -1562,6 +1706,7 @@ export function reconcileFleetToTick(
       fromTick: referenceTick,
       durationTicks,
       turnaroundTicks,
+      roundTripTicks,
       phaseOffset: 0,
       cappedLandings: landings,
     };

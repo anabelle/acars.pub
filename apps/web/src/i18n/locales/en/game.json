@@ -532,7 +532,18 @@
     "saving": "Saving…",
     "saveFares": "Save fares",
     "showAllSuspended": "Show all suspended routes ({{count}})",
-    "showFewerSuspended": "Show fewer suspended routes"
+    "showFewerSuspended": "Show fewer suspended routes",
+    "frequency": {
+      "label": "Frequency",
+      "perWeek_one": "{{count}}/wk",
+      "perWeek_other": "{{count}}/wk",
+      "decrease": "Fewer round trips a week",
+      "increase": "More round trips a week",
+      "apply": "Apply",
+      "detail": "{{legs}} legs/day · max {{max}}/wk with this fleet",
+      "noAircraft": "Assign an aircraft to fly it",
+      "failed": "Couldn’t change the frequency"
+    }
   },
   "hubPicker": {
     "changeTitle": "Change your hub airport",

@@ -5,7 +5,7 @@
 > **Branch:** —
 > **PR:** —
 >
-> **Track:** Loop · **Size:** L (4 steps) · **Depends on:** S03, decision D6 (S12 recommended) · **Unblocks:** S51 (rewards) · **Gated by D6**
+> **Track:** Loop · **Size:** L (4 steps) · **Depends on:** decision D6 (S12 recommended) · **Unblocks:** S51 (rewards) · **Gated by D6**
 >
 > Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
@@ -20,7 +20,6 @@ Give every check-in a short-horizon goal that's the same for all players and ver
 ## Read first
 
 - `packages/core/src/prng.ts`, `season.ts`
-- `ruleset.ts` (S03)
 - `actionReducer.ts`
 
 ## In scope

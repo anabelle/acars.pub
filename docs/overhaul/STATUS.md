@@ -66,7 +66,7 @@ To see where things stand without an agent: `scripts/overhaul-status.sh` (or `--
    - The owner merges and sets Status `☑ merged`; agents never merge.
 
 Status values used in briefs: `☐ not started` · `◐ in progress` · `⏸ blocked: <reason>` ·
-`☑ ready for review` · `☑ merged`.
+`☑ ready for review` · `☑ merged` · `⏭ skipped: <reason>`.
 
 **Why this survives interruptions**:
 
@@ -87,9 +87,9 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 2   | S20     | P0       | 5     | The first impression: honest landing, one CTA, mobile overlap fix, link previews.       |
 | 3   | S23     | P0       | 5     | First flight in ≤ 2 clicks; turns the airport panel into a decision card.               |
 | 4   | S30     | P0       | 3     | Every check-in now tells a story. Cheap, standalone.                                    |
-| 5   | S02     | P0       | 4     | Makes every economy change measurable. Needed before S03/S10.                           |
-| 6   | S03     | P0       | 5     | Unlocks all economy fixes without breaking replays (needs decision D2).                 |
-| 7   | S10     | P0       | 5     | Fixes "every route is the same" and the fare exploit: the core of "dull" (needs D1).    |
+| 5   | S02     | P0       | 4     | Makes every economy change measurable. Needed before S14/S10.                           |
+| 6   | S14     | P0       | 4     | Flights follow the route frequency (D8); fixes the 8–9× route-card error found by S02.  |
+| 7   | S10     | P0       | 5     | Fixes "every route is the same" and the fare exploit: the core of "dull" (D1 decided).  |
 | 8   | S21     | P1       | 4     | Two-field airline creation.                                                             |
 | 9   | S22     | P1       | 3     | One name per screen; honest status bar.                                                 |
 | 10  | S24     | P1       | 4     | Pricing shows profit; route-list i18n.                                                  |
@@ -126,15 +126,16 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 
 Update when the owner decides. Full context is in [`README.md` §2](README.md#2-decisions-the-owner-must-make).
 
-| ID  | Decision                          | Status  | Date | Outcome |
-| --- | --------------------------------- | ------- | ---- | ------- |
-| D1  | Flat ~87% LF intentional?         | ⏳ open |      |         |
-| D2  | Activation-tick rulesets          | ⏳ open |      |         |
-| D3  | Notification architecture         | ⏳ open |      |         |
-| D4  | Globe-first 3D shell go/no-go     | ⏳ open |      |         |
-| D5  | Fast Tycoon sandbox               | ⏳ open |      |         |
-| D6  | Reward validation model           | ⏳ open |      |         |
-| D7  | Store/domain/social account owner | ⏳ open |      |         |
+| ID  | Decision                          | Status     | Date       | Outcome                                                                    |
+| --- | --------------------------------- | ---------- | ---------- | -------------------------------------------------------------------------- |
+| D1  | Flat ~87% LF intentional?         | ✅ decided | 2026-10-05 | No: make it a real market (S10: incumbents + fare cap, gentle Tier 1).     |
+| D2  | Activation-tick rulesets          | ✅ decided | 2026-10-05 | No versioning: no real players yet, so rules change in place. S03 skipped. |
+| D3  | Notification architecture         | ⏳ open    |            |                                                                            |
+| D4  | Globe-first 3D shell go/no-go     | ⏳ open    |            |                                                                            |
+| D5  | Fast Tycoon sandbox               | ⏳ open    |            |                                                                            |
+| D6  | Reward validation model           | ⏳ open    |            |                                                                            |
+| D7  | Store/domain/social account owner | ⏳ open    |            |                                                                            |
+| D8  | Flights follow route frequency    | ✅ decided | 2026-10-05 | Yes: respect the weekly frequency (S14), capped by physics.                |
 
 ## 5. Budget notes
 
