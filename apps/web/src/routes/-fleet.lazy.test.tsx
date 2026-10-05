@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -68,8 +68,11 @@ describe("Fleet route", () => {
       fleet: [],
     });
     render(<FleetRoute />);
-    expect(screen.getByText("Fleet access locked")).toBeInTheDocument();
+    expect(screen.getByText("Your hangar is waiting")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Play Free/i })).toBeInTheDocument();
+    // Existing-key options sit behind a quiet disclosure (overhaul S20.5).
+    expect(screen.queryByRole("button", { name: /Browser wallet/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Already have a Nostr key\?/i }));
     expect(screen.getByRole("button", { name: /Browser wallet/i })).toBeInTheDocument();
     expect(screen.getByText("What is Nostr?").closest("a")).toHaveAttribute(
       "href",

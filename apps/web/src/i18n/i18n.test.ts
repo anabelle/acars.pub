@@ -64,7 +64,7 @@ describe("i18n", () => {
       "Juega gratis — sin registro requerido",
     );
     expect(i18n.t("access.corporateLockedTitle", { ns: "identity" })).toBe(
-      "Acceso corporativo bloqueado",
+      "Aquí viven las finanzas de tu aerolínea",
     );
   });
 
