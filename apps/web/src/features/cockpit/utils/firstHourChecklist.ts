@@ -11,6 +11,8 @@ export type ChecklistStepId =
 export interface ChecklistStep {
   id: ChecklistStepId;
   done: boolean;
+  /** Not done, but already under way (e.g. an aircraft is assigned and waiting to take off). */
+  waiting?: boolean;
   /** Where to go to do this step. */
   to: "/network" | "/fleet";
   search?: { tab: "active" | "opportunities" };
@@ -28,7 +30,7 @@ export interface ChecklistInput {
   routes: ReadonlyArray<
     Pick<Route, "distanceKm" | "fareEconomy" | "fareBusiness" | "fareFirst" | "status">
   >;
-  fleet: ReadonlyArray<Pick<AircraftInstance, "status" | "flight">>;
+  fleet: ReadonlyArray<Pick<AircraftInstance, "status" | "flight" | "assignedRouteId">>;
   cumulativeRevenue: FixedPoint;
   timeline?: ReadonlyArray<Pick<TimelineEvent, "type">>;
 }
@@ -63,7 +65,14 @@ export function deriveFirstHourChecklist(input: ChecklistInput): FirstHourCheckl
       to: "/network",
       search: { tab: "opportunities" },
     },
-    { id: "firstTakeoff", done: tookOff, to: "/fleet" },
+    {
+      id: "firstTakeoff",
+      done: tookOff,
+      // Launching from the airport panel assigns an aircraft that then waits
+      // for delivery and its slot: nothing to do but wait.
+      waiting: !tookOff && input.fleet.some((aircraft) => Boolean(aircraft.assignedRouteId)),
+      to: "/fleet",
+    },
     { id: "firstLanding", done: landed, to: "/network", search: { tab: "active" } },
     {
       id: "adjustFare",

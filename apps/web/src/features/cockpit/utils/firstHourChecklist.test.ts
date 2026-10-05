@@ -13,8 +13,8 @@ const route = (distanceKm = 483, overrides: Partial<ChecklistInput["routes"][num
     ...overrides,
   };
 };
-const parked = { status: "idle" as const, flight: null };
-const flying = { status: "enroute" as const, flight: {} as never };
+const parked = { status: "idle" as const, flight: null, assignedRouteId: null };
+const flying = { status: "enroute" as const, flight: {} as never, assignedRouteId: "r1" };
 
 const derive = (input: Partial<ChecklistInput>) =>
   deriveFirstHourChecklist({ routes: [], fleet: [], cumulativeRevenue: fp(0), ...input });
@@ -38,6 +38,13 @@ describe("deriveFirstHourChecklist", () => {
   it("moves to the first takeoff once a route is open", () => {
     const checklist = derive({ routes: [route()], fleet: [parked] });
     expect(checklist.next).toMatchObject({ id: "firstTakeoff", to: "/fleet" });
+  });
+
+  it("marks the takeoff as waiting once an aircraft is assigned", () => {
+    const assigned = { status: "delivery" as const, flight: null, assignedRouteId: "r1" };
+    const checklist = derive({ routes: [route()], fleet: [assigned] });
+    expect(checklist.next).toMatchObject({ id: "firstTakeoff", waiting: true });
+    expect(derive({ routes: [route()], fleet: [parked] }).next).toMatchObject({ waiting: false });
   });
 
   it("counts an aircraft in the air as the first takeoff", () => {

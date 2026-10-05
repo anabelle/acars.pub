@@ -348,6 +348,41 @@
       "worldPulseDesc": "{{airlines}} airlines are flying. You're browsing in {{state}}.",
       "worldGuest": "guest mode",
       "worldNoExtension": "read-only mode"
+    },
+    "checklist": {
+      "kicker": "Your first hour",
+      "title": "Get your airline flying",
+      "progress": "{{done}} of {{total}}",
+      "doneSr": "(done)",
+      "todoSr": "(to do)",
+      "steps": {
+        "openRoute": {
+          "title": "Open your first route",
+          "hint": "Pick a city and launch a route from your hub.",
+          "action": "Find a route"
+        },
+        "firstTakeoff": {
+          "title": "Get an aircraft in the air",
+          "hint": "Put an aircraft on your route; it takes off on schedule.",
+          "action": "Open fleet",
+          "waiting": "Your aircraft is assigned. It takes off once it's delivered and its slot comes up."
+        },
+        "firstLanding": {
+          "title": "Land your first flight",
+          "hint": "Your aircraft is on its way. The first landing brings in your first revenue.",
+          "action": "Watch your routes"
+        },
+        "adjustFare": {
+          "title": "Adjust a fare",
+          "hint": "Try a preset or your own price and see the forecast change.",
+          "action": "Edit fares"
+        },
+        "thirdRoute": {
+          "title": "Grow to three routes",
+          "hint": "More routes mean more flights and more income.",
+          "action": "Find routes"
+        }
+      }
     }
   },
   "home": {
