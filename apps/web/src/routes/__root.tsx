@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import { AwayReport } from "@/features/airline/components/AwayReport";
+import { MilestoneCelebrations } from "@/features/airline/components/MilestoneCelebrations";
 import { IdentityGate } from "@/features/identity/components/IdentityGate";
 import { Ticker } from "@/features/network/components/Ticker";
 import { MOBILE_TOPBAR_PANEL_PADDING_CLASS } from "@/shared/components/layout/mobileLayout";
@@ -71,6 +72,7 @@ function RootLayout() {
       </div>
       {/* "While you were away" report (portaled; needs the router for its links) */}
       <AwayReport />
+      <MilestoneCelebrations />
     </AppInitializer>
   );
 }

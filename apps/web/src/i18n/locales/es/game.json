@@ -348,6 +348,41 @@
       "worldPulseDesc": "{{airlines}} aerolíneas están volando. Navegas en {{state}}.",
       "worldGuest": "modo invitado",
       "worldNoExtension": "modo de solo lectura"
+    },
+    "checklist": {
+      "kicker": "Tu primera hora",
+      "title": "Pon tu aerolínea a volar",
+      "progress": "{{done}} de {{total}}",
+      "doneSr": "(hecho)",
+      "todoSr": "(pendiente)",
+      "steps": {
+        "openRoute": {
+          "title": "Abre tu primera ruta",
+          "hint": "Elige una ciudad y lanza una ruta desde tu hub.",
+          "action": "Buscar ruta"
+        },
+        "firstTakeoff": {
+          "title": "Pon un avión en el aire",
+          "hint": "Asigna un avión a tu ruta; despegará según el horario.",
+          "action": "Abrir flota",
+          "waiting": "Tu avión está asignado. Despegará en cuanto se entregue y llegue su hora de salida."
+        },
+        "firstLanding": {
+          "title": "Aterriza tu primer vuelo",
+          "hint": "Tu avión está en camino. El primer aterrizaje trae tus primeros ingresos.",
+          "action": "Ver tus rutas"
+        },
+        "adjustFare": {
+          "title": "Ajusta una tarifa",
+          "hint": "Prueba una tarifa predefinida o tu propio precio y mira cómo cambia la previsión.",
+          "action": "Editar tarifas"
+        },
+        "thirdRoute": {
+          "title": "Llega a tres rutas",
+          "hint": "Más rutas son más vuelos y más ingresos.",
+          "action": "Buscar rutas"
+        }
+      }
     }
   },
   "home": {
@@ -848,5 +883,20 @@
     "continue": "Volver a mi aerolínea",
     "close": "Cerrar informe",
     "activity": "Registro completo"
+  },
+  "milestones": {
+    "toastTitle": "Hito conseguido",
+    "tierUp": {
+      "kicker": "Ascenso",
+      "title": "¡Nivel {{tier}} alcanzado!",
+      "range": "Rutas de hasta {{km}} km",
+      "rangeAny": "Rutas de cualquier distancia",
+      "hubs_one": "Hasta {{count}} hub",
+      "hubs_other": "Hasta {{count}} hubs",
+      "hubsAny": "Tantos hubs como quieras",
+      "next": "Siguiente: nivel {{next}} con {{revenue}} de ingresos acumulados y {{routes}} rutas activas.",
+      "continue": "Seguir volando",
+      "close": "Cerrar"
+    }
   }
 }

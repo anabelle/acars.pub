@@ -1,7 +1,7 @@
 # S24 — Outcome-first fare editor + RouteManager i18n
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting review)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #168)
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** https://github.com/anabelle/acars.pub/pull/168
 >

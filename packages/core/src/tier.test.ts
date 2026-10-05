@@ -5,6 +5,7 @@ import {
   evaluateTier,
   getMaxHubs,
   getMaxRouteDistanceKm,
+  getTierProgress,
   TIER_THRESHOLDS,
 } from "./tier";
 
@@ -101,5 +102,40 @@ describe("estimateHistoricRevenue", () => {
     ];
     // 1 active route → 2_000_000 bonus ; total = 12_000_000
     expect(estimateHistoricRevenue(fleet, routes)).toBe(fp(12_000_000));
+  });
+});
+
+describe("getTierProgress", () => {
+  it("measures both requirements towards the next tier", () => {
+    expect(getTierProgress(1, fp(1_250_000), 2)).toEqual({
+      tier: 1,
+      nextTier: 2,
+      revenuePct: 25,
+      routesPct: 66,
+      revenueMet: false,
+      routesMet: false,
+      revenueTarget: fp(5_000_000),
+      routesTarget: 3,
+    });
+  });
+
+  it("caps at 100% and flags met requirements", () => {
+    const progress = getTierProgress(2, fp(80_000_000), 4);
+    expect(progress).toMatchObject({ nextTier: 3, revenuePct: 100, revenueMet: true });
+    expect(progress).toMatchObject({ routesPct: 40, routesMet: false, routesTarget: 10 });
+    expect(getTierProgress(1, fp(-5), 0)).toMatchObject({ revenuePct: 0, routesPct: 0 });
+  });
+
+  it("has nothing left to reach at the top tier", () => {
+    expect(getTierProgress(4, fp(1), 1)).toEqual({
+      tier: 4,
+      nextTier: null,
+      revenuePct: 100,
+      routesPct: 100,
+      revenueMet: true,
+      routesMet: true,
+      revenueTarget: null,
+      routesTarget: null,
+    });
   });
 });

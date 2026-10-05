@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
+import { FirstHourChecklist } from "./FirstHourChecklist";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
 import { cn } from "@/shared/lib/utils";
 
@@ -590,6 +591,14 @@ export function OperationsCockpit() {
       </div>
 
       <div className="space-y-6 px-4 py-4 sm:px-6 sm:py-5">
+        {!isViewingOther && (
+          <FirstHourChecklist
+            routes={routes}
+            fleet={fleet}
+            timeline={timeline}
+            cumulativeRevenue={activeAirline.cumulativeRevenue}
+          />
+        )}
         <section
           className={cn(
             // An odd last card spans the row in the two-column layout.

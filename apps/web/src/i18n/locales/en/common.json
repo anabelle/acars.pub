@@ -38,7 +38,6 @@
     "competitorMode": "Competitor Analysis",
     "corporateBalance": "Corporate Balance",
     "stockPrice": "Stock Price",
-    "brandTier": "Brand / Tier",
     "avgLoadFactor": "Avg Load Factor",
     "relaysOnline": "{{count}} relay online",
     "relaysOnline_other": "{{count}} relays online",
@@ -47,7 +46,14 @@
     "relaysOffline": "Nostr relays offline",
     "disconnectedWarning": "Disconnected from Nostr — changes may not save",
     "openPanel": "Open {{panel}}",
-    "closePanel": "Close {{panel}}"
+    "closePanel": "Close {{panel}}",
+    "brand": "Brand",
+    "tierProgress": "Tier",
+    "tierLabel": "T{{tier}}",
+    "tierMax": "top tier",
+    "tierRevenue": "Rev {{pct}}%",
+    "tierRoutes": "Routes {{pct}}%",
+    "tierTitle": "Tier {{next}} needs {{revenue}} in total revenue and {{routes}} active routes."
   },
   "bankruptcy": {
     "chapter11Banner": "Chapter 11 Bankruptcy — All operations suspended",

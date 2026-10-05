@@ -5,6 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, CircleHelp, KeyRound, Menu, Sparkles, Wallet, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { TopbarTierProgress } from "./TopbarTierProgress";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 import { EphemeralKeyBackupActions } from "@/features/identity/components/EphemeralKeyBackupActions";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
@@ -81,7 +82,6 @@ export function Topbar() {
   const airlineCallsign = useAirlineStore((s) => s.airline?.callsign ?? null);
   const airlineIcao = useAirlineStore((s) => s.airline?.icaoCode ?? null);
   const airlineBrandScore = useAirlineStore((s) => s.airline?.brandScore ?? 0);
-  const airlineTier = useAirlineStore((s) => s.airline?.tier ?? 1);
   const isViewingOther = useAirlineStore((s) =>
     Boolean(s.viewedPubkey && s.viewedPubkey !== s.pubkey),
   );
@@ -578,12 +578,17 @@ export function Topbar() {
               </div>
               <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
                 <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
-                  {t("topbar.brandTier")}
+                  {t("topbar.brand")}
                 </span>
                 <span className="mt-1 font-mono text-sm font-bold text-foreground md:text-right">
-                  {(airlineBrandScore * 10).toFixed(1)}{" "}
-                  <span className="text-muted-foreground">T{airlineTier}</span>
+                  {(airlineBrandScore * 10).toFixed(1)}
                 </span>
+              </div>
+              <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
+                <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
+                  {t("topbar.tierProgress")}
+                </span>
+                <TopbarTierProgress />
               </div>
               <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
                 <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
@@ -695,12 +700,17 @@ export function Topbar() {
               </div>
               <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
                 <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
-                  {t("topbar.brandTier")}
+                  {t("topbar.brand")}
                 </span>
                 <span className="mt-1 font-mono text-sm font-bold text-foreground md:text-right">
-                  {(airlineBrandScore * 10).toFixed(1)}{" "}
-                  <span className="text-muted-foreground">T{airlineTier}</span>
+                  {(airlineBrandScore * 10).toFixed(1)}
                 </span>
+              </div>
+              <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
+                <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
+                  {t("topbar.tierProgress")}
+                </span>
+                <TopbarTierProgress />
               </div>
               <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
                 <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
