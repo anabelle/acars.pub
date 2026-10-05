@@ -5,7 +5,7 @@
 > **Branch:** —
 > **PR:** —
 >
-> **Track:** Loop · **Size:** L (3 steps) · **Depends on:** S03 (run after S32 or in a separate window — shared engine files) · **Unblocks:** S43 (event pins)
+> **Track:** Loop · **Size:** L (3 steps) · **Depends on:** — (run after S32 or in a separate window — shared engine files) · **Unblocks:** S43 (event pins)
 >
 > Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
@@ -37,7 +37,7 @@ The world does things: demand surges, fuel shocks and congestion days that creat
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [ ] **S33.1** Event catalog + `getActiveEvents(tick)` + tests. _Done when:_ deterministic schedule.
-- [ ] **S33.2** Engine modifiers (ruleset-gated) + S02 impact report. _Done when:_ bounded impact.
+- [ ] **S33.2** Engine modifiers (constants in core) + S02 impact report. _Done when:_ bounded impact.
 - [ ] **S33.3** Ticker/cockpit card + map pin data. _Done when:_ screenshots.
 
 ## Details & guidance

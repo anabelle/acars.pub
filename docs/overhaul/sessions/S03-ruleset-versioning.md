@@ -1,7 +1,7 @@
 # S03 — Ruleset versioning by activation tick
 
-> **Status:** ☐ not started
-> **Next step:** S03.1
+> **Status:** ⏭ skipped: D2 decided "no versioning" (no real players yet; rules change in place)
+> **Next step:** — (revisit only if real players need replay stability across rule changes)
 > **Branch:** —
 > **PR:** —
 >

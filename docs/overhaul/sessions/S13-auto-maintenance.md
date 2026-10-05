@@ -5,7 +5,7 @@
 > **Branch:** —
 > **PR:** —
 >
-> **Track:** Economy · **Size:** M (3 steps) · **Depends on:** S03 · **Unblocks:** —
+> **Track:** Economy · **Size:** M (3 steps) · **Depends on:** — · **Unblocks:** —
 >
 > Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
@@ -26,7 +26,7 @@ Remove the manual maintenance chore while keeping its cost trade-off.
 ## In scope
 
 - New action `SET_MAINTENANCE_POLICY` (per aircraft or fleet default: threshold %, "only at hub")
-- Engine applies the policy deterministically at turnaround when conditions are met (ruleset-gated)
+- Engine applies the policy deterministically at turnaround when conditions are met (constant in core)
 - Fleet UI toggle
 
 ## Out of scope
@@ -38,7 +38,7 @@ Remove the manual maintenance chore while keeping its cost trade-off.
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [ ] **S13.1** `SET_MAINTENANCE_POLICY` action + reducer + tests. _Done when:_ tests green.
-- [ ] **S13.2** Engine rule (ruleset-gated) + 90-day absence replay test. _Done when:_ no grounding with policy on.
+- [ ] **S13.2** Engine rule (constant in core) + 90-day absence replay test. _Done when:_ no grounding with policy on.
 - [ ] **S13.3** Fleet UI toggles + "next service" estimate + i18n. _Done when:_ screenshots.
 
 ## Details & guidance

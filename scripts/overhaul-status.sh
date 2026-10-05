@@ -68,7 +68,7 @@ for id in $(sed -n '/^## 3\. Recommended order/,/^## 4\./p' "$STATUS_MD" | grep 
   f="$(ls "$DIR"/"$id"-*.md 2>/dev/null | head -1)"
   [[ -z "$f" ]] && continue
   st="$(field "$f" Status)"
-  if ! echo "$st" | grep -qE "merged|in progress|ready for review"; then
+  if ! echo "$st" | grep -qE "merged|in progress|ready for review|skipped"; then
     row "$f"; shown=$((shown + 1))
   fi
   [[ $shown -ge 5 ]] && break
