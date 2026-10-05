@@ -1,8 +1,8 @@
 # S02 — Economy balance harness
 
-> **Status:** ☐ not started
-> **Next step:** S02.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S02.2
+> **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
 > **Track:** Foundations · **Size:** M (4 steps) · **Depends on:** — · **Unblocks:** S03, S10, S11, S12
@@ -37,7 +37,7 @@ One command that runs the **real** flight engine over a matrix of scenarios and 
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S02.1** Move engine fixtures to `src/testing/engineFixtures.ts` (re-exported; no behavior change). _Done when:_ existing tests green.
+- [x] **S02.1** Move engine fixtures to `src/testing/engineFixtures.ts` (re-exported; no behavior change). _Done when:_ existing tests green.
 - [ ] **S02.2** Scenario matrix + per-landing metrics + markdown report writer. _Done when:_ report lists LF/profit for the matrix.
 - [ ] **S02.3** Strategy sims (cautious / greedy / balanced) with days-to-tier. _Done when:_ report includes the strategy table.
 - [ ] **S02.4** `pnpm balance` script + commit `docs/overhaul/balance/baseline-v1.md` + generator smoke test. _Done when:_ baseline matches ledger A1–A4.
@@ -58,7 +58,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+- 2026-10-05 · S02.1 · (this commit) · Engine fixtures (`PLAYER_PUBKEY`, `EngineState`, `makeAircraft`, `makeRoute`, `initState`, `runTick`, `findLastEvent`, `simulateSingleLanding`, `makeFlight`) moved verbatim from `FlightEngine.test.ts` to `packages/store/src/testing/engineFixtures.ts` and imported back. They are not exported from the package index, so the app bundle is unchanged. Same 222 store tests pass.
 
 ## Follow-ups
 
