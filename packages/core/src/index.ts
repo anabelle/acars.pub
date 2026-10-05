@@ -61,6 +61,8 @@ export {
   calculateFlightRevenue,
   calculateHubLandingFee,
   detectPriceWar,
+  FARE_CAP_MULTIPLIER,
+  getMaxFares,
   getSuggestedFares,
   ROUTE_SLOT_FEE,
 } from "./finance.js";
@@ -99,6 +101,16 @@ export {
 export { haversineDistance } from "./geo.js";
 // Hubs
 export { buildHubState, getAirportTraffic } from "./hub.js";
+// Incumbent carriers (S10)
+export type { EntrantOffer, IncumbentOffer } from "./incumbent.js";
+export {
+  entrantMarketShare,
+  getIncumbentOffer,
+  INCUMBENT_FARE_SENSITIVITY,
+  INCUMBENT_MIN_WEEKLY_FREQUENCY,
+  INCUMBENT_TARGET_LOAD_FACTOR,
+  incumbentSeatsPerFlight,
+} from "./incumbent.js";
 // Logging
 export { createLogger } from "./logger.js";
 // PRNG

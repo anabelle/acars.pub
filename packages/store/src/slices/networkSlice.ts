@@ -6,6 +6,7 @@ import {
   fpScale,
   fpSub,
   GENESIS_TIME,
+  getMaxFares,
   getMaxHubs,
   getSuggestedFares,
   MAX_ROUTE_FREQUENCY_PER_WEEK,
@@ -983,6 +984,13 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     // state cannot diverge on out-of-range input.
     const MAX_FARE = fp(10000);
     const zero = fp(0);
+    // ...and to the S10 cap: a multiple of the suggested fare for the route.
+    const capRoute = routes.find((rt) => rt.id === routeId);
+    const caps = getMaxFares(capRoute?.distanceKm ?? 0);
+    const lower = (a: FixedPoint, b: FixedPoint) => (a < b ? a : b);
+    const capE = lower(caps.economy, MAX_FARE);
+    const capB = lower(caps.business, MAX_FARE);
+    const capF = lower(caps.first, MAX_FARE);
 
     const updatedRoutes = routes.map((rt) => {
       if (rt.id === routeId) {
@@ -990,15 +998,15 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
           ...rt,
           fareEconomy:
             fares.economy !== undefined
-              ? (clampFixedPoint(fares.economy, zero, MAX_FARE) ?? rt.fareEconomy)
+              ? (clampFixedPoint(fares.economy, zero, capE) ?? rt.fareEconomy)
               : rt.fareEconomy,
           fareBusiness:
             fares.business !== undefined
-              ? (clampFixedPoint(fares.business, zero, MAX_FARE) ?? rt.fareBusiness)
+              ? (clampFixedPoint(fares.business, zero, capB) ?? rt.fareBusiness)
               : rt.fareBusiness,
           fareFirst:
             fares.first !== undefined
-              ? (clampFixedPoint(fares.first, zero, MAX_FARE) ?? rt.fareFirst)
+              ? (clampFixedPoint(fares.first, zero, capF) ?? rt.fareFirst)
               : rt.fareFirst,
         };
       }

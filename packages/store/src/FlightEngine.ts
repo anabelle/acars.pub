@@ -5,6 +5,7 @@ import type {
   CycleFlightEvent,
   FixedPoint,
   FlightOffer,
+  IncumbentOffer,
   Route,
   TimelineEvent,
 } from "@acars/core";
@@ -20,6 +21,7 @@ import {
   computeRouteFrequency,
   countLandingsBetween,
   detectPriceWar,
+  entrantMarketShare,
   enumerateFlightEvents,
   fp,
   fpAdd,
@@ -31,6 +33,8 @@ import {
   getFuelPriceAtTick,
   getHubCongestionModifier,
   getHubDemandModifier,
+  getIncumbentOffer,
+  getMaxFares,
   getProsperityIndex,
   getSeason,
   getSuggestedFares,
@@ -237,6 +241,10 @@ export interface FlightPassengerResult {
   allOffers: FlightOffer[];
   /** True when a price war is on and the player is one of the undercutters. */
   playerUndercutting: boolean;
+  /** The market's incumbent carrier (S10), or null on a market too thin for one. */
+  incumbent: IncumbentOffer | null;
+  /** Share of economy demand the players win from the incumbent (1 without one). */
+  playersShareOfMarket: number;
 }
 
 /**
@@ -337,9 +345,15 @@ export function computeFlightPassengers({
   const distanceForOffer = route?.distanceKm ?? fallback?.distanceKm ?? 0;
   const ourTravelTime = Math.round((distanceForOffer / (model.speedKmh || 800)) * 60);
 
-  const fareEconomy = route?.fareEconomy ?? fallback?.fareEconomy ?? fp(0);
-  const fareBusiness = route?.fareBusiness ?? fallback?.fareBusiness ?? fp(0);
-  const fareFirst = route?.fareFirst ?? fallback?.fareFirst ?? fp(0);
+  // Fares are capped at a multiple of the suggested fare (S10); routes saved
+  // before the cap fly at the cap.
+  const maxFares = getMaxFares(distanceForOffer);
+  const fareEconomy = fpMin(route?.fareEconomy ?? fallback?.fareEconomy ?? fp(0), maxFares.economy);
+  const fareBusiness = fpMin(
+    route?.fareBusiness ?? fallback?.fareBusiness ?? fp(0),
+    maxFares.business,
+  );
+  const fareFirst = fpMin(route?.fareFirst ?? fallback?.fareFirst ?? fp(0), maxFares.first);
 
   const ourOffer: FlightOffer = {
     airlinePubkey: playerPubkey,
@@ -379,7 +393,41 @@ export function computeFlightPassengers({
       first: Math.floor(addressableDemand.first * 0.5),
     };
   }
-  const allocations = allocatePassengers(allOffers, addressableDemand);
+  // Incumbent carrier (S10): the market's established airline keeps the share
+  // the players don't win from it with frequency and price; the players split
+  // the rest among themselves with QSI.
+  const incumbent = getIncumbentOffer(
+    addressableDemand.economy + addressableDemand.business + addressableDemand.first,
+    distanceForOffer,
+  );
+  const referenceFares = getSuggestedFares(distanceForOffer);
+  const entrantsFor = (cls: "economy" | "business" | "first") =>
+    allOffers.map((offer) => {
+      const fare =
+        cls === "economy"
+          ? offer.fareEconomy
+          : cls === "business"
+            ? offer.fareBusiness
+            : offer.fareFirst;
+      const reference = fpToNumber(referenceFares[cls]);
+      return {
+        frequencyPerWeek: offer.frequencyPerWeek,
+        fareRatio: reference > 0 ? fpToNumber(fare) / reference : 1,
+      };
+    });
+  const playersShareOfMarket = entrantMarketShare(incumbent, entrantsFor("economy"));
+  const playersDemand = {
+    origin: addressableDemand.origin,
+    destination: addressableDemand.destination,
+    economy: Math.round(addressableDemand.economy * playersShareOfMarket),
+    business: Math.round(
+      addressableDemand.business * entrantMarketShare(incumbent, entrantsFor("business")),
+    ),
+    first: Math.round(
+      addressableDemand.first * entrantMarketShare(incumbent, entrantsFor("first")),
+    ),
+  };
+  const allocations = allocatePassengers(allOffers, playersDemand);
   const ourWeeklyAllocation = allocations.get(playerPubkey) ?? {
     economy: 0,
     business: 0,
@@ -392,7 +440,6 @@ export function computeFlightPassengers({
     ourWeeklyAllocation.economy + ourWeeklyAllocation.business + ourWeeklyAllocation.first;
   const pressureMultiplier = calculateSupplyPressure(totalWeeklySeats, totalWeeklyDemand);
 
-  const referenceFares = getSuggestedFares(distanceForOffer);
   const elasticityEconomy = calculatePriceElasticity(
     fareEconomy,
     referenceFares.economy,
@@ -464,6 +511,8 @@ export function computeFlightPassengers({
     frequencyPerWeek: ourFrequency,
     allOffers,
     playerUndercutting,
+    incumbent,
+    playersShareOfMarket,
   };
 }
 
@@ -928,6 +977,9 @@ export function processFlightEngine(
     tickRevenue,
   };
 }
+
+/** The lower of two fixed-point amounts. */
+const fpMin = (a: FixedPoint, b: FixedPoint): FixedPoint => (a < b ? a : b);
 
 /**
  * Each aircraft's round-trip period on `route`: the route's weekly frequency

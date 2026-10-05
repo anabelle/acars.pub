@@ -17,6 +17,7 @@ import {
   fpSub,
   GENESIS_TIME,
   getMaintenanceDowntimeTicks,
+  getMaxFares,
   getSuggestedFares,
   MAX_ROUTE_FREQUENCY_PER_WEEK,
   MIN_ROUTE_FREQUENCY_PER_WEEK,
@@ -58,6 +59,17 @@ const MAX_CODE_LENGTH = 8;
 const MAX_HUBS = 12;
 const MAX_DISTANCE_KM = 20000;
 const MAX_FARE = fp(10000);
+
+/** Per-class fare ceiling: the S10 cap (a multiple of the suggested fare), never above MAX_FARE. */
+const fareCaps = (distanceKm: number) => {
+  const cap = getMaxFares(distanceKm);
+  const lower = (a: FixedPoint, b: FixedPoint) => (a < b ? a : b);
+  return {
+    economy: lower(cap.economy, MAX_FARE),
+    business: lower(cap.business, MAX_FARE),
+    first: lower(cap.first, MAX_FARE),
+  };
+};
 const MAX_PRICE = fp(1000000000);
 const MIN_BALANCE = fp(-1000000000);
 const MAX_BALANCE = fp(1000000000);
@@ -825,14 +837,15 @@ export async function replayActionLog(params: {
 
         const faresPayload = asRecord(payload.fares);
         const suggested = getSuggestedFares(distanceKm);
+        const caps = fareCaps(distanceKm);
         const fareEconomy =
-          clampFixedPoint(faresPayload?.economy ?? suggested.economy, fpZero, MAX_FARE) ??
+          clampFixedPoint(faresPayload?.economy ?? suggested.economy, fpZero, caps.economy) ??
           suggested.economy;
         const fareBusiness =
-          clampFixedPoint(faresPayload?.business ?? suggested.business, fpZero, MAX_FARE) ??
+          clampFixedPoint(faresPayload?.business ?? suggested.business, fpZero, caps.business) ??
           suggested.business;
         const fareFirst =
-          clampFixedPoint(faresPayload?.first ?? suggested.first, fpZero, MAX_FARE) ??
+          clampFixedPoint(faresPayload?.first ?? suggested.first, fpZero, caps.first) ??
           suggested.first;
         const frequencyPerWeek = clampInt(payload.frequencyPerWeek, 0, 1000) ?? 7;
 
@@ -1025,19 +1038,21 @@ export async function replayActionLog(params: {
         const faresPayload = asRecord(payload.fares);
         const route = routesById.get(routeId);
         if (!route || !faresPayload) break;
+        const caps = fareCaps(route.distanceKm);
         routesById.set(routeId, {
           ...route,
           fareEconomy:
             faresPayload.economy != null
-              ? (clampFixedPoint(faresPayload.economy, fpZero, MAX_FARE) ?? route.fareEconomy)
+              ? (clampFixedPoint(faresPayload.economy, fpZero, caps.economy) ?? route.fareEconomy)
               : route.fareEconomy,
           fareBusiness:
             faresPayload.business != null
-              ? (clampFixedPoint(faresPayload.business, fpZero, MAX_FARE) ?? route.fareBusiness)
+              ? (clampFixedPoint(faresPayload.business, fpZero, caps.business) ??
+                route.fareBusiness)
               : route.fareBusiness,
           fareFirst:
             faresPayload.first != null
-              ? (clampFixedPoint(faresPayload.first, fpZero, MAX_FARE) ?? route.fareFirst)
+              ? (clampFixedPoint(faresPayload.first, fpZero, caps.first) ?? route.fareFirst)
               : route.fareFirst,
         });
         updateLastTick(actionTick);

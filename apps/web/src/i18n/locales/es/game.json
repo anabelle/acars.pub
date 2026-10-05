@@ -644,9 +644,6 @@
     "perDay": "{{amount}}/día",
     "loadFactor": "Ocupación",
     "flightsPerDay": "Vuelos/día",
-    "rivals": "Rivales",
-    "noRivals": "Ninguno",
-    "share": "{{share}}% del mercado",
     "aircraft": "Mejor avión: {{model}} (arriendo {{lease}}/día)",
     "beyondTier": "Más allá del alcance de {{limit}} km de tu nivel: la demanda se reduce a la mitad hasta que desbloquees rutas más largas.",
     "unprofitable": "No es rentable con los aviones que puedes volar todavía. Prueba un mercado más cercano o más grande.",
@@ -667,7 +664,12 @@
       "acquireAircraft": "La ruta está abierta, pero falló el alquiler del avión.",
       "assignAircraft": "El avión está alquilado, pero falló asignarlo a la ruta."
     },
-    "reuseConfirmDescription": "Tasa de slot {{slotFee}}. Tu {{aircraft}} libre en este hub la opera, sin alquiler nuevo."
+    "reuseConfirmDescription": "Tasa de slot {{slotFee}}. Tu {{aircraft}} libre en este hub la opera, sin alquiler nuevo.",
+    "yourShare": "Tu cuota",
+    "incumbent": "Una aerolínea establecida la opera {{flights}} veces por semana y tiene el {{share}} del mercado. Gana cuota con frecuencia y precio.",
+    "uncontested": "Ninguna aerolínea sirve este mercado: es todo tuyo, pero es pequeño.",
+    "otherAirlines_one": "Otro jugador también la opera.",
+    "otherAirlines_other": "Otros {{count}} jugadores también la operan."
   },
   "aircraftPanel": {
     "title": "Aeronave",

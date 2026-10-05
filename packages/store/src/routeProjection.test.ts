@@ -155,7 +155,12 @@ describe("projectRouteEconomics", () => {
     expect(projection.competitorShares).toEqual([
       { airlinePubkey: "rival", share: expect.any(Number) },
     ]);
-    expect(projection.marketShare + projection.competitorShares[0].share).toBeCloseTo(1, 6);
+    // Players and the market's incumbent (S10) account for the whole market.
+    expect(
+      projection.marketShare +
+        projection.competitorShares[0].share +
+        (projection.incumbent?.share ?? 0),
+    ).toBeCloseTo(1, 6);
   });
 
   it("flies the scheduled frequency, capped by what the aircraft can do (S14)", () => {
@@ -173,5 +178,31 @@ describe("projectRouteEconomics", () => {
     expect(greedy.frequencyPerWeek).toBeLessThan(10_000);
     expect(greedy.flightsPerDay).toBeGreaterThan(14);
     expect(greedy.flightsPerDay).toBeLessThan(20);
+  });
+
+  it("exposes the market's incumbent, or none on a thin market (S10)", () => {
+    const model = getAircraftById("atr72-600");
+    if (!model) throw new Error("model");
+    const big = projectRouteEconomics({
+      originIata: "MAD",
+      destinationIata: "BCN",
+      distanceKm: 483,
+      model,
+      tick: 1000,
+    });
+    expect(big.incumbent).not.toBeNull();
+    expect(big.incumbent?.frequencyPerWeek).toBeGreaterThan(100);
+    expect(big.incumbent?.share).toBeGreaterThan(0.9);
+    expect(big.marketShare + (big.incumbent?.share ?? 0)).toBeCloseTo(1, 10);
+
+    const thin = projectRouteEconomics({
+      originIata: "LIH",
+      destinationIata: "KOA",
+      distanceKm: 423,
+      model,
+      tick: 1000,
+    });
+    expect(thin.incumbent).toBeNull();
+    expect(thin.marketShare).toBe(1);
   });
 });

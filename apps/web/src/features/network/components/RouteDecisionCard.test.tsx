@@ -168,4 +168,22 @@ describe("RouteDecisionCard", () => {
 
     expect(screen.queryByRole("button")).toBeNull();
   });
+
+  it("names the market's incumbent and our share of the market (S10)", () => {
+    setAirline();
+    render(<RouteDecisionCard originIata="MAD" destinationIata="BCN" distanceKm={483} />);
+    expect(screen.getByTestId("route-decision-market").textContent).toMatch(
+      /An established airline flies this [\d,]+ times a week and holds >?\d+% of the market/,
+    );
+    expect(screen.getByTestId("route-decision-share").textContent).toMatch(/^(<1|\d+)%$/);
+  });
+
+  it("calls a thin market uncontested", () => {
+    setAirline();
+    render(<RouteDecisionCard originIata="LIH" destinationIata="KOA" distanceKm={423} />);
+    expect(screen.getByTestId("route-decision-market").textContent).toMatch(
+      /No airline serves this market yet/,
+    );
+    expect(screen.getByTestId("route-decision-share").textContent).toBe("100%");
+  });
 });

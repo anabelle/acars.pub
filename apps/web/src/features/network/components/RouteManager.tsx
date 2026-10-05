@@ -1,4 +1,5 @@
 import {
+  FARE_CAP_MULTIPLIER,
   type Airport,
   calculateDemand,
   calculatePriceElasticity,
@@ -1830,13 +1831,19 @@ export function RouteManager() {
                         type="number"
                         min="0"
                         step="1"
+                        max={
+                          suggestedFares
+                            ? Math.round(fpToNumber(suggestedFares.economy) * FARE_CAP_MULTIPLIER)
+                            : undefined
+                        }
                         value={fareInputs.e}
                         onChange={(e) => setFareInputs({ ...fareInputs, e: e.target.value })}
                         className="mt-2 h-10 w-full rounded-lg bg-background border border-border/50 px-3 text-sm font-medium outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
                       />
                       {suggestedFares ? (
                         <p className="mt-2 text-[10px] text-muted-foreground">
-                          Suggested: {fpToNumber(suggestedFares.economy)}
+                          Suggested: {fpToNumber(suggestedFares.economy)} · max{" "}
+                          {Math.round(fpToNumber(suggestedFares.economy) * FARE_CAP_MULTIPLIER)}
                         </p>
                       ) : null}
                       {suggestedFares && fareElasticity ? (
@@ -1888,13 +1895,19 @@ export function RouteManager() {
                         type="number"
                         min="0"
                         step="1"
+                        max={
+                          suggestedFares
+                            ? Math.round(fpToNumber(suggestedFares.business) * FARE_CAP_MULTIPLIER)
+                            : undefined
+                        }
                         value={fareInputs.b}
                         onChange={(e) => setFareInputs({ ...fareInputs, b: e.target.value })}
                         className="mt-2 h-10 w-full rounded-lg bg-background border border-border/50 px-3 text-sm font-medium outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 text-blue-400"
                       />
                       {suggestedFares ? (
                         <p className="mt-2 text-[10px] text-blue-400/70">
-                          Suggested: {fpToNumber(suggestedFares.business)}
+                          Suggested: {fpToNumber(suggestedFares.business)} · max{" "}
+                          {Math.round(fpToNumber(suggestedFares.business) * FARE_CAP_MULTIPLIER)}
                         </p>
                       ) : null}
                       {suggestedFares && fareElasticity ? (
@@ -1946,13 +1959,19 @@ export function RouteManager() {
                         type="number"
                         min="0"
                         step="1"
+                        max={
+                          suggestedFares
+                            ? Math.round(fpToNumber(suggestedFares.first) * FARE_CAP_MULTIPLIER)
+                            : undefined
+                        }
                         value={fareInputs.f}
                         onChange={(e) => setFareInputs({ ...fareInputs, f: e.target.value })}
                         className="mt-2 h-10 w-full rounded-lg bg-background border border-border/50 px-3 text-sm font-medium outline-none focus:border-yellow-500/60 focus:ring-2 focus:ring-yellow-500/20 text-yellow-500"
                       />
                       {suggestedFares ? (
                         <p className="mt-2 text-[10px] text-yellow-500/70">
-                          Suggested: {fpToNumber(suggestedFares.first)}
+                          Suggested: {fpToNumber(suggestedFares.first)} · max{" "}
+                          {Math.round(fpToNumber(suggestedFares.first) * FARE_CAP_MULTIPLIER)}
                         </p>
                       ) : null}
                       {suggestedFares && fareElasticity ? (

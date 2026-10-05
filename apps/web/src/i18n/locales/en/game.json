@@ -644,9 +644,6 @@
     "perDay": "{{amount}}/day",
     "loadFactor": "Load factor",
     "flightsPerDay": "Flights/day",
-    "rivals": "Rivals",
-    "noRivals": "None",
-    "share": "{{share}}% share",
     "aircraft": "Best aircraft: {{model}} (lease {{lease}}/day)",
     "beyondTier": "Beyond your tier’s {{limit}} km range: demand is halved until you unlock longer routes.",
     "unprofitable": "Not profitable with the aircraft you can fly yet. Try a closer or bigger market.",
@@ -667,7 +664,12 @@
       "acquireAircraft": "The route is open, but leasing the aircraft failed.",
       "assignAircraft": "The aircraft is leased, but assigning it to the route failed."
     },
-    "reuseConfirmDescription": "Slot fee {{slotFee}}. Your idle {{aircraft}} at this hub flies it, so no new lease."
+    "reuseConfirmDescription": "Slot fee {{slotFee}}. Your idle {{aircraft}} at this hub flies it, so no new lease.",
+    "yourShare": "Your share",
+    "incumbent": "An established airline flies this {{flights}} times a week and holds {{share}} of the market. Win share with frequency and price.",
+    "uncontested": "No airline serves this market yet: it's all yours, but it's small.",
+    "otherAirlines_one": "{{count}} other player flies it too.",
+    "otherAirlines_other": "{{count}} other players fly it too."
   },
   "aircraftPanel": {
     "title": "Aircraft",

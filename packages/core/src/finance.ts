@@ -231,6 +231,23 @@ export function calculateFlightCost(params: FlightCostParams): {
 /**
  * Get suggestions for baseline fares based on distance.
  */
+/** Fares are capped at this multiple of the suggested fare, per class (S10). */
+export const FARE_CAP_MULTIPLIER = 3;
+
+/** Highest fare a route may charge per class: `FARE_CAP_MULTIPLIER` × suggested. */
+export function getMaxFares(distanceKm: number): {
+  economy: FixedPoint;
+  business: FixedPoint;
+  first: FixedPoint;
+} {
+  const suggested = getSuggestedFares(distanceKm);
+  return {
+    economy: fpScale(suggested.economy, FARE_CAP_MULTIPLIER),
+    business: fpScale(suggested.business, FARE_CAP_MULTIPLIER),
+    first: fpScale(suggested.first, FARE_CAP_MULTIPLIER),
+  };
+}
+
 export function getSuggestedFares(distanceKm: number): {
   economy: FixedPoint;
   business: FixedPoint;
