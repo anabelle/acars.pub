@@ -9,7 +9,6 @@ import { NavBadge } from "./NavBadge";
 type NavItem = {
   icon: typeof Radar;
   labelKey: string;
-  mobileLabelKey: string;
   to: string;
   requiresAirline: boolean;
 };
@@ -18,35 +17,30 @@ const navItems: NavItem[] = [
   {
     icon: Radar,
     labelKey: "nav.map",
-    mobileLabelKey: "nav.mobileOps",
     to: "/",
     requiresAirline: false,
   },
   {
     icon: Plane,
     labelKey: "nav.fleet",
-    mobileLabelKey: "nav.fleet",
     to: "/fleet",
     requiresAirline: true,
   },
   {
     icon: Globe,
     labelKey: "nav.network",
-    mobileLabelKey: "nav.mobileNet",
     to: "/network",
     requiresAirline: true,
   },
   {
     icon: Trophy,
     labelKey: "nav.leaderboard",
-    mobileLabelKey: "nav.mobileRank",
     to: "/leaderboard",
     requiresAirline: false,
   },
   {
     icon: Wallet,
     labelKey: "nav.corporate",
-    mobileLabelKey: "nav.mobileCorp",
     to: "/corporate",
     requiresAirline: true,
   },
@@ -203,7 +197,7 @@ export function MobileNav() {
               )}
             </span>
             <span className="text-center text-[8px] font-semibold uppercase tracking-[0.12em] leading-none">
-              {t(item.mobileLabelKey)}
+              {t(item.labelKey)}
             </span>
           </Link>
         );

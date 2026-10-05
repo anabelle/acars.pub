@@ -1,7 +1,24 @@
-import { getProsperityIndex } from "@acars/core";
+import type { AircraftInstance } from "@acars/core";
+import { fpFormat, getProsperityIndex } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useRelayHealth, type RelayStatus } from "@/shared/hooks/useRelayHealth";
+import {
+  cashResultSince,
+  findNextLanding,
+  formatCountdown,
+  formatUtcClock,
+  utcDayStartTick,
+} from "../utils/tickerFacts";
+
+const NO_FLEET: readonly AircraftInstance[] = [];
+
+const LIVE_STYLES: Record<RelayStatus, { text: string; dot: string; ping: boolean }> = {
+  ready: { text: "text-primary", dot: "bg-primary", ping: true },
+  connecting: { text: "text-amber-400", dot: "bg-amber-400", ping: false },
+  offline: { text: "text-amber-400", dot: "bg-amber-400", ping: false },
+};
 
 /**
  * A global ticker component that displays live macroeconomic and network status.
@@ -12,7 +29,6 @@ export function Ticker() {
   const season = useEngineStore((s) => (s.routes.length > 0 ? s.routes[0]?.season : "winter"));
   const tick = useEngineStore((s) => s.tick);
   const homeAirport = useEngineStore((s) => s.homeAirport);
-  const progress = useEngineStore((s) => s.tickProgress);
   const catchup = useEngineStore((s) => s.catchupProgress);
 
   // Fine-grained selectors — subscribing to the whole airline store made the
@@ -39,35 +55,76 @@ export function Ticker() {
     return total;
   }, [routesByOwner]);
 
+  // The player's own pulse. The cash selector returns a primitive, so timeline
+  // writes only re-render the ticker when today's result actually changes.
+  const hasAirline = useAirlineStore((s) => Boolean(s.airline));
+  const fleet = useAirlineStore((s) => s.fleet ?? NO_FLEET);
+  const dayStart = utcDayStartTick(tick);
+  const cashToday = useAirlineStore((s) => cashResultSince(s.timeline, dayStart));
+  const nextLanding = useMemo(() => findNextLanding(fleet, tick), [fleet, tick]);
+
+  const { status: relayStatus } = useRelayHealth();
+  const live = LIVE_STYLES[relayStatus];
+
   const prosperity = getProsperityIndex(tick);
 
   if (!homeAirport) return null;
 
   return (
-    <div className="pointer-events-auto hidden sm:flex items-center space-x-6 overflow-x-auto custom-scrollbar bg-background/95 backdrop-blur-sm border-t border-border px-4 py-1.5 text-xs font-mono text-muted-foreground z-50 fixed bottom-0 left-0 right-0 shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
-      <div className="flex items-center space-x-2 text-primary w-24 shrink-0">
-        <div className="relative h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_5px_currentColor] shrink-0">
-          <div className="absolute -inset-1 rounded-full bg-primary/20 animate-ping"></div>
+    <div className="pointer-events-auto hidden sm:flex items-center space-x-6 whitespace-nowrap overflow-x-auto custom-scrollbar bg-background/95 backdrop-blur-sm border-t border-border px-4 py-1.5 text-xs font-mono text-muted-foreground z-50 fixed bottom-0 left-0 right-0 shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
+      <div
+        className={`flex items-center space-x-2 w-24 shrink-0 ${live.text}`}
+        data-testid="ticker-live"
+        data-status={relayStatus}
+      >
+        <div
+          className={`relative h-1.5 w-1.5 rounded-full shadow-[0_0_5px_currentColor] shrink-0 ${live.dot}`}
+        >
+          {live.ping && (
+            <div className="absolute -inset-1 rounded-full bg-primary/20 animate-ping"></div>
+          )}
         </div>
         <span className="font-semibold uppercase tracking-wider text-[10px]">
-          {t("ticker.liveData")}
+          {t(`ticker.relay.${relayStatus}`)}
         </span>
       </div>
 
-      <div className="flex items-center space-x-3 border-r border-border pr-6 min-w-[120px] shrink-0">
-        <span className="shrink-0 text-[10px] text-muted-foreground/70">
-          {t("ticker.gameTime")}
+      <div className="flex items-center space-x-2 border-r border-border pr-6 shrink-0">
+        <span className="text-foreground font-semibold tabular-nums" data-testid="ticker-clock">
+          {formatUtcClock(tick)}
         </span>
-        <div className="flex flex-col flex-1">
-          <span className="text-foreground leading-none mb-1">{t("ticker.cycle", { tick })}</span>
-          <div className="h-0.5 w-full bg-border rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all duration-1000 ease-linear"
-              style={{ width: `${progress * 100}%` }}
-            ></div>
-          </div>
-        </div>
+        <span className="text-[10px] text-muted-foreground/70">UTC</span>
       </div>
+
+      {hasAirline && (
+        <div
+          className="flex items-center space-x-2 border-r border-border pr-6 shrink-0"
+          data-testid="ticker-next-landing"
+        >
+          <span>{t("ticker.nextLanding")}</span>
+          <span className="text-foreground font-semibold">
+            {nextLanding
+              ? t("ticker.nextLandingValue", {
+                  iata: nextLanding.destinationIata,
+                  time: formatCountdown(nextLanding.arrivalTick - tick),
+                })
+              : t("ticker.noLanding")}
+          </span>
+        </div>
+      )}
+
+      {hasAirline && (
+        <div
+          className="flex items-center space-x-2 border-r border-border pr-6 shrink-0"
+          data-testid="ticker-cash-today"
+        >
+          <span>{t("ticker.cashToday")}</span>
+          <span className={`font-semibold ${cashToday < 0 ? "text-red-400" : "text-green-500"}`}>
+            {cashToday > 0 ? "+" : ""}
+            {fpFormat(cashToday, 0)}
+          </span>
+        </div>
+      )}
 
       <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
         <span>{t("ticker.airlines")}</span>
