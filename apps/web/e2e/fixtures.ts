@@ -19,7 +19,17 @@ export interface Problems {
 
 type Fixtures = {
   relayStub: void;
+  offlineBasemap: void;
   problems: Problems;
+};
+
+// A tiny local stand-in for the Carto basemap style: a solid background and
+// no tiles. Whatever else the canvas shows is drawn by the app's own layers
+// (airports, terminator, routes), which is what the map spec checks.
+const OFFLINE_STYLE = {
+  version: 8,
+  sources: {},
+  layers: [{ id: "e2e-background", type: "background", paint: { "background-color": "#0b1020" } }],
 };
 
 export const test = base.extend<Fixtures>({
@@ -42,6 +52,19 @@ export const test = base.extend<Fixtures>({
             ws.send(JSON.stringify(["OK", (first as { id: string }).id, true, ""]));
           }
         });
+      });
+      await use();
+    },
+    { auto: true },
+  ],
+
+  offlineBasemap: [
+    async ({ context }, use) => {
+      await context.route(/^https:\/\/[^/]*basemaps\.cartocdn\.com\//, (route) => {
+        if (route.request().url().endsWith("/style.json")) {
+          return route.fulfill({ json: OFFLINE_STYLE });
+        }
+        return route.abort();
       });
       await use();
     },
