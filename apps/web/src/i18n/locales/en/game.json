@@ -640,7 +640,23 @@
     "beyondTier": "Beyond your tier’s {{limit}} km range: demand is halved until you unlock longer routes.",
     "unprofitable": "Not profitable with the aircraft you can fly yet. Try a closer or bigger market.",
     "outOfRange": "None of your unlocked aircraft can fly {{distance}} km yet. Grow your airline to unlock longer-range aircraft.",
-    "estimateNote": "Estimate from the live simulation for today’s season and fuel price. Rivals, fares and seasons will move it."
+    "estimateNote": "Estimate from the live simulation for today’s season and fuel price. Rivals, fares and seasons will move it.",
+    "launch": "Launch route with a {{model}}",
+    "finishSetup": "Finish setup: put an aircraft on it",
+    "launching": "Launching…",
+    "launchConfirmTitle": "Launch {{origin}} → {{destination}}?",
+    "finishConfirmTitle": "Finish setting up {{origin}} → {{destination}}?",
+    "launchConfirmDescription": "Slot fee {{slotFee}} + {{model}} lease deposit {{deposit}}, then {{lease}}/day. The aircraft is delivered in about {{minutes}} min and starts flying on its own.",
+    "launchConfirmLabel": "Launch",
+    "launched": "{{origin}} → {{destination}} is live",
+    "launchedDetail": "Your aircraft takes off after delivery, in about {{minutes}} min.",
+    "launchFailed": "Couldn’t finish the launch",
+    "failedStep": {
+      "openRoute": "Opening the route failed.",
+      "acquireAircraft": "The route is open, but leasing the aircraft failed.",
+      "assignAircraft": "The aircraft is leased, but assigning it to the route failed."
+    },
+    "reuseConfirmDescription": "Slot fee {{slotFee}}. Your idle {{aircraft}} at this hub flies it, so no new lease."
   },
   "aircraftPanel": {
     "title": "Aircraft",

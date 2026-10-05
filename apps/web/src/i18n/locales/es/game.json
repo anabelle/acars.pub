@@ -640,7 +640,23 @@
     "beyondTier": "Más allá del alcance de {{limit}} km de tu nivel: la demanda se reduce a la mitad hasta que desbloquees rutas más largas.",
     "unprofitable": "No es rentable con los aviones que puedes volar todavía. Prueba un mercado más cercano o más grande.",
     "outOfRange": "Ninguno de tus aviones desbloqueados puede volar {{distance}} km todavía. Haz crecer tu aerolínea para desbloquear aviones de mayor alcance.",
-    "estimateNote": "Estimación de la simulación en vivo para la temporada y el precio del combustible de hoy. Los rivales, las tarifas y las estaciones la cambiarán."
+    "estimateNote": "Estimación de la simulación en vivo para la temporada y el precio del combustible de hoy. Los rivales, las tarifas y las estaciones la cambiarán.",
+    "launch": "Lanzar ruta con un {{model}}",
+    "finishSetup": "Completar: asignarle un avión",
+    "launching": "Lanzando…",
+    "launchConfirmTitle": "¿Lanzar {{origin}} → {{destination}}?",
+    "finishConfirmTitle": "¿Completar {{origin}} → {{destination}}?",
+    "launchConfirmDescription": "Tasa de slot {{slotFee}} + depósito del alquiler del {{model}} {{deposit}}, luego {{lease}}/día. El avión se entrega en unos {{minutes}} min y empieza a volar solo.",
+    "launchConfirmLabel": "Lanzar",
+    "launched": "{{origin}} → {{destination}} ya opera",
+    "launchedDetail": "Tu avión despega tras la entrega, en unos {{minutes}} min.",
+    "launchFailed": "No se pudo completar el lanzamiento",
+    "failedStep": {
+      "openRoute": "No se pudo abrir la ruta.",
+      "acquireAircraft": "La ruta está abierta, pero falló el alquiler del avión.",
+      "assignAircraft": "El avión está alquilado, pero falló asignarlo a la ruta."
+    },
+    "reuseConfirmDescription": "Tasa de slot {{slotFee}}. Tu {{aircraft}} libre en este hub la opera, sin alquiler nuevo."
   },
   "aircraftPanel": {
     "title": "Aeronave",

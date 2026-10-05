@@ -44,9 +44,9 @@ function findRoute(routes: Route[], plan: LaunchPlan): Route | undefined {
  * delivered) with the range for the route: exactly what a previous,
  * interrupted launch leaves behind, so a retry reuses it.
  */
-function findAvailableAircraft(
+export function findAvailableAircraft(
   fleet: AircraftInstance[],
-  plan: LaunchPlan,
+  plan: Pick<LaunchPlan, "originIata" | "distanceKm">,
 ): AircraftInstance | undefined {
   return fleet.find((aircraft) => {
     if (aircraft.assignedRouteId) return false;

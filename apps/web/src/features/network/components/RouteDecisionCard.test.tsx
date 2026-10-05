@@ -2,7 +2,7 @@ import type { AirlineEntity } from "@acars/core";
 import { fp, fpToNumber } from "@acars/core";
 import { aircraftModels, setAirportsCatalog } from "@acars/data";
 import { airports } from "@acars/data/airports";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 type Selector<T> = (state: T) => unknown;
@@ -17,6 +17,19 @@ vi.mock("@acars/store", async (importOriginal) => {
     useEngineStore: (selector: Selector<typeof engineState>) => selector(engineState),
   };
 });
+
+const confirmMock = vi.fn<(options: { title: string; description: string }) => Promise<boolean>>(
+  async () => true,
+);
+vi.mock("@/shared/lib/useConfirm", () => ({ useConfirm: () => confirmMock }));
+
+const launchMock = vi.fn();
+let launchState: { phase: string; result?: unknown } = { phase: "idle" };
+vi.mock("@/features/network/hooks/useLaunchRoute", () => ({
+  useLaunchRoute: () => ({ state: launchState, launch: launchMock, reset: vi.fn() }),
+}));
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { recommendAircraftForRoute } from "@/features/network/utils/routeRecommendation";
 import { RouteDecisionCard } from "./RouteDecisionCard";
@@ -36,7 +49,23 @@ beforeAll(() => {
   setAirportsCatalog(airports);
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  confirmMock.mockClear();
+  launchMock.mockReset();
+  launchState = { phase: "idle" };
+});
+
+function setAirline(overrides: Record<string, unknown> = {}) {
+  Object.assign(airlineState, {
+    airline: { tier: 1, brandScore: 0.5 } as Partial<AirlineEntity>,
+    routes: [],
+    fleet: [],
+    pubkey: "me",
+    globalRouteRegistry: new Map(),
+    ...overrides,
+  });
+}
 
 describe("recommendAircraftForRoute", () => {
   it("recommends a profitable aircraft unlocked at the airline's tier", () => {
@@ -66,12 +95,7 @@ describe("recommendAircraftForRoute", () => {
 
 describe("RouteDecisionCard", () => {
   it("shows the projected daily profit and the recommended aircraft", () => {
-    Object.assign(airlineState, {
-      airline: { tier: 1, brandScore: 0.5 } as Partial<AirlineEntity>,
-      routes: [],
-      pubkey: "me",
-      globalRouteRegistry: new Map(),
-    });
+    setAirline();
     render(<RouteDecisionCard originIata="MAD" destinationIata="BCN" distanceKm={483} />);
 
     expect(screen.getByTestId("route-decision-card")).toBeInTheDocument();
@@ -80,13 +104,68 @@ describe("RouteDecisionCard", () => {
   });
 
   it("explains when no unlocked aircraft can fly the distance", () => {
-    Object.assign(airlineState, {
-      airline: { tier: 1, brandScore: 0.5 } as Partial<AirlineEntity>,
-      routes: [],
-      pubkey: "me",
-      globalRouteRegistry: new Map(),
-    });
+    setAirline();
     render(<RouteDecisionCard originIata="MAD" destinationIata="JFK" distanceKm={5770} />);
     expect(screen.getByText(/can fly 5,770 km yet/)).toBeInTheDocument();
+  });
+
+  it("confirms the costs, then launches the recommended route", async () => {
+    setAirline();
+    launchMock.mockResolvedValue({ status: "complete", completed: [] });
+    render(<RouteDecisionCard originIata="MAD" destinationIata="BCN" distanceKm={483} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Launch route with/ }));
+
+    await waitFor(() => expect(launchMock).toHaveBeenCalledTimes(1));
+    expect(confirmMock.mock.calls[0][0].description).toMatch(/Slot fee \$100,000/);
+    expect(confirmMock.mock.calls[0][0].description).toMatch(/lease deposit/);
+    expect(launchMock.mock.calls[0][0]).toMatchObject({
+      originIata: "MAD",
+      destinationIata: "BCN",
+      distanceKm: 483,
+      model: expect.objectContaining({ id: expect.any(String) }),
+    });
+  });
+
+  it("does nothing when the player cancels the confirmation", async () => {
+    setAirline();
+    confirmMock.mockResolvedValueOnce(false);
+    render(<RouteDecisionCard originIata="MAD" destinationIata="BCN" distanceKm={483} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Launch route with/ }));
+
+    await waitFor(() => expect(confirmMock).toHaveBeenCalledTimes(1));
+    expect(launchMock).not.toHaveBeenCalled();
+  });
+
+  it("offers to finish the setup of a route that has no aircraft", () => {
+    setAirline({
+      routes: [{ id: "r1", originIata: "MAD", destinationIata: "BCN", frequencyPerWeek: 7 }],
+    });
+    launchState = {
+      phase: "done",
+      result: {
+        status: "partial",
+        completed: ["openRoute"],
+        failedStep: "acquireAircraft",
+        error: "Insufficient funds",
+      },
+    };
+    render(<RouteDecisionCard originIata="MAD" destinationIata="BCN" distanceKm={483} />);
+
+    expect(screen.getByRole("button", { name: /Finish setup/ })).toBeInTheDocument();
+    expect(screen.getByRole("alert").textContent).toMatch(
+      /leasing the aircraft failed.*Insufficient funds/,
+    );
+  });
+
+  it("hides the launch button once the route has an aircraft", () => {
+    setAirline({
+      routes: [{ id: "r1", originIata: "MAD", destinationIata: "BCN", frequencyPerWeek: 7 }],
+      fleet: [{ id: "a1", assignedRouteId: "r1" }],
+    });
+    render(<RouteDecisionCard originIata="MAD" destinationIata="BCN" distanceKm={483} />);
+
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });
