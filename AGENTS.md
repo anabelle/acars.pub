@@ -71,7 +71,14 @@ Before executing complex tasks or architecture decisions, use your tools to `vie
 5. `docs/FLEET_MANAGER_PLAN.md` -> How aircraft depreciation, maintenance, and fleet commonality work.
 6. `docs/AGENT_DEVELOPMENT_PARADIGM.md` -> The rules regarding branching, linting, testing, and Git commits.
 
-## 6. Prime Directive
+## 6. Ongoing Overhaul (Read If You're Improving Playability, UX, Graphics or Growth)
+
+A multi-session overhaul is in progress. Before starting any such work, read
+`docs/overhaul/STATUS.md` and follow its resume protocol: run `scripts/overhaul-status.sh`,
+continue the in-progress session brief from its **Next step**, and checkpoint
+(commit + push + progress-log update) after every step.
+
+## 7. Prime Directive
 
 Every time you commit code, ask yourself: _"If 10,000 players fire this event simultaneously right now, will it break the math, melt the DOM, or desync the Nostr state?"_
 
