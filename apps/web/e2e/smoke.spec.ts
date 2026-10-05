@@ -1,21 +1,10 @@
 import { expect, gotoReady, test } from "./fixtures";
+import { GUEST_ROUTES } from "./routes";
 
-// Every top-level surface a guest can reach. Each must boot with no uncaught
-// errors, no same-origin 4xx/5xx (missing bundle or worker files), and no
-// router error screen.
-const ROUTES = [
-  "/",
-  "/?panel=cockpit",
-  "/join",
-  "/network",
-  "/fleet",
-  "/leaderboard",
-  "/corporate",
-  "/about",
-  "/airport/MAD",
-];
-
-for (const path of ROUTES) {
+// Each guest route must boot with no uncaught errors, no same-origin 4xx/5xx
+// or HTML-fallback assets (missing bundle or worker files), and no router
+// error screen.
+for (const { path } of GUEST_ROUTES) {
   test(`boots ${path}`, async ({ page, problems }) => {
     await gotoReady(page, path);
     // Give lazy route chunks, workers and the map a moment to load.

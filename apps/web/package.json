@@ -7,11 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=desktop --project=mobile",
     "typecheck": "tsc --noEmit && tsc -p e2e/tsconfig.json --noEmit",
     "lint": "eslint src server vite.config.ts capacitor.config.ts eslint.config.js tailwind.config.js postcss.config.js e2e playwright.config.ts",
     "preview": "vite preview",
-    "screenshots": "node ./scripts/capture-responsive-screenshots.mjs"
+    "screenshots": "node ./scripts/capture-responsive-screenshots.mjs",
+    "screenshots:e2e": "playwright test --project=screenshots"
   },
   "dependencies": {
     "@acars/core": "workspace:*",

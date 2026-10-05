@@ -22,10 +22,28 @@ export default defineConfig({
     trace: "retain-on-failure",
     launchOptions: { executablePath },
   },
+  // `pnpm test:e2e` runs desktop + mobile. The screenshots project only runs
+  // when asked for (`pnpm screenshots`); it captures images rather than testing.
   projects: [
     {
       name: "desktop",
+      testIgnore: [/mobile-.*\.spec\.ts/, /screenshots\.spec\.ts/],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: "mobile",
+      testMatch: /mobile-.*\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
+      name: "screenshots",
+      testMatch: /screenshots\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
     },
   ],
   webServer: {

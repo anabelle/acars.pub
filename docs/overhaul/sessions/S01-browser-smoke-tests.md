@@ -1,7 +1,7 @@
 # S01 — Browser smoke & screenshot tests in CI
 
 > **Status:** ◐ in progress
-> **Next step:** S01.4
+> **Next step:** S01.5
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** https://github.com/anabelle/acars.pub/pull/158
 >
@@ -41,7 +41,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S01.1** Playwright config + boot smoke spec for `/` (`pnpm test:e2e`). _Done when:_ spec passes locally against `vite preview`.
 - [x] **S01.2** Smoke specs for all routes + same-origin 4xx/5xx check + relay WebSocket stub. _Done when:_ all routes pass without network relays.
 - [x] **S01.3** Map non-blank spec + `window.__acarsMap` test hook. _Done when:_ spec fails if you break the MapLibre worker URL locally.
-- [ ] **S01.4** Mobile overlap spec (`test.fail`, linked to S20) + `pnpm screenshots`. _Done when:_ screenshots written for 390 and 1440.
+- [x] **S01.4** Mobile overlap spec (`test.fail`, linked to S20) + `pnpm screenshots`. _Done when:_ screenshots written for 390 and 1440.
 - [ ] **S01.5** CI job + screenshot artifact upload. _Done when:_ CI green on the PR.
 
 ## Details & guidance
@@ -65,6 +65,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - 2026-10-05 · S01.1 · (this commit) · Added `@playwright/test@1.63.0`, `apps/web/playwright.config.ts` (serves the built app via `vite preview`, `CHROMIUM_PATH` override for local runs), `e2e/smoke.spec.ts` for `/` (waits on `data-app-ready`, asserts no `pageerror`), `e2e/tsconfig.json` chained into `typecheck`, `e2e` added to lint, `pnpm test:e2e` at root and web. Passes locally against `vite preview`.
 - 2026-10-05 · S01.2 · (this commit) · `e2e/fixtures.ts`: an in-browser fake relay via `context.routeWebSocket` (answers `REQ` with `EOSE`, `EVENT` with `OK`; verified it intercepts ~74 messages per page, including the auditor worker), plus a `problems` fixture for page errors and same-origin failures. Probing showed `vite preview` serves missing files as `200 text/html` (the SPA fallback, exactly how the Sept worker bug looked), so the check also flags `.js/.mjs/.css/.json/.wasm` responses with an HTML content type; verified it catches `/maplibre/does-not-exist.mjs`. Smoke spec covers 9 routes. Lint override in `eslint.config.js` disables `react-hooks/rules-of-hooks` for e2e files (it misreads Playwright's fixture `use()`).
 - 2026-10-05 · S01.3 · (this commit) · `e2e/map.spec.ts` + `offlineBasemap` fixture. **Deviation:** no `window.__acarsMap` hook. The brief rules out app code changes, and a hook gated on `MODE === 'test'` wouldn't exist in the production build under test. Instead the fixture answers the Carto `style.json` with a tiny local style and aborts tiles (hermetic, same result locally and in CI), and the spec hides all overlays, screenshots the map canvas, decodes it in-page and counts distinct quantized colors. Measured at 1440×900: healthy ≈ 36, worker file removed = 4–6, threshold 16. **Acceptance proof:** with `dist/maplibre/maplibre-gl-worker.mjs` removed, the spec fails on both the pixel check (4 < 16) and the asset check (`html-fallback …/maplibre-gl-worker.mjs`); restored, it passes. A first version passed on a broken map because the element screenshot included the intro card drawn over the canvas; fixed by hiding overlays.
+- 2026-10-05 · S01.4 · (this commit) · Playwright projects: `desktop` (1440×900), `mobile` (390×844) and an opt-in `screenshots` project. `pnpm test:e2e` runs desktop + mobile. `e2e/mobile-layout.spec.ts` checks the mobile top bar ("Open identity" button) against `WorkspaceContextBar` on `/`, `/?panel=cockpit` and `/join`, marked `test.fail` for S20. Before adding the annotation I confirmed it fails on the real overlap (context bar y 0–38 vs top bar y 12–74), not a missing selector; a first selector version timed out instead, which `test.fail` would have hidden. `pnpm screenshots` (root) writes 18 PNGs to `apps/web/.artifacts/screenshots/{390,1440}/<slug>.png` using the same fake relay and offline basemap. The legacy live-relay QA script (`apps/web` `screenshots`) is untouched. Route list shared in `e2e/routes.ts`.
 
 ## Follow-ups
 
