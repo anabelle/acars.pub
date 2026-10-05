@@ -1,8 +1,13 @@
 # S40 — Real globe + atmosphere + fly-to
 
-> **Status:** ☐ not started · **Track:** Graphics · **Size:** M · **Depends on:** S01 · **Unblocks:** S41
+> **Status:** ☐ not started
+> **Next step:** S40.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** Graphics · **Size:** M (4 steps) · **Depends on:** S01 · **Unblocks:** S41
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -28,7 +33,16 @@ The world is a globe: atmosphere at low zoom, Mercator up close, and a "from spa
 
 - Route and aircraft styling (S41/S42).
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S40.1** Split `Globe.tsx` into `layers/*` modules (no behavior change). _Done when:_ S01 map spec green.
+- [ ] **S40.2** Globe projection + sky/atmosphere + terminator on globe. _Done when:_ screenshots.
+- [ ] **S40.3** Fly-to on hub selection / onboarding. _Done when:_ screen recording.
+- [ ] **S40.4** Perf numbers (10k aircraft) recorded in PR. _Done when:_ numbers recorded.
+
+## Details & guidance
 
 - Performance check: 10k simulated aircraft at 60 fps desktop / 30 fps mid-range mobile (record numbers in the PR).
 - Keep the day/night terminator working on the globe.
@@ -37,10 +51,16 @@ The world is a globe: atmosphere at low zoom, Mercator up close, and a "from spa
 
 - [ ] S01 map test green; screenshots at both sizes; perf numbers recorded.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

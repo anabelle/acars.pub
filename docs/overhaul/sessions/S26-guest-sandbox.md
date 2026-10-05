@@ -1,8 +1,13 @@
 # S26 — Guest sandbox airline
 
-> **Status:** ☐ not started · **Track:** UX · **Size:** L · **Depends on:** S21, S23 · **Unblocks:** —
+> **Status:** ☐ not started
+> **Next step:** S26.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** UX · **Size:** L (4 steps) · **Depends on:** S21, S23 · **Unblocks:** —
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -27,7 +32,16 @@ Guests play immediately on a local-only airline; "Save your airline" creates the
 
 - Ranked play from the sandbox. Sandbox airlines aren't on the leaderboard until saved.
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S26.1** Write the sandbox time-mapping design in this brief (Follow-ups → Decisions). _Done when:_ owner can review.
+- [ ] **S26.2** Sandbox store mode: local action log through the same reducer. _Done when:_ unit tests.
+- [ ] **S26.3** Guest UI enters sandbox automatically. _Done when:_ guest can launch a route.
+- [ ] **S26.4** Save flow: create key, publish in order, recover from failures + tests. _Done when:_ replayed network identical.
+
+## Details & guidance
 
 - Decide and document how sandbox time maps on save (recommended: actions are replayed at save time; sandbox earnings aren't carried over, only the network setup).
 - Tests for save replay and failure recovery.
@@ -36,10 +50,16 @@ Guests play immediately on a local-only airline; "Save your airline" creates the
 
 - [ ] A guest can open a route and see a plane take off with no identity; save produces an identical network on relays.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

@@ -1,8 +1,13 @@
 # S32 — Deterministic daily objectives
 
-> **Status:** ☐ not started · **Track:** Loop · **Size:** L · **Depends on:** S03, decision D6 (S12 recommended) · **Unblocks:** S51 (rewards) · **Gated by D6**
+> **Status:** ☐ not started
+> **Next step:** S32.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** Loop · **Size:** L (4 steps) · **Depends on:** S03, decision D6 (S12 recommended) · **Unblocks:** S51 (rewards) · **Gated by D6**
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -29,7 +34,16 @@ Give every check-in a short-horizon goal that's the same for all players and ver
 
 - Weekly or seasonal objectives (follow-up).
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S32.1** Objective templates + `getDailyObjectives(date)` + determinism tests. _Done when:_ same objectives across clients.
+- [ ] **S32.2** Progress evaluator over action log + engine results. _Done when:_ tests green.
+- [ ] **S32.3** `CLAIM_OBJECTIVE` action + reducer verification + replay tests. _Done when:_ invalid claims rejected on replay.
+- [ ] **S32.4** Cockpit objectives widget (en + es). _Done when:_ screenshots.
+
+## Details & guidance
 
 - Anti-abuse: claims are idempotent per (pubkey, date, objective) and invalid claims are rejected on replay.
 - Tests: identical objectives across clients for the same date; claim verification; replay.
@@ -38,10 +52,16 @@ Give every check-in a short-horizon goal that's the same for all players and ver
 
 - [ ] Two independent replays agree on balances after claims; the widget shows progress live.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

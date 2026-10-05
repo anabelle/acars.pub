@@ -1,8 +1,13 @@
 # S34 — PWA + notifications
 
-> **Status:** ☐ not started · **Track:** Loop · **Size:** M · **Depends on:** decision D3 · **Unblocks:** S52 · **Gated by D3**
+> **Status:** ☐ not started
+> **Next step:** S34.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** Loop · **Size:** M (4 steps) · **Depends on:** decision D3 · **Unblocks:** S52 · **Gated by D3**
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -27,7 +32,16 @@ Installable app and a reason to come back: alerts for groundings, tier-ups and r
 
 - Native push on Android (S52).
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S34.1** Manifest + icons + installability. _Done when:_ Lighthouse installable.
+- [ ] **S34.2** Service worker shell caching + offline banner. _Done when:_ offline reload shows last state.
+- [ ] **S34.3** Notification pipeline per D3. _Done when:_ simulated grounding notifies.
+- [ ] **S34.4** Notification settings UI (en + es). _Done when:_ screenshots.
+
+## Details & guidance
 
 - Keep the CSP correct for the SW.
 - An offline shell shows the last known state with an "offline – changes queued" banner (ties into S22).
@@ -36,10 +50,16 @@ Installable app and a reason to come back: alerts for groundings, tier-ups and r
 
 - [ ] Lighthouse PWA installable; notification for a simulated grounding in a test.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

@@ -1,5 +1,8 @@
 # ACARS Overhaul — Master Plan
 
+> **Resuming work? Start at [`STATUS.md`](STATUS.md)**: it has the recommended order, the
+> resume protocol and a copy-paste prompt. Run `scripts/overhaul-status.sh` to see live progress.
+
 > Status: **plan** (2026-10-05). Companion to [`../PLAYABILITY_AUDIT.md`](../PLAYABILITY_AUDIT.md).
 > The work is split into **independent sessions**. Each one has a self-contained brief in
 > [`sessions/`](sessions/), so any agent or contributor can start from "Execute session
@@ -71,67 +74,67 @@ Sessions marked "gated" stop and ask if their decision is still open.
 ## 3. Session index
 
 Size: **S** ≈ half a session, **M** ≈ one session, **L** ≈ one or two sessions.
-Status: ☐ not started · ◐ in progress · ☑ merged. Each session updates its own row on merge.
+Live status is **not** kept here: it lives in each brief and is printed by `scripts/overhaul-status.sh`. See [`STATUS.md`](STATUS.md) for the recommended order and the resume protocol.
 
 ### Track 0 — Foundations
 
-| ID                                             | Title                                  | Size | Depends on | Status |
-| ---------------------------------------------- | -------------------------------------- | ---- | ---------- | ------ |
-| [S01](sessions/S01-browser-smoke-tests.md)     | Browser smoke & screenshot tests in CI | M    | —          | ☐      |
-| [S02](sessions/S02-economy-balance-harness.md) | Economy balance harness                | M    | —          | ☐      |
-| [S03](sessions/S03-ruleset-versioning.md)      | Ruleset versioning by activation tick  | L    | S02, D2    | ☐      |
-| [S04](sessions/S04-funnel-metrics.md)          | Funnel metrics from Nostr events       | M    | —          | ☐      |
+| ID                                             | Title                                  | Size | Depends on |
+| ---------------------------------------------- | -------------------------------------- | ---- | ---------- |
+| [S01](sessions/S01-browser-smoke-tests.md)     | Browser smoke & screenshot tests in CI | M    | —          |
+| [S02](sessions/S02-economy-balance-harness.md) | Economy balance harness                | M    | —          |
+| [S03](sessions/S03-ruleset-versioning.md)      | Ruleset versioning by activation tick  | L    | S02, D2    |
+| [S04](sessions/S04-funnel-metrics.md)          | Funnel metrics from Nostr events       | M    | —          |
 
 ### Track E — Economy (sequential; all changes go through S03)
 
-| ID                                            | Title                                      | Size | Depends on | Status |
-| --------------------------------------------- | ------------------------------------------ | ---- | ---------- | ------ |
-| [S10](sessions/S10-market-model-v2.md)        | Market model v2: incumbents + fare cap     | L    | S03, D1    | ☐      |
-| [S11](sessions/S11-oversupply-and-brand.md)   | Oversupply curve + brand score v2          | M    | S10        | ☐      |
-| [S12](sessions/S12-fleet-economics-pacing.md) | Lease vs buy, tier pacing, milestone rungs | M    | S11        | ☐      |
-| [S13](sessions/S13-auto-maintenance.md)       | Auto-maintenance policy                    | M    | S03        | ☐      |
+| ID                                            | Title                                      | Size | Depends on |
+| --------------------------------------------- | ------------------------------------------ | ---- | ---------- |
+| [S10](sessions/S10-market-model-v2.md)        | Market model v2: incumbents + fare cap     | L    | S03, D1    |
+| [S11](sessions/S11-oversupply-and-brand.md)   | Oversupply curve + brand score v2          | M    | S10        |
+| [S12](sessions/S12-fleet-economics-pacing.md) | Lease vs buy, tier pacing, milestone rungs | M    | S11        |
+| [S13](sessions/S13-auto-maintenance.md)       | Auto-maintenance policy                    | M    | S03        |
 
 ### Track U — UX
 
-| ID                                     | Title                                                       | Size | Depends on | Status |
-| -------------------------------------- | ----------------------------------------------------------- | ---- | ---------- | ------ |
-| [S20](sessions/S20-front-door.md)      | Front door: honest landing, entry layout, meta              | M    | —          | ☐      |
-| [S21](sessions/S21-airline-creator.md) | Quick-start airline creator                                 | M    | —          | ☐      |
-| [S22](sessions/S22-shell-clarity.md)   | Shell clarity: naming, status bar, real health              | M    | S20        | ☐      |
-| [S23](sessions/S23-route-launch.md)    | Route projection + airport decision card + one-click launch | L    | —          | ☐      |
-| [S24](sessions/S24-fare-editor.md)     | Outcome-first fare editor + RouteManager i18n               | M    | S23        | ☐      |
-| [S25](sessions/S25-assignment.md)      | Assign from both sides + ferry-and-assign                   | M    | S23        | ☐      |
-| [S26](sessions/S26-guest-sandbox.md)   | Guest sandbox airline                                       | L    | S21, S23   | ☐      |
+| ID                                     | Title                                                       | Size | Depends on |
+| -------------------------------------- | ----------------------------------------------------------- | ---- | ---------- |
+| [S20](sessions/S20-front-door.md)      | Front door: honest landing, entry layout, meta              | M    | —          |
+| [S21](sessions/S21-airline-creator.md) | Quick-start airline creator                                 | M    | —          |
+| [S22](sessions/S22-shell-clarity.md)   | Shell clarity: naming, status bar, real health              | M    | S20        |
+| [S23](sessions/S23-route-launch.md)    | Route projection + airport decision card + one-click launch | L    | —          |
+| [S24](sessions/S24-fare-editor.md)     | Outcome-first fare editor + RouteManager i18n               | M    | S23        |
+| [S25](sessions/S25-assignment.md)      | Assign from both sides + ferry-and-assign                   | M    | S23        |
+| [S26](sessions/S26-guest-sandbox.md)   | Guest sandbox airline                                       | L    | S21, S23   |
 
 ### Track L — Check-in loop
 
-| ID                                        | Title                                | Size | Depends on | Status |
-| ----------------------------------------- | ------------------------------------ | ---- | ---------- | ------ |
-| [S30](sessions/S30-away-report.md)        | "While you were away" report         | M    | —          | ☐      |
-| [S31](sessions/S31-goals-and-progress.md) | First-hour checklist + tier progress | M    | S22        | ☐      |
-| [S32](sessions/S32-daily-objectives.md)   | Deterministic daily objectives       | L    | S03, D6    | ☐      |
-| [S33](sessions/S33-world-events.md)       | Deterministic world events           | L    | S03        | ☐      |
-| [S34](sessions/S34-notifications.md)      | PWA + notifications                  | M    | D3         | ☐      |
+| ID                                        | Title                                | Size | Depends on |
+| ----------------------------------------- | ------------------------------------ | ---- | ---------- |
+| [S30](sessions/S30-away-report.md)        | "While you were away" report         | M    | —          |
+| [S31](sessions/S31-goals-and-progress.md) | First-hour checklist + tier progress | M    | S22        |
+| [S32](sessions/S32-daily-objectives.md)   | Deterministic daily objectives       | L    | S03, D6    |
+| [S33](sessions/S33-world-events.md)       | Deterministic world events           | L    | S03        |
+| [S34](sessions/S34-notifications.md)      | PWA + notifications                  | M    | D3         |
 
 ### Track G — Graphics
 
-| ID                                           | Title                                    | Size | Depends on | Status |
-| -------------------------------------------- | ---------------------------------------- | ---- | ---------- | ------ |
-| [S40](sessions/S40-globe.md)                 | Real globe + atmosphere + fly-to         | M    | S01        | ☐      |
-| [S41](sessions/S41-living-routes.md)         | Living routes                            | M    | S40        | ☐      |
-| [S42](sessions/S42-aircraft-visuals.md)      | Aircraft family icons + livery tint      | M    | S41        | ☐      |
-| [S43](sessions/S43-economy-on-map.md)        | Economy on the map                       | M    | S42, S23   | ☐      |
-| [S44](sessions/S44-livery-hero.md)           | Livery as hero + fleet poster            | M    | —          | ☐      |
-| [S45](sessions/S45-globe-first-prototype.md) | Globe-first 3D shell prototype (deck.gl) | L    | S01        | ☐      |
+| ID                                           | Title                                    | Size | Depends on |
+| -------------------------------------------- | ---------------------------------------- | ---- | ---------- |
+| [S40](sessions/S40-globe.md)                 | Real globe + atmosphere + fly-to         | M    | S01        |
+| [S41](sessions/S41-living-routes.md)         | Living routes                            | M    | S40        |
+| [S42](sessions/S42-aircraft-visuals.md)      | Aircraft family icons + livery tint      | M    | S41        |
+| [S43](sessions/S43-economy-on-map.md)        | Economy on the map                       | M    | S42, S23   |
+| [S44](sessions/S44-livery-hero.md)           | Livery as hero + fleet poster            | M    | —          |
+| [S45](sessions/S45-globe-first-prototype.md) | Globe-first 3D shell prototype (deck.gl) | L    | S01        |
 
 ### Track F — Growth
 
-| ID                                          | Title                                    | Size | Depends on   | Status |
-| ------------------------------------------- | ---------------------------------------- | ---- | ------------ | ------ |
-| [S50](sessions/S50-public-airline-pages.md) | Public airline pages + dynamic OG images | M    | S20          | ☐      |
-| [S51](sessions/S51-share-loop.md)           | Share loop + milestone posts             | M    | S44, S50, D6 | ☐      |
-| [S52](sessions/S52-android-release.md)      | Android / Play release readiness         | M    | S34, D7      | ☐      |
-| [S53](sessions/S53-tycoon-mode-design.md)   | Fast "Tycoon" sandbox: design doc        | S    | S04, D5      | ☐      |
+| ID                                          | Title                                    | Size | Depends on   |
+| ------------------------------------------- | ---------------------------------------- | ---- | ------------ |
+| [S50](sessions/S50-public-airline-pages.md) | Public airline pages + dynamic OG images | M    | S20          |
+| [S51](sessions/S51-share-loop.md)           | Share loop + milestone posts             | M    | S44, S50, D6 |
+| [S52](sessions/S52-android-release.md)      | Android / Play release readiness         | M    | S34, D7      |
+| [S53](sessions/S53-tycoon-mode-design.md)   | Fast "Tycoon" sandbox: design doc        | S    | S04, D5      |
 
 ---
 
@@ -171,33 +174,25 @@ S04 ─► S53
 
 ---
 
-## 5. Session protocol (every session follows this)
+## 5. Session protocol
 
-1. **Read** `AGENTS.md`, this file, then your session brief. Check the ledger for anything
-   your brief relies on, and check §2 for open decisions that gate you.
-2. **Branch** from latest `main` as `overhaul/Sxx-short-name`, or use the branch your
-   environment assigns. Set your row to ◐ in the brief's status line.
-3. **Baseline**: `pnpm install && pnpm build && pnpm test`. Note anything already red before
-   you start.
-4. **Stay in scope.** Anything discovered outside scope goes in the brief's "Follow-ups"
-   section, not into the diff.
-5. **Guardrails** (non-negotiable, from `AGENTS.md`):
-   - No change to numeric engine outputs for past ticks. Economy changes ship as a new
-     ruleset version with an activation tick (S03).
-   - Money is fixed-point (`fp*`) only. No floats in state.
-   - Lists are virtualized; map visuals are WebGL layers, never DOM per aircraft.
-   - Every new user-facing string goes in `en` and `es` locales.
-   - Nostr is the database: no new server-side state unless an owner decision allows it.
-6. **Prove it**:
-   - Unit tests for logic.
-   - For UI, screenshots at 390×844 and 1440×900 attached to the PR, taken with the S01
-     harness once it exists.
-   - For economy, a before/after table from the S02 harness.
-7. **Finish**:
-   - `pnpm lint && pnpm typecheck && pnpm test` green.
-   - Update the brief: status ☑, "Handoff notes" with what shipped, what didn't, and gotchas.
-   - Update this index row.
-   - Open a PR titled `overhaul(Sxx): <title>`.
+The step-by-step resume and checkpoint protocol is in [`STATUS.md` §2](STATUS.md#2-resume-protocol-agents-follow-this-exactly).
+It applies to every session. In short: one step = one green commit, pushed immediately, with
+the brief's progress log updated in the same commit.
+
+**Guardrails** (non-negotiable, from `AGENTS.md`):
+
+- No change to numeric engine outputs for past ticks. Economy changes ship as a new ruleset
+  version with an activation tick (S03).
+- Money is fixed-point (`fp*`) only. No floats in state.
+- Lists are virtualized; map visuals are WebGL layers, never DOM per aircraft.
+- Every new user-facing string goes in `en` and `es` locales.
+- Nostr is the database: no new server-side state unless an owner decision allows it.
+- Stay in the brief's scope. Anything else goes in its "Follow-ups" section.
+- Proof:
+  - logic gets unit tests;
+  - UI gets 390×844 and 1440×900 screenshots (S01 harness);
+  - economy gets a before/after S02 report.
 
 ## 6. Success metrics (measured by S04 once it lands)
 

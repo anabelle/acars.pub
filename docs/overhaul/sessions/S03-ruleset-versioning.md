@@ -1,8 +1,13 @@
 # S03 — Ruleset versioning by activation tick
 
-> **Status:** ☐ not started · **Track:** Foundations · **Size:** L · **Depends on:** S02, decision D2 · **Unblocks:** S10, S11, S12, S13, S32, S33 · **Gated by D2**
+> **Status:** ☐ not started
+> **Next step:** S03.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** Foundations · **Size:** L (5 steps) · **Depends on:** S02, decision D2 · **Unblocks:** S10, S11, S12, S13, S32, S33 · **Gated by D2**
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -27,7 +32,17 @@ Let economic rules change **without** altering replay of past ticks: `getRuleset
 
 - Any **value** change. V1 must be byte-for-byte identical in behavior.
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S03.1** Constant inventory + `ruleset.ts` with `RULESET_V1`, `getRuleset` + unit tests (not wired yet). _Done when:_ tests green.
+- [ ] **S03.2** Wire core functions (`demand`, `qsi`, `finance`, `tier`) to take a ruleset (default V1). _Done when:_ S02 report byte-identical.
+- [ ] **S03.3** Wire store call sites (`FlightEngine`, `engineSlice`, `actionReducer`, slices) by tick. _Done when:_ S02 report byte-identical; all tests green.
+- [ ] **S03.4** Boundary determinism tests (`RULESET_TEST` at tick T) + checkpoint replay across T. _Done when:_ new tests green.
+- [ ] **S03.5** Docs: "Changing the rules" in `ECONOMIC_MODEL.md`. _Done when:_ doc merged.
+
+## Details & guidance
 
 - Inventory every tunable constant used by the engine, reducer and tier logic; list them in the PR.
 - Replace direct constant use with `getRuleset(tick).<field>`, keeping it O(1) (a sorted table lookup, cached per tick range).
@@ -38,10 +53,16 @@ Let economic rules change **without** altering replay of past ticks: `getRuleset
 
 - [ ] All existing tests pass unchanged; S02 report is identical; new boundary tests pass.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

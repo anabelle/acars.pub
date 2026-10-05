@@ -1,8 +1,13 @@
 # S50 — Public airline pages + dynamic OG images
 
-> **Status:** ☐ not started · **Track:** Growth · **Size:** M · **Depends on:** S20 · **Unblocks:** S51
+> **Status:** ☐ not started
+> **Next step:** S50.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** Growth · **Size:** M (3 steps) · **Depends on:** S20 · **Unblocks:** S51
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -27,7 +32,15 @@ Every airline has a shareable page that previews beautifully anywhere.
 
 - Posting (S51).
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S50.1** `/airline/$npub` client page. _Done when:_ screenshots.
+- [ ] **S50.2** Pages Function serving OG meta to crawlers. _Done when:_ validator passes.
+- [ ] **S50.3** Generated OG image + edge cache + fallback. _Done when:_ image renders for a real airline.
+
+## Details & guidance
 
 - Read from relays at the edge with a short cache; no new persistent storage.
 - Fallback image when data is unavailable.
@@ -36,10 +49,16 @@ Every airline has a shareable page that previews beautifully anywhere.
 
 - [ ] The OG card renders in a validator for a real airline; page Lighthouse SEO ≥ 90.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

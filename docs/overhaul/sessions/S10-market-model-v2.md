@@ -1,8 +1,13 @@
 # S10 — Market model v2: incumbent carriers + distance-scaled fare cap
 
-> **Status:** ☐ not started · **Track:** Economy · **Size:** L · **Depends on:** S03, decision D1 · **Unblocks:** S11 · **Gated by D1**
+> **Status:** ☐ not started
+> **Next step:** S10.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** Economy · **Size:** L (5 steps) · **Depends on:** S03, decision D1 · **Unblocks:** S11 · **Gated by D1**
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -30,7 +35,17 @@ Make route choice and pricing real decisions: big markets are contested and pric
 
 - Brand and oversupply changes (S11).
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S10.1** `getIncumbentOffer` pure function + unit tests (not wired). _Done when:_ tests green.
+- [ ] **S10.2** `RULESET_V2` fields (incumbent params, fare-cap multiplier) wired behind a placeholder far-future activation tick. _Done when:_ pre-activation replay unchanged; boundary tests green.
+- [ ] **S10.3** Calibrate with S02; commit before/after report. _Done when:_ README §6 balance targets met in the report.
+- [ ] **S10.4** Selector exposing incumbent strength / projected share for UI. _Done when:_ unit tests green.
+- [ ] **S10.5** Propose the real activation tick in the PR for owner confirmation. _Done when:_ owner confirmed.
+
+## Details & guidance
 
 - Calibrate with S02 so that:
   - the profit-maximizing fare is 0.8–1.6× suggested on every market;
@@ -45,10 +60,16 @@ Make route choice and pricing real decisions: big markets are contested and pric
 - [ ] The metrics in README §6 "Decisions matter" and "No solved optimum" are met in the S02 report.
 - [ ] Replay of pre-activation ticks is unchanged.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

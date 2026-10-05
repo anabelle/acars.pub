@@ -1,8 +1,13 @@
 # S25 — Assign from both sides + ferry-and-assign
 
-> **Status:** ☐ not started · **Track:** UX · **Size:** M · **Depends on:** S23 · **Unblocks:** —
+> **Status:** ☐ not started
+> **Next step:** S25.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** UX · **Size:** M (4 steps) · **Depends on:** S23 · **Unblocks:** —
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -28,7 +33,16 @@ Put planes on routes from wherever the player is looking.
 
 - Changing assignment rules.
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S25.1** Shared candidate-aircraft selector (at endpoint / needs ferry). _Done when:_ unit tests.
+- [ ] **S25.2** "Add aircraft" from route rows/panel. _Done when:_ screenshots.
+- [ ] **S25.3** "Assign route" from aircraft panel + ferry-and-assign. _Done when:_ screenshots.
+- [ ] **S25.4** E2E for both entry points. _Done when:_ e2e green.
+
+## Details & guidance
 
 - Reuse the S23 hook's orchestration for multi-action flows.
 - en + es.
@@ -37,10 +51,16 @@ Put planes on routes from wherever the player is looking.
 
 - [ ] Assignment possible from route panel, aircraft panel and fleet list; e2e test.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

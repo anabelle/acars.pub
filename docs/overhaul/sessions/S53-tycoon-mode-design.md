@@ -1,8 +1,13 @@
 # S53 — Fast "Tycoon" sandbox: design doc
 
-> **Status:** ☐ not started · **Track:** Growth · **Size:** S · **Depends on:** S04 (data), decision D5 · **Unblocks:** — · **Gated by D5**
+> **Status:** ☐ not started
+> **Next step:** S53.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** Growth · **Size:** S (2 steps) · **Depends on:** S04 (data), decision D5 · **Unblocks:** — · **Gated by D5**
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -26,7 +31,14 @@ Decide whether, and how, to offer a non-ranked accelerated world for first sessi
 
 - Implementation.
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S53.1** Options doc with 2–3 designs. _Done when:_ doc committed.
+- [ ] **S53.2** Recommendation + cost estimate. _Done when:_ owner can decide D5.
+
+## Details & guidance
 
 - Present 2–3 options with trade-offs and a recommendation.
 
@@ -34,10 +46,16 @@ Decide whether, and how, to offer a non-ranked accelerated world for first sessi
 
 - [ ] The owner can make decision D5 from the doc alone.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

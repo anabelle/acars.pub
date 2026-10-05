@@ -1,8 +1,13 @@
 # S31 — First-hour checklist + tier progress
 
-> **Status:** ☐ not started · **Track:** Loop · **Size:** M · **Depends on:** S22 (S12 for milestone data, optional) · **Unblocks:** —
+> **Status:** ☐ not started
+> **Next step:** S31.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** Loop · **Size:** M (4 steps) · **Depends on:** S22 (S12 for milestone data, optional) · **Unblocks:** —
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -29,7 +34,16 @@ Always show the next goal: a guided first hour, then tier progress and milestone
 
 - Changing thresholds (S12).
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S31.1** Checklist step derivation from state + tests. _Done when:_ tests green.
+- [ ] **S31.2** Checklist widget in cockpit with deep links. _Done when:_ screenshots.
+- [ ] **S31.3** Tier progress in top bar. _Done when:_ screenshots at both sizes.
+- [ ] **S31.4** Milestone toasts + tier-up celebration (S12 data if merged). _Done when:_ screenshot/video.
+
+## Details & guidance
 
 - Checklist state derives from airline state, not stored flags, so it's correct on any device.
 - en + es.
@@ -38,10 +52,16 @@ Always show the next goal: a guided first hour, then tier progress and milestone
 
 - [ ] Screenshots of each checklist step; unit tests for step derivation.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

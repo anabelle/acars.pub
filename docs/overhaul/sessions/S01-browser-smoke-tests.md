@@ -1,8 +1,13 @@
 # S01 — Browser smoke & screenshot tests in CI
 
-> **Status:** ☐ not started · **Track:** Foundations · **Size:** M · **Depends on:** — · **Unblocks:** S40, S45 (and every UI session's screenshots)
+> **Status:** ☐ not started
+> **Next step:** S01.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** Foundations · **Size:** M (5 steps) · **Depends on:** — · **Unblocks:** S40, S45 (and every UI session's screenshots)
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -29,7 +34,17 @@ Catch blank maps, boot crashes and layout regressions automatically, and give ev
 
 - Any app code changes. If a test exposes a bug, file a follow-up instead of fixing it here.
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S01.1** Playwright config + boot smoke spec for `/` (`pnpm test:e2e`). _Done when:_ spec passes locally against `vite preview`.
+- [ ] **S01.2** Smoke specs for all routes + same-origin 4xx/5xx check + relay WebSocket stub. _Done when:_ all routes pass without network relays.
+- [ ] **S01.3** Map non-blank spec + `window.__acarsMap` test hook. _Done when:_ spec fails if you break the MapLibre worker URL locally.
+- [ ] **S01.4** Mobile overlap spec (`test.fail`, linked to S20) + `pnpm screenshots`. _Done when:_ screenshots written for 390 and 1440.
+- [ ] **S01.5** CI job + screenshot artifact upload. _Done when:_ CI green on the PR.
+
+## Details & guidance
 
 - Serve the **built** app (`vite preview`) in the test.
 - Smoke spec for `/`, `/join`, `/network`, `/fleet`, `/leaderboard`, `/corporate`, `/about`, `/airport/MAD`: no `pageerror`, no 4xx/5xx for same-origin assets (especially `maplibre/*.mjs`).
@@ -43,10 +58,16 @@ Catch blank maps, boot crashes and layout regressions automatically, and give ev
 - [ ] CI job is green on `main` and red when you locally reintroduce the MapLibre worker 404 (prove it once, describe it in the PR).
 - [ ] `pnpm screenshots` works locally and in CI.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._

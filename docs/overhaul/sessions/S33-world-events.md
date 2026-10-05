@@ -1,8 +1,13 @@
 # S33 — Deterministic world events
 
-> **Status:** ☐ not started · **Track:** Loop · **Size:** L · **Depends on:** S03 (run after S32 or in a separate window — shared engine files) · **Unblocks:** S43 (event pins)
+> **Status:** ☐ not started
+> **Next step:** S33.1
+> **Branch:** —
+> **PR:** —
 >
-> Follow the session protocol in [`../README.md` §5](../README.md#5-session-protocol-every-session-follows-this).
+> **Track:** Loop · **Size:** L (3 steps) · **Depends on:** S03 (run after S32 or in a separate window — shared engine files) · **Unblocks:** S43 (event pins)
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
 
 ## Goal
 
@@ -27,7 +32,15 @@ The world does things: demand surges, fuel shocks and congestion days that creat
 
 - Weather API integration (non-deterministic; excluded).
 
-## Tasks
+## Steps (checkpoints)
+
+Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
+
+- [ ] **S33.1** Event catalog + `getActiveEvents(tick)` + tests. _Done when:_ deterministic schedule.
+- [ ] **S33.2** Engine modifiers (ruleset-gated) + S02 impact report. _Done when:_ bounded impact.
+- [ ] **S33.3** Ticker/cockpit card + map pin data. _Done when:_ screenshots.
+
+## Details & guidance
 
 - An event catalog (festival, sports final, strike, fuel spike, hub congestion) with modifiers in the ruleset.
 - Tests: determinism, bounded effect sizes, no overlap explosions.
@@ -36,10 +49,16 @@ The world does things: demand surges, fuel shocks and congestion days that creat
 
 - [ ] The S02 harness shows bounded impact; the same events appear on all clients for the same tick.
 
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+_No entries yet._
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_To be filled in by the session that executes this brief: what shipped, what didn't, gotchas._
+_Filled in when the session completes: what shipped, what didn't, gotchas._
