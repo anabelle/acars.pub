@@ -34,6 +34,7 @@ import {
   getProsperityIndex,
   getSeason,
   getSuggestedFares,
+  legTicksFor,
   NATURAL_LF_CEILING,
   PRICE_ELASTICITY_BUSINESS,
   PRICE_ELASTICITY_ECONOMY,
@@ -950,13 +951,7 @@ function legTicks(
   route: Route,
   model: NonNullable<ReturnType<typeof getAircraftById>>,
 ): { durationTicks: number; turnaroundTicks: number } {
-  return {
-    durationTicks: Math.max(
-      1,
-      Math.ceil((route.distanceKm / (model.speedKmh || 800)) * TICKS_PER_HOUR),
-    ),
-    turnaroundTicks: Math.max(1, Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR)),
-  };
+  return legTicksFor(route.distanceKm, model.speedKmh, model.turnaroundTimeMinutes);
 }
 
 /**

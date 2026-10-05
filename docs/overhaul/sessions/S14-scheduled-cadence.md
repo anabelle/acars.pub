@@ -1,7 +1,7 @@
 # S14 — Flights follow the route schedule
 
 > **Status:** ◐ in progress
-> **Next step:** S14.3
+> **Next step:** S14.4
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -42,7 +42,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S14.1** Schedule math in core (`getNextDepartureTick(route, aircraftIndex, aircraftCount, tick, cycleTicks)`, `maxWeeklyFrequency`) + unit tests. _Done when:_ tests green.
 - [x] **S14.2** Engine and catch-up follow the schedule; existing engine tests updated where they assumed back-to-back flying. _Done when:_ live-ticking vs `reconcileFleetToTick` equivalence test green; `pnpm balance` shows legs/day = scheduled frequency.
-- [ ] **S14.3** Editable frequency (UI + reducer validation, cap shown). _Done when:_ unit tests + e2e of changing a frequency.
+- [x] **S14.3** Editable frequency (UI + reducer validation, cap shown). _Done when:_ unit tests + e2e of changing a frequency.
 - [ ] **S14.4** Projection/route card use the schedule; regenerate `latest.md` and commit the before/after in the PR. _Done when:_ route card profit/day matches the engine (projection test) and the S30 away report agrees with it.
 
 ## Details & guidance
@@ -77,6 +77,13 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - **Found by e2e:** the S30 away report labelled a route by the newest landing's direction ("BCN ⇄ MAD" when only the return leg landed). `summarizeTimeline` now takes the airline's routes and labels each as the player opened it; the hook passes them in. New unit test.
   - Tooling: the pre-commit ESLint failed when one commit touched both `apps/web` and `packages/` ("multiple candidate TSConfigRootDirs"). Both ESLint configs now pin `parserOptions.tsconfigRootDir`.
   - Gate: lint, typecheck, all unit tests, 17 e2e.
+- 2026-10-05 · S14.3 · (this commit) · Changes:
+  - **New action `ROUTE_UPDATE_FREQUENCY`** (core type). The reducer clamps it to [1, 1000] like `ROUTE_OPEN` (`MIN_/MAX_ROUTE_FREQUENCY_PER_WEEK` in core), ignores garbage and unknown routes, and adds a `route_change` timeline entry. The slice's `updateRouteFrequency` is optimistic, uses the same clamp, rolls back on publish failure, and skips no-op changes.
+  - Core `legTicksFor(distance, speed, turnaround)`: the single source for leg/turnaround ticks, used by the engine and the UI.
+  - **`RouteFrequencyControl`** in each active route row (own airline only): a −/+ stepper with a local draft that publishes one action on "Apply". It shows legs/day and the physical cap for the assigned fleet (the slowest aircraft sets the pace), or "Assign an aircraft to fly it". en + es.
+  - Tests: reducer set/clamp/garbage/unknown (2); control steps, applies once, stops at the physical cap, floors at 1 (3); e2e `route-frequency.spec.ts` launches MAD→BCN, takes it from 7/wk (2.0 legs/day) to 9/wk (2.6 legs/day).
+  - Default on open stays 7/week; the route card's projection already uses the stored frequency.
+  - Gate: lint, typecheck, all unit tests, 18 e2e; `pnpm balance` unchanged.
 
 ## Follow-ups
 

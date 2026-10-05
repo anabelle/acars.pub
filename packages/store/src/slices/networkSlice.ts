@@ -8,6 +8,8 @@ import {
   GENESIS_TIME,
   getMaxHubs,
   getSuggestedFares,
+  MAX_ROUTE_FREQUENCY_PER_WEEK,
+  MIN_ROUTE_FREQUENCY_PER_WEEK,
   ROUTE_SLOT_FEE,
   TICK_DURATION,
 } from "@acars/core";
@@ -52,6 +54,8 @@ export interface NetworkSlice {
     routeId: string,
     fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint },
   ) => Promise<void>;
+  /** Round trips a week (S14); the engine flies them, capped by what the aircraft can do. */
+  updateRouteFrequency: (routeId: string, frequencyPerWeek: number) => Promise<void>;
 }
 
 /**
@@ -1041,6 +1045,45 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         ),
       }));
       console.error("Failed to sync fares to Nostr:", e);
+    }
+  },
+
+  updateRouteFrequency: async (routeId: string, frequencyPerWeek: number) => {
+    const { routes, airline } = get();
+    if (!airline) return;
+    const target = routes.find((rt) => rt.id === routeId);
+    if (!target) return;
+
+    // Same clamp the replay applies (actionReducer ROUTE_UPDATE_FREQUENCY).
+    const frequency = Math.min(
+      MAX_ROUTE_FREQUENCY_PER_WEEK,
+      Math.max(MIN_ROUTE_FREQUENCY_PER_WEEK, Math.round(frequencyPerWeek)),
+    );
+    if (!Number.isFinite(frequency) || frequency === target.frequencyPerWeek) return;
+    const previous = target.frequencyPerWeek;
+
+    set({
+      routes: routes.map((rt) => (rt.id === routeId ? { ...rt, frequencyPerWeek: frequency } : rt)),
+    });
+
+    try {
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: "ROUTE_UPDATE_FREQUENCY",
+          payload: { routeId, frequencyPerWeek: frequency, tick: useEngineStore.getState().tick },
+        },
+        get,
+        set,
+      });
+    } catch (e) {
+      // Merge-safe rollback: restore only this route's frequency.
+      set((state) => ({
+        routes: state.routes.map((rt) =>
+          rt.id === routeId ? { ...rt, frequencyPerWeek: previous } : rt,
+        ),
+      }));
+      console.error("Failed to sync frequency to Nostr:", e);
     }
   },
 });

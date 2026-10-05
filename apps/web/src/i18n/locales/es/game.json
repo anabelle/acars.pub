@@ -532,7 +532,18 @@
     "saving": "Guardando…",
     "saveFares": "Guardar tarifas",
     "showAllSuspended": "Mostrar todas las rutas suspendidas ({{count}})",
-    "showFewerSuspended": "Mostrar menos rutas suspendidas"
+    "showFewerSuspended": "Mostrar menos rutas suspendidas",
+    "frequency": {
+      "label": "Frecuencia",
+      "perWeek_one": "{{count}}/sem",
+      "perWeek_other": "{{count}}/sem",
+      "decrease": "Menos viajes de ida y vuelta por semana",
+      "increase": "Más viajes de ida y vuelta por semana",
+      "apply": "Aplicar",
+      "detail": "{{legs}} vuelos/día · máx. {{max}}/sem con esta flota",
+      "noAircraft": "Asigna un avión para operarla",
+      "failed": "No se pudo cambiar la frecuencia"
+    }
   },
   "hubPicker": {
     "changeTitle": "Cambiar tu aeropuerto hub",

@@ -1,5 +1,24 @@
 import type { Route } from "./types.js";
-import { TICKS_PER_WEEK } from "./types.js";
+import { TICKS_PER_HOUR, TICKS_PER_WEEK } from "./types.js";
+
+/**
+ * Block time and turnaround of one leg, in ticks, exactly as the flight
+ * engine applies them (each at least one tick).
+ */
+export function legTicksFor(
+  distanceKm: number,
+  speedKmh: number,
+  turnaroundTimeMinutes: number,
+): { durationTicks: number; turnaroundTicks: number } {
+  return {
+    durationTicks: Math.max(1, Math.ceil((distanceKm / (speedKmh || 800)) * TICKS_PER_HOUR)),
+    turnaroundTicks: Math.max(1, Math.ceil((turnaroundTimeMinutes / 60) * TICKS_PER_HOUR)),
+  };
+}
+
+/** Bounds for a route's weekly frequency (round trips), as the reducer clamps it. */
+export const MIN_ROUTE_FREQUENCY_PER_WEEK = 1;
+export const MAX_ROUTE_FREQUENCY_PER_WEEK = 1000;
 
 /** Out, turnaround, back, turnaround: the fastest an aircraft can repeat a route. */
 export function physicalRoundTripTicks(durationTicks: number, turnaroundTicks: number): number {

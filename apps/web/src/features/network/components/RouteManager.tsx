@@ -55,6 +55,7 @@ import { PanelHeader } from "@/shared/components/layout/PanelLayout";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
+import { RouteFrequencyControl } from "@/features/network/components/RouteFrequencyControl";
 import { useConfirm } from "@/shared/lib/useConfirm";
 
 const toneDotClass = {
@@ -1084,6 +1085,7 @@ export function RouteManager() {
                               </div>
 
                               <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                                {!isViewingOther ? <RouteFrequencyControl route={route} /> : null}
                                 <div className="flex flex-col text-right">
                                   <span className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
                                     Fleet
