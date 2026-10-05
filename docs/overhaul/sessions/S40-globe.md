@@ -1,8 +1,8 @@
 # S40 — Real globe + atmosphere + fly-to
 
-> **Status:** ☐ not started
-> **Next step:** S40.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S40.2
+> **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
 > **Track:** Graphics · **Size:** M (4 steps) · **Depends on:** S01 · **Unblocks:** S41
@@ -37,7 +37,7 @@ The world is a globe: atmosphere at low zoom, Mercator up close, and a "from spa
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S40.1** Split `Globe.tsx` into `layers/*` modules (no behavior change). _Done when:_ S01 map spec green.
+- [x] **S40.1** Split `Globe.tsx` into `layers/*` modules (no behavior change). _Done when:_ S01 map spec green.
 - [ ] **S40.2** Globe projection + sky/atmosphere + terminator on globe. _Done when:_ screenshots.
 - [ ] **S40.3** Fly-to on hub selection / onboarding. _Done when:_ screen recording.
 - [ ] **S40.4** Perf numbers (10k aircraft) recorded in PR. _Done when:_ numbers recorded.
@@ -55,7 +55,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-05 · S40.1 · (this commit) · `Globe.tsx` went from 1,781 to 857 lines, split without behaviour change. `theme.ts` holds style URLs and palettes. `layers/` has `nightOverlay.ts` (lookup tables, `paintNightCanvas`, `addNightOverlay`), `sources.ts` (`addDataSources`), `routes.ts` (`getSegmentCount`, `arcCacheKey`, `addRouteLayers`), `airports.ts` (`isMajorAirport`, `buildPresenceBadge`, `addAirportLayers`) and `flights.ts` (`registerAircraftIcons`, `addFlightLayers`). The load handler calls them in the original order. Code was moved verbatim, sliced by markers. Public exports are unchanged: `Globe.tsx` re-exports them. The new modules are no longer under Globe's coverage exclusion, so `layers/layers.test.ts` drives them with a fake map and canvas. It asserts the exact source and layer ids and z-order (17 layers, glow under the player's aircraft), palette use, icon registration and day/night alpha. Map coverage is 100% lines and functions. e2e 26/26, including the S01 map spec.
 
 ## Follow-ups
 
