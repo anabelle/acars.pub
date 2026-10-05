@@ -1,7 +1,7 @@
 # S01 — Browser smoke & screenshot tests in CI
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting owner review/merge)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #158)
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** https://github.com/anabelle/acars.pub/pull/158
 >

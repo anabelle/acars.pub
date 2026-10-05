@@ -144,7 +144,10 @@ export function WorkspaceContextBar() {
   if (dismissed) return null;
 
   return (
-    <div className="pointer-events-auto border-b border-border/50 bg-background/66 px-4 py-1.5 backdrop-blur-xl sm:px-6 sm:py-2">
+    // Hidden on phones: the floating mobile top bar occupies the top of the
+    // screen there (it used to be drawn over this bar), and the section title is
+    // already shown by the bottom nav.
+    <div className="pointer-events-auto hidden border-b border-border/50 bg-background/66 px-4 py-1.5 backdrop-blur-xl sm:block sm:px-6 sm:py-2">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">

@@ -1,8 +1,8 @@
 # S20 — Front door: honest landing, entry layout, meta
 
-> **Status:** ☐ not started
-> **Next step:** S20.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S20.2
+> **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
 > **Track:** UX · **Size:** M (5 steps) · **Depends on:** — · **Unblocks:** S22, S50
@@ -41,7 +41,7 @@ A first visit that is clear, honest and fast: one brand mark, one call to action
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S20.1** Fix mobile context-bar overlap (flip S01 `test.fail` if present). _Done when:_ overlap spec passes.
+- [x] **S20.1** Fix mobile context-bar overlap (flip S01 `test.fail` if present). _Done when:_ overlap spec passes.
 - [ ] **S20.2** `index.html` title/description/OG/Twitter + `public/og.png`. _Done when:_ tags present; validator passes.
 - [ ] **S20.3** Guest/`/join` entry layout: no sidebar, single CTA, quiet key-import link. _Done when:_ screenshots at both sizes.
 - [ ] **S20.4** Honest landing copy + "Roadmap" strip (en + es). _Done when:_ no unshipped feature presented as live.
@@ -55,7 +55,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] S01 overlap test passes.
+- [x] S01 overlap test passes.
 - [ ] 390 and 1440 screenshots in the PR.
 - [ ] The OG card validates (use a validator site or `og:` tag unit test).
 
@@ -63,7 +63,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+- 2026-10-05 · S20.1 · (this commit) · `WorkspaceContextBar` is now `hidden sm:block`. On phones the floating top bar sits at the top of the screen and the bottom nav already shows the section, while competitor and bankruptcy states have their own mobile surfaces (top bar and full-screen overlay), so nothing important is lost; S22 can add a compact mode chip if wanted. Rewrote `e2e/mobile-layout.spec.ts` without `test.fail`: it now asserts both bars exist (so a renamed label can't pass vacuously) and that any _visible_ context bar doesn't overlap. Verified: passes with the fix, and fails on the real overlap (y 0–38 vs 12–74) with the fix reverted. Desktop screenshot unchanged.
 
 ## Follow-ups
 
