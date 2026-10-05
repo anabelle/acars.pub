@@ -39,7 +39,8 @@
     "exportKeyWarning": "Exporta tu clave de recuperación antes del lanzamiento para que esta aerolínea siga siendo tuya si pierdes este navegador.",
     "callsignSuggested": "{{icao}} HEAVY",
     "callsignDefaultIcao": "APX",
-    "unknownError": "Error desconocido"
+    "unknownError": "Error desconocido",
+    "customize": "Personalizar código, indicativo y colores"
   },
   "guest": {
     "title": "Inicia tu aerolínea",

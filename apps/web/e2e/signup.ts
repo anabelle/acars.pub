@@ -20,12 +20,12 @@ export const MADRID_PLAYER = {
  */
 export async function createAirline(
   page: Page,
-  { name = "E2E Air", icao = "EEA" }: { name?: string; icao?: string } = {},
+  { name = "E2E Air" }: { name?: string } = {},
 ): Promise<void> {
   await gotoReady(page, "/join");
   await page.getByRole("button", { name: /play for free/i }).click();
+  // S21: the name is the only required field; code, callsign and colors are suggested.
   await page.locator("#airline-name").fill(name);
-  await page.locator("#airline-icao").fill(icao);
   await page.getByRole("button", { name: /launch airline/i }).click();
   await expect(page.locator("#airline-name")).toHaveCount(0, { timeout: 60_000 });
 }

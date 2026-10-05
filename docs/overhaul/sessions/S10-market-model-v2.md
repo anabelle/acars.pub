@@ -1,7 +1,7 @@
 # S10 — Market model v2: incumbent carriers + distance-scaled fare cap
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting review)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #165)
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** https://github.com/anabelle/acars.pub/pull/165
 >

@@ -39,7 +39,8 @@
     "exportKeyWarning": "Export your recovery key before launch so this airline stays yours if you lose this browser.",
     "callsignSuggested": "{{icao}} HEAVY",
     "callsignDefaultIcao": "APX",
-    "unknownError": "Unknown error"
+    "unknownError": "Unknown error",
+    "customize": "Customize code, callsign and colors"
   },
   "guest": {
     "title": "Start your airline",
