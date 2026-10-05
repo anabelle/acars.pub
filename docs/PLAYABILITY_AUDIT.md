@@ -130,6 +130,116 @@ and lacks the short one.
   deterministic events and daily objectives already exists.
 - Tier ladder with aircraft unlocks is a good spine; it needs closer rungs.
 
+### 2.7 UX/UI walkthrough (🟠 high)
+
+Method: ran `apps/web` locally (Vite) and drove it with headless Chromium at 1440×900 and
+390×844 as a guest, through "Play Free" up to the airline creator. Logged-in screens (Fleet,
+Network, Corporate) were reviewed from code because airline creation needs a live relay.
+Limitations: the sandbox blocked map tiles and Nostr relays, so the globe rendered black.
+Treat map-specific visuals as unverified.
+
+**U1 — The landing page promises features that don't exist.** `/join` sells "Issue stock,
+manage a cap table, file for IPO … launch a hostile takeover", "Trade airline stock slots P2P"
+and "Earn real Bitcoin". `AGENTS.md` and `CORPORATE_MODEL.md` say these are Phase 8
+proposals. A player who arrives for Wall Street and finds turboprops shuttling between two
+cities will call it dull. Sell what ships (live flights, real routes, rivals), and label the
+rest "coming".
+
+**U2 — The shell competes with itself on the entry page.** `/join` renders inside the full app
+shell, which shows:
+
+- three brand marks (top bar, join header, card);
+- two sets of auth CTAs (the top bar's _Play Free / Browser wallet / I already have an nsec
+  key / What is Nostr?_ plus the page's own _Play for free_);
+- a breadcrumb that says **COCKPIT** on the join page;
+- a sidebar of locked sections.
+
+On mobile, the context bar (`COCKPIT · READ-ONLY MODE · ×`) **overlaps** the "Create Your
+Airline" banner (`WorkspaceContextBar` vs the mobile top bar). Reproducible at 390 px on `/`,
+`/?panel=cockpit` and `/join`.
+
+**U3 — Guest home is an essay, not a world.** The first panel says "Start from the map / Let
+the simulation breathe first", then sends you to the cockpit. As a guest, the cockpit is
+instruction cards:
+
+- "Use the map like an operator, not a tourist", "Study the board", "Launch when ready".
+- At 1440 px the three cards squeeze into narrow columns that wrap one word per line, and
+  the panel clips its own content.
+- One "Launch your airline" tile is mostly empty space.
+
+The world map should be the hero, with one CTA.
+
+**U4 — Gated sections speak crypto.** Fleet, Planning and Finance show "_Network access
+locked — open routes after you connect a Nostr wallet_", while the landing page promises "no
+crypto knowledge needed". Better: let guests play a sandbox airline, and ask for identity
+only when they want to keep it.
+
+**U5 — The airline creator over-asks and mis-signals.**
+
+- The badge reads **"Connected - create your airline"** as static text (`creator.connectedSubtitle`),
+  even when every relay has failed.
+- "You'll be flying in under a minute" heads a long form: hub, name, ICAO code, radio
+  callsign, two colors, and key tools.
+- The hub suggestion waits 15–30 s on "Finding your best starting hub…". It's derived from
+  the browser time zone, so UTC users get Dakar (DSS).
+- The hub card shows "Tier / Setup / Monthly" without saying why the choice matters for
+  routes and demand.
+
+**U6 — The status bar shows engine internals, and claims health it doesn't have.**
+
+- "Game Time: **Cycle 16943913**" is a raw tick number; players need the UTC clock and "next
+  landing in 12 min".
+- "Economy 90.4%" (the prosperity index) reads like economy-class load.
+- With every relay websocket failing, the ticker still showed a green **LIVE DATA** dot and
+  "Status **Normal Operations**". Players get no signal that their actions may not be saved.
+
+**U7 — The airport panel answers the wrong question.** For MAD it shows population, GDP per
+capita, altitude, timezone, capacity per hour and slot control. Those are atlas facts. A player
+clicking an airport wants to know: _is a route from my hub here worth it?_ That means
+demand, projected load factor and profit per day, who already flies it, and a primary CTA. As a
+guest, the primary CTA is "Set as Home" before an airline exists.
+
+**U8 — Three vocabularies for six places.**
+
+| Desktop sidebar | Mobile tab | URL            | Page title    |
+| --------------- | ---------- | -------------- | ------------- |
+| Cockpit         | OPS        | `/`            | Cockpit       |
+| Fleet           | FLEET      | `/fleet`       | Fleet Manager |
+| Planning        | PLAN       | `/network`     | Network       |
+| Competition     | RIVALS     | `/leaderboard` | Leaderboard   |
+| Finance         | CASH       | `/corporate`   | Corporate     |
+| Briefing        | INFO       | `/about`       | About         |
+
+Pick one name per place and use it everywhere.
+
+**U9 — Planning screens show inputs, not outcomes.**
+
+- The Opportunities tab sorts candidate destinations by distance and shows raw demand and
+  cost per flight. Nobody wants to sort by distance; sort by projected profit per day.
+- The fare editor has the same problem (§2.5).
+- `RouteManager.tsx` has about 30 hard-coded English strings ("Monopoly Market: No active
+  competitors…", "Est. Share", "Route Pricing", "Suggested fleet", "Cost split"), so the
+  Spanish locale breaks on the most-used screen.
+
+**U10 — Visual hierarchy is copy-first.** Almost every surface uses the same card recipe:
+uppercase tracked kicker, bold title, explanatory paragraph. The numbers that drive decisions
+(cash, profit per hour, load factor, tier progress) compete with prose. A financial-dashboard
+game should be data-first:
+
+- big numbers with deltas and sparklines;
+- color only for state (red = losing money, amber = attention);
+- explanations in tooltips or a first-run coach, not in permanent body copy.
+
+**U11 — No juice.** The design bible's Mini Metro / Factorio targets ("the system _sings_")
+aren't visible:
+
+- landings don't show "+$8,662" floating over the airport;
+- opening a route doesn't animate the arc drawing in;
+- tier-up doesn't get a moment;
+- audio (T-092/T-093) is deferred.
+
+These cheap touches are what make a slow real-time game feel alive.
+
 ---
 
 ## 3. Improvement Plan
@@ -156,6 +266,24 @@ one click from where it's surfaced.**
 
 **Success metric:** median time from landing on the site to first takeoff < 3 minutes; % of new
 airlines with ≥1 assigned aircraft after first session > 80%.
+
+### Phase A′: UI clarity pass (runs alongside A) · ~1–2 weeks
+
+| #    | Change                                                                                                                                                                                                  | Fixes  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| A′1  | **Honest landing page**: lead with live flights, real routes and rivals; move IPO/takeover/P2P/Bitcoin to a "Roadmap" strip.                                                                            | U1     |
+| A′2  | **Dedicated entry layout** for `/join` and guests: no sidebar, one brand mark, one CTA ("Start your airline"), with key import as a small text link. Fix the mobile context-bar overlap.                | U2, U3 |
+| A′3  | **Guest sandbox**: guests can open a route on a local-only demo airline. "Save your airline" creates the key and replays the actions. The locked-section copy loses "Nostr wallet".                     | U4     |
+| A′4  | **Creator**: real connection state; suggest 3 hubs instantly with one-line reasons ("big domestic market", "cheap to open"); hide ICAO/callsign/colors behind "Customize" with auto-generated defaults. | U5     |
+| A′5  | **Status bar**: UTC clock, next-landing countdown, cash delta today; rename "Economy" to "World economy"; tie the LIVE dot to real relay health (amber "offline – changes queued").                     | U6     |
+| A′6  | **Airport panel as a decision card**: "From {hub}: 483 km · ~88% LF · +$24k/day · 0 rivals" and a primary **Launch route** CTA. Move atlas facts into a collapsed "Details" section.                    | U7     |
+| A′7  | **One naming scheme** across sidebar, mobile tabs, URLs and titles (suggest: Cockpit, Fleet, Routes, Rivals, Finance, Info).                                                                            | U8     |
+| A′8  | **Outcome-first planning**: sort Opportunities by projected profit per day by default; finish i18n of `RouteManager.tsx`.                                                                               | U9     |
+| A′9  | **Data-first visual system**: KPI tiles with delta and sparkline; shrink kickers and body copy; move explanations into a dismissible first-run coach.                                                   | U10    |
+| A′10 | **Juice pack**: floating revenue on landing (map + flight board), arc draw-in on route open, tier-up celebration, optional sounds.                                                                      | U11    |
+
+**Success metric:** landing → creator completion rate; time to first route under 3 min on
+mobile; zero hard-coded strings in `RouteManager.tsx` (lint rule).
 
 ### Phase B: "Make Decisions Matter" (economy, versioned) · ~2–3 weeks
 
@@ -199,7 +327,9 @@ airlines with ≥1 assigned aircraft after first session > 80%.
 
 ## 4. Suggested Sequencing
 
-1. **A1–A6 first.** They're pure UI, low risk, and the biggest "feels cumbersome" wins.
+1. **A1–A6 plus A′1, A′2, A′4, A′5 and A′6 first.** They're pure UI, low risk, and the biggest
+   "feels complicated/cumbersome" wins. A′3 (guest sandbox) is the largest UI item; schedule
+   it right after.
 2. **B1 + B2 together**, behind one activation tick. These are the most important game-design
    changes; ship before the player base grows around the exploit.
 3. **C1 + C4** next (cheap, big perceived improvement), then C2/C3/C6.
