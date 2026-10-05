@@ -86,6 +86,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - Screenshots via a clock-driven e2e run: no banner after signup; after launching MAD→BCN and fast-forwarding 2 h, the away report shows 1 flight, and closing it reveals the banner.
   - Also: the suggested callsign skips one- and two-letter fragments ("E2E Air" gave "E", now "AIR").
   - Gate + 18 e2e green.
+- 2026-10-05 · fix · (this commit) · CI `verify` failed on #166: `@acars/data` requires 100% function coverage, and the default tier lookup in `suggestStarterHubs` was never called (tests always injected one). Added a test with the real hub classifications (from MAD: BCN is classified, so never "cheapest"). Removed two unreachable `|| 0` fallbacks (`available()` already requires population > 0) that kept branch coverage below 95%. `pnpm test:coverage` passes locally.
 
 ## Follow-ups
 

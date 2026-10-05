@@ -175,7 +175,8 @@ export function suggestStarterHubs(
   for (const airport of airports) {
     if (airport.country !== current.country || !available(airport)) continue;
     if (hubTier(airport.iata) !== "regional") continue;
-    if (!cheapest || (airport.population || 0) > (cheapest.population || 0)) cheapest = airport;
+    // available() guarantees a population above zero.
+    if (!cheapest || airport.population > cheapest.population) cheapest = airport;
   }
   if (cheapest) suggestions.push({ airport: cheapest, reason: "cheapest" });
 

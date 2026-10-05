@@ -215,4 +215,42 @@ describe("suggestStarterHubs (S21)", () => {
     );
     expect(result.map((s) => s.airport.iata)).toEqual(["MAD", "VLL"]);
   });
+
+  it("uses the real hub classifications by default (MAD is not a regional hub)", async () => {
+    const { suggestStarterHubs } = await import("./geo.js");
+    const real = [
+      {
+        iata: "MAD",
+        city: "Madrid",
+        country: "ES",
+        latitude: 40.47,
+        longitude: -3.56,
+        population: 6_000_000,
+      },
+      {
+        iata: "BCN",
+        city: "Barcelona",
+        country: "ES",
+        latitude: 41.3,
+        longitude: 2.08,
+        population: 5_000_000,
+      },
+      {
+        iata: "VLL",
+        city: "Valladolid",
+        country: "ES",
+        latitude: 41.7,
+        longitude: -4.85,
+        population: 300_000,
+      },
+    ] as any[];
+    // From MAD: classified BCN is never "cheapest"; unclassified VLL counts as regional.
+    const result = suggestStarterHubs(40.47, -3.56, real[0], real);
+    expect(result.map((s) => [s.airport.iata, s.reason])).toEqual([
+      ["MAD", "bigMarket"],
+      ["VLL", "nearest"],
+    ]);
+    const fromVll = suggestStarterHubs(41.7, -4.85, real[2], real);
+    expect(fromVll.find((s) => s.reason === "cheapest")).toBeUndefined();
+  });
 });
