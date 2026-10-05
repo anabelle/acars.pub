@@ -1,8 +1,8 @@
 # S23 — Route projection + airport decision card + one-click launch
 
-> **Status:** ☐ not started
-> **Next step:** S23.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S23.2
+> **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
 > **Track:** UX · **Size:** L (5 steps) · **Depends on:** — · **Unblocks:** S24, S25, S26, S43
@@ -39,7 +39,7 @@ Clicking an airport answers "is a route here worth it?" and one button gets a pl
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S23.1** `projectRouteEconomics` pure function + tests against engine outputs. _Done when:_ matches S02 numbers (or direct engine runs).
+- [x] **S23.1** `projectRouteEconomics` pure function + tests against engine outputs. _Done when:_ matches S02 numbers (or direct engine runs).
 - [ ] **S23.2** Airport panel decision card (read-only projection; atlas facts collapsed). _Done when:_ screenshots.
 - [ ] **S23.3** `useLaunchRoute` orchestration (open → lease/use idle → assign) + partial-failure handling + tests. _Done when:_ unit tests green.
 - [ ] **S23.4** Launch button + recommended aircraft wired into the panel. _Done when:_ manual run: flying in ≤ 2 clicks + 1 confirm.
@@ -60,7 +60,9 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+- 2026-10-05 · S23.1 · (this commit) · **Engine refactor, behavior-neutral:** extracted the per-landing passenger math from `processFlightEngine` into exported `computeFlightPassengers()` (demand, price-war stimulation, QSI allocation, supply pressure, elasticity, LF ceiling), plus `buildNetworkContext(routes)` (airport traffic and hub states) and `getLegAirportFeesMultiplier()`. The engine now calls these. Proof of no behavior change: all 222 store + 286 core tests pass, and the audit fare/plane sweep (13 values) is byte-identical before and after. **New `projectRouteEconomics()`** in `@acars/store` (`routeProjection.ts`): projects both directions with the engine's own functions and leg timing; returns per-leg and average LF, passengers, revenue/cost/profit per flight, flights/day, revenue and profit per day, market share and rival shares. Takes `networkRoutes` (the airline's routes plus the candidate) so congestion and hub demand match. `routeProjection.test.ts` checks the projection equals a real engine landing exactly (passengers, revenue, cost, profit) across 6 scenarios (two markets, fares ×1/×1.3/×5/×40, 3-aircraft route, A320neo long-haul). Two thin-market cases first differed (26 vs 33 pax) until hub state was included, which motivated `buildNetworkContext`. The S02 harness doesn't exist yet, so direct engine runs are the reference.
+
+> Note for S24: `apps/web/.../routeEconomics.ts#estimateRouteEconomics` is a separate approximation (caller-supplied load factor) that can disagree with the engine; migrate its users to `projectRouteEconomics`.
 
 ## Follow-ups
 

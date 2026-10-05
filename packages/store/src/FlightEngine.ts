@@ -1,5 +1,6 @@
 import type {
   AircraftInstance,
+  AircraftModel,
   Airport,
   CycleFlightEvent,
   FixedPoint,
@@ -58,7 +59,7 @@ function getAirportMap(): Map<string, Airport> {
 const DEFAULT_HUB_CAPACITY_PER_HOUR = 80;
 const DEFAULT_LANDING_FEE = 250;
 
-type FlightEngineHubState = {
+export type FlightEngineHubState = {
   hubIata: string;
   spokeCount: number;
   weeklyFrequency: number;
@@ -123,6 +124,328 @@ function getAirportFeesMultiplier({
 }
 
 /**
+ * Network-wide context the engine derives from the airline's routes each tick:
+ * hourly flights per airport (congestion and landing fees) and per-hub spoke
+ * statistics (hub demand modifier). Exported so route projections use the
+ * same inputs as real landings.
+ */
+export function buildNetworkContext(
+  routes: ReadonlyArray<Pick<Route, "originIata" | "destinationIata" | "frequencyPerWeek">>,
+): {
+  airportTraffic: Map<string, number>;
+  hubStates: Map<string, FlightEngineHubState>;
+} {
+  const airportTraffic = new Map<string, number>();
+  const hubStats = new Map<string, { spokeCount: number; weeklyFrequency: number }>();
+
+  for (const route of routes) {
+    const weekly = route.frequencyPerWeek ?? 0;
+    const hourly = weekly / (7 * 24);
+    if (hourly > 0) {
+      airportTraffic.set(route.originIata, (airportTraffic.get(route.originIata) ?? 0) + hourly);
+      airportTraffic.set(
+        route.destinationIata,
+        (airportTraffic.get(route.destinationIata) ?? 0) + hourly,
+      );
+    }
+
+    if (route.originIata) {
+      const current = hubStats.get(route.originIata) ?? {
+        spokeCount: 0,
+        weeklyFrequency: 0,
+      };
+      current.spokeCount += 1;
+      current.weeklyFrequency += weekly;
+      hubStats.set(route.originIata, current);
+    }
+  }
+
+  const hubStates = new Map<string, FlightEngineHubState>();
+  for (const [hubIata, stats] of hubStats.entries()) {
+    hubStates.set(hubIata, {
+      hubIata,
+      spokeCount: stats.spokeCount,
+      weeklyFrequency: stats.weeklyFrequency,
+      avgFrequency: stats.spokeCount > 0 ? stats.weeklyFrequency / stats.spokeCount : 0,
+    });
+  }
+
+  return { airportTraffic, hubStates };
+}
+
+/**
+ * Airport-fee multiplier for one leg, exactly as the engine charges it at
+ * landing. Exported for route projections.
+ */
+export function getLegAirportFeesMultiplier(
+  originIata: string,
+  destinationIata: string,
+  airportTraffic?: ReadonlyMap<string, number>,
+): number {
+  return getAirportFeesMultiplier(
+    getRouteEndpointContext(originIata, destinationIata, airportTraffic),
+  );
+}
+
+/**
+ * Inputs for {@link computeFlightPassengers}: everything the engine knows when
+ * a flight lands. Exported so route projections (UI) run the exact same math.
+ */
+export interface FlightPassengerInput {
+  originIata: string | null | undefined;
+  destinationIata: string | null | undefined;
+  tick: number;
+  airportTraffic?: ReadonlyMap<string, number>;
+  hubStates?: ReadonlyMap<string, FlightEngineHubState>;
+  seatConfig: { economy: number; business: number; first: number };
+  model: Pick<AircraftModel, "speedKmh" | "turnaroundTimeMinutes" | "blockHoursPerDay">;
+  /** The player's assigned route, or null for an orphaned flight priced from its fare snapshot. */
+  route: Pick<
+    Route,
+    "distanceKm" | "assignedAircraftIds" | "fareEconomy" | "fareBusiness" | "fareFirst"
+  > | null;
+  /** Flight snapshot used when the route is gone (orphaned flights). */
+  fallback?: Pick<
+    NonNullable<AircraftInstance["flight"]>,
+    "frequencyPerWeek" | "distanceKm" | "fareEconomy" | "fareBusiness" | "fareFirst"
+  > | null;
+  /** Rival offers on this city pair (empty when there is no route). */
+  competitorOffers: FlightOffer[];
+  playerPubkey: string;
+  playerBrandScore: number;
+  distanceLimitKm: number;
+}
+
+export interface FlightPassengerResult {
+  passengersEconomy: number;
+  passengersBusiness: number;
+  passengersFirst: number;
+  fareEconomy: FixedPoint;
+  fareBusiness: FixedPoint;
+  fareFirst: FixedPoint;
+  /** Our weekly frequency as used in the market-share model. */
+  frequencyPerWeek: number;
+  /** Every offer in the market, ours first. */
+  allOffers: FlightOffer[];
+  /** True when a price war is on and the player is one of the undercutters. */
+  playerUndercutting: boolean;
+}
+
+/**
+ * Passengers boarding one landing flight: route demand, price-war stimulation,
+ * QSI market share, supply pressure, fare elasticity and the natural
+ * load-factor ceiling. Pure and deterministic; `processFlightEngine` uses it
+ * for every landing and route projections reuse it, so the two cannot drift.
+ */
+export function computeFlightPassengers({
+  originIata,
+  destinationIata,
+  tick,
+  airportTraffic,
+  hubStates,
+  seatConfig,
+  model,
+  route,
+  fallback,
+  competitorOffers,
+  playerPubkey,
+  playerBrandScore,
+  distanceLimitKm,
+}: FlightPassengerInput): FlightPassengerResult {
+  const origin = originIata ? (getAirportMap().get(originIata) ?? null) : null;
+  const destination = destinationIata ? (getAirportMap().get(destinationIata) ?? null) : null;
+  let playerUndercutting = false;
+
+  let weeklyDemandResult = {
+    economy: 350,
+    business: 35,
+    first: 7,
+    origin: originIata ?? "",
+    destination: destinationIata ?? "",
+  };
+
+  if (origin && destination) {
+    const now = new Date(GENESIS_TIME + tick * TICK_DURATION);
+    const season = getSeason(destination.latitude, now);
+    const prosperity = getProsperityIndex(tick);
+
+    const {
+      originHub,
+      destHub,
+      originState,
+      destState,
+      originTraffic,
+      destTraffic,
+      originCapacity,
+      destCapacity,
+    } = getRouteEndpointContext(originIata, destinationIata, airportTraffic, hubStates);
+    const hubModifier = getHubDemandModifier(
+      originHub?.tier ?? null,
+      destHub?.tier ?? null,
+      originState,
+      destState,
+    );
+    const originCongestion = getHubCongestionModifier(originCapacity, originTraffic);
+    const destCongestion = getHubCongestionModifier(destCapacity, destTraffic);
+    const congestionModifier = (originCongestion + destCongestion) / 2;
+    const weeklyDemand = calculateDemand(origin, destination, season, prosperity, hubModifier);
+    weeklyDemandResult = {
+      origin: originIata ?? "",
+      destination: destinationIata ?? "",
+      economy: Math.round(weeklyDemand.economy * congestionModifier),
+      business: Math.round(weeklyDemand.business * congestionModifier),
+      first: Math.round(weeklyDemand.first * congestionModifier),
+    };
+  }
+
+  // --- NEW MP ALLOCATION LOGIC ---
+
+  // Frequency for our offer: how many planes we (the player) have on this route?
+  const ourFrequency = route
+    ? computeRouteFrequency(
+        route.distanceKm,
+        Math.max(1, route.assignedAircraftIds.length),
+        model.speedKmh || 800,
+        model.turnaroundTimeMinutes,
+        model.blockHoursPerDay,
+      )
+    : Math.max(1, fallback?.frequencyPerWeek ?? 7);
+
+  // Travel time for our current aircraft
+  const distanceForOffer = route?.distanceKm ?? fallback?.distanceKm ?? 0;
+  const ourTravelTime = Math.round((distanceForOffer / (model.speedKmh || 800)) * 60);
+
+  const fareEconomy = route?.fareEconomy ?? fallback?.fareEconomy ?? fp(0);
+  const fareBusiness = route?.fareBusiness ?? fallback?.fareBusiness ?? fp(0);
+  const fareFirst = route?.fareFirst ?? fallback?.fareFirst ?? fp(0);
+
+  const ourOffer: FlightOffer = {
+    airlinePubkey: playerPubkey,
+    fareEconomy,
+    fareBusiness,
+    fareFirst,
+    frequencyPerWeek: ourFrequency,
+    travelTimeMinutes: ourTravelTime,
+    stops: 0,
+    serviceScore: 0.7,
+    brandScore: playerBrandScore,
+  };
+
+  const allOffers = route ? [ourOffer, ...competitorOffers] : [ourOffer];
+
+  // --- PRICE WAR DYNAMICS ---
+  const pw = route
+    ? detectPriceWar(allOffers)
+    : { isPriceWar: false, lowPricedAirlines: [] as string[] };
+  if (pw.isPriceWar && route) {
+    // Stimulation: Increase route demand by 10%
+    weeklyDemandResult.economy = Math.floor(weeklyDemandResult.economy * 1.1);
+    weeklyDemandResult.business = Math.floor(weeklyDemandResult.business * 1.1);
+    weeklyDemandResult.first = Math.floor(weeklyDemandResult.first * 1.1);
+
+    // If we are undercutting, the engine records a brand-damage event.
+    playerUndercutting = pw.lowPricedAirlines.includes(playerPubkey);
+  }
+
+  let addressableDemand = scaleToAddressableMarket(weeklyDemandResult);
+  if (route && route.distanceKm > distanceLimitKm) {
+    addressableDemand = {
+      origin: addressableDemand.origin,
+      destination: addressableDemand.destination,
+      economy: Math.floor(addressableDemand.economy * 0.5),
+      business: Math.floor(addressableDemand.business * 0.5),
+      first: Math.floor(addressableDemand.first * 0.5),
+    };
+  }
+  const allocations = allocatePassengers(allOffers, addressableDemand);
+  const ourWeeklyAllocation = allocations.get(playerPubkey) ?? {
+    economy: 0,
+    business: 0,
+    first: 0,
+  };
+
+  const totalWeeklySeats =
+    ourFrequency * (seatConfig.economy + seatConfig.business + seatConfig.first);
+  const totalWeeklyDemand =
+    ourWeeklyAllocation.economy + ourWeeklyAllocation.business + ourWeeklyAllocation.first;
+  const pressureMultiplier = calculateSupplyPressure(totalWeeklySeats, totalWeeklyDemand);
+
+  const referenceFares = getSuggestedFares(distanceForOffer);
+  const elasticityEconomy = calculatePriceElasticity(
+    fareEconomy,
+    referenceFares.economy,
+    PRICE_ELASTICITY_ECONOMY,
+  );
+  const elasticityBusiness = calculatePriceElasticity(
+    fareBusiness,
+    referenceFares.business,
+    PRICE_ELASTICITY_BUSINESS,
+  );
+  const elasticityFirst = calculatePriceElasticity(
+    fareFirst,
+    referenceFares.first,
+    PRICE_ELASTICITY_FIRST,
+  );
+
+  // Per-flight allocation (Weekly allocation / frequency), adjusted by supply pressure
+  // Use Math.round instead of Math.floor to prevent systematic zero-passenger
+  // rounding on thin routes where fractional pax (e.g. 0.7) should round to 1.
+  let paxE = Math.min(
+    seatConfig.economy,
+    Math.round(
+      (ourWeeklyAllocation.economy / ourFrequency) * pressureMultiplier * elasticityEconomy,
+    ),
+  );
+  let paxB = Math.min(
+    seatConfig.business,
+    Math.round(
+      (ourWeeklyAllocation.business / ourFrequency) * pressureMultiplier * elasticityBusiness,
+    ),
+  );
+  let paxF = Math.min(
+    seatConfig.first,
+    Math.round((ourWeeklyAllocation.first / ourFrequency) * pressureMultiplier * elasticityFirst),
+  );
+
+  const totalSeats = seatConfig.economy + seatConfig.business + seatConfig.first;
+  const totalPax = paxE + paxB + paxF;
+  const rawLoadFactor = totalSeats > 0 ? totalPax / totalSeats : 0;
+  if (rawLoadFactor > NATURAL_LF_CEILING && totalPax > 0) {
+    const scale = NATURAL_LF_CEILING / rawLoadFactor;
+    paxE = Math.round(paxE * scale);
+    paxB = Math.round(paxB * scale);
+    paxF = Math.round(paxF * scale);
+
+    const maxTotalPax = Math.floor(totalSeats * NATURAL_LF_CEILING);
+    let overflow = paxE + paxB + paxF - maxTotalPax;
+    while (overflow > 0 && paxE > 0) {
+      paxE -= 1;
+      overflow -= 1;
+    }
+    while (overflow > 0 && paxB > 0) {
+      paxB -= 1;
+      overflow -= 1;
+    }
+    while (overflow > 0 && paxF > 0) {
+      paxF -= 1;
+      overflow -= 1;
+    }
+  }
+
+  return {
+    passengersEconomy: paxE,
+    passengersBusiness: paxB,
+    passengersFirst: paxF,
+    fareEconomy,
+    fareBusiness,
+    fareFirst,
+    frequencyPerWeek: ourFrequency,
+    allOffers,
+    playerUndercutting,
+  };
+}
+
+/**
  * Result of the engine processing a single tick.
  */
 export interface EngineTickResult {
@@ -160,40 +483,7 @@ export function processFlightEngine(
 
   const updatedFleetMap = new Map<string, AircraftInstance>(fleet.map((ac) => [ac.id, { ...ac }]));
 
-  const airportTraffic = new Map<string, number>();
-  const hubStats = new Map<string, { spokeCount: number; weeklyFrequency: number }>();
-
-  for (const route of routes) {
-    const weekly = route.frequencyPerWeek ?? 0;
-    const hourly = weekly / (7 * 24);
-    if (hourly > 0) {
-      airportTraffic.set(route.originIata, (airportTraffic.get(route.originIata) ?? 0) + hourly);
-      airportTraffic.set(
-        route.destinationIata,
-        (airportTraffic.get(route.destinationIata) ?? 0) + hourly,
-      );
-    }
-
-    if (route.originIata) {
-      const current = hubStats.get(route.originIata) ?? {
-        spokeCount: 0,
-        weeklyFrequency: 0,
-      };
-      current.spokeCount += 1;
-      current.weeklyFrequency += weekly;
-      hubStats.set(route.originIata, current);
-    }
-  }
-
-  const hubStates = new Map<string, FlightEngineHubState>();
-  for (const [hubIata, stats] of hubStats.entries()) {
-    hubStates.set(hubIata, {
-      hubIata,
-      spokeCount: stats.spokeCount,
-      weeklyFrequency: stats.weeklyFrequency,
-      avgFrequency: stats.spokeCount > 0 ? stats.weeklyFrequency / stats.spokeCount : 0,
-    });
-  }
+  const { airportTraffic, hubStates } = buildNetworkContext(routes);
 
   // O(1) route lookup for the per-aircraft state machine below (was
   // routes.find inside the fleet loop — O(R) per aircraft per tick).
@@ -342,56 +632,6 @@ export function processFlightEngine(
             ? route.originIata
             : route.destinationIata
           : ac.flight?.destinationIata;
-        const origin = originIata ? (getAirportMap().get(originIata) ?? null) : null;
-        const destination = destinationIata ? (getAirportMap().get(destinationIata) ?? null) : null;
-
-        let weeklyDemandResult = {
-          economy: 350,
-          business: 35,
-          first: 7,
-          origin: originIata ?? "",
-          destination: destinationIata ?? "",
-        };
-
-        if (origin && destination) {
-          const now = new Date(simulatedTimestamp);
-          const season = getSeason(destination.latitude, now);
-          const prosperity = getProsperityIndex(tick);
-
-          const {
-            originHub,
-            destHub,
-            originState,
-            destState,
-            originTraffic,
-            destTraffic,
-            originCapacity,
-            destCapacity,
-          } = getRouteEndpointContext(originIata, destinationIata, airportTraffic, hubStates);
-          const hubModifier = getHubDemandModifier(
-            originHub?.tier ?? null,
-            destHub?.tier ?? null,
-            originState,
-            destState,
-          );
-          const originCongestion = getHubCongestionModifier(originCapacity, originTraffic);
-          const destCongestion = getHubCongestionModifier(destCapacity, destTraffic);
-          const congestionModifier = (originCongestion + destCongestion) / 2;
-          const weeklyDemand = calculateDemand(
-            origin,
-            destination,
-            season,
-            prosperity,
-            hubModifier,
-          );
-          weeklyDemandResult = {
-            origin: originIata ?? "",
-            destination: destinationIata ?? "",
-            economy: Math.round(weeklyDemand.economy * congestionModifier),
-            business: Math.round(weeklyDemand.business * congestionModifier),
-            first: Math.round(weeklyDemand.first * congestionModifier),
-          };
-        }
 
         const seatConfig = {
           economy: ac.configuration?.economy ?? model.capacity.economy,
@@ -410,157 +650,45 @@ export function processFlightEngine(
         });
 
         if (route || (isOrphan && hasFareSnapshot)) {
-          // --- NEW MP ALLOCATION LOGIC ---
           const routeKey =
             originIata && destinationIata ? canonicalRouteKey(originIata, destinationIata) : "";
           const competitorOffers = route && routeKey ? globalRouteRegistry.get(routeKey) || [] : [];
-
-          // Frequency for our offer: how many planes we (the player) have on this route?
-          const ourFrequency = route
-            ? computeRouteFrequency(
-                route.distanceKm,
-                Math.max(1, route.assignedAircraftIds.length),
-                model.speedKmh || 800,
-                model.turnaroundTimeMinutes,
-                model.blockHoursPerDay,
-              )
-            : Math.max(1, ac.flight?.frequencyPerWeek ?? 7);
-
-          // Travel time for our current aircraft
-          const distanceForOffer = route?.distanceKm ?? ac.flight?.distanceKm ?? 0;
-          const ourTravelTime = Math.round((distanceForOffer / (model.speedKmh || 800)) * 60);
-
-          const fareEconomy = route?.fareEconomy ?? ac.flight?.fareEconomy ?? fp(0);
-          const fareBusiness = route?.fareBusiness ?? ac.flight?.fareBusiness ?? fp(0);
-          const fareFirst = route?.fareFirst ?? ac.flight?.fareFirst ?? fp(0);
-
-          const ourOffer: FlightOffer = {
-            airlinePubkey: playerPubkey,
+          const {
+            passengersEconomy: paxE,
+            passengersBusiness: paxB,
+            passengersFirst: paxF,
             fareEconomy,
             fareBusiness,
             fareFirst,
-            frequencyPerWeek: ourFrequency,
-            travelTimeMinutes: ourTravelTime,
-            stops: 0,
-            serviceScore: 0.7,
-            brandScore: playerBrandScore,
-          };
+            playerUndercutting,
+          } = computeFlightPassengers({
+            originIata,
+            destinationIata,
+            tick,
+            airportTraffic,
+            hubStates,
+            seatConfig,
+            model,
+            route,
+            fallback: ac.flight,
+            competitorOffers,
+            playerPubkey,
+            playerBrandScore,
+            distanceLimitKm,
+          });
 
-          const allOffers = route ? [ourOffer, ...competitorOffers] : [ourOffer];
-
-          // --- PRICE WAR DYNAMICS ---
-          const pw = route
-            ? detectPriceWar(allOffers)
-            : { isPriceWar: false, lowPricedAirlines: [] as string[] };
-          if (pw.isPriceWar && route) {
-            // Stimulation: Increase route demand by 10%
-            weeklyDemandResult.economy = Math.floor(weeklyDemandResult.economy * 1.1);
-            weeklyDemandResult.business = Math.floor(weeklyDemandResult.business * 1.1);
-            weeklyDemandResult.first = Math.floor(weeklyDemandResult.first * 1.1);
-
-            // If we are undercutting, trigger a brand damage event
-            if (pw.lowPricedAirlines.includes(playerPubkey)) {
-              events.push({
-                id: `evt-pricewar-${ac.id}-${tick}`,
-                tick,
-                timestamp: simulatedTimestamp,
-                type: "price_war",
-                aircraftId: ac.id,
-                aircraftName: ac.name,
-                description: `[PRICE WAR] Extreme undercutting on ${route.originIata}-${route.destinationIata} is damaging your brand reputation.`,
-              });
-            }
+          // Price war: undercutting damages brand reputation.
+          if (playerUndercutting && route) {
+            events.push({
+              id: `evt-pricewar-${ac.id}-${tick}`,
+              tick,
+              timestamp: simulatedTimestamp,
+              type: "price_war",
+              aircraftId: ac.id,
+              aircraftName: ac.name,
+              description: `[PRICE WAR] Extreme undercutting on ${route.originIata}-${route.destinationIata} is damaging your brand reputation.`,
+            });
           }
-
-          let addressableDemand = scaleToAddressableMarket(weeklyDemandResult);
-          if (route && route.distanceKm > distanceLimitKm) {
-            addressableDemand = {
-              origin: addressableDemand.origin,
-              destination: addressableDemand.destination,
-              economy: Math.floor(addressableDemand.economy * 0.5),
-              business: Math.floor(addressableDemand.business * 0.5),
-              first: Math.floor(addressableDemand.first * 0.5),
-            };
-          }
-          const allocations = allocatePassengers(allOffers, addressableDemand);
-          const ourWeeklyAllocation = allocations.get(playerPubkey) ?? {
-            economy: 0,
-            business: 0,
-            first: 0,
-          };
-
-          const totalWeeklySeats =
-            ourFrequency * (seatConfig.economy + seatConfig.business + seatConfig.first);
-          const totalWeeklyDemand =
-            ourWeeklyAllocation.economy + ourWeeklyAllocation.business + ourWeeklyAllocation.first;
-          const pressureMultiplier = calculateSupplyPressure(totalWeeklySeats, totalWeeklyDemand);
-
-          const referenceFares = getSuggestedFares(distanceForOffer);
-          const elasticityEconomy = calculatePriceElasticity(
-            fareEconomy,
-            referenceFares.economy,
-            PRICE_ELASTICITY_ECONOMY,
-          );
-          const elasticityBusiness = calculatePriceElasticity(
-            fareBusiness,
-            referenceFares.business,
-            PRICE_ELASTICITY_BUSINESS,
-          );
-          const elasticityFirst = calculatePriceElasticity(
-            fareFirst,
-            referenceFares.first,
-            PRICE_ELASTICITY_FIRST,
-          );
-
-          // Per-flight allocation (Weekly allocation / frequency), adjusted by supply pressure
-          // Use Math.round instead of Math.floor to prevent systematic zero-passenger
-          // rounding on thin routes where fractional pax (e.g. 0.7) should round to 1.
-          let paxE = Math.min(
-            seatConfig.economy,
-            Math.round(
-              (ourWeeklyAllocation.economy / ourFrequency) * pressureMultiplier * elasticityEconomy,
-            ),
-          );
-          let paxB = Math.min(
-            seatConfig.business,
-            Math.round(
-              (ourWeeklyAllocation.business / ourFrequency) *
-                pressureMultiplier *
-                elasticityBusiness,
-            ),
-          );
-          let paxF = Math.min(
-            seatConfig.first,
-            Math.round(
-              (ourWeeklyAllocation.first / ourFrequency) * pressureMultiplier * elasticityFirst,
-            ),
-          );
-
-          const totalSeats = seatConfig.economy + seatConfig.business + seatConfig.first;
-          const totalPax = paxE + paxB + paxF;
-          const rawLoadFactor = totalSeats > 0 ? totalPax / totalSeats : 0;
-          if (rawLoadFactor > NATURAL_LF_CEILING && totalPax > 0) {
-            const scale = NATURAL_LF_CEILING / rawLoadFactor;
-            paxE = Math.round(paxE * scale);
-            paxB = Math.round(paxB * scale);
-            paxF = Math.round(paxF * scale);
-
-            const maxTotalPax = Math.floor(totalSeats * NATURAL_LF_CEILING);
-            let overflow = paxE + paxB + paxF - maxTotalPax;
-            while (overflow > 0 && paxE > 0) {
-              paxE -= 1;
-              overflow -= 1;
-            }
-            while (overflow > 0 && paxB > 0) {
-              paxB -= 1;
-              overflow -= 1;
-            }
-            while (overflow > 0 && paxF > 0) {
-              paxF -= 1;
-              overflow -= 1;
-            }
-          }
-          // --- END NEW MP ALLOCATION ---
 
           rev = calculateFlightRevenue({
             passengersEconomy: paxE,
