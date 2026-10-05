@@ -883,5 +883,20 @@
     "continue": "Back to my airline",
     "close": "Close report",
     "activity": "Full activity log"
+  },
+  "milestones": {
+    "toastTitle": "Milestone reached",
+    "tierUp": {
+      "kicker": "Promotion",
+      "title": "Tier {{tier}} reached!",
+      "range": "Routes up to {{km}} km",
+      "rangeAny": "Routes of any length",
+      "hubs_one": "Up to {{count}} hub",
+      "hubs_other": "Up to {{count}} hubs",
+      "hubsAny": "As many hubs as you like",
+      "next": "Next: Tier {{next}} at {{revenue}} total revenue and {{routes}} active routes.",
+      "continue": "Keep flying",
+      "close": "Close"
+    }
   }
 }

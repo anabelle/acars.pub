@@ -883,5 +883,20 @@
     "continue": "Volver a mi aerolínea",
     "close": "Cerrar informe",
     "activity": "Registro completo"
+  },
+  "milestones": {
+    "toastTitle": "Hito conseguido",
+    "tierUp": {
+      "kicker": "Ascenso",
+      "title": "¡Nivel {{tier}} alcanzado!",
+      "range": "Rutas de hasta {{km}} km",
+      "rangeAny": "Rutas de cualquier distancia",
+      "hubs_one": "Hasta {{count}} hub",
+      "hubs_other": "Hasta {{count}} hubs",
+      "hubsAny": "Tantos hubs como quieras",
+      "next": "Siguiente: nivel {{next}} con {{revenue}} de ingresos acumulados y {{routes}} rutas activas.",
+      "continue": "Seguir volando",
+      "close": "Cerrar"
+    }
   }
 }
