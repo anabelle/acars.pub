@@ -1,7 +1,7 @@
 # S02 — Economy balance harness
 
 > **Status:** ◐ in progress
-> **Next step:** S02.3
+> **Next step:** S02.4
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -39,7 +39,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S02.1** Move engine fixtures to `src/testing/engineFixtures.ts` (re-exported; no behavior change). _Done when:_ existing tests green.
 - [x] **S02.2** Scenario matrix + per-landing metrics + markdown report writer. _Done when:_ report lists LF/profit for the matrix.
-- [ ] **S02.3** Strategy sims (cautious / greedy / balanced) with days-to-tier. _Done when:_ report includes the strategy table.
+- [x] **S02.3** Strategy sims (cautious / greedy / balanced) with days-to-tier. _Done when:_ report includes the strategy table.
 - [ ] **S02.4** `pnpm balance` script + commit `docs/overhaul/balance/baseline-v1.md` + generator smoke test. _Done when:_ baseline matches ledger A1–A4.
 
 ## Details & guidance
@@ -68,6 +68,17 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
     - A2: MAD–BCN 40× gives $293,294 vs $3,056 profit/leg at 87% LF. DEN–SLC's best is 3×, and 40× still beats 1× by 3.4×.
     - A3: 10 ATRs on DEN–SLC give 14% LF.
   - **New finding:** the engine flies aircraft back to back: an ATR 72 does **17.6 legs/day on MAD–BCN** (an A320neo 21.5; a 787-9 3.4 on JFK–LHR). This matches the 9 legs in 12 h seen in the S30 e2e. `frequencyPerWeek` (7) does not cap flying, so the S23 card's "2 flights/day" understates daily profit about 8–9×. The LIH–KOA island pair has almost no demand (3% LF): thin markets are hard losses, not small wins.
+- 2026-10-05 · S02.3 · (this commit) · Changes:
+  - `balance/strategy.ts#simulateStrategy`: a pure O(days) day-one strategy sim from a MAD hub with $100M. One leased aircraft per route to the most populous airports between 250 km and the model's range (one per city, deterministic). Each route's economics come from a real engine leg at the back-to-back cadence. It charges the 10% deposit, the $100k slot fee and the daily lease, and adds revenue toward `evaluateTier`.
+  - Report section 5. Results:
+
+    | Strategy                                     | Profit/day | Days to T2 / T3 / T4          |
+    | -------------------------------------------- | ---------: | ----------------------------- |
+    | Cautious: 3 ATR 72s, 1×                      |      $131k | 13 / never (3 routes) / never |
+    | Balanced: 10 ATR 72s, 2×                     |     $1.67M | 2 / 20 / never (10 routes)    |
+    | Greedy: 37 ATR 72s (all the cash allows), 5× |     $19.8M | 1 / 3 / 11                    |
+
+  - **Corrects ledger A4:** the cautious player reaches Tier 2 in **13 days, not 28**. The audit assumed a schedule, but the engine flies back to back. The rest of A4 (bimodal pacing, $100M funds ~37 leased planes on day one) is confirmed and sharper: greedy reaches Tier 4 in 11 days.
 
 ## Follow-ups
 

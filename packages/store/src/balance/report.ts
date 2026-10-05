@@ -1,4 +1,5 @@
 import { dollars, type LegMetrics, runLegScenario } from "./legScenario.js";
+import { STRATEGIES, simulateStrategy } from "./strategy.js";
 
 /** Markets from thick to thin. All solo (no rival airlines). */
 export const MARKETS: Array<{ label: string; origin: string; destination: string }> = [
@@ -162,7 +163,39 @@ function familyTable(): string {
   return lines.join("\n");
 }
 
-/** Extra sections appended by later steps (strategy sims). */
+function strategyTable(days: number): string {
+  const lines = [
+    header([
+      "Strategy",
+      "Aircraft / routes",
+      "Day-one cost",
+      "Profit/day",
+      "Cash after 30 days",
+      "Days to Tier 2",
+      "Days to Tier 3",
+      "Days to Tier 4",
+    ]),
+  ];
+  const day = (value: number | null) => (value === null ? `> ${days}` : String(value));
+  for (const strategy of STRATEGIES) {
+    const result = simulateStrategy(strategy, { days });
+    lines.push(
+      row([
+        `**${strategy.name}**: ${strategy.description}`,
+        result.aircraft,
+        money(dollars(result.upfrontCost)),
+        money(dollars(result.profitPerDay)),
+        money(dollars(result.balanceAfter30Days)),
+        day(result.daysToTier[2]),
+        day(result.daysToTier[3]),
+        day(result.daysToTier[4]),
+      ]),
+    );
+  }
+  return lines.join("\n");
+}
+
+/** Extra sections appended by callers. */
 export type ReportSection = { title: string; body: string };
 
 /**
@@ -186,6 +219,10 @@ export function generateBalanceReport(extraSections: ReportSection[] = []): stri
       body: oversupplyTable(),
     },
     { title: "4. Aircraft families at suggested fares", body: familyTable() },
+    {
+      title: "5. Day-one strategies from a MAD hub ($100M start)",
+      body: `${strategyTable(365)}\n\n_One leased aircraft per route to the most populous airports in range; each route's economics from a real engine leg at the back-to-back cadence. Tier needs: T2 $5M revenue + 3 routes, T3 $50M + 10, T4 $250M + 25. Ignores the 3-minute delivery, rivals and network effects; strategies keep the ATR 72 after unlocks._`,
+    },
     ...extraSections,
   ];
   return [

@@ -24,9 +24,16 @@ describe("balance harness", () => {
 
   it("generates every section of the report", () => {
     const report = generateBalanceReport();
-    for (const heading of ["Market size", "Fare sweep", "Oversupply", "Aircraft families"]) {
+    for (const heading of [
+      "Market size",
+      "Fare sweep",
+      "Oversupply",
+      "Aircraft families",
+      "Day-one strategies",
+    ]) {
       expect(report).toContain(heading);
     }
     expect(report).toContain("LIH–KOA");
+    expect(report).toContain("Greedy");
   });
 });
