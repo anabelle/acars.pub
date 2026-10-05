@@ -1,7 +1,7 @@
 # S10 — Market model v2: incumbent carriers + distance-scaled fare cap
 
 > **Status:** ◐ in progress
-> **Next step:** S10.3
+> **Next step:** S10.4
 > **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
@@ -41,7 +41,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S10.1** `getIncumbentOffer` pure function + unit tests (not wired). _Done when:_ tests green.
 - [x] **S10.2** Wire the incumbent offer into landing allocation and the fare cap into reducer + slice (constants in core, in place per D2). _Done when:_ engine tests green; `pnpm balance` regenerated.
-- [ ] **S10.3** Calibrate with S02; commit before/after report. _Done when:_ README §6 balance targets met in the report.
+- [x] **S10.3** Calibrate with S02; commit before/after report. _Done when:_ README §6 balance targets met in the report.
 - [ ] **S10.4** Selector exposing incumbent strength / projected share for UI. _Done when:_ unit tests green.
 - [ ] **S10.5** Route card shows incumbent strength and the fare cap; commit `baseline-v2.md`. _Done when:_ screenshot + report committed.
 
@@ -77,10 +77,26 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
     - Too steep, though: at 1.5× load factor drops to ~33% (target: best fare 0.8–1.6×). Price is penalised twice, by the share term and the engine's −1.2 elasticity.
     - LIH–KOA now meets a small incumbent and falls to 14%; thin markets should be uncontested.
     - A player leg draws ~one incumbent planeload whatever its own size, so an A320 at 7/week flies at ~22%; the incumbent's gauge should grow with market size.
+- 2026-10-05 · S10.3 · (this commit) · **Calibrated; both README §6 balance targets met in `latest.md`.**
+  - Incumbent gauge now grows with market size: `60 + 55·log10(demand/1000)` seats, floored by range (70 / 100 / 200 / 250) and capped at 400. That's ≈100 seats on DEN–SLC, ≈130 on MAD–LIS, ≈180 on MAD–BCN.
+  - No incumbent below daily service (`INCUMBENT_MIN_WEEKLY_FREQUENCY` 3 → 7), so LIH–KOA is uncontested again.
+  - `INCUMBENT_FARE_SENSITIVITY` stays 1; fare cap 3×.
+  - Fare sweep refined to 0.5–3× (3× is the cap).
+  - Report section 0 checks the targets from the same engine runs:
+    - **No solved optimum:** ✅ best fare 1.4× JFK–BOS, 1.2× MAD–BCN, 1× MAD–LIS and DEN–SLC, 0.8× LIH–KOA.
+    - **Decisions matter:** ✅ CV 0.52 of profit/day across 20 MAD routes of every size, each with the better of ATR 72 / A320neo at 1× ($9k–$48k/day).
+    - My first version of the metric (ATR only, the 20 biggest markets) gave CV 0.07, because every big market fills an ATR. Aircraft choice per market is what creates the spread.
+  - Other results:
+    - An A320 beats an ATR on big markets (MAD–BCN $21.4k vs $6.1k/day) and loses money on DEN–SLC, where the ATR wins.
+    - The 2× "balanced" and 5× "greedy" strategies now lose money.
+    - The cautious path still takes 55 days to Tier 2 (pacing is S12).
+  - Gate: lint, typecheck, coverage, 18 e2e.
 
 ## Follow-ups
 
-_None yet._
+- **Long-haul widebodies are weak:** a 787-9 on JFK–LHR runs at 26% LF at 7/week because the per-leg demand is about one incumbent planeload (250 seats × 0.8) less supply pressure. Revisit the long-haul gauge floor or per-class demand when S12 tunes fleet economics.
+- **Pacing (S12):** the cautious player needs 55 days to Tier 2, and nobody reaches Tier 4 within a year in the strategy sims.
+- **Demand scale:** the gravity model gives MAD–BCN ~670k raw pax/week (real: ~50k). The incumbent model makes the absolute scale mostly irrelevant to players, but numbers shown in the UI (market size) will look unreal.
 
 ## Handoff notes
 

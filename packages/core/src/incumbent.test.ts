@@ -8,23 +8,29 @@ import {
 } from "./incumbent.js";
 
 describe("incumbent carriers", () => {
-  it("flies bigger aircraft on longer routes", () => {
-    expect(incumbentSeatsPerFlight(483)).toBeLessThan(incumbentSeatsPerFlight(2000));
-    expect(incumbentSeatsPerFlight(2000)).toBeLessThan(incumbentSeatsPerFlight(5000));
-    expect(incumbentSeatsPerFlight(5000)).toBeLessThan(incumbentSeatsPerFlight(9000));
+  it("flies bigger aircraft on bigger markets and longer routes", () => {
+    expect(incumbentSeatsPerFlight(483, 5_000)).toBeLessThan(incumbentSeatsPerFlight(483, 130_000));
+    expect(incumbentSeatsPerFlight(483, 130_000)).toBeGreaterThan(170);
+    expect(incumbentSeatsPerFlight(483, 130_000)).toBeLessThan(190);
+    // Long haul needs widebodies even on modest markets; nothing beyond 400 seats.
+    expect(incumbentSeatsPerFlight(9000, 5_000)).toBe(250);
+    expect(incumbentSeatsPerFlight(483, 1e12)).toBe(400);
+    expect(incumbentSeatsPerFlight(483, 0)).toBe(70);
   });
 
   it("sizes its frequency to carry the market at its target load factor", () => {
     const offer = getIncumbentOffer(28_000, 483);
     expect(offer).not.toBeNull();
     expect(offer?.frequencyPerWeek).toBeCloseTo(
-      28_000 / (incumbentSeatsPerFlight(483) * INCUMBENT_TARGET_LOAD_FACTOR),
+      28_000 / (incumbentSeatsPerFlight(483, 28_000) * INCUMBENT_TARGET_LOAD_FACTOR),
       10,
     );
   });
 
   it("does not serve markets too thin to sustain it", () => {
-    const seats = incumbentSeatsPerFlight(423) * INCUMBENT_TARGET_LOAD_FACTOR;
+    // A tiny market: the 70-seat floor applies, so daily service needs 392 pax/week.
+    const seats = incumbentSeatsPerFlight(423, 400) * INCUMBENT_TARGET_LOAD_FACTOR;
+    expect(seats).toBe(56);
     expect(getIncumbentOffer(seats * INCUMBENT_MIN_WEEKLY_FREQUENCY - 1, 423)).toBeNull();
     expect(getIncumbentOffer(seats * INCUMBENT_MIN_WEEKLY_FREQUENCY, 423)).not.toBeNull();
     expect(getIncumbentOffer(0, 423)).toBeNull();

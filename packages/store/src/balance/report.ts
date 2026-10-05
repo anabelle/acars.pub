@@ -1,6 +1,6 @@
 import { MAX_ROUTE_FREQUENCY_PER_WEEK } from "@acars/core";
 import { dollars, type LegMetrics, runLegScenario } from "./legScenario.js";
-import { STRATEGIES, simulateStrategy } from "./strategy.js";
+import { hubDestinations, STRATEGIES, simulateStrategy } from "./strategy.js";
 
 /** Markets from thick to thin. All solo (no rival airlines). */
 export const MARKETS: Array<{ label: string; origin: string; destination: string }> = [
@@ -11,7 +11,8 @@ export const MARKETS: Array<{ label: string; origin: string; destination: string
   { label: "LIH–KOA (thin island)", origin: "LIH", destination: "KOA" },
 ];
 
-export const FARE_MULTIPLIERS = [0.5, 1, 1.5, 2, 3, 5, 10, 20, 40];
+/** Up to the cap (3×, S10): above it the engine flies at the cap anyway. */
+export const FARE_MULTIPLIERS = [0.5, 0.8, 1, 1.2, 1.4, 1.6, 2, 2.5, 3];
 export const AIRCRAFT_COUNTS = [1, 3, 10];
 export const BASE_MODEL = "atr72-600";
 
@@ -198,6 +199,45 @@ function strategyTable(days: number): string {
   return lines.join("\n");
 }
 
+/** README §6 balance targets, checked from the same engine runs. */
+function targetsSection(sweeps: FareSweep[]): string {
+  const outOfBand = sweeps.filter(
+    (sweep) => sweep.best.fareMultiplier < 0.8 || sweep.best.fareMultiplier > 1.6,
+  );
+  const fareLine = `- **No solved optimum** (best fare 0.8–1.6× on every market): ${
+    outOfBand.length === 0
+      ? "✅ met"
+      : `❌ ${outOfBand.map((s) => `${s.market} ${s.best.fareMultiplier}×`).join(", ")}`
+  }`;
+
+  // Spread of profit/day across 20 routes a MAD-based player could open,
+  // sampled across market sizes (every 3rd of the 60 biggest in ATR range),
+  // each flown with the better of an ATR 72 and an A320neo at 1×.
+  const sample = hubDestinations("MAD", 1500, 60).filter((_, index) => index % 3 === 0);
+  const profits = sample.map((destinationIata) =>
+    Math.max(
+      ...[BASE_MODEL, "a320neo"].map((modelId) =>
+        dollars(
+          runLegScenario({
+            originIata: "MAD",
+            destinationIata,
+            modelId,
+            fareMultiplier: 1,
+            aircraftCount: 1,
+          }).profitPerDay,
+        ),
+      ),
+    ),
+  );
+  const mean = profits.reduce((sum, value) => sum + value, 0) / profits.length;
+  const variance = profits.reduce((sum, value) => sum + (value - mean) ** 2, 0) / profits.length;
+  const cv = mean !== 0 ? Math.sqrt(variance) / Math.abs(mean) : Number.POSITIVE_INFINITY;
+  const spreadLine = `- **Decisions matter** (coefficient of variation of profit/day > 0.3 across 20 MAD routes of every size, each with the better of ATR 72 and A320neo at 1×): ${
+    cv > 0.3 ? "✅" : "❌"
+  } CV ${cv.toFixed(2)} (min ${money(Math.min(...profits))}, max ${money(Math.max(...profits))}/day)`;
+  return [fareLine, spreadLine].join("\n");
+}
+
 /** Extra sections appended by callers. */
 export type ReportSection = { title: string; body: string };
 
@@ -209,6 +249,7 @@ export type ReportSection = { title: string; body: string };
 export function generateBalanceReport(extraSections: ReportSection[] = []): string {
   const sweeps = MARKETS.map((m) => sweepFares(m.origin, m.destination, m.label));
   const sections: ReportSection[] = [
+    { title: "0. Balance targets (README §6)", body: targetsSection(sweeps) },
     {
       title: "1. Market size at suggested fares (1 aircraft)",
       body: marketTable(),

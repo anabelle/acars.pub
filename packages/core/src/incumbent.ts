@@ -15,8 +15,8 @@ import { detPow } from "./det-math.js";
 
 /** Target load factor the incumbent schedules for. */
 export const INCUMBENT_TARGET_LOAD_FACTOR = 0.8;
-/** Below this many weekly round trips a market can't sustain an incumbent. */
-export const INCUMBENT_MIN_WEEKLY_FREQUENCY = 3;
+/** Below daily service a market can't sustain an incumbent: it stays uncontested. */
+export const INCUMBENT_MIN_WEEKLY_FREQUENCY = 7;
 /**
  * How strongly a fare above the suggested one makes a player less attractive
  * than the incumbent (share ∝ fareRatio^-k). Applied on top of the
@@ -24,12 +24,16 @@ export const INCUMBENT_MIN_WEEKLY_FREQUENCY = 3;
  */
 export const INCUMBENT_FARE_SENSITIVITY = 1;
 
-/** The incumbent's typical seats per flight: bigger aircraft on longer routes. */
-export function incumbentSeatsPerFlight(distanceKm: number): number {
-  if (distanceKm < 800) return 120;
-  if (distanceKm < 3000) return 160;
-  if (distanceKm < 7000) return 250;
-  return 300;
+/**
+ * The incumbent's typical seats per flight: bigger aircraft on bigger markets
+ * (≈100 seats at 5k pax/week, ≈180 at 130k) and never smaller than the range
+ * needs (widebodies on long haul).
+ */
+export function incumbentSeatsPerFlight(distanceKm: number, weeklyDemand: number): number {
+  const byDemand = 60 + 55 * Math.log10(Math.max(1, weeklyDemand / 1000));
+  const byDistance =
+    distanceKm < 800 ? 70 : distanceKm < 3000 ? 100 : distanceKm < 7000 ? 200 : 250;
+  return Math.round(Math.min(400, Math.max(byDistance, byDemand)));
 }
 
 export interface IncumbentOffer {
@@ -43,7 +47,7 @@ export interface IncumbentOffer {
  * direction, or null when the market is too thin to sustain one.
  */
 export function getIncumbentOffer(weeklyDemand: number, distanceKm: number): IncumbentOffer | null {
-  const seatsPerFlight = incumbentSeatsPerFlight(distanceKm);
+  const seatsPerFlight = incumbentSeatsPerFlight(distanceKm, weeklyDemand);
   const frequencyPerWeek = weeklyDemand / (seatsPerFlight * INCUMBENT_TARGET_LOAD_FACTOR);
   if (!(frequencyPerWeek >= INCUMBENT_MIN_WEEKLY_FREQUENCY)) return null;
   return { frequencyPerWeek, seatsPerFlight };
