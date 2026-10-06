@@ -32,7 +32,7 @@ export interface AirlinePageDeps {
   loadSummary: (pubkey: string) => Promise<AirlineSummary | null>;
 }
 
-/** The OG image for an airline (S50.3 renders it; generic until then). */
+/** The generated OG image for an airline (S50.3). */
 export function ogImageUrl(origin: string, npub: string): string {
   return `${origin}/api/og/airline/${encodeURIComponent(npub)}`;
 }
@@ -154,7 +154,7 @@ export async function loadSummaryFromRelays(
 }
 
 /** Edge-cached summary (Workers `caches.default`); null results cache briefly. */
-async function cachedSummary(pubkey: string, waitUntil: (p: Promise<unknown>) => void) {
+export async function cachedSummary(pubkey: string, waitUntil: (p: Promise<unknown>) => void) {
   const cache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
   const key = new Request(`https://og-cache.acars.pub/airline/${pubkey}`);
   const hit = cache ? await cache.match(key) : undefined;
