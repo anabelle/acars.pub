@@ -69,6 +69,21 @@ vi.mock("@acars/store", () => {
   };
 });
 
+// Landing labels read the stores' subscribe API, which this file's store mock lacks.
+vi.mock("@/features/network/hooks/useLandingBursts", () => ({ useLandingBursts: () => [] }));
+// The opportunity worker is replaced by a stub that records the hub asked for.
+const defaultOpportunities = (hub: string | null) => ({
+  hubIata: hub,
+  opportunities: hub
+    ? [{ iata: "BCN", latitude: 41.3, longitude: 2.08, profitPerDay: 4800, modelName: "A320" }]
+    : null,
+  pending: false,
+});
+const mockUseHubOpportunities = vi.fn(defaultOpportunities);
+vi.mock("@/features/network/hooks/useHubOpportunities", () => ({
+  useHubOpportunities: (hub: string | null) => mockUseHubOpportunities(hub),
+}));
+
 vi.mock("@acars/map", () => {
   return {
     DEFAULT_MAP_THEME: "dark",
@@ -338,5 +353,81 @@ describe("WorldMap", () => {
 
     expect(window.location.pathname).toBe("/network");
     expect(window.location.search).toBe("?tab=active");
+  });
+
+  it("toggles the opportunity map from your hub and remembers the choice", () => {
+    const homeAirport = AIRPORTS[0];
+    mockUseEngineStore.mockReturnValue(buildEngineState({ homeAirport }));
+    mockUseAirlineStore.mockReturnValue({
+      airline: { hubs: [homeAirport.iata], livery: { primary: "#111", secondary: "#222" } },
+      fleet: [],
+      fleetByOwner: new Map(),
+      routesByOwner: new Map(),
+      pubkey: "test-pubkey",
+      competitors: new Map(),
+      routes: [],
+      timeline: [],
+    });
+    mockUseHubOpportunities.mockClear();
+
+    render(<WorldMap />);
+    const lastGlobe = () => mockGlobe.mock.calls[mockGlobe.mock.calls.length - 1]?.[0];
+    // Off by default: no worker request, nothing drawn.
+    expect(mockUseHubOpportunities).toHaveBeenLastCalledWith(null);
+    expect(lastGlobe().opportunities).toEqual([]);
+    expect(screen.queryByTestId("opportunity-legend")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("opportunities-toggle"));
+    expect(mockUseHubOpportunities).toHaveBeenLastCalledWith(homeAirport.iata);
+    expect(lastGlobe().opportunities).toHaveLength(1);
+    expect(screen.getByTestId("opportunity-legend")).toHaveTextContent(
+      `Opportunities from ${homeAirport.iata}`,
+    );
+    expect(window.localStorage.getItem("acars_map_show_opportunities")).toBe("true");
+
+    fireEvent.click(screen.getByTestId("opportunities-toggle"));
+    expect(lastGlobe().opportunities).toEqual([]);
+    expect(window.localStorage.getItem("acars_map_show_opportunities")).toBe("false");
+  });
+
+  it("says the opportunity map is computing until the worker answers", () => {
+    const homeAirport = AIRPORTS[0];
+    mockUseEngineStore.mockReturnValue(buildEngineState({ homeAirport }));
+    mockUseAirlineStore.mockReturnValue({
+      airline: { hubs: [homeAirport.iata], livery: { primary: "#111", secondary: "#222" } },
+      fleet: [],
+      fleetByOwner: new Map(),
+      routesByOwner: new Map(),
+      pubkey: "test-pubkey",
+      competitors: new Map(),
+      routes: [],
+      timeline: [],
+    });
+    // First render: no request posted yet, so not "pending" either.
+    mockUseHubOpportunities.mockImplementation((hub) => ({
+      hubIata: hub,
+      opportunities: null as never,
+      pending: false,
+    }));
+    window.localStorage.setItem("acars_map_show_opportunities", "true");
+    render(<WorldMap />);
+    expect(screen.getByTestId("opportunity-legend")).toHaveTextContent("Computing…");
+    mockUseHubOpportunities.mockImplementation(defaultOpportunities);
+  });
+
+  it("has no opportunity toggle without an airline", () => {
+    mockUseEngineStore.mockReturnValue(buildEngineState({ homeAirport: AIRPORTS[0] }));
+    mockUseAirlineStore.mockReturnValue({
+      airline: null,
+      fleet: [],
+      fleetByOwner: new Map(),
+      routesByOwner: new Map(),
+      pubkey: null,
+      competitors: new Map(),
+      routes: [],
+      timeline: [],
+    });
+    render(<WorldMap />);
+    expect(screen.queryByTestId("opportunities-toggle")).toBeNull();
   });
 });

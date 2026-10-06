@@ -907,6 +907,14 @@
       "viewLabel": "Rutas visibles",
       "myNetwork": "Mi red",
       "world": "Mundo"
+    },
+    "opportunities": {
+      "show": "Mostrar oportunidades de ruta desde tu hub",
+      "hide": "Ocultar oportunidades de ruta",
+      "title": "Oportunidades desde {{iata}}",
+      "key": "Beneficio diario previsto de una ruta nueva · verde gana, rojo pierde",
+      "computing": "Calculando…",
+      "empty": "Aún no hay destinos al alcance"
     }
   },
   "awayReport": {

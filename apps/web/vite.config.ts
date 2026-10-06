@@ -7,6 +7,9 @@ import geminiProxy from "./server/gemini-proxy";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [TanStackRouterVite(), react(), geminiProxy()],
+  // Workers are created with { type: "module" }; ES output also lets them
+  // code-split (the opportunities worker lazy-loads the airports catalog).
+  worker: { format: "es" },
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {

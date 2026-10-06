@@ -907,6 +907,14 @@
       "viewLabel": "Routes shown",
       "myNetwork": "My network",
       "world": "World"
+    },
+    "opportunities": {
+      "show": "Show route opportunities from your hub",
+      "hide": "Hide route opportunities",
+      "title": "Opportunities from {{iata}}",
+      "key": "Projected profit/day of a new route · green earns, red loses",
+      "computing": "Computing…",
+      "empty": "No destinations in range yet"
     }
   },
   "awayReport": {

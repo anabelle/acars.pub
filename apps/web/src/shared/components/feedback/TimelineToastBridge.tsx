@@ -4,6 +4,7 @@ import React from "react";
 import { toast } from "sonner";
 import i18n from "@/i18n";
 import { isCatchupBatch } from "@/shared/lib/catchupBatch";
+import { newTimelineEvents } from "@/shared/lib/timelineEvents";
 
 const MAX_TOASTS_PER_BATCH = 5;
 
@@ -103,20 +104,11 @@ export const TimelineToastBridge = (): null => {
       const latestId = timeline[0]?.id ?? null;
       if (!latestId || latestId === lastEventIdRef.current) return;
 
-      const lastSeenId = lastEventIdRef.current;
-      let newEvents: TimelineEvent[] = [];
-      if (!lastSeenId) {
-        newEvents = [timeline[0]];
-      } else {
-        const lastIndex = timeline.findIndex((event) => event.id === lastSeenId);
-        newEvents =
-          lastIndex === -1 ? timeline.slice(0, MAX_TOASTS_PER_BATCH) : timeline.slice(0, lastIndex);
-      }
-
+      const newEvents = newTimelineEvents(timeline, lastEventIdRef.current, MAX_TOASTS_PER_BATCH);
       lastEventIdRef.current = latestId;
 
       if (!newEvents.length) return;
-      const limitedEvents = newEvents.slice(0, MAX_TOASTS_PER_BATCH).reverse();
+      const limitedEvents = [...newEvents].reverse();
       for (const event of limitedEvents) {
         showTimelineToast(event);
       }

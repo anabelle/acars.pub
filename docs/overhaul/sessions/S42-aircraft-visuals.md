@@ -1,7 +1,7 @@
 # S42 — Aircraft family icons + livery tint
 
-> **Status:** ☑ ready for review
-> **Next step:** — (awaiting merge of #179)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #179)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #179
 >
