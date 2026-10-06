@@ -5,6 +5,7 @@ import {
   FIRST_LANDING_FALLBACK_SEC,
   type FunnelEvent,
   FUNNEL_WORLD_ID,
+  formatFunnelReport,
   percentile,
   summarizeFunnel,
   timeToFirstAssignment,
@@ -225,5 +226,61 @@ describe("percentile() and utcWeekStart()", () => {
     expect(utcWeekStart(T0)).toBe("2026-09-28"); // Thu 2026-10-01
     expect(utcWeekStart(Date.UTC(2026, 9, 5) / 1000)).toBe("2026-10-05"); // a Monday
     expect(utcWeekStart(Date.UTC(2026, 9, 11, 23) / 1000)).toBe("2026-10-05"); // Sunday
+  });
+});
+
+describe("formatFunnelReport()", () => {
+  const events = [
+    ev("pk-a", T0, "AIRLINE_CREATE"),
+    ev("pk-a", T0 + 600, "ROUTE_OPEN", { routeId: "r1", distanceKm: 500 }),
+    ev("pk-a", T0 + 900, "ROUTE_ASSIGN_AIRCRAFT", { routeId: "r1" }),
+    ev("pk-b", T0 + 100, "AIRLINE_CREATE"),
+  ];
+  const report = formatFunnelReport({
+    worldId: WORLD,
+    sinceSec: T0,
+    untilSec: T0 + 2 * DAY,
+    relays: [
+      { url: "wss://a", events: 4 },
+      { url: "wss://down", events: null },
+    ],
+    events,
+  });
+
+  it("has every section", () => {
+    for (const heading of [
+      "# ACARS funnel — 2026-10-03",
+      "## Funnel",
+      "## Weekly cohorts",
+      "## Daily events",
+    ]) {
+      expect(report).toContain(heading);
+    }
+  });
+
+  it("reports the funnel, retention and unreachable relays", () => {
+    expect(report).toContain("| Created | 2 | 100% |");
+    expect(report).toContain("| Assigned an aircraft | 1 | 50% |");
+    expect(report).toContain("| D1 | 2 | 0 | 0% |");
+    expect(report).toContain("| D7 | 0 | 0 | — |");
+    expect(report).toContain("Relays read: 1 of 2 (unreachable: wss://down)");
+    expect(report).toContain("median 15 min");
+  });
+
+  it("never prints pubkeys", () => {
+    expect(report).not.toContain("pk-a");
+    expect(report).not.toContain("pk-b");
+  });
+
+  it("omits the unreachable list when every relay answered", () => {
+    const ok = formatFunnelReport({
+      worldId: WORLD,
+      sinceSec: T0,
+      untilSec: T0 + DAY,
+      relays: [{ url: "wss://a", events: 0 }],
+      events: [],
+    });
+    expect(ok).toContain("Relays read: 1 of 1. Game events: 0.");
+    expect(ok).toContain("median —");
   });
 });

@@ -74,6 +74,13 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - `weeklyCohorts` groups by UTC-Monday week.
 
 `pnpm funnel` prints all of it. **Sanity check against the leaderboard is pending:** relay hosts are blocked from this container (see S04.1). The step's code is done and fixture-tested.
+2026-10-06 · S04.3 WIP · (this commit) · Done:
+
+- `formatFunnelReport` (pure, tested; never prints pubkeys).
+- `pnpm funnel --report` writes `docs/overhaul/metrics/<day>.md`.
+- Usage docs and metric definitions in `docs/overhaul/metrics/README.md`.
+
+**Remaining: the first real report.** Relays are unreachable from the agent container (403), so I didn't commit an empty report. Next: run `pnpm funnel --days 30 --report` with relay access, sanity-check the created count against the leaderboard's airline count, commit the report, and tick S04.3.
 
 ## Follow-ups
 

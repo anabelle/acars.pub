@@ -14,7 +14,12 @@
  *   --relay <url>   Relay to read (repeatable; default: the game's relay list)
  *   --world <id>    World id (default: the game's current world)
  *   --max-pages <n> Pages of 500 events per relay (default: 40)
+ *   --report        Also write docs/overhaul/metrics/<today>.md
  */
+
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   buildJourneys,
@@ -23,7 +28,10 @@ import {
   FUNNEL_ACTION_KIND,
   FUNNEL_WORLD_ID,
   formatDailyCounts,
+  formatFunnelReport,
   type RawNostrEvent,
+  type RelayReadResult,
+  utcDay,
   summarizeFunnel,
   timeToFirstAssignment,
   weeklyCohorts,
@@ -44,7 +52,13 @@ const PAGE_LIMIT = 500;
 const DAY_SEC = 86_400;
 
 function parseArgs(argv: string[]) {
-  const options = { days: 7, relays: [] as string[], world: FUNNEL_WORLD_ID, maxPages: 40 };
+  const options = {
+    days: 7,
+    relays: [] as string[],
+    world: FUNNEL_WORLD_ID,
+    maxPages: 40,
+    report: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const value = argv[i + 1];
     switch (argv[i]) {
@@ -63,6 +77,9 @@ function parseArgs(argv: string[]) {
       case "--max-pages":
         options.maxPages = Math.max(1, Number(value) || 40);
         i += 1;
+        break;
+      case "--report":
+        options.report = true;
         break;
       default:
         throw new Error(`Unknown option ${argv[i]}`);
@@ -147,12 +164,15 @@ async function main() {
   const until = Math.floor(Date.now() / 1000);
   const since = until - options.days * DAY_SEC;
   const raw: RawNostrEvent[] = [];
+  const relayResults: RelayReadResult[] = [];
   for (const url of options.relays) {
     try {
       const events = await readRelay(url, since, until, options.maxPages);
       raw.push(...events);
+      relayResults.push({ url, events: events.length });
       console.error(`${url}: ${events.length} events`);
     } catch (error) {
+      relayResults.push({ url, events: null });
       console.error(`${url}: skipped (${(error as Error).message})`);
     }
   }
@@ -185,6 +205,23 @@ async function main() {
     );
   }
   console.log("\n* estimated: first assignment + flight time on that route.");
+
+  if (options.report) {
+    const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+    const target = resolve(repoRoot, "docs/overhaul/metrics", `${utcDay(until)}.md`);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(
+      target,
+      formatFunnelReport({
+        worldId: options.world,
+        sinceSec: since,
+        untilSec: until,
+        relays: relayResults,
+        events,
+      }),
+    );
+    console.log(`\nReport written to ${target}`);
+  }
 }
 
 main().catch((error) => {
