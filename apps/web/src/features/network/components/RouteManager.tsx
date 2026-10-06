@@ -54,6 +54,7 @@ import {
 } from "@/features/network/utils/routeEconomics";
 import { PanelHeader } from "@/shared/components/layout/PanelLayout";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
+import { LiveryThumb } from "@/shared/components/LiveryThumb";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { RouteFrequencyControl } from "@/features/network/components/RouteFrequencyControl";
 import { useConfirm } from "@/shared/lib/useConfirm";
@@ -162,6 +163,7 @@ function getProspectMarkets(origin: Airport, tick: number): ProspectMarket[] {
 export function RouteManager() {
   const { t } = useTranslation(["common", "game"]);
   const { airline, routes, fleet, isViewingOther } = useActiveAirline();
+  const fleetById = useMemo(() => new Map(fleet.map((ac) => [ac.id, ac])), [fleet]);
   // Fine-grained selectors — the previous whole-store subscription re-rendered
   // this 2k-LOC tree on every write of any airline-store slice.
   const pubkey = useAirlineStore((s) => s.pubkey);
@@ -831,6 +833,28 @@ export function RouteManager() {
                                       count: assignedCount,
                                     })}
                                   </span>
+                                  {assignedCount > 0 ? (
+                                    <span
+                                      className="mt-1 flex justify-end -space-x-2"
+                                      data-testid="route-liveries"
+                                    >
+                                      {route.assignedAircraftIds.slice(0, 4).map((aircraftId) => {
+                                        const ac = fleetById.get(aircraftId);
+                                        if (!ac) return null;
+                                        return (
+                                          <LiveryThumb
+                                            key={aircraftId}
+                                            imageUrl={ac.liveryImageUrl}
+                                            familyId={getAircraftById(ac.modelId)?.familyId}
+                                            color={airline?.livery.primary}
+                                            alt={ac.name}
+                                            size="xs"
+                                            className="ring-2 ring-card"
+                                          />
+                                        );
+                                      })}
+                                    </span>
+                                  ) : null}
                                 </div>
 
                                 <div className="flex items-center gap-2">

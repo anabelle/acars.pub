@@ -259,6 +259,26 @@
       "groundsIn_one": "Grounds in ~{{count}} day unless serviced",
       "groundsIn_other": "Grounds in ~{{count}} days unless serviced",
       "groundsNow": "Grounding: service it now"
+    },
+    "hangar": {
+      "list": "List",
+      "gallery": "Hangar",
+      "viewAria": "Fleet view",
+      "parked": "Parked at {{base}}"
+    },
+    "poster": {
+      "button": "Fleet poster",
+      "title": "Fleet poster",
+      "portrait": "Portrait · 1080×1350",
+      "landscape": "Landscape · 1200×630",
+      "download": "Download PNG",
+      "aircraft": "Aircraft",
+      "routes": "Routes",
+      "tier": "Tier",
+      "footer": "Flying on acars.pub",
+      "failed": "Couldn't create the poster",
+      "closeAria": "Close",
+      "formatAria": "Poster size"
     }
   },
   "network": {
