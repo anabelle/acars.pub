@@ -414,7 +414,8 @@ export function WorldMap() {
             {t("worldMap.opportunities.title", { ns: "game", iata: opportunityHub })}
           </p>
           <p className="mt-1">
-            {hubOpportunities.pending && !hubOpportunities.opportunities
+            {/* No result for this hub yet (even before the request is posted). */}
+            {hubOpportunities.opportunities === null
               ? t("worldMap.opportunities.computing", { ns: "game" })
               : hubOpportunities.opportunities?.length === 0
                 ? t("worldMap.opportunities.empty", { ns: "game" })

@@ -92,6 +92,8 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **e2e** `opportunity-map.spec.ts`: a new player turns it on; the worker answers. A probe wraps the worker and measures the main-thread cost: `postMessage` 0 ms, reply handling 0.1–0.3 ms (asserted < 50 ms). The 40–100 ms compute stays in the worker. It also checks that off clears the layer and persists. `opportunity-map.png` was checked by eye.
 - **Not done.** Event pins: S33 (world events) isn't merged, so there's nothing to pin.
 
+2026-10-06 · S43.3 fix · (this commit) · **CI e2e race.** The key said "green earns…" whenever the hook wasn't pending and had no result yet. That happens on the first render, before the worker request is posted. On CI the e2e saw the key before any reply and failed: the worker probe had 0 replies. The legend now shows Computing… until there is a result for the hub, which also removes a flash of the key in the UI. There's a unit test for that state; the e2e passed twice locally.
+
 ## Follow-ups
 
 - **Event pins.** Add S33 world-event pins to the globe once S33 lands; the brief made them conditional.
