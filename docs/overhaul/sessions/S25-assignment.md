@@ -1,8 +1,8 @@
 # S25 — Assign from both sides + ferry-and-assign
 
-> **Status:** ☐ not started
-> **Next step:** S25.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S25.2
+> **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
 > **Track:** UX · **Size:** M (4 steps) · **Depends on:** S23 · **Unblocks:** —
@@ -37,7 +37,7 @@ Put planes on routes from wherever the player is looking.
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S25.1** Shared candidate-aircraft selector (at endpoint / needs ferry). _Done when:_ unit tests.
+- [x] **S25.1** Shared candidate-aircraft selector (at endpoint / needs ferry). _Done when:_ unit tests.
 - [ ] **S25.2** "Add aircraft" from route rows/panel. _Done when:_ screenshots.
 - [ ] **S25.3** "Assign route" from aircraft panel + ferry-and-assign. _Done when:_ screenshots.
 - [ ] **S25.4** E2E for both entry points. _Done when:_ e2e green.
@@ -55,7 +55,12 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-06 · S25.1 · (this commit) · `network/utils/assignmentCandidates.ts`:
+
+- `assignmentOption(aircraft, route, hubs, distanceKm)` returns `ready`, `ferry` (to the nearest hub endpoint within range) or `blocked`, with one of 7 reasons. It mirrors the store's rules: not en route, based at a hub that is a route endpoint, in range. A ferry needs an idle aircraft and a ferry leg within range.
+- `candidateAircraftForRoute` and `candidateRoutesForAircraft` sort ready (free before reassignments), then ferries by distance, then blocked. Ties break by name.
+
+Design note for S25.3: a ferry puts the aircraft en route, and en-route aircraft can't be assigned. So 'ferry + assign' can't be two back-to-back actions without changing the assignment rules, which is out of scope. Plan: one confirm publishes the ferry now and queues the assignment, which fires when the aircraft lands while the game is open.
 
 ## Follow-ups
 
