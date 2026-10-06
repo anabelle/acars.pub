@@ -60,10 +60,15 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 ## Follow-ups
 
-_None yet._
+- **Route-choice spread (README §6 'decisions matter')** regressed to CV 0.21 after S11.1 removed the double oversupply penalty. Thin markets now break even with the right aircraft. It needs a tuning pass (e.g. cost per seat on short sectors, or demand scaling for small airports) in an economy session after S12. It is not fixed here, so that the oversupply fix stays isolated.
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
-
-- **Route-choice spread (README §6 'decisions matter')** regressed to CV 0.21 after S11.1 removed the double oversupply penalty. Thin markets now break even with the right aircraft. It needs a tuning pass (e.g. cost per seat on short sectors, or demand scaling for small airports) in an economy session after S12. It is not fixed here, so that the oversupply fix stays isolated.
+- **Shipped.**
+  - Oversupply is applied once: `supplyLoadFactor` and a redefined `calculateSupplyPressure`.
+  - Brand v2 grades each landing on fair fare, aircraft condition and a healthy LF band, and pulls the brand toward the grade's target.
+  - Balance report §6–7 shows the curve and the brand trajectories.
+- **Gotchas.**
+  - The pressure multiplier must stay at the ceiling when a route is undersupplied. Otherwise small cabins (first-only) get starved by rounding before the seat cap applies.
+  - Brand now moves meaningfully: about 78% of the way to its target in a month for a 10-aircraft airline. QSI weights brand, so market shares will drift more than before.
+- **Not done.** The route-spread regression (see Follow-ups).
