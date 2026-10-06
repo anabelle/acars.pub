@@ -56,7 +56,15 @@ function fakeCanvas() {
     putImageData(image: { data: Uint8ClampedArray }) {
       this.written = image;
     },
-    getImageData: (_x: number, _y: number, w: number, h: number) => ({ width: w, height: h }),
+    drawn: 0,
+    drawImage() {
+      ctx.drawn++;
+    },
+    getImageData: (_x: number, _y: number, w: number, h: number) => ({
+      width: w,
+      height: h,
+      data: new Uint8ClampedArray(w * h * 4),
+    }),
     beginPath: () => {},
     arc() {
       ctx.arcs.push(ctx.strokeStyle);
@@ -148,6 +156,33 @@ describe("map layer modules", () => {
     expect(images.has("airplane-a320-accent")).toBe(true);
     expect(images.has("airplane-icon")).toBe(true);
     expect(images.has("light-dot")).toBe(true);
+  });
+
+  it("registers icons as device-resolution distance fields", () => {
+    const added: Array<{
+      id: string;
+      image: { width: number; data: Uint8ClampedArray };
+      options: unknown;
+    }> = [];
+    const map = {
+      hasImage: () => false,
+      addImage: (id: string, image: { width: number; data: Uint8ClampedArray }, options: unknown) =>
+        added.push({ id, image, options }),
+    };
+    registerAircraftIcons(map as never);
+    const a320 = added.find((a) => a.id === "airplane-a320");
+    expect(a320?.options).toEqual({ sdf: true, pixelRatio: 2 });
+    // 48 px logical + 4 px buffer each side, at 2× → 112 px.
+    expect(a320?.image.width).toBe(112);
+    expect(a320?.image.data.length).toBe(112 * 112 * 4);
+    expect(added.find((a) => a.id === "light-dot")?.image.width).toBe(40);
+  });
+
+  it("skips icons when no 2D context is available", () => {
+    vi.stubGlobal("document", { createElement: () => ({ getContext: () => null }) });
+    const { map, images } = fakeMap();
+    registerAircraftIcons(map);
+    expect(images.size).toBe(0);
   });
 });
 

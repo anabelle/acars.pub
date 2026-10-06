@@ -1,18 +1,42 @@
 import type * as maplibregl from "maplibre-gl";
 import { FAMILY_ICONS, LIGHT_DOT_SVG, WING_TIP_OFFSETS } from "../icons.js";
+import {
+  alphaToSdf,
+  ICON_PIXEL_RATIO,
+  resizeSvg,
+  sdfIconDimensions,
+  sdfImage,
+  svgLogicalSize,
+} from "../sdf.js";
 import type { MapPalette } from "../theme.js";
 
-/** Registers the per-family aircraft icons and the navigation-light dot as SDF images. */
+/**
+ * Registers the per-family aircraft icons and the navigation-light dot as
+ * SDF images. Each SVG is rasterised at ICON_PIXEL_RATIO with a transparent
+ * buffer and converted to a real distance field (see sdf.ts), so icons stay
+ * crisp when zoomed and can be tinted and outlined at runtime.
+ */
 export function registerAircraftIcons(map: maplibregl.Map): void {
-  // Helper to add SVG to map as SDF
   const addIcon = (id: string, svg: string) => {
+    const { inner, buffer, size } = sdfIconDimensions(svgLogicalSize(svg));
     const img = new Image();
     img.onload = () => {
-      if (!map.hasImage(id)) {
-        map.addImage(id, img, { sdf: true });
-      }
+      if (map.hasImage(id)) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+      ctx.drawImage(img, buffer, buffer, inner, inner);
+      const { data } = ctx.getImageData(0, 0, size, size);
+      const alpha = new Uint8ClampedArray(size * size);
+      for (let i = 0; i < alpha.length; i++) alpha[i] = data[i * 4 + 3];
+      map.addImage(id, sdfImage(alphaToSdf(alpha, size, size), size, size), {
+        sdf: true,
+        pixelRatio: ICON_PIXEL_RATIO,
+      });
     };
-    img.src = "data:image/svg+xml;base64," + btoa(svg);
+    img.src = "data:image/svg+xml;base64," + btoa(resizeSvg(svg, inner));
   };
 
   // Register per-family icons (12 families × 2 layers = 24 icons)
@@ -27,6 +51,26 @@ export function registerAircraftIcons(map: maplibregl.Map): void {
   // Register navigation light icon (single SDF circle, positioned via icon-offset)
   addIcon("light-dot", LIGHT_DOT_SVG);
 }
+
+/**
+ * Aircraft icon size: wingspan-relative (`sizeScale`) and growing with zoom,
+ * with a floor at low zooms so a turboprop stays a readable silhouette
+ * instead of a dot. Shared by the body, accent and navigation-light layers
+ * so wing-tip lights stay aligned.
+ */
+export const AIRCRAFT_ICON_SIZE: maplibregl.ExpressionSpecification = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  2,
+  ["max", ["*", ["get", "sizeScale"], 0.15], 0.3],
+  5,
+  ["max", ["*", ["get", "sizeScale"], 0.4], 0.42],
+  8,
+  ["*", ["get", "sizeScale"], 0.7],
+  12,
+  ["*", ["get", "sizeScale"], 1.0],
+];
 
 /** Aircraft layers: rivals' and the player's flights (body + livery accent), glow and navigation lights. */
 export function addFlightLayers(map: maplibregl.Map, mapThemePalette: MapPalette): void {
@@ -65,19 +109,7 @@ export function addFlightLayers(map: maplibregl.Map, mapThemePalette: MapPalette
         "airplane-b747",
         "airplane-a320",
       ],
-      "icon-size": [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        2,
-        ["*", ["get", "sizeScale"], 0.15],
-        5,
-        ["*", ["get", "sizeScale"], 0.4],
-        8,
-        ["*", ["get", "sizeScale"], 0.7],
-        12,
-        ["*", ["get", "sizeScale"], 1.0],
-      ],
+      "icon-size": AIRCRAFT_ICON_SIZE,
       "icon-rotate": ["get", "bearing"],
       "icon-rotation-alignment": "map",
       "icon-allow-overlap": true,
@@ -125,19 +157,7 @@ export function addFlightLayers(map: maplibregl.Map, mapThemePalette: MapPalette
         "airplane-b747-accent",
         "airplane-a320-accent",
       ],
-      "icon-size": [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        2,
-        ["*", ["get", "sizeScale"], 0.15],
-        5,
-        ["*", ["get", "sizeScale"], 0.4],
-        8,
-        ["*", ["get", "sizeScale"], 0.7],
-        12,
-        ["*", ["get", "sizeScale"], 1.0],
-      ],
+      "icon-size": AIRCRAFT_ICON_SIZE,
       "icon-rotate": ["get", "bearing"],
       "icon-rotation-alignment": "map",
       "icon-allow-overlap": true,
@@ -185,19 +205,7 @@ export function addFlightLayers(map: maplibregl.Map, mapThemePalette: MapPalette
         "airplane-b747",
         "airplane-a320",
       ],
-      "icon-size": [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        2,
-        ["*", ["get", "sizeScale"], 0.15],
-        5,
-        ["*", ["get", "sizeScale"], 0.4],
-        8,
-        ["*", ["get", "sizeScale"], 0.7],
-        12,
-        ["*", ["get", "sizeScale"], 1.0],
-      ],
+      "icon-size": AIRCRAFT_ICON_SIZE,
       "icon-rotate": ["get", "bearing"],
       "icon-rotation-alignment": "map",
       "icon-allow-overlap": true,
@@ -244,19 +252,7 @@ export function addFlightLayers(map: maplibregl.Map, mapThemePalette: MapPalette
         "airplane-b747-accent",
         "airplane-a320-accent",
       ],
-      "icon-size": [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        2,
-        ["*", ["get", "sizeScale"], 0.15],
-        5,
-        ["*", ["get", "sizeScale"], 0.4],
-        8,
-        ["*", ["get", "sizeScale"], 0.7],
-        12,
-        ["*", ["get", "sizeScale"], 1.0],
-      ],
+      "icon-size": AIRCRAFT_ICON_SIZE,
       "icon-rotate": ["get", "bearing"],
       "icon-rotation-alignment": "map",
       "icon-allow-overlap": true,
@@ -304,19 +300,7 @@ export function addFlightLayers(map: maplibregl.Map, mapThemePalette: MapPalette
   ] as unknown as maplibregl.ExpressionSpecification;
   // Keep icon-size scaling identical to aircraft icons so wing-tip offsets
   // remain aligned per family and wingspan across zoom levels.
-  const lightIconSizeExpr: maplibregl.ExpressionSpecification = [
-    "interpolate",
-    ["linear"],
-    ["zoom"],
-    2,
-    ["*", ["get", "sizeScale"], 0.15],
-    5,
-    ["*", ["get", "sizeScale"], 0.4],
-    8,
-    ["*", ["get", "sizeScale"], 0.7],
-    12,
-    ["*", ["get", "sizeScale"], 1.0],
-  ];
+  const lightIconSizeExpr = AIRCRAFT_ICON_SIZE;
   const addLightLayers = (sourceId: string, prefix: string, baseOpacity: number) => {
     const sharedLayout: maplibregl.SymbolLayerSpecification["layout"] = {
       "icon-image": "light-dot",
