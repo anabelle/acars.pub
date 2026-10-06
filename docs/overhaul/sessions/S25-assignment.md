@@ -1,9 +1,9 @@
 # S25 — Assign from both sides + ferry-and-assign
 
-> **Status:** ◐ in progress
-> **Next step:** S25.4
+> **Status:** ☑ ready for review
+> **Next step:** — (all steps done; awaiting review)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #175
 >
 > **Track:** UX · **Size:** M (4 steps) · **Depends on:** S23 · **Unblocks:** —
 >
@@ -40,7 +40,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S25.1** Shared candidate-aircraft selector (at endpoint / needs ferry). _Done when:_ unit tests.
 - [x] **S25.2** "Add aircraft" from route rows/panel. _Done when:_ screenshots.
 - [x] **S25.3** "Assign route" from aircraft panel + ferry-and-assign. _Done when:_ screenshots.
-- [ ] **S25.4** E2E for both entry points. _Done when:_ e2e green.
+- [x] **S25.4** E2E for both entry points. _Done when:_ e2e green.
 
 ## Details & guidance
 
@@ -49,7 +49,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] Assignment possible from route panel, aircraft panel and fleet list; e2e test.
+- [x] Assignment possible from route panel, aircraft panel and fleet list; e2e test.
 
 ## Progress log
 
@@ -75,6 +75,7 @@ en and es strings are in `assign.*`, with unit tests for the dialog. New e2e `ro
 - **Runner.** `PendingAssignmentsRunner`, mounted in `__root`, assigns once the aircraft is on the ground at `ferryTo`. It drops stale entries: aircraft or route gone, already assigned, or landed elsewhere.
 
 Unit tests cover the queue, hook, runner and both dialogs. The e2e `route-assign.spec.ts` now also moves an aircraft from the aircraft panel; both tests pass locally and I checked screenshots of both dialogs.
+2026-10-06 · S25.4 · (this commit) · The full e2e suite is green locally: 28 tests, including both `route-assign.spec.ts` entry points (route list → Add aircraft; fleet → aircraft panel → Change route). The ferry path is covered by unit tests, not e2e: reaching an idle aircraft away from a hub needs a long real-time ferry.
 
 ## Follow-ups
 
@@ -82,4 +83,12 @@ Unit tests cover the queue, hook, runner and both dialogs. The e2e `route-assign
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped.**
+  - Shared candidate selector.
+  - 'Add aircraft' on route rows.
+  - 'Assign / Change route' in the aircraft panel.
+  - Ferry-and-assign behind one confirm, with a local queue that assigns on landing.
+  - en and es strings, unit tests and e2e.
+- **Gotchas.**
+  - Running `biome check --write` over a folder rewrites unrelated files, so format only the files you changed.
+  - Dialog tests mock `useFerryAndAssign`, because the real hook needs the confirm provider.
