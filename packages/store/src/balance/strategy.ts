@@ -35,17 +35,19 @@ export const STRATEGIES: Strategy[] = [
   },
   {
     name: "Balanced",
-    description: "10 ATR 72s, 2× fares",
+    description: "10 ATR 72s, 1.2× fares (top of the fair band)",
     modelId: "atr72-600",
     aircraft: 10,
-    fareMultiplier: 2,
+    fareMultiplier: 1.2,
   },
   {
+    // S12: with fares capped at 3× and a real market, overpricing no longer
+    // pays; greedy now means max lease at the revenue-maximising fare.
     name: "Greedy",
-    description: "lease every ATR 72 the cash allows, 5× fares",
+    description: "lease every ATR 72 the cash allows, 1.4× fares",
     modelId: "atr72-600",
     aircraft: "max",
-    fareMultiplier: 5,
+    fareMultiplier: 1.4,
   },
 ];
 
