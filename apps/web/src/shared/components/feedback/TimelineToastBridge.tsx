@@ -3,8 +3,7 @@ import { useAirlineStore, useEngineStore } from "@acars/store";
 import React from "react";
 import { toast } from "sonner";
 import i18n from "@/i18n";
-import { isCatchupBatch } from "@/shared/lib/catchupBatch";
-import { newTimelineEvents } from "@/shared/lib/timelineEvents";
+import { subscribeToNewTimelineEvents } from "@/shared/lib/timelineEvents";
 
 const MAX_TOASTS_PER_BATCH = 5;
 
@@ -22,6 +21,7 @@ const EVENT_TITLE_KEYS: Record<TimelineEventType, string> = {
   route_change: "timeline.events.routeChange",
   ferry: "timeline.events.ferry",
   competitor_hub: "timeline.events.competitorHub",
+  competitor_route: "timeline.events.competitorRoute",
   price_war: "timeline.events.priceWar",
   tier_upgrade: "timeline.events.tierUpgrade",
   bankruptcy: "timeline.events.bankruptcy",
@@ -43,6 +43,7 @@ const EVENT_TOAST_KIND: Record<TimelineEventType, "success" | "info" | "warning"
   route_change: "info",
   ferry: "info",
   competitor_hub: "warning",
+  competitor_route: "warning",
   price_war: "warning",
   tier_upgrade: "success",
   bankruptcy: "warning",
@@ -70,55 +71,19 @@ const showTimelineToast = (event: TimelineEvent) => {
 };
 
 export const TimelineToastBridge = (): null => {
-  const lastEventIdRef = React.useRef<string | null>(null);
-  const isCatchupRef = React.useRef(false);
-
-  React.useEffect(() => {
-    lastEventIdRef.current = useAirlineStore.getState().timeline[0]?.id ?? null;
-    isCatchupRef.current = !!useEngineStore.getState().catchupProgress;
-
-    const unsubscribeCatchup = useEngineStore.subscribe((state) => {
-      isCatchupRef.current = !!state.catchupProgress;
-    });
-
-    const unsubscribeTimeline = useAirlineStore.subscribe((state, prevState) => {
-      const timeline = state.timeline;
-      const previousTimeline = prevState.timeline;
-      if (timeline === previousTimeline) return;
-
-      if (!timeline.length) {
-        lastEventIdRef.current = null;
-        return;
-      }
-
-      // Long catch-ups (an absence of an hour or more, or loading the airline)
-      // are summarized by the away report instead of a burst of stale toasts.
-      if (
-        isCatchupRef.current ||
-        isCatchupBatch(prevState.airline?.lastTick, state.airline?.lastTick)
-      ) {
-        lastEventIdRef.current = timeline[0]?.id ?? null;
-        return;
-      }
-
-      const latestId = timeline[0]?.id ?? null;
-      if (!latestId || latestId === lastEventIdRef.current) return;
-
-      const newEvents = newTimelineEvents(timeline, lastEventIdRef.current, MAX_TOASTS_PER_BATCH);
-      lastEventIdRef.current = latestId;
-
-      if (!newEvents.length) return;
-      const limitedEvents = [...newEvents].reverse();
-      for (const event of limitedEvents) {
-        showTimelineToast(event);
-      }
-    });
-
-    return () => {
-      unsubscribeCatchup();
-      unsubscribeTimeline();
-    };
-  }, []);
+  // Long catch-ups (an absence of an hour or more, or loading the airline)
+  // are summarized by the away report instead of a burst of stale toasts.
+  React.useEffect(
+    () =>
+      subscribeToNewTimelineEvents(
+        { airline: useAirlineStore, engine: useEngineStore },
+        MAX_TOASTS_PER_BATCH,
+        (events) => {
+          for (const event of [...events].reverse()) showTimelineToast(event);
+        },
+      ),
+    [],
+  );
 
   return null;
 };

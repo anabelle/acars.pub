@@ -82,7 +82,8 @@
       "tierUpgrade": "Tier Upgraded",
       "bankruptcy": "BANKRUPTCY FILED",
       "financialWarning": "Financial Warning",
-      "operationsUpdate": "Operations Update"
+      "operationsUpdate": "Operations Update",
+      "competitorRoute": "Rival on your route"
     }
   },
   "fleet": {
@@ -1005,5 +1006,31 @@
     "revenue": "Revenue",
     "network": "Network",
     "fleet": "Fleet"
+  },
+  "notifications": {
+    "groundingTitle": "Aircraft grounded",
+    "tierUpTitle": "Tier up!",
+    "rivalsTitle": "Rival move",
+    "financeTitle": "Finance alert",
+    "settings": {
+      "kicker": "This device",
+      "title": "Alerts on this device",
+      "description": "Get a system notification when an aircraft is grounded, you move up a tier, a rival moves onto your routes or your finances need attention, while ACARS is open in the background or installed as an app.",
+      "turnOn": "Turn on alerts",
+      "turnOff": "Turn off alerts",
+      "blocked": "Notifications are blocked for ACARS in your browser settings. Allow them there to get alerts.",
+      "unsupported": "This browser can't show notifications. Install ACARS as an app or try another browser.",
+      "categoriesLabel": "Alert types",
+      "categories": {
+        "grounding": "Groundings",
+        "groundingDesc": "An aircraft can't fly until it gets maintenance.",
+        "tierUp": "Tier ups",
+        "tierUpDesc": "You reach a new tier and unlock more.",
+        "rivals": "Rivals",
+        "rivalsDesc": "A rival starts one of your routes or opens a hub at yours.",
+        "finance": "Finance",
+        "financeDesc": "Cash warnings and bankruptcy."
+      }
+    }
   }
 }

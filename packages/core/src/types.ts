@@ -338,6 +338,7 @@ export type TimelineEventType =
   | "route_change"
   | "ferry"
   | "competitor_hub"
+  | "competitor_route"
   | "price_war"
   | "tier_upgrade"
   | "bankruptcy"

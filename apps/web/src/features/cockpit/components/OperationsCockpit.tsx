@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
+import { NotificationSettingsCard } from "@/features/notifications/NotificationSettingsCard";
 import { FirstHourChecklist } from "./FirstHourChecklist";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
 import { cn } from "@/shared/lib/utils";
@@ -796,6 +797,8 @@ export function OperationsCockpit() {
             )}
           </div>
         </section>
+
+        {!isViewingOther && <NotificationSettingsCard />}
       </div>
     </PanelLayout>
   );

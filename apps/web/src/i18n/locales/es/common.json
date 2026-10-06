@@ -196,5 +196,8 @@
     "timesPerWeek": "{{value}}×/sem",
     "perWeek": "{{value}} / sem",
     "perHour": "{{value}}/h"
+  },
+  "offline": {
+    "banner": "Sin conexión: ves tu último estado guardado. Los cambios quedan en cola y se sincronizan al volver."
   }
 }

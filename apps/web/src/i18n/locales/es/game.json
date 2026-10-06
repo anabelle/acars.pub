@@ -82,7 +82,8 @@
       "tierUpgrade": "Nivel mejorado",
       "bankruptcy": "QUIEBRA DECLARADA",
       "financialWarning": "Aviso financiero",
-      "operationsUpdate": "Actualización operativa"
+      "operationsUpdate": "Actualización operativa",
+      "competitorRoute": "Rival en tu ruta"
     }
   },
   "fleet": {
@@ -1005,5 +1006,31 @@
     "revenue": "Ingresos",
     "network": "Red",
     "fleet": "Flota"
+  },
+  "notifications": {
+    "groundingTitle": "Avión en tierra",
+    "tierUpTitle": "¡Subes de nivel!",
+    "rivalsTitle": "Movimiento rival",
+    "financeTitle": "Alerta financiera",
+    "settings": {
+      "kicker": "Este dispositivo",
+      "title": "Alertas en este dispositivo",
+      "description": "Recibe una notificación del sistema cuando un avión quede en tierra, subas de nivel, un rival entre en tus rutas o tus finanzas necesiten atención, con ACARS abierto en segundo plano o instalado como app.",
+      "turnOn": "Activar alertas",
+      "turnOff": "Desactivar alertas",
+      "blocked": "Las notificaciones de ACARS están bloqueadas en la configuración del navegador. Permítelas allí para recibir alertas.",
+      "unsupported": "Este navegador no puede mostrar notificaciones. Instala ACARS como app o prueba otro navegador.",
+      "categoriesLabel": "Tipos de alerta",
+      "categories": {
+        "grounding": "Aviones en tierra",
+        "groundingDesc": "Un avión no puede volar hasta recibir mantenimiento.",
+        "tierUp": "Subidas de nivel",
+        "tierUpDesc": "Alcanzas un nuevo nivel y desbloqueas más.",
+        "rivals": "Rivales",
+        "rivalsDesc": "Un rival empieza una de tus rutas o abre un hub en uno tuyo.",
+        "finance": "Finanzas",
+        "financeDesc": "Avisos de caja y bancarrota."
+      }
+    }
   }
 }

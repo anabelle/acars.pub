@@ -130,7 +130,7 @@ Update when the owner decides. Full context is in [`README.md` §2](README.md#2-
 | --- | --------------------------------- | ---------- | ---------- | -------------------------------------------------------------------------- |
 | D1  | Flat ~87% LF intentional?         | ✅ decided | 2026-10-05 | No: make it a real market (S10: incumbents + fare cap, gentle Tier 1).     |
 | D2  | Activation-tick rulesets          | ✅ decided | 2026-10-05 | No versioning: no real players yet, so rules change in place. S03 skipped. |
-| D3  | Notification architecture         | ⏳ open    |            |                                                                            |
+| D3  | Notification architecture         | ✅ decided | 2026-10-06 | Local first: system notifications from the app/PWA; Nostr DM bot later.    |
 | D4  | Globe-first 3D shell go/no-go     | ⏳ open    |            |                                                                            |
 | D5  | Fast Tycoon sandbox               | ⏳ open    |            |                                                                            |
 | D6  | Reward validation model           | ⏳ open    |            |                                                                            |
