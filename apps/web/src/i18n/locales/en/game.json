@@ -259,6 +259,12 @@
       "groundsIn_one": "Grounds in ~{{count}} day unless serviced",
       "groundsIn_other": "Grounds in ~{{count}} days unless serviced",
       "groundsNow": "Grounding: service it now"
+    },
+    "hangar": {
+      "list": "List",
+      "gallery": "Hangar",
+      "viewAria": "Fleet view",
+      "parked": "Parked at {{base}}"
     }
   },
   "network": {

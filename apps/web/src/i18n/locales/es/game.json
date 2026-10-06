@@ -259,6 +259,12 @@
       "groundsIn_one": "Queda en tierra en ~{{count}} día si no se revisa",
       "groundsIn_other": "Queda en tierra en ~{{count}} días si no se revisa",
       "groundsNow": "En tierra: revísalo ahora"
+    },
+    "hangar": {
+      "list": "Lista",
+      "gallery": "Hangar",
+      "viewAria": "Vista de la flota",
+      "parked": "Estacionado en {{base}}"
     }
   },
   "network": {

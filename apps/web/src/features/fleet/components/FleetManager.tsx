@@ -47,6 +47,7 @@ import { cn } from "@/shared/lib/utils";
 import { getAircraftBaseHub } from "../utils/aircraftBaseHub";
 import { getAircraftTimer } from "../utils/aircraftTimers";
 import { AircraftMaintenanceRow } from "./AircraftMaintenanceRow";
+import { HangarGallery } from "./HangarGallery";
 import { AircraftDealer } from "./AircraftDealer";
 import { AircraftLiveryImage } from "./AircraftLiveryImage";
 import { MaintenancePolicyControl } from "./MaintenancePolicyControl";
@@ -124,6 +125,7 @@ export function FleetManager() {
   const tick = useEngineStore((state) => state.tick);
   const tickProgress = useEngineStore((state) => state.tickProgress);
   const [view, setView] = useState<"owned" | "dealer">("owned");
+  const [layout, setLayout] = useState<"list" | "hangar">("list");
   const [search, setSearch] = useState("");
   const confirm = useConfirm();
   // Demand snapshots only change meaningfully per game-minute; recomputing
@@ -319,6 +321,30 @@ export function FleetManager() {
             />
           </div>
 
+          <div
+            role="group"
+            aria-label={t("fleet.hangar.viewAria", { ns: "game" })}
+            className="flex h-10 shrink-0 rounded-xl border border-border/50 bg-background p-1 text-xs font-bold"
+          >
+            {(["list", "hangar"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={layout === option}
+                onClick={() => setLayout(option)}
+                className={`rounded-lg px-3 transition-colors ${
+                  layout === option
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {option === "list"
+                  ? t("fleet.hangar.list", { ns: "game" })
+                  : t("fleet.hangar.gallery", { ns: "game" })}
+              </button>
+            ))}
+          </div>
+
           {!isViewingOther && (
             <button
               type="button"
@@ -361,6 +387,8 @@ export function FleetManager() {
               {t("fleet.noSearchResults", { ns: "game", search })}
             </p>
           </div>
+        ) : layout === "hangar" ? (
+          <HangarGallery fleet={filteredFleet} airline={airline} routes={routes} />
         ) : (
           <div
             className={isVirtualized ? "relative" : undefined}

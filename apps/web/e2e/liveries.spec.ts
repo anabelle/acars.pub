@@ -4,7 +4,7 @@ import { createAirline, MADRID_PLAYER, navigateInApp } from "./signup";
 
 test.use(MADRID_PLAYER);
 
-test("route rows show the liveries of their aircraft", async ({ page, problems }) => {
+test("route rows and the hangar show aircraft liveries", async ({ page, problems }) => {
   test.setTimeout(120_000);
   await createAirline(page);
 
@@ -26,6 +26,17 @@ test("route rows show the liveries of their aircraft", async ({ page, problems }
   await expect(liveries.getByTestId("livery-thumb")).toHaveAttribute("data-has-image", "false");
   if (process.env.S44_SCREENSHOT) {
     await page.screenshot({ path: path.resolve(process.env.S44_SCREENSHOT, "route-liveries.png") });
+  }
+
+  // S44.2: the hangar gallery shows every aircraft as a livery tile.
+  await navigateInApp(page, "/fleet");
+  await page.getByRole("button", { name: /^hangar$/i }).click();
+  const gallery = page.getByTestId("hangar-gallery");
+  await expect(gallery).toBeVisible({ timeout: 30_000 });
+  await expect(gallery.getByTestId("hangar-tile")).toHaveCount(1);
+  await expect(gallery.getByTestId("hangar-tile")).toContainText("MAD → BCN");
+  if (process.env.S44_SCREENSHOT) {
+    await page.screenshot({ path: path.resolve(process.env.S44_SCREENSHOT, "hangar.png") });
   }
   expect(problems.pageErrors).toEqual([]);
 });

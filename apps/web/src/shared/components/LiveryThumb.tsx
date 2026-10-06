@@ -14,6 +14,8 @@ const SIZES = {
   xs: "h-5 w-8",
   sm: "h-8 w-12",
   md: "h-12 w-20",
+  /** Fills its parent (gallery tiles). */
+  fill: "h-full w-full",
 } as const;
 
 /**
@@ -68,7 +70,10 @@ export function LiveryThumb({
           className="flex h-full w-full items-center justify-center text-foreground/80"
           title={alt}
         >
-          <FamilySilhouette familyId={familyId ?? "a320"} className="h-4 w-4" />
+          <FamilySilhouette
+            familyId={familyId ?? "a320"}
+            className={size === "fill" ? "h-16 w-16" : "h-4 w-4"}
+          />
         </span>
       )}
     </span>

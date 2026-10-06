@@ -1,9 +1,9 @@
 # S44 — Livery as hero + fleet poster
 
 > **Status:** ◐ in progress
-> **Next step:** S44.2
+> **Next step:** S44.3
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #177
 >
 > **Track:** Graphics · **Size:** M (3 steps) · **Depends on:** — · **Unblocks:** S51
 >
@@ -38,7 +38,7 @@ Put the unique AI liveries front and center, and make them shareable.
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S44.1** Livery thumbnails in aircraft/route panels and flight board. _Done when:_ screenshots.
-- [ ] **S44.2** Virtualized hangar gallery. _Done when:_ screenshots.
+- [x] **S44.2** Virtualized hangar gallery. _Done when:_ screenshots.
 - [ ] **S44.3** Fleet poster renderer + PNG download (1080×1350, 1200×630). _Done when:_ posters render identically.
 
 ## Details & guidance
@@ -61,6 +61,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - the aircraft panel's 'Other aircraft on route' list.
 
 Tests: unit tests, plus e2e `liveries.spec.ts` (route row stack with the silhouette fallback). I checked a screenshot by eye.
+2026-10-06 · S44.2 · (this commit) · Hangar gallery. The fleet header has a List / Hangar toggle. `HangarGallery` is a row-virtualized grid in the panel scroller, 2 columns on mobile and 3 from 640 px. Each tile shows the aircraft's livery via `LiveryThumb` in a new `fill` size (large silhouette fallback), with the aircraft name and its route or 'Parked at XXX'. Clicking a tile opens the aircraft panel. en and es strings are in `fleet.hangar.*`. Unit tests; the e2e `liveries.spec.ts` now also opens the hangar. I checked a screenshot by eye.
 
 ## Follow-ups
 
