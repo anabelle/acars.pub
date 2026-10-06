@@ -2,6 +2,9 @@
 // @acars/core — Public API
 // ============================================================
 
+// Brand (S11)
+export * from "./brand.js";
+
 // Checkpoints
 export {
   canonicalize,

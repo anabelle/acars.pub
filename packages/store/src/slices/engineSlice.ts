@@ -1,4 +1,5 @@
 import {
+  brandServiceGrade,
   CHAPTER11_BALANCE_THRESHOLD_USD,
   estimateHistoricRevenue,
   evaluateTier,
@@ -431,23 +432,25 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             currentBrandScore = Math.max(0.1, currentBrandScore - 0.005 * pwEvents.length);
           }
 
+          // Brand v2 (S11): grade each landing on fair fares, aircraft
+          // condition and a healthy load factor; move by the average grade.
           let landingCount = 0;
-          let landingLoadFactorTotal = 0;
+          let landingGradeTotal = 0;
           for (const event of result.events) {
             if (event.type !== "landing") continue;
             const loadFactor = event.details?.loadFactor;
             if (loadFactor == null) continue;
             landingCount += 1;
-            landingLoadFactorTotal += loadFactor;
+            landingGradeTotal += brandServiceGrade({
+              loadFactor,
+              fareRatio: event.details?.fareRatio ?? 1,
+              condition: event.details?.aircraftCondition ?? 1,
+            });
           }
           if (landingCount > 0) {
-            const avgLoadFactor = landingLoadFactorTotal / landingCount;
-            if (avgLoadFactor > 0.85) {
-              currentBrandScore += brandScorePerTick;
-            }
-            if (avgLoadFactor < 0.5) {
-              currentBrandScore -= brandPenaltyPerTick;
-            }
+            const grade = landingGradeTotal / landingCount;
+            currentBrandScore += grade * (grade > 0 ? brandScorePerTick : brandPenaltyPerTick);
+            currentBrandScore = Math.min(1, Math.max(0.1, currentBrandScore));
           }
 
           // Deduplicate events by ID before merging into the timeline
