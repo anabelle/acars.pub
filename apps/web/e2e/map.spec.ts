@@ -31,6 +31,8 @@ async function distinctCanvasColors(page: Page): Promise<number> {
 }
 
 test("world map renders content, not a blank canvas", async ({ page, problems }) => {
+  // Room for the 60 s poll below (Playwright's default test timeout is 30 s).
+  test.setTimeout(90_000);
   await gotoReady(page, "/");
   await expect(page.locator(".globe-container canvas").first()).toBeVisible({ timeout: 30_000 });
   // Measure the map alone: hide every overlay (intro card, panels, toasts) so
