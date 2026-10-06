@@ -20,6 +20,7 @@ import {
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
   scaleToAddressableMarket,
+  supplyLoadFactor,
 } from "./demand.js";
 import { fp } from "./fixed-point.js";
 import type { Airport, BidirectionalDemandResult, DemandResult } from "./types.js";
@@ -289,29 +290,76 @@ describe("scaleToAddressableMarket()", () => {
   });
 });
 
+describe("supplyLoadFactor()", () => {
+  it("fills to the natural ceiling when demand covers the seats", () => {
+    expect(supplyLoadFactor(900, 1_200)).toBeCloseTo(NATURAL_LF_CEILING, 10);
+    expect(supplyLoadFactor(1_000, 1_000)).toBeCloseTo(NATURAL_LF_CEILING, 10);
+  });
+
+  it("counts oversupply once: twice the seats fills half of them", () => {
+    expect(supplyLoadFactor(2_000, 1_000)).toBeCloseTo(0.5, 10);
+    expect(supplyLoadFactor(10_000, 1_000)).toBeCloseTo(0.1, 10);
+  });
+
+  it("handles empty routes", () => {
+    expect(supplyLoadFactor(1_000, 0)).toBe(0);
+    expect(supplyLoadFactor(0, 1_000)).toBe(NATURAL_LF_CEILING);
+  });
+
+  it("is monotone and continuous as aircraft are added (1–20 planes)", () => {
+    const demand = 2_000;
+    const seatsPerPlane = 7 * 150;
+    let previous = Number.POSITIVE_INFINITY;
+    for (let planes = 1; planes <= 20; planes += 1) {
+      const lf = supplyLoadFactor(planes * seatsPerPlane, demand);
+      expect(lf).toBeLessThanOrEqual(previous);
+      if (planes > 1) expect(previous - lf).toBeLessThan(0.25);
+      previous = lf;
+    }
+    // Fine-grained: no jump anywhere, including at the ceiling's kink.
+    let last = supplyLoadFactor(1, demand);
+    for (let seats = 2; seats <= 40_000; seats += 7) {
+      const lf = supplyLoadFactor(seats, demand);
+      expect(lf).toBeLessThanOrEqual(last + 1e-12);
+      expect(last - lf).toBeLessThan(0.01);
+      last = lf;
+    }
+  });
+});
+
 describe("calculateSupplyPressure()", () => {
-  it("returns NATURAL_LF_CEILING when undersupplied", () => {
-    const pressure = calculateSupplyPressure(900, 1_200);
-    expect(pressure).toBeCloseTo(NATURAL_LF_CEILING, 5);
+  it("fills oversupplied flights to load-factor × seats", () => {
+    // 14 flights of 100 seats, 1,000 passengers a week.
+    const seats = 14 * 100;
+    const demand = 1_000;
+    const paxPerFlight = (demand / 14) * calculateSupplyPressure(seats, demand);
+    expect(paxPerFlight).toBeCloseTo(supplyLoadFactor(seats, demand) * 100, 8);
   });
 
-  it("returns NATURAL_LF_CEILING when balanced", () => {
-    const pressure = calculateSupplyPressure(1_000, 1_000);
-    expect(pressure).toBeCloseTo(NATURAL_LF_CEILING, 5);
+  it("holds at the ceiling when undersupplied so the seat cap binds", () => {
+    expect(calculateSupplyPressure(900, 1_200)).toBe(NATURAL_LF_CEILING);
+    expect(calculateSupplyPressure(1_000, 1_000)).toBe(NATURAL_LF_CEILING);
+    expect(calculateSupplyPressure(1_100, 1_000)).toBeCloseTo(NATURAL_LF_CEILING * 1.1, 10);
   });
 
-  it("decays below ceiling when oversupplied", () => {
-    const pressure = calculateSupplyPressure(2_000, 1_000);
-    expect(pressure).toBeLessThan(NATURAL_LF_CEILING);
-    expect(pressure).toBeGreaterThan(0.15);
+  it("adds no second penalty when oversupplied", () => {
+    expect(calculateSupplyPressure(2_000, 1_000)).toBe(1);
+    expect(calculateSupplyPressure(50_000, 1_000)).toBe(1);
   });
 
-  it("returns floor when demand is zero", () => {
-    expect(calculateSupplyPressure(1_000, 0)).toBeCloseTo(0.15, 5);
+  it("is monotone and continuous in the supply ratio", () => {
+    let last = calculateSupplyPressure(1, 1_000);
+    for (let seats = 2; seats <= 5_000; seats += 3) {
+      const p = calculateSupplyPressure(seats, 1_000);
+      expect(p).toBeGreaterThanOrEqual(last);
+      expect(p - last).toBeLessThan(0.01);
+      last = p;
+    }
   });
 
-  it("returns ceiling when supply is zero", () => {
-    expect(calculateSupplyPressure(0, 1_000)).toBeCloseTo(NATURAL_LF_CEILING, 5);
+  it("handles empty routes", () => {
+    expect(calculateSupplyPressure(1_000, 0)).toBe(0);
+    expect(calculateSupplyPressure(0, 1_000)).toBe(NATURAL_LF_CEILING);
   });
 });
 

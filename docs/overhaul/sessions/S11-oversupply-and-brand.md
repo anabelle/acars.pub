@@ -1,8 +1,8 @@
 # S11 — Oversupply curve + brand score v2
 
-> **Status:** ☐ not started
-> **Next step:** S11.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S11.2
+> **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
 > **Track:** Economy · **Size:** M (3 steps) · **Depends on:** S10 · **Unblocks:** S12
@@ -35,7 +35,7 @@ Over-assigning aircraft degrades smoothly, and brand rewards good service rather
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S11.1** Single-application oversupply curve (ruleset) + tests. _Done when:_ monotone curve test green.
+- [x] **S11.1** Single-application oversupply curve (ruleset) + tests. _Done when:_ monotone curve test green.
 - [ ] **S11.2** Brand v2 inputs (fair-price band, condition, healthy LF band) + tests. _Done when:_ tests green.
 - [ ] **S11.3** S02 over-assignment curve + brand trajectories; commit report. _Done when:_ greedy loses brand, balanced gains.
 
@@ -54,7 +54,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-06 · S11.1 · (this commit) · Oversupply is now applied once. New core `supplyLoadFactor(seats, demand) = min(0.88, demand/seats)` is the expected LF; `calculateSupplyPressure` is redefined as the per-flight multiplier `clamp(0.88·seats/demand, 0.88, 1)`, so frequency division alone thins flights (at 2× supply LF is 0.50, was ~0.21). The multiplier stays at the ceiling when undersupplied so the engine's per-cabin seat cap still binds (a lower value starved a 10-seat first-only cabin). Web demand snapshot now uses `supplyLoadFactor` (it was already read as an LF). No ruleset object exists (D2: rules change in place), so the curve lives in `demand.ts`; no soft floor beyond demand/seats — a floor would put phantom passengers on empty routes. Monotone/continuous tests for 1–20 aircraft and fine-grained seat sweeps.
 
 ## Follow-ups
 

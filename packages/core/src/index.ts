@@ -31,6 +31,7 @@ export {
   calculateDemand,
   calculatePriceElasticity,
   calculateSupplyPressure,
+  supplyLoadFactor,
   getHubCongestionModifier,
   getHubDemandModifier,
   getProsperityIndex,

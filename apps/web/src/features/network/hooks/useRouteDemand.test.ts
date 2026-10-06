@@ -53,7 +53,7 @@ vi.mock("@acars/core", async () => {
       business: 20,
       first: 10,
     })),
-    calculateSupplyPressure: vi.fn(() => 0.8),
+    supplyLoadFactor: vi.fn(() => 0.8),
     getAirportTraffic: vi.fn(() => 0),
     getSuggestedFares: vi.fn(() => ({
       economy: fp(100),
