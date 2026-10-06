@@ -22,8 +22,11 @@ test("after 12 hours away, the report tells what the airline did and links to it
     .click();
   await expect(page.getByText(/MAD → BCN is live/)).toBeVisible({ timeout: 30_000 });
 
-  // Stay long enough for the last-seen heartbeat, with no report for a fresh airline.
-  await page.clock.runFor(35_000);
+  // Stay long enough for the last-seen heartbeat, with no report for a fresh
+  // airline. Jump the clock (firing the heartbeat once) rather than rendering
+  // every frame of those 35 seconds, which costs minutes on the software-
+  // rendered globe in CI.
+  await page.clock.fastForward(35_000);
   await expect(page.getByTestId("away-report")).toHaveCount(0);
 
   // The player leaves for 12 hours (the tab stays open: the device sleeps).
