@@ -1,7 +1,7 @@
 # S44 — Livery as hero + fleet poster
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting review)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #177)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #177
 >

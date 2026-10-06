@@ -127,7 +127,9 @@
     "modeRestricted": "En bancarrota",
     "modeRestrictedDetail": "Tu flota está en tierra. Vuelve a tener caja positiva antes de crecer.",
     "modeLive": "Tu aerolínea",
-    "modeLiveDetail": "Estás dirigiendo tu aerolínea. Los cambios se aplican al momento para todos los jugadores."
+    "modeLiveDetail": "Estás dirigiendo tu aerolínea. Los cambios se aplican al momento para todos los jugadores.",
+    "airlineTitle": "Aerolínea",
+    "airlineDescription": "La aerolínea de un jugador: red, flota y cifras. Comparte el enlace."
   },
   "join": {
     "badge": "Gratis para jugar · No se necesita cuenta",

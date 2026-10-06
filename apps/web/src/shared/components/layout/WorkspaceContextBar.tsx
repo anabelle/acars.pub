@@ -57,6 +57,13 @@ function getWorkspaceCopy(
     };
   }
 
+  if (pathname.startsWith("/airline/")) {
+    return {
+      title: t("workspace.airlineTitle"),
+      description: t("workspace.airlineDescription"),
+    };
+  }
+
   if (pathname.startsWith("/leaderboard")) {
     return {
       title: t("nav.leaderboard"),

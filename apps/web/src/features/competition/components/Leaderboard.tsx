@@ -14,6 +14,7 @@ import {
   buildLeaderboardRows,
   sortLeaderboardRows,
 } from "@/features/competition/leaderboardMetrics";
+import { airlineNpub as npubOf } from "@/features/airline/utils/airlineKey";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { useNostrProfile } from "@/shared/hooks/useNostrProfile";
 import { cn } from "@/shared/lib/utils";
@@ -309,6 +310,14 @@ function LeaderboardRow({
             {formatMetric(metric, value)}
           </div>
         </div>
+        <Link
+          to="/airline/$npub"
+          params={{ npub: npubOf(row.ceoPubkey) }}
+          data-testid="leaderboard-airline-page"
+          className="rounded-full border border-border/60 bg-background/60 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground hover:border-primary/40 hover:text-foreground"
+        >
+          {t("leaderboard.airlinePage")}
+        </Link>
         {!isOwn && (
           <button
             type="button"

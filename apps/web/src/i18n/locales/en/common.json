@@ -127,7 +127,9 @@
     "modeRestricted": "Bankrupt",
     "modeRestrictedDetail": "Your fleet is grounded. Get your cash back above zero before you expand.",
     "modeLive": "Your airline",
-    "modeLiveDetail": "You're running your airline. Changes take effect right away for every player."
+    "modeLiveDetail": "You're running your airline. Changes take effect right away for every player.",
+    "airlineTitle": "Airline",
+    "airlineDescription": "A player's airline: network, fleet and stats. Share the link."
   },
   "join": {
     "badge": "Free to play · No account needed",

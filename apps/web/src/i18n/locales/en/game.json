@@ -21,7 +21,8 @@
     "noAirlinesDesc": "Airlines appear here once they launch aircraft, open routes, or log real activity.",
     "viewAs": "View As",
     "pageTitle": "Leaderboard",
-    "pageSubtitle": "Multiplayer standings across the active world."
+    "pageSubtitle": "Multiplayer standings across the active world.",
+    "airlinePage": "Page"
   },
   "flightBoard": {
     "flightInfo": "{{iata}} — Flight Information",
@@ -980,5 +981,21 @@
     "assignRoute": "Assign route",
     "changeRoute": "Change route",
     "noRoutes": "You have no active routes yet. Open one from an airport."
+  },
+  "publicAirline": {
+    "pageTitle": "Airline",
+    "pageSubtitle": "A player-run airline in the ACARS world.",
+    "loading": "Looking up this airline on the relays…",
+    "notFound": "No airline found for this key.",
+    "invalid": "That isn't a valid airline link.",
+    "cta": "Start your own airline",
+    "share": "Share",
+    "linkCopied": "Link copied",
+    "aircraft": "Aircraft",
+    "routes": "Routes",
+    "tier": "Tier",
+    "revenue": "Revenue",
+    "network": "Network",
+    "fleet": "Fleet"
   }
 }

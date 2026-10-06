@@ -1,8 +1,8 @@
 # S50 — Public airline pages + dynamic OG images
 
-> **Status:** ☐ not started
-> **Next step:** S50.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S50.2
+> **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
 > **Track:** Growth · **Size:** M (3 steps) · **Depends on:** S20 · **Unblocks:** S51
@@ -36,7 +36,7 @@ Every airline has a shareable page that previews beautifully anywhere.
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S50.1** `/airline/$npub` client page. _Done when:_ screenshots.
+- [x] **S50.1** `/airline/$npub` client page. _Done when:_ screenshots.
 - [ ] **S50.2** Pages Function serving OG meta to crawlers. _Done when:_ validator passes.
 - [ ] **S50.3** Generated OG image + edge cache + fallback. _Done when:_ image renders for a real airline.
 
@@ -53,7 +53,21 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-06 · S50.1 · (this commit) · Public airline page. New route `/airline/$npub`; it also accepts a 64-hex key, and an invalid key shows a message. `PublicAirlinePage` shows:
+
+- the airline from my own state, or from world state (`competitors`, `routesByOwner`, `fleetByOwner`), calling `syncCompetitor` when it isn't loaded yet; it shows a loading state, then 'not found';
+- a livery-gradient header with ICAO, name, aircraft, routes, tier and revenue;
+- Share (share sheet, or copy the link);
+- a 'Start your own airline' call to action (`/join`) for anyone but the owner;
+- an SVG route map and up to 8 livery tiles.
+
+Supporting changes:
+
+- **Route map.** Pure `routeMap.ts` `projectRouteMap`: equirectangular, fitted to the network with an 8° minimum span. It's dependency-free so the OG function can reuse it.
+- **Keys.** `airlineKey.ts` `parseAirlineKey` / `airlineNpub` / `airlinePath`.
+- **Entry point.** Leaderboard rows get a 'Page' link; the context bar maps `/airline/`.
+- **i18n.** en and es strings in `publicAirline.*` and `workspace.airline*`.
+- **Tests.** Unit tests; e2e `public-airline.spec.ts` (player: leaderboard → own page with a map line; guest: unknown key → call to action). I checked a screenshot by eye.
 
 ## Follow-ups
 
