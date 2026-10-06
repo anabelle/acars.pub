@@ -908,5 +908,27 @@
       "continue": "Keep flying",
       "close": "Close"
     }
+  },
+  "assign": {
+    "addAircraft": "Add aircraft",
+    "title": "Add aircraft",
+    "closeAria": "Close",
+    "empty": "You have no aircraft yet. Lease one in the Fleet tab.",
+    "assign": "Assign",
+    "assigning": "Assigning…",
+    "assigned": "{{aircraft}} now flies {{origin}}–{{destination}}.",
+    "failed": "Couldn't assign the aircraft",
+    "readyAt": "At {{iata}} · ready",
+    "reassigns": "Leaves its current route",
+    "needsFerry": "At {{base}} · needs a {{km}} km ferry to {{to}}",
+    "blocked": {
+      "alreadyAssigned": "Already on this route",
+      "unknownModel": "Unknown aircraft model",
+      "outOfRange": "Not enough range for this route",
+      "enroute": "In flight — try again after it lands",
+      "notIdle": "Busy at {{base}} — can ferry once idle",
+      "noHubEndpoint": "Neither end of the route is one of your hubs",
+      "ferryOutOfRange": "Too far from {{origin}} to ferry there"
+    }
   }
 }

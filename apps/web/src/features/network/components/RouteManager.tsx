@@ -35,6 +35,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { AirlineFlightBoard } from "@/features/network/components/AirlineFlightBoard";
+import { AssignAircraftDialog } from "@/features/network/components/AssignAircraftDialog";
 import { FareEditor, type FareEditorTarget } from "@/features/network/components/FareEditor";
 import {
   OpportunitiesList,
@@ -182,6 +183,8 @@ export function RouteManager() {
     navigate({ search: { tab: newTab } });
   };
   const [fareEditor, setFareEditor] = useState<FareEditorTarget | null>(null);
+  const [assignRouteId, setAssignRouteId] = useState<string | null>(null);
+  const assignRoute = assignRouteId ? routes.find((route) => route.id === assignRouteId) : null;
   const [searchQuery, setSearchQuery] = useState("");
   const [rebaseTargets, setRebaseTargets] = useState<Record<string, string>>({});
   const [planningOriginIata, setPlanningOriginIata] = useState<string | null>(
@@ -835,6 +838,18 @@ export function RouteManager() {
                                     <>
                                       <button
                                         type="button"
+                                        data-testid="route-add-aircraft"
+                                        onClick={() => setAssignRouteId(route.id)}
+                                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                                          assignedCount === 0
+                                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                            : "bg-white/5 text-white/60 border border-white/5 hover:bg-white/10"
+                                        }`}
+                                      >
+                                        {t("assign.addAircraft", { ns: "game" })}
+                                      </button>
+                                      <button
+                                        type="button"
                                         onClick={() => {
                                           setFareEditor({
                                             routeId: route.id,
@@ -1303,6 +1318,9 @@ export function RouteManager() {
             onClose={() => setFareEditor(null)}
           />
         )}
+        {assignRoute ? (
+          <AssignAircraftDialog route={assignRoute} onClose={() => setAssignRouteId(null)} />
+        ) : null}
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 import type { AircraftInstance, Route } from "@acars/core";
 import { fp } from "@acars/core";
+import { setAirportsCatalog } from "@acars/data";
 import { describe, expect, it } from "vitest";
 import {
   assignmentOption,
   candidateAircraftForRoute,
   candidateRoutesForAircraft,
+  catalogDistanceKm,
   type DistanceKm,
 } from "./assignmentCandidates";
 
@@ -158,5 +160,20 @@ describe("candidateRoutesForAircraft()", () => {
       ["r-bcn", "ferry"],
       ["r-long", "blocked"],
     ]);
+  });
+});
+
+describe("catalogDistanceKm()", () => {
+  it("measures great-circle km between catalog airports", () => {
+    setAirportsCatalog([
+      { iata: "MAD", latitude: 40.4719, longitude: -3.5626 },
+      { iata: "BCN", latitude: 41.2971, longitude: 2.0785 },
+    ] as never);
+    expect(catalogDistanceKm("MAD", "BCN")).toBeGreaterThan(470);
+    expect(catalogDistanceKm("MAD", "BCN")).toBeLessThan(500);
+    expect(catalogDistanceKm("MAD", "ZZZ")).toBeNull();
+    // A new catalog rebuilds the index.
+    setAirportsCatalog([{ iata: "ZZZ", latitude: 0, longitude: 0 }] as never);
+    expect(catalogDistanceKm("MAD", "ZZZ")).toBeNull();
   });
 });

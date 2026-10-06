@@ -1,5 +1,6 @@
-import type { AircraftInstance, Route } from "@acars/core";
-import { getAircraftById } from "@acars/data";
+import type { AircraftInstance, Airport, Route } from "@acars/core";
+import { haversineDistance } from "@acars/core";
+import { getAircraftById, getAirports } from "@acars/data";
 
 /**
  * Whether an aircraft can be put on a route, and how (S25). Mirrors the
@@ -124,3 +125,17 @@ export function candidateRoutesForAircraft(
       );
     });
 }
+
+let airportIndex: { source: Airport[]; byIata: Map<string, Airport> } | null = null;
+
+/** {@link DistanceKm} over the loaded airports catalog (rounded km). */
+export const catalogDistanceKm: DistanceKm = (fromIata, toIata) => {
+  const airports = getAirports();
+  if (!airportIndex || airportIndex.source !== airports) {
+    airportIndex = { source: airports, byIata: new Map(airports.map((a) => [a.iata, a])) };
+  }
+  const from = airportIndex.byIata.get(fromIata);
+  const to = airportIndex.byIata.get(toIata);
+  if (!from || !to) return null;
+  return Math.round(haversineDistance(from.latitude, from.longitude, to.latitude, to.longitude));
+};
