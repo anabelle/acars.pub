@@ -2,9 +2,15 @@
 /**
  * funnel.ts — funnel metrics from public ACARS game events (S04).
  *
- * Reads action and checkpoint events (kind 30078) for the current world from
+ * Reads action and saved-state events (kind 30078) for the current world from
  * Nostr relays over a date range and prints counts. Counts only: no pubkeys
  * are printed or written. No keys needed.
+ *
+ * Public relays carry kind 30078 for many apps and do not index the `world`
+ * tag, so a plain kind scan drowns in other apps' data. The read uses indexed
+ * filters only, in two phases:
+ *   1. `#d` for the fixed airline-create, snapshot and checkpoint d-tags;
+ *   2. `authors` (batches of 200) for every airline found, to get its actions.
  *
  * Usage:
  *   node --experimental-strip-types scripts/funnel.ts [options]
@@ -13,7 +19,7 @@
  *   --days <n>      Days back from now to read (default: 7)
  *   --relay <url>   Relay to read (repeatable; default: the game's relay list)
  *   --world <id>    World id (default: the game's current world)
- *   --max-pages <n> Pages of 500 events per relay (default: 40)
+ *   --max-pages <n> Pages of 500 events per relay and filter (default: 40)
  *   --report        Also write docs/overhaul/metrics/<today>.md
  */
 
@@ -49,6 +55,8 @@ const DEFAULT_RELAYS = [
   "wss://nostr.land",
 ];
 const PAGE_LIMIT = 500;
+/** Relays cap filter `authors` lists (commonly ~200-400 keys). */
+const AUTHOR_BATCH_SIZE = 200;
 const DAY_SEC = 86_400;
 
 function parseArgs(argv: string[]) {
@@ -135,28 +143,71 @@ function requestPage(ws: WebSocket, filter: Record<string, unknown>): Promise<Ra
   });
 }
 
-/** All kind-30078 events in [since, until) from one relay, paging back by `until`. */
-async function readRelay(url: string, since: number, until: number, maxPages: number) {
-  const ws = await connect(url);
+/** Kind-30078 events matching `filter` in [since, until), paging back by `until`. */
+async function readPaged(
+  ws: WebSocket,
+  filter: Record<string, unknown>,
+  since: number,
+  until: number,
+  maxPages: number,
+) {
   const events: RawNostrEvent[] = [];
   let cursor = until;
+  for (let page = 0; page < maxPages; page += 1) {
+    const batch = await requestPage(ws, {
+      ...filter,
+      kinds: [FUNNEL_ACTION_KIND],
+      since,
+      until: cursor,
+      limit: PAGE_LIMIT,
+    });
+    events.push(...batch);
+    if (batch.length < PAGE_LIMIT) break;
+    cursor = Math.min(...batch.map((event) => event.created_at)) - 1;
+    if (cursor < since) break;
+  }
+  return events;
+}
+
+/** Runs `read` against one relay connection, closing it afterwards. Retries the connect once. */
+async function withRelay<T>(url: string, read: (ws: WebSocket) => Promise<T>): Promise<T> {
+  const ws = await connect(url).catch(() => connect(url));
   try {
-    for (let page = 0; page < maxPages; page += 1) {
-      const batch = await requestPage(ws, {
-        kinds: [FUNNEL_ACTION_KIND],
-        since,
-        until: cursor,
-        limit: PAGE_LIMIT,
-      });
-      events.push(...batch);
-      if (batch.length < PAGE_LIMIT) break;
-      cursor = Math.min(...batch.map((event) => event.created_at)) - 1;
-      if (cursor < since) break;
-    }
+    return await read(ws);
   } finally {
     ws.close();
   }
-  return events;
+}
+
+/** Airline creations and saved states: fixed d-tags, so `#d` finds them on any relay. */
+function readGenesisAndSaves(
+  url: string,
+  world: string,
+  since: number,
+  until: number,
+  maxPages: number,
+) {
+  const base = `airtr:world:${world}:`;
+  const dTags = [`${base}action:airline_create`, `${base}snapshot`, `${base}checkpoint`];
+  return withRelay(url, (ws) => readPaged(ws, { "#d": dTags }, since, until, maxPages));
+}
+
+/** Every kind-30078 event by `authors`; the funnel parser drops other apps' data. */
+function readByAuthors(
+  url: string,
+  authors: readonly string[],
+  since: number,
+  until: number,
+  maxPages: number,
+) {
+  return withRelay(url, async (ws) => {
+    const events: RawNostrEvent[] = [];
+    for (let i = 0; i < authors.length; i += AUTHOR_BATCH_SIZE) {
+      const batch = authors.slice(i, i + AUTHOR_BATCH_SIZE);
+      events.push(...(await readPaged(ws, { authors: batch }, since, until, maxPages)));
+    }
+    return events;
+  });
 }
 
 async function main() {
@@ -164,18 +215,48 @@ async function main() {
   const until = Math.floor(Date.now() / 1000);
   const since = until - options.days * DAY_SEC;
   const raw: RawNostrEvent[] = [];
-  const relayResults: RelayReadResult[] = [];
+  const readCounts = new Map<string, number | null>();
+  const record = (url: string, events: RawNostrEvent[] | null) => {
+    const previous = readCounts.get(url);
+    readCounts.set(
+      url,
+      events === null || previous === null ? null : (previous ?? 0) + events.length,
+    );
+    if (events) raw.push(...events);
+  };
+
+  // Phase 1: airlines created and airlines that saved in the window.
   for (const url of options.relays) {
     try {
-      const events = await readRelay(url, since, until, options.maxPages);
-      raw.push(...events);
-      relayResults.push({ url, events: events.length });
-      console.error(`${url}: ${events.length} events`);
+      const events = await readGenesisAndSaves(url, options.world, since, until, options.maxPages);
+      record(url, events);
+      console.error(`${url}: ${events.length} creates and saves`);
     } catch (error) {
-      relayResults.push({ url, events: null });
+      record(url, null);
       console.error(`${url}: skipped (${(error as Error).message})`);
     }
   }
+
+  // Phase 2: those airlines' actions.
+  const authors = [...new Set(collectFunnelEvents(raw, options.world).map((e) => e.pubkey))];
+  if (authors.length > 0) {
+    for (const url of options.relays) {
+      if (readCounts.get(url) === null) continue;
+      try {
+        const events = await readByAuthors(url, authors, since, until, options.maxPages);
+        record(url, events);
+        console.error(`${url}: ${events.length} events by ${authors.length} airlines`);
+      } catch (error) {
+        record(url, null);
+        console.error(`${url}: actions skipped (${(error as Error).message})`);
+      }
+    }
+  }
+
+  const relayResults: RelayReadResult[] = options.relays.map((url) => ({
+    url,
+    events: readCounts.get(url) ?? null,
+  }));
   const events = collectFunnelEvents(raw, options.world);
   console.log(`World ${options.world}, last ${options.days} days: ${events.length} game events`);
   console.log(formatDailyCounts(countByDayAndType(events, since, until)));

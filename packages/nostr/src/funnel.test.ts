@@ -52,9 +52,11 @@ describe("parseFunnelEvent()", () => {
     });
   });
 
-  it("reads checkpoints", () => {
-    const event = { ...action("a", T0, "X"), tags: [["d", `airtr:world:${WORLD}:checkpoint`]] };
-    expect(parseFunnelEvent(event, WORLD)?.type).toBe(CHECKPOINT_TYPE);
+  it("reads checkpoints and snapshots as saved state", () => {
+    for (const suffix of ["checkpoint", "snapshot"]) {
+      const event = { ...action("a", T0, "X"), tags: [["d", `airtr:world:${WORLD}:${suffix}`]] };
+      expect(parseFunnelEvent(event, WORLD)?.type).toBe(CHECKPOINT_TYPE);
+    }
   });
 
   it("ignores other worlds, kinds, d-tags and bad content", () => {

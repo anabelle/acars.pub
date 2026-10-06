@@ -19,7 +19,7 @@ export interface FunnelEvent {
   pubkey: string;
   /** Unix seconds. */
   createdAt: number;
-  /** Game action type, or "CHECKPOINT" for an airline's saved state. */
+  /** Game action type, or "CHECKPOINT" for an airline's saved state (checkpoint or snapshot). */
   type: string;
   /** ROUTE_OPEN / ROUTE_ASSIGN_AIRCRAFT: the route involved. */
   routeId?: string;
@@ -41,15 +41,17 @@ export function utcDay(unixSeconds: number): string {
 
 /**
  * Reads one relay event as a funnel event for `worldId`: an action
- * (`airtr:world:<id>:action:*`, type from its content) or an airline
- * checkpoint (`airtr:world:<id>:checkpoint`). Anything else is null.
+ * (`airtr:world:<id>:action:*`, type from its content) or an airline's saved
+ * state (`airtr:world:<id>:checkpoint` or `:snapshot`). Saved states are
+ * replaceable and never expire, so their timestamp is the airline's latest
+ * save. Anything else is null.
  */
 export function parseFunnelEvent(event: RawNostrEvent, worldId: string): FunnelEvent | null {
   if (event.kind !== FUNNEL_ACTION_KIND) return null;
   const dTag = event.tags.find((tag) => tag[0] === "d")?.[1];
   if (!dTag) return null;
   const base = `airtr:world:${worldId}:`;
-  if (dTag === `${base}checkpoint`) {
+  if (dTag === `${base}checkpoint` || dTag === `${base}snapshot`) {
     return { pubkey: event.pubkey, createdAt: event.created_at, type: CHECKPOINT_TYPE };
   }
   if (!dTag.startsWith(`${base}action:`)) return null;
@@ -164,7 +166,7 @@ export interface AirlineJourney {
   firstAssignAt: number | null;
   /** Estimated: first assignment + flight time on that route. */
   firstLandingAt: number | null;
-  /** Latest signed action or checkpoint. */
+  /** Latest signed action or saved state. */
   lastSeenAt: number;
 }
 
@@ -386,7 +388,7 @@ export function formatFunnelReport(input: FunnelReportInput): string {
       ]),
     ),
     "",
-    "_Notes: retention counts an airline as retained on Dn if it signed any action or checkpoint on or after day n; a cohort counts only once it is n days old. Regular actions expire from relays after 14 days, so D30 relies on checkpoints. First landing = first assignment + route distance ÷ 500 km/h (2 h if unknown)._",
+    "_Notes: retention counts an airline as retained on Dn if it signed any action or saved state on or after day n; a cohort counts only once it is n days old. Most actions expire from relays after 14 days (airline creation, route opening and aircraft assignment do not), so later retention relies on each airline's latest saved state. First landing = first assignment + route distance ÷ 500 km/h (2 h if unknown)._",
     "",
   ];
   return lines.join("\n");

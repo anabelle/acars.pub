@@ -1,9 +1,9 @@
 # S04 — Funnel metrics from Nostr events
 
-> **Status:** ◐ in progress
-> **Next step:** S04.3
+> **Status:** ☑ ready for review
+> **Next step:** — (S04.4 is optional and deferred: it needs a storage choice from the owner)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #174
 >
 > **Track:** Foundations · **Size:** M (4 steps) · **Depends on:** — · **Unblocks:** S53, success metrics in README §6
 >
@@ -39,8 +39,8 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S04.1** Relay reader: fetch action events by date range, count by type/day. _Done when:_ counts print for the last 7 days.
 - [x] **S04.2** Funnel, time-to-first-assignment, D1/D7/D30 cohorts. _Done when:_ numbers sanity-checked vs leaderboard.
-- [ ] **S04.3** Report writer + first report in `docs/overhaul/metrics/` + usage docs. _Done when:_ report committed.
-- [ ] **S04.4** (Optional) cookie-less page-view counter function. _Done when:_ counter increments in a local Pages dev run.
+- [x] **S04.3** Report writer + first report in `docs/overhaul/metrics/` + usage docs. _Done when:_ report committed.
+- [ ] **S04.4** (Optional) cookie-less page-view counter function. _Done when:_ counter increments in a local Pages dev run. **Deferred:** it needs a storage binding (KV, D1 or Analytics Engine), which is the owner's infrastructure choice.
 
 ## Details & guidance
 
@@ -51,7 +51,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] The script runs against live relays and produces a report; the numbers are sanity-checked against the leaderboard's airline count.
+- [x] The script runs against live relays and produces a report; the numbers are sanity-checked against the leaderboard's airline count. (Checked against every airline's saved state on the relays: 18 airlines all-time, 2 active in the window. See the S04.3 log line.)
 
 ## Progress log
 
@@ -82,11 +82,24 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 **Remaining: the first real report.** Relays are unreachable from the agent container (403), so I didn't commit an empty report. Next: run `pnpm funnel --days 30 --report` with relay access, sanity-check the created count against the leaderboard's airline count, commit the report, and tick S04.3.
 
+2026-10-06 · S04.3 · (this commit) · First real report: `docs/overhaul/metrics/2026-10-06.md` (30 days, 8 of 9 relays read).
+
+- **Result:** no airline created in the window; 2 airlines active (both on 2026-10-05, returning players from March). All-time, 18 airlines have a `v6-beta` saved state. That is the leaderboard's population, since the leaderboard is built from those saves.
+- **Why the first live run read 0 events:** it scanned every kind-30078 event. Public relays carry that kind for many apps, the 40-page cap filled with their data, and they reject the `world` tag filter as unindexed. `scripts/funnel.ts` now reads with indexed filters only: `#d` for the fixed create/snapshot/checkpoint d-tags, then `authors` for those airlines' actions.
+- **Saved state:** the client publishes `:snapshot`, never `:checkpoint`. `parseFunnelEvent` now reads both as saved state, so retention has a "last seen" again.
+- **Expiration:** until 2026-09-10 every action, `AIRLINE_CREATE` included, expired after 14 days, so the March cohort's creates are gone. `ROUTE_OPEN` and `ROUTE_ASSIGN_AIRCRAFT` now persist too (`PERSISTENT_ACTION_TYPES` in `schema.ts`), so funnel stages stay measurable past 14 days.
+
 ## Follow-ups
 
+- **`nostr.acars.pub` rejects most game saves.** `infra/relay/strfry.conf` sets `maxEventSize = 65536`, but current snapshots and `TICK_UPDATE`s are 110–137 KB. Since at least October none of them reach the game's own relay; they live only on public relays. Raise the limit (e.g. 262144) and redeploy, or shrink the payloads.
 - `scripts/backfill-relay.ts` still uses world id `dev-v3` (the game is on `v6-beta`), so it backfills nothing current. Import `FUNNEL_WORLD_ID` or `WORLD_ID` instead.
-- Regular action events expire from relays after 14 days (only `AIRLINE_CREATE` and `AIRLINE_DISSOLVE` persist). D30 retention must therefore lean on each airline's latest checkpoint (`created_at`) as 'last seen' (S04.2).
+- Funnel numbers start clean from 2026-10-06: creates persist since 2026-09-10, route opens and assignments from this PR on. Earlier cohorts can't be rebuilt from relays.
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped.** `pnpm funnel [--days n] [--report]`: funnel, time to first assignment, D1/D7/D30 retention and weekly cohorts from public relays, counts only. First report committed.
+- **Not done.** S04.4 page-view counter (deferred, owner's storage choice).
+- **Gotchas.**
+  - Never scan kind 30078 unfiltered: public relays drown it in other apps' data. Use `#d` or `authors`.
+  - Relays keep only the latest version of a replaceable event, and not always the same one, so daily "CHECKPOINT" counts are saves seen, not every save made.
+  - Fix the relay's `maxEventSize` (Follow-ups) before relying on `nostr.acars.pub` alone.
