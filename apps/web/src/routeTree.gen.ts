@@ -21,6 +21,7 @@ import { Route as NetworkRouteImport } from "./routes/network";
 import { Route as RivalsRouteImport } from "./routes/rivals";
 import { Route as RoutesRouteImport } from "./routes/routes";
 import { Route as AircraftIdRouteImport } from "./routes/aircraft.$id";
+import { Route as AirlineNpubRouteImport } from "./routes/airline.$npub";
 import { Route as AirportIataRouteImport } from "./routes/airport.$iata";
 
 const IndexRoute = IndexRouteImport.update({
@@ -83,6 +84,11 @@ const AircraftIdRoute = AircraftIdRouteImport.update({
   path: "/aircraft/$id",
   getParentRoute: () => rootRouteImport,
 } as any);
+const AirlineNpubRoute = AirlineNpubRouteImport.update({
+  id: "/airline/$npub",
+  path: "/airline/$npub",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const AirportIataRoute = AirportIataRouteImport.update({
   id: "/airport/$iata",
   path: "/airport/$iata",
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   "/rivals": typeof RivalsRoute;
   "/routes": typeof RoutesRoute;
   "/aircraft/$id": typeof AircraftIdRoute;
+  "/airline/$npub": typeof AirlineNpubRoute;
   "/airport/$iata": typeof AirportIataRoute;
 }
 export interface FileRoutesByTo {
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   "/rivals": typeof RivalsRoute;
   "/routes": typeof RoutesRoute;
   "/aircraft/$id": typeof AircraftIdRoute;
+  "/airline/$npub": typeof AirlineNpubRoute;
   "/airport/$iata": typeof AirportIataRoute;
 }
 export interface FileRoutesById {
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   "/rivals": typeof RivalsRoute;
   "/routes": typeof RoutesRoute;
   "/aircraft/$id": typeof AircraftIdRoute;
+  "/airline/$npub": typeof AirlineNpubRoute;
   "/airport/$iata": typeof AirportIataRoute;
 }
 export interface FileRouteTypes {
@@ -150,6 +159,7 @@ export interface FileRouteTypes {
     | "/rivals"
     | "/routes"
     | "/aircraft/$id"
+    | "/airline/$npub"
     | "/airport/$iata";
   fileRoutesByTo: FileRoutesByTo;
   to:
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
     | "/rivals"
     | "/routes"
     | "/aircraft/$id"
+    | "/airline/$npub"
     | "/airport/$iata";
   id:
     | "__root__"
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | "/rivals"
     | "/routes"
     | "/aircraft/$id"
+    | "/airline/$npub"
     | "/airport/$iata";
   fileRoutesById: FileRoutesById;
 }
@@ -196,6 +208,7 @@ export interface RootRouteChildren {
   RivalsRoute: typeof RivalsRoute;
   RoutesRoute: typeof RoutesRoute;
   AircraftIdRoute: typeof AircraftIdRoute;
+  AirlineNpubRoute: typeof AirlineNpubRoute;
   AirportIataRoute: typeof AirportIataRoute;
 }
 
@@ -285,6 +298,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AircraftIdRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/airline/$npub": {
+      id: "/airline/$npub";
+      path: "/airline/$npub";
+      fullPath: "/airline/$npub";
+      preLoaderRoute: typeof AirlineNpubRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/airport/$iata": {
       id: "/airport/$iata";
       path: "/airport/$iata";
@@ -308,6 +328,7 @@ const rootRouteChildren: RootRouteChildren = {
   RivalsRoute: RivalsRoute,
   RoutesRoute: RoutesRoute,
   AircraftIdRoute: AircraftIdRoute,
+  AirlineNpubRoute: AirlineNpubRoute,
   AirportIataRoute: AirportIataRoute,
 };
 export const routeTree = rootRouteImport

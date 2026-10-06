@@ -21,7 +21,8 @@
     "noAirlinesDesc": "Las aerolíneas aparecen aquí una vez que lanzan aeronaves, abren rutas o registran actividad real.",
     "viewAs": "Ver Como",
     "pageTitle": "Clasificación",
-    "pageSubtitle": "Posiciones multijugador a través del mundo activo."
+    "pageSubtitle": "Posiciones multijugador a través del mundo activo.",
+    "airlinePage": "Página"
   },
   "flightBoard": {
     "flightInfo": "{{iata}} — Información de Vuelo",
@@ -980,5 +981,21 @@
     "assignRoute": "Asignar ruta",
     "changeRoute": "Cambiar ruta",
     "noRoutes": "Aún no tienes rutas activas. Abre una desde un aeropuerto."
+  },
+  "publicAirline": {
+    "pageTitle": "Aerolínea",
+    "pageSubtitle": "Una aerolínea dirigida por un jugador en el mundo de ACARS.",
+    "loading": "Buscando esta aerolínea en los relés…",
+    "notFound": "No hay ninguna aerolínea con esta clave.",
+    "invalid": "Ese enlace de aerolínea no es válido.",
+    "cta": "Crea tu propia aerolínea",
+    "share": "Compartir",
+    "linkCopied": "Enlace copiado",
+    "aircraft": "Aviones",
+    "routes": "Rutas",
+    "tier": "Nivel",
+    "revenue": "Ingresos",
+    "network": "Red",
+    "fleet": "Flota"
   }
 }
