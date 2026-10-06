@@ -5,6 +5,9 @@
 // Brand (S11)
 export * from "./brand.js";
 
+// Milestones (S12)
+export * from "./milestones.js";
+
 // Checkpoints
 export {
   canonicalize,
