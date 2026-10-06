@@ -20,6 +20,9 @@ export type FlightRow = {
   airlineColor: string;
   otherIata: string;
   aircraft: string;
+  /** Livery thumbnail (S44): the published image, and the family for the silhouette. */
+  liveryImageUrl?: string;
+  familyId?: string;
   timeLabel: string;
   timeSort: number;
   loadFactor?: number;
@@ -229,6 +232,8 @@ export function buildFlightBoardRows({
       airlineColor,
       otherIata: getOtherIata(aircraft, mode),
       aircraft: aircraftLabel,
+      liveryImageUrl: aircraft.liveryImageUrl,
+      familyId: model?.familyId,
       timeLabel: getTimeLabel(aircraft, mode, airportTimezone, tick),
       timeSort: getTimeSort(aircraft, mode, tick),
       loadFactor: aircraft.lastKnownLoadFactor,

@@ -1,8 +1,8 @@
 # S44 — Livery as hero + fleet poster
 
-> **Status:** ☐ not started
-> **Next step:** S44.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S44.2
+> **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
 > **Track:** Graphics · **Size:** M (3 steps) · **Depends on:** — · **Unblocks:** S51
@@ -37,7 +37,7 @@ Put the unique AI liveries front and center, and make them shareable.
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S44.1** Livery thumbnails in aircraft/route panels and flight board. _Done when:_ screenshots.
+- [x] **S44.1** Livery thumbnails in aircraft/route panels and flight board. _Done when:_ screenshots.
 - [ ] **S44.2** Virtualized hangar gallery. _Done when:_ screenshots.
 - [ ] **S44.3** Fleet poster renderer + PNG download (1080×1350, 1200×630). _Done when:_ posters render identically.
 
@@ -54,7 +54,13 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-06 · S44.1 · (this commit) · New `shared/components/LiveryThumb.tsx`: a lazy `<img>` of the aircraft's published `liveryImageUrl`. On no image or a load error it falls back to the family silhouette on a 30% tint of the airline colour; tinting the background keeps dark liveries visible. It never triggers AI generation, so it's safe for long lists and rival aircraft. Used in:
+
+- both flight boards: airport FIDS and airline board (rows now carry `liveryImageUrl` and `familyId`);
+- route rows in the route manager: a stack of up to 4 assigned aircraft;
+- the aircraft panel's 'Other aircraft on route' list.
+
+Tests: unit tests, plus e2e `liveries.spec.ts` (route row stack with the silhouette fallback). I checked a screenshot by eye.
 
 ## Follow-ups
 

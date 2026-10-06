@@ -1,7 +1,7 @@
 # S13 — Auto-maintenance policy
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting review)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #176)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #176
 >

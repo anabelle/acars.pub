@@ -9,6 +9,7 @@ import {
   buildAirlineFlightBoardRows,
   countAirlineFlightBoardRows,
 } from "@/features/network/utils/airlineFlightBoard";
+import { LiveryThumb } from "@/shared/components/LiveryThumb";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
 
 const STATUS_CLASS: Record<AirlineFlightRow["statusTone"], string> = {
@@ -32,6 +33,13 @@ function AirlineFidsRow({ flight, style }: { flight: AirlineFlightRow; style?: C
         {flight.status}
       </span>
       <span className="flex items-center gap-1.5 min-w-0">
+        <LiveryThumb
+          imageUrl={flight.liveryImageUrl}
+          familyId={flight.familyId}
+          color={flight.airlineColor}
+          alt={`${flight.airlineName} ${flight.aircraft}`}
+          size="xs"
+        />
         <button
           type="button"
           onClick={() => navigateToAircraft(flight.aircraftId)}

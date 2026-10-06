@@ -3,6 +3,7 @@ import { PlaneLanding, PlaneTakeoff } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { buildFlightBoardRows, type FlightRow } from "@/features/network/utils/flightBoard";
+import { LiveryThumb } from "@/shared/components/LiveryThumb";
 import { getWorldFleetAtAirport } from "@/features/network/utils/worldFleetIndex";
 import { navigateToAirport, navigateToAircraft } from "@/shared/lib/permalinkNavigation";
 
@@ -28,10 +29,12 @@ function FidsRow({ flight }: { flight: FlightRow }) {
         {flight.status}
       </span>
       <span className="flex items-center gap-1.5 min-w-0">
-        <span
-          className="h-1.5 w-1.5 rounded-full shrink-0"
-          style={{ backgroundColor: flight.airlineColor }}
-          aria-hidden="true"
+        <LiveryThumb
+          imageUrl={flight.liveryImageUrl}
+          familyId={flight.familyId}
+          color={flight.airlineColor}
+          alt={`${flight.airlineName} ${flight.aircraft}`}
+          size="xs"
         />
         <button
           type="button"

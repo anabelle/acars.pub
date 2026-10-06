@@ -183,6 +183,8 @@ export function buildAirlineFlightBoardRows(
       originIata: displayLeg.originIata,
       destinationIata: displayLeg.destinationIata,
       aircraft: model ? model.name : aircraft.modelId,
+      liveryImageUrl: aircraft.liveryImageUrl,
+      familyId: model?.familyId,
       timeLabel: `${timeLabel} ${offsetLabel}`,
       timeSort: relevantTick,
       loadFactor: aircraft.lastKnownLoadFactor,

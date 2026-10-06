@@ -20,6 +20,7 @@ import { AircraftLiveryImage } from "@/features/fleet/components/AircraftLiveryI
 import { getAircraftTimer } from "@/features/fleet/utils/aircraftTimers";
 import { AssignRouteDialog } from "@/features/network/components/AssignRouteDialog";
 import { FamilySilhouette } from "@/shared/components/FamilySilhouette";
+import { LiveryThumb } from "@/shared/components/LiveryThumb";
 import {
   MOBILE_BOTTOM_NAV_BOTTOM_CLASS,
   MOBILE_OVERLAY_MAX_HEIGHT_CLASS,
@@ -1116,7 +1117,15 @@ export function RouteTab({
                   className="flex items-center justify-between rounded-lg border border-border/40 bg-background/50 px-3 py-2 text-xs hover:border-primary/40 transition-colors cursor-pointer"
                   onClick={() => navigateToAircraft(ac.id)}
                 >
-                  <span className="font-semibold text-foreground">{ac.name}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <LiveryThumb
+                      imageUrl={ac.liveryImageUrl}
+                      familyId={acModel?.familyId}
+                      alt={ac.name}
+                      size="xs"
+                    />
+                    <span className="truncate font-semibold text-foreground">{ac.name}</span>
+                  </span>
                   <span className="text-muted-foreground">
                     {acModel ? `${acModel.manufacturer} ${acModel.name}` : ac.modelId}
                   </span>
