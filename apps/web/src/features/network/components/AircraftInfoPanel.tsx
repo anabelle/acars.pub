@@ -14,17 +14,18 @@ import { getAircraftById, getAirports } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plane, Route as RouteIcon, Users, Wrench, X } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AircraftLiveryImage } from "@/features/fleet/components/AircraftLiveryImage";
 import { getAircraftTimer } from "@/features/fleet/utils/aircraftTimers";
+import { AssignRouteDialog } from "@/features/network/components/AssignRouteDialog";
+import { FamilySilhouette } from "@/shared/components/FamilySilhouette";
 import {
   MOBILE_BOTTOM_NAV_BOTTOM_CLASS,
   MOBILE_OVERLAY_MAX_HEIGHT_CLASS,
   MOBILE_TOPBAR_TOP_CLASS,
 } from "@/shared/components/layout/mobileLayout";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
-import { FamilySilhouette } from "@/shared/components/FamilySilhouette";
 
 type AircraftInfoPanelProps = {
   aircraft: AircraftInstance;
@@ -473,6 +474,7 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
   ]);
 
   const isPlayerAircraft = airline?.ceoPubkey === aircraft.ownerPubkey;
+  const [assigningRoute, setAssigningRoute] = useState(false);
 
   const ownerAirline = useMemo(() => {
     if (isPlayerAircraft) return airline;
@@ -858,6 +860,22 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
                   </p>
                 </div>
               </div>
+              {isPlayerAircraft ? (
+                <button
+                  type="button"
+                  data-testid="aircraft-assign-route"
+                  onClick={() => setAssigningRoute(true)}
+                  className={
+                    assignedRoute
+                      ? "w-full rounded-xl border border-border/60 px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-accent hover:text-foreground"
+                      : "w-full rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+                  }
+                >
+                  {assignedRoute
+                    ? t("assign.changeRoute", { ns: "game" })
+                    : t("assign.assignRoute", { ns: "game" })}
+                </button>
+              ) : null}
             </div>
           </>
         ) : (
@@ -868,9 +886,13 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
             aircraft={aircraft}
             lastLanding={lastLanding}
             model={model}
+            onAssign={isPlayerAircraft ? () => setAssigningRoute(true) : undefined}
           />
         )}
       </div>
+      {assigningRoute ? (
+        <AssignRouteDialog aircraft={aircraft} onClose={() => setAssigningRoute(false)} />
+      ) : null}
     </aside>
   );
 }
@@ -881,12 +903,15 @@ export function RouteTab({
   aircraft,
   lastLanding,
   model,
+  onAssign,
 }: {
   route: Route | null;
   siblings: AircraftInstance[];
   aircraft: AircraftInstance;
   lastLanding: TimelineEvent | null;
   model: ReturnType<typeof getAircraftById> | null;
+  /** Owner only: opens the assign-route dialog from the empty state. */
+  onAssign?: () => void;
 }) {
   const { t, i18n } = useTranslation(["common", "game"]);
   const regionNames = useMemo(
@@ -907,6 +932,15 @@ export function RouteTab({
         <p className="text-xs mt-1">
           {t("aircraftPanel.noRouteAssignedDescription", { ns: "game" })}
         </p>
+        {onAssign ? (
+          <button
+            type="button"
+            onClick={onAssign}
+            className="mt-4 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+          >
+            {t("assign.assignRoute", { ns: "game" })}
+          </button>
+        ) : null}
       </div>
     );
   }

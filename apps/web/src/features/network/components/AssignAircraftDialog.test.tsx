@@ -27,6 +27,10 @@ vi.mock("@tanstack/react-virtual", () => ({
   }),
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+const ferryAndAssign = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/features/network/hooks/useFerryAndAssign", () => ({
+  useFerryAndAssign: () => ferryAndAssign,
+}));
 vi.mock("sonner", () => ({ toast }));
 
 import { AssignAircraftDialog } from "./AssignAircraftDialog";
@@ -55,6 +59,7 @@ afterEach(() => {
   assignAircraftToRoute.mockClear();
   toast.success.mockClear();
   toast.error.mockClear();
+  ferryAndAssign.mockClear();
   fleet.splice(0, fleet.length);
 });
 
@@ -104,5 +109,29 @@ describe("AssignAircraftDialog", () => {
     expect(screen.getByText(/You have no aircraft yet/)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("ferries and assigns an aircraft from elsewhere", async () => {
+    fleet.push(aircraft("a-lis", "Lisbon One", { baseAirportIata: "LIS" }));
+    const onClose = vi.fn();
+    render(<AssignAircraftDialog route={route} onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ferry + assign" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(ferryAndAssign).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "a-lis" }),
+      route,
+      "MAD",
+      expect.any(Number),
+    );
+  });
+
+  it("stays open when the ferry is cancelled", async () => {
+    fleet.push(aircraft("a-lis", "Lisbon One", { baseAirportIata: "LIS" }));
+    ferryAndAssign.mockResolvedValueOnce(false);
+    const onClose = vi.fn();
+    render(<AssignAircraftDialog route={route} onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ferry + assign" }));
+    await waitFor(() => expect(ferryAndAssign).toHaveBeenCalled());
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

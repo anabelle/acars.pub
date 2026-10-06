@@ -1,7 +1,7 @@
 # S25 — Assign from both sides + ferry-and-assign
 
 > **Status:** ◐ in progress
-> **Next step:** S25.3
+> **Next step:** S25.4
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -39,7 +39,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S25.1** Shared candidate-aircraft selector (at endpoint / needs ferry). _Done when:_ unit tests.
 - [x] **S25.2** "Add aircraft" from route rows/panel. _Done when:_ screenshots.
-- [ ] **S25.3** "Assign route" from aircraft panel + ferry-and-assign. _Done when:_ screenshots.
+- [x] **S25.3** "Assign route" from aircraft panel + ferry-and-assign. _Done when:_ screenshots.
 - [ ] **S25.4** E2E for both entry points. _Done when:_ e2e green.
 
 ## Details & guidance
@@ -68,10 +68,17 @@ Design note for S25.3: a ferry puts the aircraft en route, and en-route aircraft
 - blocked ones explain why.
 
 en and es strings are in `assign.*`, with unit tests for the dialog. New e2e `route-assign.spec.ts` launches MAD→BCN and MAD→LIS, then moves an aircraft from the route list. It passes locally, and I checked a desktop screenshot of the dialog by eye. The airport panel's route chips are navigation only, so the route list is the route-side entry point.
+2026-10-06 · S25.3 · (this commit) · Aircraft side and ferry-and-assign:
+
+- **Aircraft panel.** The owner sees 'Assign route' (primary when unassigned) or 'Change route' under Assignment, plus 'Assign route' in the route tab's empty state. It opens `AssignRouteDialog` (virtualized, from `candidateRoutesForAircraft`).
+- **Ferry + assign** in both dialogs. `useFerryAndAssign` confirms once (it names the empty leg and asks the player to keep the game open), publishes the ferry, then queues `{aircraftId, routeId, ferryTo}` in localStorage per airline (`pendingAssignments.ts`, wrapped in try/catch).
+- **Runner.** `PendingAssignmentsRunner`, mounted in `__root`, assigns once the aircraft is on the ground at `ferryTo`. It drops stale entries: aircraft or route gone, already assigned, or landed elsewhere.
+
+Unit tests cover the queue, hook, runner and both dialogs. The e2e `route-assign.spec.ts` now also moves an aircraft from the aircraft panel; both tests pass locally and I checked screenshots of both dialogs.
 
 ## Follow-ups
 
-_None yet._
+- The ferry-and-assign queue is per browser and only runs while the game is open. If the player closes the tab before the ferry lands, the assignment fires on their next visit, as long as the aircraft is still idle at the ferry destination. A server-free alternative would be a signed 'assign on arrival' intent replayed by the engine, but that changes assignment rules (out of scope here).
 
 ## Handoff notes
 

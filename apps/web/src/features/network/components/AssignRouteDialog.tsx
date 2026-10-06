@@ -1,29 +1,33 @@
-import type { Route } from "@acars/core";
-import { getAircraftById } from "@acars/data";
+import type { AircraftInstance } from "@acars/core";
 import { useAirlineStore } from "@acars/store";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Plane, X } from "lucide-react";
+import { Route as RouteIcon, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useFerryAndAssign } from "@/features/network/hooks/useFerryAndAssign";
 import {
-  type AircraftCandidate,
-  type AssignmentOption,
-  candidateAircraftForRoute,
+  candidateRoutesForAircraft,
   catalogDistanceKm,
+  type RouteCandidate,
 } from "@/features/network/utils/assignmentCandidates";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 
 const ROW_HEIGHT = 64;
 
 /**
- * "Add aircraft" for one route (S25): every aircraft in the fleet, ready ones
- * first, with a one-tap assign for those already at a hub endpoint.
+ * "Assign route" for one aircraft (S25): the airline's active routes, ready
+ * ones first, with assign or ferry-and-assign.
  */
-export function AssignAircraftDialog({ route, onClose }: { route: Route; onClose: () => void }) {
+export function AssignRouteDialog({
+  aircraft,
+  onClose,
+}: {
+  aircraft: AircraftInstance;
+  onClose: () => void;
+}) {
   const { t } = useTranslation("game");
-  const fleet = useAirlineStore((s) => s.fleet);
+  const routes = useAirlineStore((s) => s.routes);
   const hubs = useAirlineStore((s) => s.airline?.hubs);
   const assignAircraftToRoute = useAirlineStore((s) => s.assignAircraftToRoute);
   const ferryAndAssign = useFerryAndAssign();
@@ -31,8 +35,8 @@ export function AssignAircraftDialog({ route, onClose }: { route: Route; onClose
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const candidates = useMemo(
-    () => candidateAircraftForRoute(route, fleet, hubs ?? [], catalogDistanceKm),
-    [route, fleet, hubs],
+    () => candidateRoutesForAircraft(aircraft, routes, hubs ?? [], catalogDistanceKm),
+    [aircraft, routes, hubs],
   );
 
   const virtualizer = useVirtualizer({
@@ -42,18 +46,23 @@ export function AssignAircraftDialog({ route, onClose }: { route: Route; onClose
     overscan: 6,
   });
 
-  const assign = async (candidate: AircraftCandidate) => {
-    setPendingId(candidate.aircraft.id);
+  const run = async ({ route, option }: RouteCandidate) => {
+    setPendingId(route.id);
     try {
-      await assignAircraftToRoute(candidate.aircraft.id, route.id);
-      toast.success(
-        t("assign.assigned", {
-          aircraft: candidate.aircraft.name,
-          origin: route.originIata,
-          destination: route.destinationIata,
-        }),
-      );
-      onClose();
+      if (option.kind === "ready") {
+        await assignAircraftToRoute(aircraft.id, route.id);
+        toast.success(
+          t("assign.assigned", {
+            aircraft: aircraft.name,
+            origin: route.originIata,
+            destination: route.destinationIata,
+          }),
+        );
+        onClose();
+      } else if (option.kind === "ferry") {
+        const sent = await ferryAndAssign(aircraft, route, option.ferryTo, option.ferryKm);
+        if (sent) onClose();
+      }
     } catch (error) {
       toast.error(t("assign.failed"), {
         description: error instanceof Error ? error.message : undefined,
@@ -63,30 +72,21 @@ export function AssignAircraftDialog({ route, onClose }: { route: Route; onClose
     }
   };
 
-  const ferry = async (candidate: AircraftCandidate) => {
-    if (candidate.option.kind !== "ferry") return;
-    setPendingId(candidate.aircraft.id);
-    const sent = await ferryAndAssign(
-      candidate.aircraft,
-      route,
-      candidate.option.ferryTo,
-      candidate.option.ferryKm,
-    );
-    setPendingId(null);
-    if (sent) onClose();
-  };
-
-  const describe = (candidate: AircraftCandidate, option: AssignmentOption) => {
-    const base = candidate.aircraft.baseAirportIata;
-    if (option.kind === "ready") return t("assign.readyAt", { iata: base });
+  const describe = ({ route, option }: RouteCandidate) => {
+    const km = `${Math.round(route.distanceKm).toLocaleString()} km`;
+    if (option.kind === "ready")
+      return `${km} · ${t("assign.readyAt", { iata: aircraft.baseAirportIata })}`;
     if (option.kind === "ferry") {
       return t("assign.needsFerry", {
-        base,
+        base: aircraft.baseAirportIata,
         km: option.ferryKm.toLocaleString(),
         to: option.ferryTo,
       });
     }
-    return t(`assign.blocked.${option.reason}`, { base, origin: route.originIata });
+    return t(`assign.blocked.${option.reason}`, {
+      base: aircraft.baseAirportIata,
+      origin: route.originIata,
+    });
   };
 
   return (
@@ -101,22 +101,19 @@ export function AssignAircraftDialog({ route, onClose }: { route: Route; onClose
         <div
           role="dialog"
           aria-modal="true"
-          aria-labelledby="assign-aircraft-title"
-          data-testid="assign-aircraft-dialog"
+          aria-labelledby="assign-route-title"
+          data-testid="assign-route-dialog"
           className="relative z-10 flex w-full max-h-[100dvh] flex-col overflow-hidden rounded-t-[24px] border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:max-h-[85vh] sm:max-w-lg sm:rounded-2xl"
         >
           <div className="shrink-0 flex items-start justify-between border-b border-border/50 px-4 py-4 sm:px-6">
             <div>
               <p
-                id="assign-aircraft-title"
+                id="assign-route-title"
                 className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold"
               >
-                {t("assign.title")}
+                {t("assign.routeTitle")}
               </p>
-              <h3 className="text-lg font-bold text-foreground">
-                {route.originIata} <span className="text-muted-foreground">→</span>{" "}
-                {route.destinationIata}
-              </h3>
+              <h3 className="text-lg font-bold text-foreground">{aircraft.name}</h3>
             </div>
             <button
               type="button"
@@ -129,7 +126,7 @@ export function AssignAircraftDialog({ route, onClose }: { route: Route; onClose
           </div>
 
           {candidates.length === 0 ? (
-            <p className="px-6 py-8 text-sm text-muted-foreground">{t("assign.empty")}</p>
+            <p className="px-6 py-8 text-sm text-muted-foreground">{t("assign.noRoutes")}</p>
           ) : (
             <div
               ref={scrollRef}
@@ -141,53 +138,43 @@ export function AssignAircraftDialog({ route, onClose }: { route: Route; onClose
               >
                 {virtualizer.getVirtualItems().map((item) => {
                   const candidate = candidates[item.index];
-                  const { aircraft, option } = candidate;
-                  const model = getAircraftById(aircraft.modelId);
+                  const { route, option } = candidate;
                   return (
                     <div
-                      key={aircraft.id}
-                      data-testid="assign-candidate"
+                      key={route.id}
+                      data-testid="assign-route-candidate"
                       data-kind={option.kind}
                       className="absolute left-0 top-0 flex w-full items-center gap-3 rounded-xl px-2"
                       style={{ height: ROW_HEIGHT, transform: `translateY(${item.start}px)` }}
                     >
-                      <Plane
+                      <RouteIcon
                         className={`h-4 w-4 shrink-0 ${option.kind === "ready" ? "text-emerald-400" : "text-muted-foreground"}`}
                         aria-hidden="true"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {aircraft.name}{" "}
-                          {model && !aircraft.name.startsWith(model.name) ? (
-                            <span className="font-normal text-muted-foreground">{model.name}</span>
-                          ) : null}
+                        <p className="truncate text-sm font-semibold font-mono text-foreground">
+                          {route.originIata} → {route.destinationIata}
                         </p>
-                        <p
-                          className={`truncate text-xs ${option.kind === "blocked" ? "text-muted-foreground/70" : "text-muted-foreground"}`}
-                        >
-                          {describe(candidate, option)}
-                          {option.kind !== "blocked" && option.reassignsFrom
-                            ? ` · ${t("assign.reassigns")}`
-                            : ""}
+                        <p className="truncate text-xs text-muted-foreground">
+                          {describe(candidate)}
                         </p>
                       </div>
-                      {option.kind === "ready" ? (
+                      {option.kind !== "blocked" ? (
                         <button
                           type="button"
                           disabled={pendingId !== null}
-                          onClick={() => assign(candidate)}
-                          className="shrink-0 rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                          onClick={() => run(candidate)}
+                          className={
+                            option.kind === "ready"
+                              ? "shrink-0 rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                              : "shrink-0 rounded-xl border border-primary/40 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 disabled:opacity-50"
+                          }
                         >
-                          {pendingId === aircraft.id ? t("assign.assigning") : t("assign.assign")}
-                        </button>
-                      ) : option.kind === "ferry" ? (
-                        <button
-                          type="button"
-                          disabled={pendingId !== null}
-                          onClick={() => ferry(candidate)}
-                          className="shrink-0 rounded-xl border border-primary/40 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 disabled:opacity-50"
-                        >
-                          {t("assign.ferryAndAssign")}
+                          {pendingId === route.id
+                            ? t("assign.assigning")
+                            : option.kind === "ready"
+                              ? t("assign.assign")
+                              : t("assign.ferryAndAssign")}
                         </button>
                       ) : null}
                     </div>

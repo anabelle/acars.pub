@@ -929,6 +929,15 @@
       "notIdle": "Busy at {{base}} — can ferry once idle",
       "noHubEndpoint": "Neither end of the route is one of your hubs",
       "ferryOutOfRange": "Too far from {{origin}} to ferry there"
-    }
+    },
+    "ferryAndAssign": "Ferry + assign",
+    "ferryConfirmTitle": "Ferry and assign?",
+    "ferryConfirmDescription": "{{aircraft}} flies empty from {{from}} to {{to}} ({{km}} km), then joins {{origin}}–{{destination}} when it lands. Keep the game open until then.",
+    "ferryFailed": "Couldn't start the ferry",
+    "ferrying": "{{aircraft}} is ferrying to {{to}}; it joins {{origin}}–{{destination}} on landing.",
+    "routeTitle": "Assign route",
+    "assignRoute": "Assign route",
+    "changeRoute": "Change route",
+    "noRoutes": "You have no active routes yet. Open one from an airport."
   }
 }
