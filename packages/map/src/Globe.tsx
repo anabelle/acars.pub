@@ -11,6 +11,7 @@ import {
   pointInViewport,
   routeIntersectsViewport,
 } from "./geo.js";
+import { BurstPool, createMarkerSlot, type MapBurst, prefersReducedMotion } from "./bursts.js";
 import { planCameraFlight } from "./camera.js";
 import { buildRouteFeatures, type MapRoute, routeStyleSignature } from "./routeFeatures.js";
 import { resolveMapSelection } from "./interactions.js";
@@ -52,6 +53,7 @@ export { arcCacheKey, getSegmentCount, ROUTE_PROFIT_COLORS } from "./layers/rout
 const NO_ROUTES: MapRoute[] = [];
 const NO_RIVAL_ROUTES: Route[] = [];
 const NO_LIVERIES = new Map<string, { primary: string; secondary: string }>();
+const NO_BURSTS: MapBurst[] = [];
 
 const aircraftModelMap = new Map(aircraftModels.map((m) => [m.id, m]));
 
@@ -84,6 +86,11 @@ export interface GlobeProps {
    * each frame instead of the numeric props (which only re-render on ticks).
    */
   engineClock?: { current: { tick: number; tickProgress: number } };
+  /**
+   * Floating money labels (S43), e.g. "+$12.3K" at a landing's airport. Pass
+   * the recent ones; each id is shown once, through a small pool of labels.
+   */
+  bursts?: MapBurst[];
   /** Map palette mode. Use "dark" for the original night-focused treatment or "light" for the earth-toned style. */
   theme?: MapTheme;
   className?: string;
@@ -113,6 +120,7 @@ export function Globe({
   tick = 0,
   tickProgress = 0,
   engineClock,
+  bursts = NO_BURSTS,
   theme = DEFAULT_MAP_THEME,
   className = "",
   style,
@@ -122,6 +130,7 @@ export function Globe({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const hasInitialFlied = useRef(false);
+  const burstPool = useRef<BurstPool | null>(null);
 
   // -------------------------------------------------------------------------
   // Optimization 1: O(1) airport lookup via Map<iata, Airport>
@@ -631,6 +640,29 @@ export function Globe({
       map.off("zoomend", onViewChange);
     };
   }, [mapLoaded, buildArcs]);
+
+  // Floating money labels (S43): one small pool of markers per map. The pool
+  // effect is declared first so it exists before bursts are pushed.
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current) return;
+    const map = mapRef.current;
+    const pool = new BurstPool(() =>
+      createMarkerSlot(
+        map,
+        (element) => new maplibregl.Marker({ element, anchor: "bottom", offset: [0, -12] }),
+        prefersReducedMotion,
+      ),
+    );
+    burstPool.current = pool;
+    return () => {
+      pool.clear();
+      burstPool.current = null;
+    };
+  }, [mapLoaded]);
+
+  useEffect(() => {
+    if (mapLoaded) burstPool.current?.push(bursts);
+  }, [mapLoaded, bursts]);
 
   // =========================================================================
   // REAL-TIME MOVEMENT: requestAnimationFrame-based 60fps interpolation

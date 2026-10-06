@@ -3,6 +3,7 @@ import { TICK_DURATION } from "@acars/core";
 import { getAirports } from "@acars/data";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
 import { RouteLegend } from "@/features/network/components/RouteLegend";
+import { useLandingBursts } from "@/features/network/hooks/useLandingBursts";
 import { toMapRoutes } from "@/features/network/utils/mapRoutes";
 import {
   DEFAULT_MAP_THEME,
@@ -44,6 +45,8 @@ function getAirportByIata(): Map<string, Airport> {
   }
   return airportByIata;
 }
+/** Stable lookup for hooks (the index itself is built lazily). */
+const lookupAirport = (iata: string) => getAirportByIata().get(iata);
 const MAP_THEME_STORAGE_KEY = "acars:map:theme";
 
 const SHOW_WORLD_STORAGE_KEY = "acars_map_show_world";
@@ -118,6 +121,7 @@ export function WorldMap() {
   const competitors = useAirlineStore((s) => s.competitors);
   const routes = useAirlineStore((s) => s.routes);
   const timeline = useAirlineStore((s) => s.timeline);
+  const landingBursts = useLandingBursts(lookupAirport);
   const routePerformance = useRoutePerformance(timeline, routes);
   // The player's routes styled by profit and frequency on the globe (S41).
   const playerRoutes = useMemo(
@@ -346,6 +350,7 @@ export function WorldMap() {
         competitorHubColors={competitorHubColors}
         playerRouteDestinations={playerRouteDestinations}
         engineClock={engineClockRef}
+        bursts={landingBursts}
         theme={mapTheme}
       />
       {playerRoutes.length > 0 ? (

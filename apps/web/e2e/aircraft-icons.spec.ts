@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { transformWithEsbuild } from "vite";
 import { aircraftModels } from "../../../packages/data/src/aircraft";
 import { FAMILY_ICONS, LIGHT_DOT_SVG } from "../../../packages/map/src/icons";
 import { addFlightLayers } from "../../../packages/map/src/layers/flights";
@@ -26,13 +27,20 @@ import { buildContrailImage } from "../../../packages/map/src/trail";
 const require = createRequire(import.meta.url);
 const MAPLIBRE_DIST = path.dirname(require.resolve("maplibre-gl/dist/maplibre-gl.mjs"));
 const BACKGROUND = "#0b1220";
+const BURSTS_SOURCE = path.resolve(
+  path.dirname(new URL(import.meta.url).pathname),
+  "../../../packages/map/src/bursts.ts",
+);
 
 const HTML = `<!doctype html><html><head><meta charset="utf-8" />
+<link rel="stylesheet" href="/__icons/maplibre-gl.css" />
 <style>html,body,#map{margin:0;width:100%;height:100%;background:${BACKGROUND}}</style></head>
 <body><div id="map"></div><script type="module">
 import * as maplibregl from "/__icons/maplibre-gl.mjs";
+import * as bursts from "/__icons/bursts.mjs";
 maplibregl.config.WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
 window.maplibregl = maplibregl;
+window.bursts = bursts;
 window.harnessReady = true;
 </script></body></html>`;
 
@@ -272,12 +280,31 @@ async function screenshot(page: Page, name: string) {
   });
 }
 
+// S43_VIDEO=1 records a video of each scene (the landing labels' recording).
+test.use({
+  video: process.env.S43_VIDEO ? { mode: "on", size: { width: 900, height: 640 } } : "off",
+});
+
 test.describe("aircraft icons", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/__icons/**", async (route) => {
       const name = new URL(route.request().url()).pathname.replace("/__icons/", "");
       if (name === "index.html") {
         await route.fulfill({ contentType: "text/html", body: HTML });
+        return;
+      }
+      if (name === "bursts.mjs") {
+        // The real label pool (dependency-free), transpiled for the page.
+        const source = readFileSync(BURSTS_SOURCE, "utf8");
+        const { code } = await transformWithEsbuild(source, BURSTS_SOURCE, { format: "esm" });
+        await route.fulfill({ contentType: "text/javascript", body: code });
+        return;
+      }
+      if (name === "maplibre-gl.css") {
+        await route.fulfill({
+          contentType: "text/css",
+          body: readFileSync(path.join(MAPLIBRE_DIST, name)),
+        });
         return;
       }
       if (!/^maplibre-gl(-shared)?\.mjs$/.test(name)) {
@@ -480,5 +507,90 @@ test.describe("aircraft icons", () => {
     );
     console.log("S42 perf runs", JSON.stringify(runs));
     console.log("S42 perf mean", JSON.stringify(summary));
+  });
+
+  test("landings float a pooled money label over the airport", async ({ page }) => {
+    test.setTimeout(120_000);
+    await openHarness(page);
+    await showFlights(page, 4, []);
+    const labels = page.locator(".maplibregl-marker");
+
+    // Ten landings at once: only one pool's worth of labels exists.
+    const shown = await page.evaluate(() => {
+      const w = window as unknown as {
+        harnessMap: import("maplibre-gl").Map;
+        maplibregl: typeof import("maplibre-gl");
+        bursts: typeof import("../../../packages/map/src/bursts");
+        pool?: unknown;
+      };
+      const { BurstPool, createMarkerSlot, prefersReducedMotion } = w.bursts;
+      const pool = new BurstPool(() =>
+        createMarkerSlot(
+          w.harnessMap,
+          (element) =>
+            new w.maplibregl.Marker({ element, anchor: "bottom", offset: [0, -12] }) as never,
+          prefersReducedMotion,
+        ),
+      );
+      w.pool = pool;
+      const amounts = [
+        "+$12.3K",
+        "+$8.1K",
+        "+$27K",
+        "+$3.4K",
+        "+$9.9K",
+        "+$4K",
+        "+$1K",
+        "−$1.2K",
+        "+$2K",
+        "+$5K",
+      ];
+      return pool.push(
+        amounts.map((text, i) => ({
+          id: `landing-${i}`,
+          longitude: -12 + (i % 5) * 6,
+          latitude: 6 - Math.floor(i / 5) * 10,
+          text,
+          tone: text.startsWith("−") ? ("loss" as const) : ("gain" as const),
+        })),
+      );
+    });
+    expect(shown).toBe(10);
+    await expect(labels).toHaveCount(6);
+    await page.waitForTimeout(400);
+    if (process.env.S42_SCREENSHOT) {
+      // Labels are DOM markers over the canvas, so capture the whole page.
+      await page.screenshot({ path: path.resolve(process.env.S42_SCREENSHOT, "bursts.png") });
+    }
+    // Each label lives ~1.8 s, then its marker is removed.
+    await expect(labels).toHaveCount(0, { timeout: 5_000 });
+  });
+
+  test("landing labels only fade under reduced motion", async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await openHarness(page);
+    const transforms = await page.evaluate(() => {
+      const w = window as unknown as {
+        harnessMap: import("maplibre-gl").Map;
+        maplibregl: typeof import("maplibre-gl");
+        bursts: typeof import("../../../packages/map/src/bursts");
+      };
+      const { BurstPool, createMarkerSlot, prefersReducedMotion } = w.bursts;
+      const pool = new BurstPool(() =>
+        createMarkerSlot(
+          w.harnessMap,
+          (element) => new w.maplibregl.Marker({ element, anchor: "bottom" }) as never,
+          prefersReducedMotion,
+        ),
+      );
+      pool.push([{ id: "a", longitude: 0, latitude: 0, text: "+$1K", tone: "gain" }]);
+      const label = document.querySelector(".maplibregl-marker > div");
+      return (label?.getAnimations()[0]?.effect as KeyframeEffect | undefined)
+        ?.getKeyframes()
+        .map((k) => k.transform ?? "none");
+    });
+    expect(transforms?.length).toBeGreaterThan(0);
+    expect(transforms?.every((t) => t === "none")).toBe(true);
   });
 });

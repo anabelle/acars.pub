@@ -69,6 +69,9 @@ vi.mock("@acars/store", () => {
   };
 });
 
+// Landing labels read the stores' subscribe API, which this file's store mock lacks.
+vi.mock("@/features/network/hooks/useLandingBursts", () => ({ useLandingBursts: () => [] }));
+
 vi.mock("@acars/map", () => {
   return {
     DEFAULT_MAP_THEME: "dark",
