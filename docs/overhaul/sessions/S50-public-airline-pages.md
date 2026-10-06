@@ -1,7 +1,7 @@
 # S50 — Public airline pages + dynamic OG images
 
 > **Status:** ◐ in progress
-> **Next step:** S50.2
+> **Next step:** S50.3
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -37,7 +37,7 @@ Every airline has a shareable page that previews beautifully anywhere.
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S50.1** `/airline/$npub` client page. _Done when:_ screenshots.
-- [ ] **S50.2** Pages Function serving OG meta to crawlers. _Done when:_ validator passes.
+- [x] **S50.2** Pages Function serving OG meta to crawlers. _Done when:_ validator passes.
 - [ ] **S50.3** Generated OG image + edge cache + fallback. _Done when:_ image renders for a real airline.
 
 ## Details & guidance
@@ -68,10 +68,16 @@ Supporting changes:
 - **Entry point.** Leaderboard rows get a 'Page' link; the context bar maps `/airline/`.
 - **i18n.** en and es strings in `publicAirline.*` and `workspace.airline*`.
 - **Tests.** Unit tests; e2e `public-airline.spec.ts` (player: leaderboard → own page with a map line; guest: unknown key → call to action). I checked a screenshot by eye.
+  2026-10-06 · S50.2 · (this commit) · OG meta for crawlers. New Pages Function `functions/airline/[npub].ts` (`onRequestGet`) serves `index.html` (via `ASSETS`) with the airline's title, description, canonical URL, Open Graph and Twitter tags, so the SPA still boots.
+- **Data.** The latest checkpoint event (kind 30078, checkpoint d-tag) is read over WebSocket from nostr.acars.pub, then damus, then nos.lol, with 2.5 s each. It's summarized and cached in `caches.default`: 10 min when found, 1 min when missing.
+- **Fallback.** Any failure, a bad key or a missing airline gives a generic ACARS card, never an error.
+- **Shared code.** Pure helpers live in `apps/web/src/features/airline/utils/ogMeta.ts` and the function imports them: a dependency-free bech32 npub decoder (tested against nostr-tools), a checkpoint summarizer, `latestSummary`, `buildAirlineMeta` and an HTML-escaping `injectMeta` (tested against the real index.html). `og:image` points at `/api/og/airline/<npub>` (S50.3). `WORLD_ID` is now exported from `@acars/nostr` so a test pins the d-tag.
+- **Tests.** Handler, relay reader (fake socket: EOSE, timeout, close, fetch failure), relay fallback order and the Pages wiring (cache miss and hit).
+- **Pending: validator run.** The agent container can't reach pages.dev, acars.pub or relays (network policy). Check the branch preview `https://claude-zen-darwin-3op878.acars.pages.dev/airline/<npub>` with a card validator (e.g. opengraph.xyz).
 
 ## Follow-ups
 
-_None yet._
+- Relay events in the OG function aren't signature-verified (the function stays dependency-free). A relay could serve a forged checkpoint for a preview. The impact is cosmetic and limited to link previews; add schnorr verification if previews ever show anything sensitive.
 
 ## Handoff notes
 

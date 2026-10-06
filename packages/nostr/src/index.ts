@@ -30,6 +30,7 @@ export {
   isTransientPublishError,
   loadActionLog,
   parseCheckpoint,
+  WORLD_ID,
   loadCatalogImages,
   loadCheckpoint,
   loadCheckpoints,

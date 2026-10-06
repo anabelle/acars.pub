@@ -8,5 +8,5 @@
     // Functions are bundled by CF Pages, never emitted by tsc.
     "noEmit": true
   },
-  "include": ["api/**/*"]
+  "include": ["api/**/*", "airline/**/*"]
 }
