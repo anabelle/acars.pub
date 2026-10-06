@@ -32,7 +32,9 @@ import {
   routeFlowDash,
   WORLD_LAYER_IDS,
 } from "./layers/routes.js";
+import { addOpportunityLayers, OPPORTUNITY_SOURCE } from "./layers/opportunities.js";
 import { addDataSources } from "./layers/sources.js";
+import { buildOpportunityFeatures, type MapOpportunity } from "./opportunities.js";
 import { DEFAULT_MAP_THEME, getMapPalette, getMapStyleUrl, type MapTheme } from "./theme.js";
 
 // Public API kept on this module (re-exported from the package index).
@@ -54,6 +56,7 @@ const NO_ROUTES: MapRoute[] = [];
 const NO_RIVAL_ROUTES: Route[] = [];
 const NO_LIVERIES = new Map<string, { primary: string; secondary: string }>();
 const NO_BURSTS: MapBurst[] = [];
+const NO_OPPORTUNITIES: MapOpportunity[] = [];
 
 const aircraftModelMap = new Map(aircraftModels.map((m) => [m.id, m]));
 
@@ -91,6 +94,11 @@ export interface GlobeProps {
    * the recent ones; each id is shown once, through a small pool of labels.
    */
   bursts?: MapBurst[];
+  /**
+   * Opportunity map (S43): projected profit per day from a hub to candidate
+   * destinations, drawn as a heat glow and coloured points. Empty hides it.
+   */
+  opportunities?: MapOpportunity[];
   /** Map palette mode. Use "dark" for the original night-focused treatment or "light" for the earth-toned style. */
   theme?: MapTheme;
   className?: string;
@@ -121,6 +129,7 @@ export function Globe({
   tickProgress = 0,
   engineClock,
   bursts = NO_BURSTS,
+  opportunities = NO_OPPORTUNITIES,
   theme = DEFAULT_MAP_THEME,
   className = "",
   style,
@@ -372,6 +381,8 @@ export function Globe({
       addDataSources(map);
       addRouteLayers(map, mapThemePalette);
       addAirportLayers(map, mapThemePalette);
+      // Under the hub glow and airports, above the routes.
+      addOpportunityLayers(map, "active-hub-glow");
       addFlightLayers(map, mapThemePalette);
       const queryRenderedFeatures = map.queryRenderedFeatures.bind(map);
       const setCursor = (cursor: string) => {
@@ -663,6 +674,16 @@ export function Globe({
   useEffect(() => {
     if (mapLoaded) burstPool.current?.push(bursts);
   }, [mapLoaded, bursts]);
+
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current) return;
+    (mapRef.current.getSource(OPPORTUNITY_SOURCE) as maplibregl.GeoJSONSource | undefined)?.setData(
+      {
+        type: "FeatureCollection",
+        features: buildOpportunityFeatures(opportunities),
+      },
+    );
+  }, [mapLoaded, opportunities]);
 
   // =========================================================================
   // REAL-TIME MOVEMENT: requestAnimationFrame-based 60fps interpolation

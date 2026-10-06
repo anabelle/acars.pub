@@ -71,6 +71,17 @@ vi.mock("@acars/store", () => {
 
 // Landing labels read the stores' subscribe API, which this file's store mock lacks.
 vi.mock("@/features/network/hooks/useLandingBursts", () => ({ useLandingBursts: () => [] }));
+// The opportunity worker is replaced by a stub that records the hub asked for.
+const mockUseHubOpportunities = vi.fn((hub: string | null) => ({
+  hubIata: hub,
+  opportunities: hub
+    ? [{ iata: "BCN", latitude: 41.3, longitude: 2.08, profitPerDay: 4800, modelName: "A320" }]
+    : null,
+  pending: false,
+}));
+vi.mock("@/features/network/hooks/useHubOpportunities", () => ({
+  useHubOpportunities: (hub: string | null) => mockUseHubOpportunities(hub),
+}));
 
 vi.mock("@acars/map", () => {
   return {
@@ -341,5 +352,56 @@ describe("WorldMap", () => {
 
     expect(window.location.pathname).toBe("/network");
     expect(window.location.search).toBe("?tab=active");
+  });
+
+  it("toggles the opportunity map from your hub and remembers the choice", () => {
+    const homeAirport = AIRPORTS[0];
+    mockUseEngineStore.mockReturnValue(buildEngineState({ homeAirport }));
+    mockUseAirlineStore.mockReturnValue({
+      airline: { hubs: [homeAirport.iata], livery: { primary: "#111", secondary: "#222" } },
+      fleet: [],
+      fleetByOwner: new Map(),
+      routesByOwner: new Map(),
+      pubkey: "test-pubkey",
+      competitors: new Map(),
+      routes: [],
+      timeline: [],
+    });
+    mockUseHubOpportunities.mockClear();
+
+    render(<WorldMap />);
+    const lastGlobe = () => mockGlobe.mock.calls[mockGlobe.mock.calls.length - 1]?.[0];
+    // Off by default: no worker request, nothing drawn.
+    expect(mockUseHubOpportunities).toHaveBeenLastCalledWith(null);
+    expect(lastGlobe().opportunities).toEqual([]);
+    expect(screen.queryByTestId("opportunity-legend")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("opportunities-toggle"));
+    expect(mockUseHubOpportunities).toHaveBeenLastCalledWith(homeAirport.iata);
+    expect(lastGlobe().opportunities).toHaveLength(1);
+    expect(screen.getByTestId("opportunity-legend")).toHaveTextContent(
+      `Opportunities from ${homeAirport.iata}`,
+    );
+    expect(window.localStorage.getItem("acars_map_show_opportunities")).toBe("true");
+
+    fireEvent.click(screen.getByTestId("opportunities-toggle"));
+    expect(lastGlobe().opportunities).toEqual([]);
+    expect(window.localStorage.getItem("acars_map_show_opportunities")).toBe("false");
+  });
+
+  it("has no opportunity toggle without an airline", () => {
+    mockUseEngineStore.mockReturnValue(buildEngineState({ homeAirport: AIRPORTS[0] }));
+    mockUseAirlineStore.mockReturnValue({
+      airline: null,
+      fleet: [],
+      fleetByOwner: new Map(),
+      routesByOwner: new Map(),
+      pubkey: null,
+      competitors: new Map(),
+      routes: [],
+      timeline: [],
+    });
+    render(<WorldMap />);
+    expect(screen.queryByTestId("opportunities-toggle")).toBeNull();
   });
 });

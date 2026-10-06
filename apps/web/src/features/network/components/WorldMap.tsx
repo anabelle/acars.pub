@@ -3,6 +3,8 @@ import { TICK_DURATION } from "@acars/core";
 import { getAirports } from "@acars/data";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
 import { RouteLegend } from "@/features/network/components/RouteLegend";
+import { useHubOpportunities } from "@/features/network/hooks/useHubOpportunities";
+import type { HubOpportunity } from "@/features/network/utils/hubOpportunities";
 import { useLandingBursts } from "@/features/network/hooks/useLandingBursts";
 import { toMapRoutes } from "@/features/network/utils/mapRoutes";
 import {
@@ -21,7 +23,7 @@ import { config as maplibreConfig } from "maplibre-gl";
 // names side by side: they are copied to public/maplibre/ (verbatim from
 // maplibre-gl@6.9.0 dist) and WORKER_URL points at the stable copy.
 maplibreConfig.WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { hasLeaderboardActivity } from "@/features/competition/leaderboardMetrics";
@@ -50,6 +52,17 @@ const lookupAirport = (iata: string) => getAirportByIata().get(iata);
 const MAP_THEME_STORAGE_KEY = "acars:map:theme";
 
 const SHOW_WORLD_STORAGE_KEY = "acars_map_show_world";
+const SHOW_OPPORTUNITIES_STORAGE_KEY = "acars_map_show_opportunities";
+const NO_OPPORTUNITIES: HubOpportunity[] = [];
+
+/** Per-viewer preference; off by default (it runs projections in a worker). */
+function getSavedShowOpportunities(): boolean {
+  try {
+    return window.localStorage.getItem(SHOW_OPPORTUNITIES_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
 
 /** Per-viewer preference; storage can be unavailable (private mode), so default to the world. */
 function getSavedShowWorld(): boolean {
@@ -177,6 +190,27 @@ export function WorldMap() {
   }, [competitors]);
 
   const playerHubs = useMemo(() => airline?.hubs ?? [], [airline?.hubs]);
+  const [showOpportunities, setShowOpportunities] = useState(getSavedShowOpportunities);
+  const toggleOpportunities = () =>
+    setShowOpportunities((current) => {
+      try {
+        window.localStorage.setItem(SHOW_OPPORTUNITIES_STORAGE_KEY, String(!current));
+      } catch {
+        // storage unavailable: the choice lasts for this visit
+      }
+      return !current;
+    });
+  // Opportunities from the hub you're looking at (if it's one of yours), else your main hub.
+  const opportunityHub = !airline
+    ? null
+    : focusedAirport && playerHubs.includes(focusedAirport.iata)
+      ? focusedAirport.iata
+      : (playerHubs[0] ?? homeAirport?.iata ?? null);
+  const hubOpportunities = useHubOpportunities(showOpportunities ? opportunityHub : null);
+  const mapOpportunities =
+    showOpportunities && hubOpportunities.opportunities
+      ? hubOpportunities.opportunities
+      : NO_OPPORTUNITIES;
 
   const competitorHubColors = useMemo(() => {
     const map = new Map<string, string>();
@@ -351,6 +385,7 @@ export function WorldMap() {
         playerRouteDestinations={playerRouteDestinations}
         engineClock={engineClockRef}
         bursts={landingBursts}
+        opportunities={mapOpportunities}
         theme={mapTheme}
       />
       {playerRoutes.length > 0 ? (
@@ -367,19 +402,70 @@ export function WorldMap() {
           {t("worldMap.focus", { ns: "game", iata: focusedAirport.iata })}
         </div>
       ) : null}
-      <button
-        type="button"
-        onClick={() => setMapTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))}
-        className={`pointer-events-auto absolute right-4 z-20 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground shadow-[0_14px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} sm:bottom-14`}
-        title={toggleThemeLabel}
-        aria-label={toggleThemeLabel}
+      {showOpportunities && opportunityHub ? (
+        <div
+          // Left of the map buttons; above the route key when that one shows.
+          className={`pointer-events-none absolute right-20 z-20 w-44 rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-[10px] text-muted-foreground shadow-[0_14px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} ${
+            playerRoutes.length > 0 ? "sm:bottom-[11.25rem]" : "sm:bottom-14"
+          }`}
+          data-testid="opportunity-legend"
+        >
+          <p className="font-semibold uppercase tracking-widest text-foreground">
+            {t("worldMap.opportunities.title", { ns: "game", iata: opportunityHub })}
+          </p>
+          <p className="mt-1">
+            {hubOpportunities.pending && !hubOpportunities.opportunities
+              ? t("worldMap.opportunities.computing", { ns: "game" })
+              : hubOpportunities.opportunities?.length === 0
+                ? t("worldMap.opportunities.empty", { ns: "game" })
+                : t("worldMap.opportunities.key", { ns: "game" })}
+          </p>
+        </div>
+      ) : null}
+      <div
+        className={`pointer-events-none absolute right-4 z-20 flex flex-col gap-2 ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} sm:bottom-14`}
       >
-        {mapTheme === "dark" ? (
-          <Sun className="h-4 w-4" aria-hidden="true" />
-        ) : (
-          <Moon className="h-4 w-4" aria-hidden="true" />
-        )}
-      </button>
+        {airline ? (
+          <button
+            type="button"
+            onClick={toggleOpportunities}
+            aria-pressed={showOpportunities}
+            data-testid="opportunities-toggle"
+            className={`pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border bg-background/80 shadow-[0_14px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+              showOpportunities
+                ? "border-primary/60 text-primary"
+                : "border-border/60 text-foreground"
+            }`}
+            title={t(
+              showOpportunities ? "worldMap.opportunities.hide" : "worldMap.opportunities.show",
+              {
+                ns: "game",
+              },
+            )}
+            aria-label={t(
+              showOpportunities ? "worldMap.opportunities.hide" : "worldMap.opportunities.show",
+              { ns: "game" },
+            )}
+          >
+            <TrendingUp className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={() =>
+            setMapTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))
+          }
+          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground shadow-[0_14px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          title={toggleThemeLabel}
+          aria-label={toggleThemeLabel}
+        >
+          {mapTheme === "dark" ? (
+            <Sun className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <Moon className="h-4 w-4" aria-hidden="true" />
+          )}
+        </button>
+      </div>
       {/* Map vignette overlay */}
       <div className="pointer-events-none absolute inset-0 z-10 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)]" />
     </div>
