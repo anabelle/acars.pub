@@ -8,7 +8,7 @@ ACARS gates content through a **tier-based progression system**. Tiers advance a
 
 |                        | Tier 1 — Regional Startup | Tier 2 — National Carrier | Tier 3 — Global Operator | Tier 4 — Legacy Giant |
 | ---------------------- | ------------------------- | ------------------------- | ------------------------ | --------------------- |
-| **Cumulative revenue** | — (start)                 | $5,000,000                | $50,000,000              | $250,000,000          |
+| **Cumulative revenue** | — (start)                 | $1,000,000                | $10,000,000              | $60,000,000           |
 | **Active routes**      | —                         | 3                         | 10                       | 25                    |
 | **Max hubs**           | 1                         | 3                         | 5                        | Unlimited             |
 | **Max route distance** | 3,000 km                  | 7,000 km                  | Unlimited                | Unlimited             |
@@ -19,6 +19,32 @@ Notes:
 - Both conditions must be met simultaneously; satisfying only one holds you at the current tier.
 - Airlines migrating from legacy saves are seeded with an estimated historic revenue via `estimateHistoricRevenue` (fleet purchase value + $2M per active route, capped at 25 routes).
 - Tier 4 is the maximum tier (`MAX_TIER = 4`).
+
+## Pacing
+
+Thresholds are tuned with the balance harness (`pnpm balance`, report §5), which runs day-one strategies from a MAD hub with $100M through the real flight engine:
+
+| Strategy                                     | Fleet     | Tier 2 |          Tier 3 |
+| -------------------------------------------- | --------- | -----: | --------------: |
+| Cautious: 3 ATR 72s at suggested fares       | 3 leased  | day 11 | needs 10 routes |
+| Balanced: 10 ATR 72s at 1.2× fares           | 10 leased |  day 3 |          day 28 |
+| Greedy: every ATR 72 the cash allows at 1.4× | 15 leased |  day 3 |          day 21 |
+
+Targets: a balanced player reaches Tier 2 in 1–3 days and Tier 3 in 3–4 weeks, and the greedy path is never more than 2× faster (`packages/store/src/balance/report.test.ts`). Tier 4's 25 routes call for growing the network, not a day-one fleet.
+
+## Milestones
+
+Between tiers, `MILESTONES` (`packages/core/src/milestones.ts`) gives 16 smaller rungs, such as first route, $250k revenue, 3 / 5 / 10 routes, first owned aircraft, first jet, second hub, brand 0.7, first widebody, fleet of 25, and revenue rungs up to $100M. Each is a target on one metric of airline state, with a $100k–$2M reward. The evaluators are pure (`milestoneState`, `isMilestoneMet`, `milestoneProgress`, `newlyMetMilestones`, `nextMilestones`). Rewards are not credited in-game yet (S12 follow-up).
+
+## Leasing vs buying
+
+Every lease is priced from the aircraft price (`packages/core/src/fleet.ts`):
+
+- **Deposit:** 25% of the price (`LEASE_DEPOSIT_SHARE`), paid up front and not refunded.
+- **Monthly payment:** 0.6% of the price (`LEASE_MONTHLY_RATE`), e.g. ATR 72-600 $156k, A320neo $660k.
+- **Selling an owned aircraft:** returns 70% of its book value (`SCRAP_RESALE_SHARE`). Book value depreciates 10% a year, continuously, floored at the model's residual value.
+
+Leasing is the cheaper way to start, and buying works out cheaper from month 49 (about 4 years) for every model (`leaseBuyBreakEvenMonths`; the dealer shows it). On day one, $100M leases about 15 ATR 72s.
 
 ## Aircraft Catalog by Tier
 
@@ -96,6 +122,9 @@ The largest long-haul aircraft in the catalog.
 ## Source of Truth
 
 - Thresholds and limits: `packages/core/src/tier.ts` (`TIER_THRESHOLDS`, `getMaxRouteDistanceKm`, `getMaxHubs`)
-- Catalog: `packages/data/src/aircraft.ts` (35 models)
+- Catalog: `packages/data/src/aircraft.ts` (35 models; `monthlyLease` derived from price)
+- Lease and buy: `packages/core/src/fleet.ts` (`LEASE_DEPOSIT_SHARE`, `LEASE_MONTHLY_RATE`, `SCRAP_RESALE_SHARE`, `ownershipCost`, `leaseBuyBreakEvenMonths`)
+- Milestones: `packages/core/src/milestones.ts`
+- Pacing evidence: `docs/overhaul/balance/latest.md` §5
 
-Last verified: 2026-09
+Last verified: 2026-10
