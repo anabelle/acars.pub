@@ -19,7 +19,11 @@ import {
 } from "./nightOverlay.js";
 import {
   addRouteLayers,
+  ROUTE_FLOW_DASHES,
+  ROUTE_FLOW_STEP_MS,
   ROUTE_PROFIT_COLORS,
+  routeFlowDash,
+  WORLD_LAYER_IDS,
   rivalRouteColorExpression,
   routeColorExpression,
   routeWidthExpression,
@@ -107,6 +111,7 @@ describe("map layer modules", () => {
       NIGHT_CANVAS_LAYER,
       "global-arcs-layer",
       "arcs-layer",
+      "arcs-flow-layer",
       "active-hub-glow",
       "airports-layer",
       "ground-presence-layer",
@@ -268,5 +273,26 @@ describe("route styling expressions", () => {
     expect((player[4] as unknown[])[1]).toBeCloseTo(0.6);
     expect((rival[4] as unknown[])[1]).toBeCloseTo(0.3);
     expect((player[6] as unknown[])[1]).toBeCloseTo(1.2);
+  });
+});
+
+describe("route flow", () => {
+  it("steps through the dash sequence over time and wraps around", () => {
+    expect(routeFlowDash(0)).toEqual([...ROUTE_FLOW_DASHES[0]]);
+    expect(routeFlowDash(ROUTE_FLOW_STEP_MS * 3 + 5)).toEqual([...ROUTE_FLOW_DASHES[3]]);
+    expect(routeFlowDash(ROUTE_FLOW_STEP_MS * ROUTE_FLOW_DASHES.length)).toEqual([
+      ...ROUTE_FLOW_DASHES[0],
+    ]);
+  });
+
+  it("hides only layers that exist and belong to rivals", () => {
+    const { map, layers } = fakeMap();
+    addRouteLayers(map, DARK_MAP_PALETTE);
+    addFlightLayers(map, DARK_MAP_PALETTE);
+    const ids = new Set(layers.map((l) => l.id));
+    for (const id of WORLD_LAYER_IDS) expect(ids.has(id)).toBe(true);
+    expect(WORLD_LAYER_IDS.some((id) => id.startsWith("flight") || id === "arcs-layer")).toBe(
+      false,
+    );
   });
 });

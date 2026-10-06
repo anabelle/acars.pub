@@ -23,7 +23,14 @@ import {
 import { addFlightLayers, registerAircraftIcons } from "./layers/flights.js";
 import { applyGlobeView, globeFitZoom } from "./layers/globeView.js";
 import { addNightOverlay, NIGHT_CANVAS_SOURCE, paintNightCanvas } from "./layers/nightOverlay.js";
-import { addRouteLayers, arcCacheKey, getSegmentCount } from "./layers/routes.js";
+import {
+  addRouteLayers,
+  arcCacheKey,
+  getSegmentCount,
+  ROUTE_FLOW_STEP_MS,
+  routeFlowDash,
+  WORLD_LAYER_IDS,
+} from "./layers/routes.js";
 import { addDataSources } from "./layers/sources.js";
 import { DEFAULT_MAP_THEME, getMapPalette, getMapStyleUrl, type MapTheme } from "./theme.js";
 
@@ -62,6 +69,8 @@ export interface GlobeProps {
   competitorRoutes?: Route[];
   /** The player's routes with frequency and profit (S41: drawn by profit and frequency). */
   playerRoutes?: MapRoute[];
+  /** Show rivals' routes and aircraft ("world"); false shows only the player's network. */
+  showWorld?: boolean;
   playerLivery?: { primary: string; secondary: string } | null;
   competitorLiveries?: Map<string, { primary: string; secondary: string }>;
   playerHubs?: string[];
@@ -95,6 +104,7 @@ export function Globe({
   competitorFleet = [],
   competitorRoutes = NO_RIVAL_ROUTES,
   playerRoutes = NO_ROUTES,
+  showWorld = true,
   playerLivery = null,
   competitorLiveries = NO_LIVERIES,
   playerHubs = [],
@@ -215,6 +225,8 @@ export function Globe({
   const latestOnAirportSelect = useRef(onAirportSelect);
   const latestOnAircraftSelect = useRef(onAircraftSelect);
   const latestOnMapClick = useRef(onMapClick);
+  const latestShowWorld = useRef(showWorld);
+  const latestPlayerRouteCount = useRef(playerRoutes.length);
 
   // Keep refs in sync with props (avoid stale closures in RAF loop).
   // Consolidated into one effect to avoid 11 separate scheduler entries.
@@ -222,6 +234,8 @@ export function Globe({
     latestOnAirportSelect.current = onAirportSelect;
     latestOnAircraftSelect.current = onAircraftSelect;
     latestOnMapClick.current = onMapClick;
+    latestShowWorld.current = showWorld;
+    latestPlayerRouteCount.current = playerRoutes.length;
     latestTick.current = tick;
     latestTickProgress.current = tickProgress;
     latestFleet.current = fleet;
@@ -236,6 +250,8 @@ export function Globe({
     onAirportSelect,
     onAircraftSelect,
     onMapClick,
+    showWorld,
+    playerRoutes.length,
     tick,
     tickProgress,
     fleet,
@@ -757,15 +773,18 @@ export function Globe({
         1.1,
         now,
       );
-      const globalFlightFeatures = processFleet(
-        latestGlobalFleet.current,
-        currentTick,
-        currentProgress,
-        bounds,
-        (ac) => latestCompetitorLiveries.current.get(ac.ownerPubkey),
-        0.8,
-        now,
-      );
+      // "My network" view: rivals' aircraft are hidden, so don't interpolate them.
+      const globalFlightFeatures = !latestShowWorld.current
+        ? []
+        : processFleet(
+            latestGlobalFleet.current,
+            currentTick,
+            currentProgress,
+            bounds,
+            (ac) => latestCompetitorLiveries.current.get(ac.ownerPubkey),
+            0.8,
+            now,
+          );
 
       (map.getSource("flights") as maplibregl.GeoJSONSource)?.setData({
         type: "FeatureCollection",
@@ -790,6 +809,37 @@ export function Globe({
       cancelAnimationFrame(rafId.current);
     };
   }, [mapLoaded, airportIndex, mapThemePalette]);
+
+  // =========================================================================
+  // "My network" / "world" toggle: rivals' routes and aircraft on or off.
+  // =========================================================================
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapLoaded || !map) return;
+    for (const id of WORLD_LAYER_IDS) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", showWorld ? "visible" : "none");
+    }
+  }, [showWorld, mapLoaded]);
+
+  // =========================================================================
+  // Route flow: dashes travel along the player's routes, origin → destination.
+  // A paint-property step ~10×/s; skipped for reduced motion, hidden tabs and
+  // airlines without routes.
+  // =========================================================================
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapLoaded || !map) return;
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+    const id = setInterval(() => {
+      if (document.hidden || latestPlayerRouteCount.current === 0) return;
+      if (!map.getLayer("arcs-flow-layer")) return;
+      map.setPaintProperty("arcs-flow-layer", "line-dasharray", routeFlowDash(performance.now()));
+    }, ROUTE_FLOW_STEP_MS);
+    return () => clearInterval(id);
+  }, [mapLoaded]);
 
   // =========================================================================
   // Initial fly-to on first airport selection or focus change

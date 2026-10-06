@@ -861,7 +861,10 @@
       "losing": "Pierde",
       "breakEven": "Equilibrio",
       "earning": "Gana",
-      "width": "Más gruesa = más vuelos por semana"
+      "width": "Más gruesa = más vuelos por semana",
+      "viewLabel": "Rutas visibles",
+      "myNetwork": "Mi red",
+      "world": "Mundo"
     }
   },
   "awayReport": {

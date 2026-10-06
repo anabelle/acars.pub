@@ -861,7 +861,10 @@
       "losing": "Losing",
       "breakEven": "Break-even",
       "earning": "Earning",
-      "width": "Thicker = more flights a week"
+      "width": "Thicker = more flights a week",
+      "viewLabel": "Routes shown",
+      "myNetwork": "My network",
+      "world": "World"
     }
   },
   "awayReport": {

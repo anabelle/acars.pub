@@ -46,6 +46,17 @@ function getAirportByIata(): Map<string, Airport> {
 }
 const MAP_THEME_STORAGE_KEY = "acars:map:theme";
 
+const SHOW_WORLD_STORAGE_KEY = "acars_map_show_world";
+
+/** Per-viewer preference; storage can be unavailable (private mode), so default to the world. */
+function getSavedShowWorld(): boolean {
+  try {
+    return window.localStorage.getItem(SHOW_WORLD_STORAGE_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
 function getSavedMapTheme(): MapTheme {
   if (typeof window === "undefined") return DEFAULT_MAP_THEME;
   const raw = window.localStorage.getItem(MAP_THEME_STORAGE_KEY);
@@ -118,6 +129,14 @@ export function WorldMap() {
   const [inspectedAircraft, setInspectedAircraft] = useState<AircraftInstance | null>(null);
   const [focusedAirport, setFocusedAirport] = useState<Airport | null>(null);
   const [mapTheme, setMapTheme] = useState<MapTheme>(() => getSavedMapTheme());
+  const [showWorld, setShowWorld] = useState<boolean>(() => getSavedShowWorld());
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SHOW_WORLD_STORAGE_KEY, String(showWorld));
+    } catch {
+      // Preference only: ignore storage failures.
+    }
+  }, [showWorld]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -320,6 +339,7 @@ export function WorldMap() {
         competitorFleet={competitorFleet}
         competitorRoutes={competitorRoutes}
         playerRoutes={playerRoutes}
+        showWorld={showWorld}
         playerLivery={airline?.livery || null}
         competitorLiveries={competitorLiveries}
         playerHubs={playerHubs}
@@ -328,7 +348,9 @@ export function WorldMap() {
         engineClock={engineClockRef}
         theme={mapTheme}
       />
-      {playerRoutes.length > 0 ? <RouteLegend /> : null}
+      {playerRoutes.length > 0 ? (
+        <RouteLegend showWorld={showWorld} onShowWorldChange={setShowWorld} />
+      ) : null}
       {inspectedAirport ? (
         <AirportInfoPanel airport={inspectedAirport} onClose={clearAirportFocus} />
       ) : null}
