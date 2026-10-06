@@ -55,22 +55,42 @@ export function registerAircraftIcons(map: maplibregl.Map): void {
 /**
  * Aircraft icon size: wingspan-relative (`sizeScale`) and growing with zoom,
  * with a floor at low zooms so a turboprop stays a readable silhouette
- * instead of a dot. Shared by the body, accent and navigation-light layers
- * so wing-tip lights stay aligned.
+ * instead of a dot. `factor` scales every stop (used for the halo width).
  */
-export const AIRCRAFT_ICON_SIZE: maplibregl.ExpressionSpecification = [
-  "interpolate",
-  ["linear"],
-  ["zoom"],
-  2,
-  ["max", ["*", ["get", "sizeScale"], 0.15], 0.3],
-  5,
-  ["max", ["*", ["get", "sizeScale"], 0.4], 0.42],
-  8,
-  ["*", ["get", "sizeScale"], 0.7],
-  12,
-  ["*", ["get", "sizeScale"], 1.0],
-];
+function iconSizeExpression(factor = 1): maplibregl.ExpressionSpecification {
+  const stop = (scale: number, floor?: number): maplibregl.ExpressionSpecification => {
+    const size: maplibregl.ExpressionSpecification = ["*", ["get", "sizeScale"], scale];
+    const floored: maplibregl.ExpressionSpecification =
+      floor === undefined ? size : ["max", size, floor];
+    return factor === 1 ? floored : ["*", floored, factor];
+  };
+  return [
+    "interpolate",
+    ["linear"],
+    ["zoom"],
+    2,
+    stop(0.15, 0.3),
+    5,
+    stop(0.4, 0.42),
+    8,
+    stop(0.7),
+    12,
+    stop(1),
+  ];
+}
+
+/**
+ * Shared by the body, accent and navigation-light layers so wing-tip lights
+ * stay aligned with the aircraft.
+ */
+export const AIRCRAFT_ICON_SIZE = iconSizeExpression();
+
+/**
+ * Outline around the player's aircraft, in px per unit of icon size. Scaling
+ * it with the icon keeps it inside the distance field's range at every zoom
+ * (a fixed width overflows small icons and fills their whole square).
+ */
+export const PLAYER_HALO_PER_ICON_SIZE = 2.6;
 
 /** Aircraft layers: rivals' and the player's flights (body + livery accent), glow and navigation lights. */
 export function addFlightLayers(map: maplibregl.Map, mapThemePalette: MapPalette): void {
@@ -214,6 +234,11 @@ export function addFlightLayers(map: maplibregl.Map, mapThemePalette: MapPalette
     },
     paint: {
       "icon-color": ["coalesce", ["get", "primaryColor"], "#ffffff"],
+      // Your aircraft carry an outline (rivals' don't), so your fleet reads at
+      // a glance even when a rival flies a similar livery colour.
+      "icon-halo-color": mapThemePalette.flights.playerHalo,
+      "icon-halo-width": iconSizeExpression(PLAYER_HALO_PER_ICON_SIZE),
+      "icon-halo-blur": 0.2,
     },
   });
 

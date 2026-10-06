@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DARK_MAP_PALETTE, EARTH_MAP_PALETTE } from "../theme.js";
 import { addAirportLayers, buildPresenceBadge } from "./airports.js";
-import { addFlightLayers, registerAircraftIcons } from "./flights.js";
+import { AIRCRAFT_ICON_SIZE, addFlightLayers, registerAircraftIcons } from "./flights.js";
 import {
   ATMOSPHERE_FADE_END_ZOOM,
   applyGlobeView,
@@ -146,6 +146,36 @@ describe("map layer modules", () => {
     expect(paint["line-color"]).toEqual(rivalRouteColorExpression(EARTH_MAP_PALETTE));
     const player = layers[1].spec.paint as Record<string, unknown>;
     expect(player["line-color"]).toEqual(routeColorExpression(EARTH_MAP_PALETTE));
+  });
+
+  it("outlines the player's aircraft in the theme's halo colour, not rivals'", () => {
+    for (const palette of [DARK_MAP_PALETTE, EARTH_MAP_PALETTE]) {
+      const { map, layers } = fakeMap();
+      addFlightLayers(map, palette);
+      const paint = (id: string) =>
+        layers.find((l) => l.id === id)?.spec.paint as Record<string, unknown>;
+      expect(paint("flights-layer")["icon-halo-color"]).toBe(palette.flights.playerHalo);
+      expect(paint("flights-layer")["icon-halo-width"]).toBeDefined();
+      expect(paint("global-flights-layer")["icon-halo-width"]).toBeUndefined();
+    }
+    expect(DARK_MAP_PALETTE.flights.playerHalo).not.toBe(EARTH_MAP_PALETTE.flights.playerHalo);
+  });
+
+  it("sizes every aircraft layer and its lights with one expression", () => {
+    const { map, layers } = fakeMap();
+    addFlightLayers(map, DARK_MAP_PALETTE);
+    const size = (id: string) =>
+      (layers.find((l) => l.id === id)?.spec.layout as Record<string, unknown>)["icon-size"];
+    for (const id of [
+      "global-flights-layer",
+      "global-flights-accent-layer",
+      "flights-layer",
+      "flights-accent-layer",
+      "flight-light-port",
+      "flight-light-stbd",
+    ]) {
+      expect(size(id)).toBe(AIRCRAFT_ICON_SIZE);
+    }
   });
 
   it("registers every aircraft family icon once", () => {

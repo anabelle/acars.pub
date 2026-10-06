@@ -34,6 +34,8 @@ export type MapPalette = {
   };
   flights: {
     fallbackAccent: string;
+    /** Outline around the player's own aircraft, so they stand out from rivals'. */
+    playerHalo: string;
   };
   /** Space, horizon glow and haze around the globe. */
   sky: {
@@ -76,6 +78,7 @@ export const DARK_MAP_PALETTE: MapPalette = {
   },
   flights: {
     fallbackAccent: "#94a3b8",
+    playerHalo: "#f8fafc",
   },
   sky: {
     space: "#020617",
@@ -110,6 +113,7 @@ export const EARTH_MAP_PALETTE: MapPalette = {
   },
   flights: {
     fallbackAccent: "#7dd3fc",
+    playerHalo: "#0f172a",
   },
   sky: {
     space: "#0b1a2e",

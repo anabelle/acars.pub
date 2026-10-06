@@ -97,7 +97,7 @@ async function buildSdfIcons(page: Page) {
 }
 
 /** One aircraft per family on a 4 × 3 screen grid around (0, 0) at `zoom`. */
-function gridFeatures(zoom: number, spacingPx: number) {
+function gridFeatures(zoom: number, spacingPx: number): Feature[] {
   const degPerPx = 360 / (512 * 2 ** zoom);
   const families = Object.keys(FAMILY_ICONS);
   return families.map((familyId, i) => {
@@ -159,6 +159,100 @@ async function countColors(page: Page, colors: string[], tolerance: number) {
   );
 }
 
+/** Opens the harness page with the SDF icons and the real flight layers. */
+async function openHarness(page: Page) {
+  await page.setViewportSize({ width: 900, height: 640 });
+  await page.goto("/__icons/index.html");
+  await page.waitForFunction(() => (window as unknown as { harnessReady?: boolean }).harnessReady);
+
+  const icons = await buildSdfIcons(page);
+  const layers = recordFlightLayers();
+  await page.evaluate(
+    ({ icons, layers, background, pixelRatio }) =>
+      new Promise<void>((resolve) => {
+        const { maplibregl } = window as unknown as {
+          maplibregl: typeof import("maplibre-gl");
+        };
+        const map = new maplibregl.Map({
+          container: "map",
+          style: {
+            version: 8,
+            sources: {},
+            layers: [{ id: "bg", type: "background", paint: { "background-color": background } }],
+          },
+          center: [0, 0],
+          zoom: 3,
+          attributionControl: false,
+          canvasContextAttributes: { preserveDrawingBuffer: true },
+        });
+        (window as unknown as { harnessMap: unknown }).harnessMap = map;
+        map.on("load", () => {
+          for (const icon of icons) {
+            const data = new Uint8ClampedArray(icon.size * icon.size * 4);
+            icon.sdf.forEach((a, i) => {
+              data.set([255, 255, 255, a], i * 4);
+            });
+            map.addImage(
+              icon.id,
+              { width: icon.size, height: icon.size, data },
+              { sdf: true, pixelRatio },
+            );
+          }
+          const empty = { type: "FeatureCollection" as const, features: [] };
+          map.addSource("flights", { type: "geojson", data: empty });
+          map.addSource("global-flights", { type: "geojson", data: empty });
+          for (const { spec, before } of layers) {
+            map.addLayer(spec as Parameters<typeof map.addLayer>[0], before);
+          }
+          resolve();
+        });
+      }),
+    { icons, layers, background: BACKGROUND, pixelRatio: ICON_PIXEL_RATIO },
+  );
+}
+
+interface Feature {
+  type: "Feature";
+  geometry: { type: "Point"; coordinates: number[] };
+  properties: {
+    id: string;
+    familyId: string;
+    bearing: number;
+    sizeScale: number;
+    strobeOn: number;
+    primaryColor: string;
+    secondaryColor: string;
+  };
+}
+
+/** Shows `player` and `rivals` aircraft at `zoom` and waits for the frame. */
+async function showFlights(page: Page, zoom: number, player: Feature[], rivals: Feature[] = []) {
+  await page.evaluate(
+    ({ zoom, player, rivals }) =>
+      new Promise<void>((resolve) => {
+        const map = (window as unknown as { harnessMap: import("maplibre-gl").Map }).harnessMap;
+        const set = (id: string, features: unknown[]) =>
+          (map.getSource(id) as import("maplibre-gl").GeoJSONSource).setData({
+            type: "FeatureCollection",
+            features: features as never,
+          });
+        set("flights", player);
+        set("global-flights", rivals);
+        map.jumpTo({ center: [0, 0], zoom });
+        map.once("idle", () => resolve());
+        map.triggerRepaint();
+      }),
+    { zoom, player, rivals },
+  );
+}
+
+async function screenshot(page: Page, name: string) {
+  if (!process.env.S42_SCREENSHOT) return;
+  await page.locator("#map canvas").screenshot({
+    path: path.resolve(process.env.S42_SCREENSHOT, name),
+  });
+}
+
 test.describe("aircraft icons", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/__icons/**", async (route) => {
@@ -178,84 +272,18 @@ test.describe("aircraft icons", () => {
     });
   });
 
+  test.setTimeout(120_000);
   test("every family renders, livery-tinted, at three zooms", async ({ page }) => {
     test.setTimeout(120_000);
-    await page.setViewportSize({ width: 900, height: 640 });
-    await page.goto("/__icons/index.html");
-    await page.waitForFunction(
-      () => (window as unknown as { harnessReady?: boolean }).harnessReady,
-    );
-
-    const icons = await buildSdfIcons(page);
-    const layers = recordFlightLayers();
-    await page.evaluate(
-      ({ icons, layers, background, pixelRatio }) =>
-        new Promise<void>((resolve) => {
-          const { maplibregl } = window as unknown as {
-            maplibregl: typeof import("maplibre-gl");
-          };
-          const map = new maplibregl.Map({
-            container: "map",
-            style: {
-              version: 8,
-              sources: {},
-              layers: [{ id: "bg", type: "background", paint: { "background-color": background } }],
-            },
-            center: [0, 0],
-            zoom: 3,
-            attributionControl: false,
-            canvasContextAttributes: { preserveDrawingBuffer: true },
-          });
-          (window as unknown as { harnessMap: unknown }).harnessMap = map;
-          map.on("load", () => {
-            for (const icon of icons) {
-              const data = new Uint8ClampedArray(icon.size * icon.size * 4);
-              icon.sdf.forEach((a, i) => {
-                data.set([255, 255, 255, a], i * 4);
-              });
-              map.addImage(
-                icon.id,
-                { width: icon.size, height: icon.size, data },
-                { sdf: true, pixelRatio },
-              );
-            }
-            const empty = { type: "FeatureCollection" as const, features: [] };
-            map.addSource("flights", { type: "geojson", data: empty });
-            map.addSource("global-flights", { type: "geojson", data: empty });
-            for (const { spec, before } of layers) {
-              map.addLayer(spec as Parameters<typeof map.addLayer>[0], before);
-            }
-            resolve();
-          });
-        }),
-      { icons, layers, background: BACKGROUND, pixelRatio: ICON_PIXEL_RATIO },
-    );
+    await openHarness(page);
 
     for (const [zoom, spacing] of [
       [3, 120],
       [6, 180],
       [10, 200],
     ] as const) {
-      await page.evaluate(
-        ({ zoom, features }) =>
-          new Promise<void>((resolve) => {
-            const map = (window as unknown as { harnessMap: import("maplibre-gl").Map }).harnessMap;
-            (map.getSource("flights") as import("maplibre-gl").GeoJSONSource).setData({
-              type: "FeatureCollection",
-              features,
-            });
-            map.jumpTo({ center: [0, 0], zoom });
-            map.once("idle", () => resolve());
-            map.triggerRepaint();
-          }),
-        { zoom, features: gridFeatures(zoom, spacing) },
-      );
-
-      if (process.env.S42_SCREENSHOT) {
-        await page.locator("#map canvas").screenshot({
-          path: path.resolve(process.env.S42_SCREENSHOT, `icons-z${zoom}.png`),
-        });
-      }
+      await showFlights(page, zoom, gridFeatures(zoom, spacing));
+      await screenshot(page, `icons-z${zoom}.png`);
 
       // At zoom 3 icons are mostly anti-aliased edge, so match more loosely.
       const counts = await countColors(
@@ -271,5 +299,41 @@ test.describe("aircraft icons", () => {
         );
       });
     }
+  });
+
+  test("your aircraft carry an outline that rivals' don't", async ({ page }) => {
+    test.setTimeout(120_000);
+    await openHarness(page);
+    const zoom = 6;
+    // Same livery for everyone, so only the outline can tell them apart.
+    const same = (features: Feature[], baseSize: number) =>
+      features.map((f) => ({
+        ...f,
+        properties: {
+          ...f.properties,
+          primaryColor: "#ef4444",
+          secondaryColor: "#fde047",
+          sizeScale: (f.properties.sizeScale / 1.1) * baseSize,
+        },
+      }));
+    const grid = gridFeatures(zoom, 180);
+    const player = same(
+      grid.filter((_, i) => i % 2 === 0),
+      1.1,
+    );
+    const rivals = same(
+      grid.filter((_, i) => i % 2 === 1),
+      0.8,
+    );
+
+    await showFlights(page, zoom, player, rivals);
+    await screenshot(page, "player-vs-rivals.png");
+
+    await showFlights(page, zoom, player);
+    const [withPlayer] = await countColors(page, [DARK_MAP_PALETTE.flights.playerHalo], 60);
+    await showFlights(page, zoom, [], rivals);
+    const [withRivals] = await countColors(page, [DARK_MAP_PALETTE.flights.playerHalo], 60);
+    expect(withPlayer).toBeGreaterThan(150);
+    expect(withRivals).toBeLessThan(withPlayer / 10);
   });
 });

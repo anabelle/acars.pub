@@ -1,9 +1,9 @@
 # S42 — Aircraft family icons + livery tint
 
 > **Status:** ◐ in progress
-> **Next step:** S42.2
+> **Next step:** S42.3
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #179
 >
 > **Track:** Graphics · **Size:** M (3 steps) · **Depends on:** S41 · **Unblocks:** S43
 >
@@ -37,7 +37,7 @@ You can tell a turboprop from a widebody, and your fleet from a rival's, at a gl
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S42.1** SDF icon set per aircraft family. _Done when:_ icons render at 3 zooms.
-- [ ] **S42.2** Icon-image expression + livery tint. _Done when:_ screenshots.
+- [x] **S42.2** Icon-image expression + livery tint. _Done when:_ screenshots.
 - [ ] **S42.3** Trails + interpolation. _Done when:_ perf within 10% of S41.
 
 ## Details & guidance
@@ -64,6 +64,13 @@ This step fixed what was wrong with the icons:
 - **Tests.** Unit tests for the SDF (edge value, linear fall-off, Euclidean corners, anti-aliased pixels), SVG resizing, and registration (112 px at 2×, no-context path).
 
 **Re-scope of the remaining steps.** S42.2: tell your fleet from rivals' (halo on your aircraft, tint check) with screenshots. S42.3: trails as an instanced symbol layer on the same sources (no extra features), perf compared with S41.
+
+2026-10-06 · S42.2 · (this commit) · **Your fleet vs rivals.** Your aircraft now carry an outline in a new theme colour, `flights.playerHalo` (near-white on the dark globe, navy on earth); rivals' don't. Before, the only cues were size (1.1 vs 0.8), opacity and a glow, and they failed when a rival flew a similar livery.
+
+- **Halo width.** It scales with icon size (`iconSizeExpression(2.6)`). A fixed width overflowed the distance field on small icons and filled their whole square.
+- **Expression refactor.** The size expression became `iconSizeExpression(factor)` (one source for size and halo).
+- **Harness.** A second scene gives player and rival aircraft identical liveries at zoom 6. It asserts the outline is present on yours (>150 light pixels) and absent on theirs (<10%), and saves `player-vs-rivals.png`; I checked it by eye.
+- **Tests.** Halo colour per theme, no halo on rival layers, and one size expression shared by the aircraft and light layers.
 
 ## Follow-ups
 
