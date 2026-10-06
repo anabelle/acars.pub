@@ -17,7 +17,17 @@ import {
   NIGHT_CANVAS_W,
   paintNightCanvas,
 } from "./nightOverlay.js";
-import { addRouteLayers } from "./routes.js";
+import {
+  addRouteLayers,
+  ROUTE_FLOW_DASHES,
+  ROUTE_FLOW_STEP_MS,
+  ROUTE_PROFIT_COLORS,
+  routeFlowDash,
+  WORLD_LAYER_IDS,
+  rivalRouteColorExpression,
+  routeColorExpression,
+  routeWidthExpression,
+} from "./routes.js";
 import { addDataSources } from "./sources.js";
 
 // A stand-in for maplibregl.Map that records what the layer modules add.
@@ -101,6 +111,7 @@ describe("map layer modules", () => {
       NIGHT_CANVAS_LAYER,
       "global-arcs-layer",
       "arcs-layer",
+      "arcs-flow-layer",
       "active-hub-glow",
       "airports-layer",
       "ground-presence-layer",
@@ -124,7 +135,9 @@ describe("map layer modules", () => {
     const { map, layers } = fakeMap();
     addRouteLayers(map, EARTH_MAP_PALETTE);
     const paint = layers[0].spec.paint as Record<string, unknown>;
-    expect(paint["line-color"]).toBe(EARTH_MAP_PALETTE.routes.global);
+    expect(paint["line-color"]).toEqual(rivalRouteColorExpression(EARTH_MAP_PALETTE));
+    const player = layers[1].spec.paint as Record<string, unknown>;
+    expect(player["line-color"]).toEqual(routeColorExpression(EARTH_MAP_PALETTE));
   });
 
   it("registers every aircraft family icon once", () => {
@@ -226,5 +239,60 @@ describe("globeFitZoom", () => {
     expect(globeFitZoom(8000, 8000)).toBe(1.5);
     expect(globeFitZoom(10, 10)).toBe(-1);
     expect(globeFitZoom(0, 0)).toBe(1.5);
+  });
+});
+
+describe("route styling expressions", () => {
+  it("colours the player's routes by profit score, neutral until flown", () => {
+    const expr = routeColorExpression(DARK_MAP_PALETTE) as unknown[];
+    expect(expr[0]).toBe("case");
+    const ramp = expr[2] as unknown[];
+    expect(ramp.slice(3)).toEqual([
+      -1,
+      ROUTE_PROFIT_COLORS.loss,
+      0,
+      ROUTE_PROFIT_COLORS.even,
+      1,
+      ROUTE_PROFIT_COLORS.profit,
+    ]);
+    expect(expr[3]).toBe(DARK_MAP_PALETTE.routes.active);
+  });
+
+  it("uses a rival's livery, else the world-route colour", () => {
+    expect(rivalRouteColorExpression(DARK_MAP_PALETTE)).toEqual([
+      "coalesce",
+      ["get", "color"],
+      DARK_MAP_PALETTE.routes.global,
+    ]);
+  });
+
+  it("widens with frequency and zoom, thinner for rivals", () => {
+    const player = routeWidthExpression(1) as unknown[];
+    const rival = routeWidthExpression(0.5) as unknown[];
+    expect(player.slice(0, 3)).toEqual(["interpolate", ["linear"], ["zoom"]]);
+    expect((player[4] as unknown[])[1]).toBeCloseTo(0.6);
+    expect((rival[4] as unknown[])[1]).toBeCloseTo(0.3);
+    expect((player[6] as unknown[])[1]).toBeCloseTo(1.2);
+  });
+});
+
+describe("route flow", () => {
+  it("steps through the dash sequence over time and wraps around", () => {
+    expect(routeFlowDash(0)).toEqual([...ROUTE_FLOW_DASHES[0]]);
+    expect(routeFlowDash(ROUTE_FLOW_STEP_MS * 3 + 5)).toEqual([...ROUTE_FLOW_DASHES[3]]);
+    expect(routeFlowDash(ROUTE_FLOW_STEP_MS * ROUTE_FLOW_DASHES.length)).toEqual([
+      ...ROUTE_FLOW_DASHES[0],
+    ]);
+  });
+
+  it("hides only layers that exist and belong to rivals", () => {
+    const { map, layers } = fakeMap();
+    addRouteLayers(map, DARK_MAP_PALETTE);
+    addFlightLayers(map, DARK_MAP_PALETTE);
+    const ids = new Set(layers.map((l) => l.id));
+    for (const id of WORLD_LAYER_IDS) expect(ids.has(id)).toBe(true);
+    expect(WORLD_LAYER_IDS.some((id) => id.startsWith("flight") || id === "arcs-layer")).toBe(
+      false,
+    );
   });
 });

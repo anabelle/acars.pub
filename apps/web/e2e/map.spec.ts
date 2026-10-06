@@ -31,6 +31,8 @@ async function distinctCanvasColors(page: Page): Promise<number> {
 }
 
 test("world map renders content, not a blank canvas", async ({ page, problems }) => {
+  // Room for the 60 s poll below (Playwright's default test timeout is 30 s).
+  test.setTimeout(90_000);
   await gotoReady(page, "/");
   await expect(page.locator(".globe-container canvas").first()).toBeVisible({ timeout: 30_000 });
   // Measure the map alone: hide every overlay (intro card, panels, toasts) so
@@ -43,7 +45,9 @@ test("world map renders content, not a blank canvas", async ({ page, problems })
   await expect
     .poll(() => distinctCanvasColors(page), {
       message: "map canvas should show more than a flat color",
-      timeout: 30_000,
+      // The globe (S40) renders slowly under software GL with parallel
+      // workers; this run took ~28 s and once ran out at 30 s (S41.2).
+      timeout: 60_000,
       intervals: [1_000, 2_000],
     })
     // Measured with the offline basemap at 1440×900: healthy ≈ 36, worker missing = 4–6.

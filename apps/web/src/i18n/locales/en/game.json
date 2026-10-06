@@ -855,7 +855,17 @@
   "worldMap": {
     "switchToLightTheme": "Switch to light map theme",
     "switchToDarkTheme": "Switch to dark map theme",
-    "focus": "Focus: {{iata}}"
+    "focus": "Focus: {{iata}}",
+    "legend": {
+      "title": "Your routes",
+      "losing": "Losing",
+      "breakEven": "Break-even",
+      "earning": "Earning",
+      "width": "Thicker = more flights a week",
+      "viewLabel": "Routes shown",
+      "myNetwork": "My network",
+      "world": "World"
+    }
   },
   "awayReport": {
     "eyebrow": "While you were away · {{duration}}",
