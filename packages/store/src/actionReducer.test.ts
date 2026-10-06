@@ -900,6 +900,83 @@ describe("replayActionLog", () => {
     );
   });
 
+  it("replays SET_MAINTENANCE_POLICY for the fleet default and per-aircraft overrides (S13)", async () => {
+    const pubkey = "pubkey-policy";
+    const base = [
+      {
+        eventId: "evt-1",
+        authorPubkey: pubkey,
+        createdAt: 1,
+        action: {
+          schemaVersion: 2,
+          action: "AIRLINE_CREATE" as const,
+          payload: { name: "Policy Air", hubs: ["JFK"], corporateBalance: fp(500000000), tick: 1 },
+        },
+      },
+      {
+        eventId: "evt-2",
+        authorPubkey: pubkey,
+        createdAt: 2,
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_PURCHASE" as const,
+          payload: { instanceId: "ac-1", modelId: "a320neo", deliveryHubIata: "JFK", tick: 2 },
+        },
+      },
+    ];
+    const policyAction = (
+      eventId: string,
+      createdAt: number,
+      payload: Record<string, unknown>,
+    ) => ({
+      eventId,
+      authorPubkey: pubkey,
+      createdAt,
+      action: {
+        schemaVersion: 2,
+        action: "SET_MAINTENANCE_POLICY" as const,
+        payload: { tick: createdAt, ...payload },
+      },
+    });
+
+    const result = await replayActionLog({
+      pubkey,
+      actions: [
+        ...base,
+        policyAction("evt-3", 3, { policy: { enabled: true, minCondition: 0.5, hubOnly: true } }),
+        policyAction("evt-4", 4, {
+          instanceId: "ac-1",
+          policy: { enabled: true, minCondition: 0.01, hubOnly: false },
+        }),
+        // Ignored: malformed policy, unknown aircraft.
+        policyAction("evt-5", 5, { policy: { enabled: "yes" } }),
+        policyAction("evt-6", 6, { instanceId: "nope", policy: { enabled: false } }),
+        policyAction("evt-7", 7, { instanceId: "ac-1", policy: "bad" }),
+      ],
+    });
+    expect(result.airline?.maintenancePolicy).toEqual({
+      enabled: true,
+      minCondition: 0.5,
+      hubOnly: true,
+    });
+    expect(result.fleet.find((ac) => ac.id === "ac-1")?.maintenancePolicy).toEqual({
+      enabled: true,
+      minCondition: 0.25,
+      hubOnly: false,
+    });
+
+    const cleared = await replayActionLog({
+      pubkey,
+      actions: [
+        ...base,
+        policyAction("evt-3", 3, { instanceId: "ac-1", policy: { enabled: true } }),
+        policyAction("evt-4", 4, { instanceId: "ac-1", policy: null }),
+      ],
+    });
+    expect(cleared.fleet.find((ac) => ac.id === "ac-1")?.maintenancePolicy).toBeNull();
+    expect(cleared.airline?.maintenancePolicy).toBeUndefined();
+  });
+
   it("bootstraps missing corporateBalance from TICK_UPDATE to default starting balance", async () => {
     const pubkey = "pubkey-bootstrap-default-balance";
     const actions = [

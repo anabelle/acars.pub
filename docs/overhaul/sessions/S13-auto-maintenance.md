@@ -1,8 +1,8 @@
 # S13 — Auto-maintenance policy
 
-> **Status:** ☐ not started
-> **Next step:** S13.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S13.2
+> **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
 > **Track:** Economy · **Size:** M (3 steps) · **Depends on:** — · **Unblocks:** —
@@ -37,7 +37,7 @@ Remove the manual maintenance chore while keeping its cost trade-off.
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S13.1** `SET_MAINTENANCE_POLICY` action + reducer + tests. _Done when:_ tests green.
+- [x] **S13.1** `SET_MAINTENANCE_POLICY` action + reducer + tests. _Done when:_ tests green.
 - [ ] **S13.2** Engine rule (constant in core) + 90-day absence replay test. _Done when:_ no grounding with policy on.
 - [ ] **S13.3** Fleet UI toggles + "next service" estimate + i18n. _Done when:_ screenshots.
 
@@ -54,7 +54,16 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-06 · S13.1 · (this commit) · Policy plumbing:
+
+- **Core.** `MaintenancePolicy {enabled, minCondition, hubOnly}`. It lives on `AirlineEntity.maintenancePolicy` (fleet default) and `AircraftInstance.maintenancePolicy` (override; null means inherit). New `fleet.ts` exports:
+  - `GROUNDED_MIN_CONDITION` 0.2 and `GROUNDED_MAX_HOURS_SINCE_CHECK` 600, now shared rather than magic numbers;
+  - `AUTO_MAINTENANCE_HOURS_SHARE` 0.9 (service at 540 h) and the threshold clamp of 0.25–0.95;
+  - `DEFAULT_MAINTENANCE_POLICY` (off, 0.40);
+  - `maintenanceCost` (same formula as the manual action), `isGrounded`, `sanitizeMaintenancePolicy`, `effectiveMaintenancePolicy`, `needsAutoMaintenance`.
+- **Action.** New `SET_MAINTENANCE_POLICY` with payload `{instanceId?, policy | null}`. The reducer sets the fleet default, or sets or clears an aircraft override, and ignores malformed payloads. Every later airline update spreads the airline, so the policy survives replay.
+- **Store.** `setMaintenancePolicy(policy, aircraftId?)` updates optimistically, publishes, and rolls back if the publish fails.
+- **Tests.** Core, reducer replay and slice.
 
 ## Follow-ups
 

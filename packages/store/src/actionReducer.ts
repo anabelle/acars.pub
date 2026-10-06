@@ -24,6 +24,7 @@ import {
   MIN_ROUTE_FREQUENCY_PER_WEEK,
   REPLACEABLE_ACTION_TYPES,
   ROUTE_SLOT_FEE,
+  sanitizeMaintenancePolicy,
   SCRAP_RESALE_SHARE,
   TICK_DURATION,
   TICKS_PER_HOUR,
@@ -1414,6 +1415,24 @@ export async function replayActionLog(params: {
         if (!aircraft) break;
         aircraft.liveryImageUrl = imageUrl;
         aircraft.liveryPromptHash = promptHash;
+        updateLastTick(actionTick);
+        break;
+      }
+      case "SET_MAINTENANCE_POLICY": {
+        // S13: no instanceId sets the fleet default; with one, it sets (or,
+        // with policy null, clears) that aircraft's override.
+        const instanceId = clampString(payload.instanceId, 64);
+        const policy = sanitizeMaintenancePolicy(payload.policy);
+        if (instanceId) {
+          const aircraft = fleetById.get(instanceId);
+          if (!aircraft) break;
+          if (policy) aircraft.maintenancePolicy = policy;
+          else if (payload.policy === null) aircraft.maintenancePolicy = null;
+          else break;
+        } else {
+          if (!policy) break;
+          airline = { ...airline, maintenancePolicy: policy };
+        }
         updateLastTick(actionTick);
         break;
       }

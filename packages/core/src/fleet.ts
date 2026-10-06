@@ -1,6 +1,12 @@
-import { fpAdd, fpScale, fpSub } from "./fixed-point.js";
+import { fp, fpAdd, fpScale, fpSub } from "./fixed-point.js";
 import { detPow } from "./det-math.js";
-import type { AircraftModel, FixedPoint } from "./types.js";
+import type {
+  AircraftInstance,
+  AircraftModel,
+  AirlineEntity,
+  FixedPoint,
+  MaintenancePolicy,
+} from "./types.js";
 import { TICKS_PER_HOUR, TICKS_PER_MONTH } from "./types.js";
 
 export function getMaintenanceDowntimeTicks(model: AircraftModel): number {
@@ -159,4 +165,83 @@ export function leaseBuyBreakEvenMonths(model: AircraftModel, maxMonths = 360): 
   let month = maxMonths;
   while (month > 0 && !leaseCheaper(month - 1)) month -= 1;
   return month;
+}
+
+// ============================================================
+// Maintenance (S13)
+// ============================================================
+
+/** The engine grounds an aircraft below this condition… */
+export const GROUNDED_MIN_CONDITION = 0.2;
+/** …or above this many flight hours since its last check. */
+export const GROUNDED_MAX_HOURS_SINCE_CHECK = 600;
+/** Auto-maintenance services at this share of the hours limit (540 h). */
+export const AUTO_MAINTENANCE_HOURS_SHARE = 0.9;
+/** Allowed auto-maintenance condition thresholds (kept above grounding). */
+export const AUTO_MAINTENANCE_MIN_THRESHOLD = 0.25;
+export const AUTO_MAINTENANCE_MAX_THRESHOLD = 0.95;
+
+export const DEFAULT_MAINTENANCE_POLICY: MaintenancePolicy = {
+  enabled: false,
+  minCondition: 0.4,
+  hubOnly: false,
+};
+
+/** Cost of a maintenance check: $15k plus 10% of the price per unit of wear. */
+export function maintenanceCost(model: AircraftModel, condition: number): FixedPoint {
+  return fpAdd(fp(15_000), fpScale(model.price, (1 - condition) * 0.1));
+}
+
+export function isGrounded(
+  aircraft: Pick<AircraftInstance, "condition" | "flightHoursSinceCheck">,
+) {
+  return (
+    aircraft.condition < GROUNDED_MIN_CONDITION ||
+    aircraft.flightHoursSinceCheck > GROUNDED_MAX_HOURS_SINCE_CHECK
+  );
+}
+
+/** A well-formed policy from untrusted input (an action payload), or null. */
+export function sanitizeMaintenancePolicy(raw: unknown): MaintenancePolicy | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const { enabled, minCondition, hubOnly } = raw as Record<string, unknown>;
+  if (typeof enabled !== "boolean") return null;
+  const threshold =
+    typeof minCondition === "number" && Number.isFinite(minCondition)
+      ? Math.min(
+          AUTO_MAINTENANCE_MAX_THRESHOLD,
+          Math.max(AUTO_MAINTENANCE_MIN_THRESHOLD, minCondition),
+        )
+      : DEFAULT_MAINTENANCE_POLICY.minCondition;
+  return {
+    enabled,
+    minCondition: Math.round(threshold * 100) / 100,
+    hubOnly: hubOnly === true,
+  };
+}
+
+/** The aircraft's own policy if set, else the airline's, else off. */
+export function effectiveMaintenancePolicy(
+  aircraft: Pick<AircraftInstance, "maintenancePolicy">,
+  airline: Pick<AirlineEntity, "maintenancePolicy"> | null | undefined,
+): MaintenancePolicy {
+  return aircraft.maintenancePolicy ?? airline?.maintenancePolicy ?? DEFAULT_MAINTENANCE_POLICY;
+}
+
+/**
+ * Whether the engine should service this aircraft now under `policy`:
+ * enabled, worn to the threshold or near the hours limit, and (if
+ * `hubOnly`) based at a hub. O(1).
+ */
+export function needsAutoMaintenance(
+  aircraft: Pick<AircraftInstance, "condition" | "flightHoursSinceCheck" | "baseAirportIata">,
+  policy: MaintenancePolicy,
+  hubs: readonly string[],
+): boolean {
+  if (!policy.enabled) return false;
+  if (policy.hubOnly && !hubs.includes(aircraft.baseAirportIata)) return false;
+  return (
+    aircraft.condition <= policy.minCondition ||
+    aircraft.flightHoursSinceCheck >= GROUNDED_MAX_HOURS_SINCE_CHECK * AUTO_MAINTENANCE_HOURS_SHARE
+  );
 }

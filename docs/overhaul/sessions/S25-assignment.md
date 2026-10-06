@@ -1,7 +1,7 @@
 # S25 — Assign from both sides + ferry-and-assign
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting review)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #175)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #175
 >

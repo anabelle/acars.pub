@@ -5,6 +5,7 @@ import type {
   Checkpoint,
   FixedPoint,
   FlightOffer,
+  MaintenancePolicy,
   Route,
   TimelineEvent,
 } from "@acars/core";
@@ -59,6 +60,11 @@ export interface AirlineState {
   performMaintenance: (aircraftId: string) => Promise<void>;
   ferryAircraft: (aircraftId: string, destinationIata: string) => Promise<void>;
   updateAircraftLivery: (aircraftId: string, imageUrl: string, promptHash: string) => Promise<void>;
+  /**
+   * S13: set the fleet-wide auto-maintenance default (no `aircraftId`), or an
+   * aircraft's override (`policy` null clears it back to the default).
+   */
+  setMaintenancePolicy: (policy: MaintenancePolicy | null, aircraftId?: string) => Promise<void>;
   openRoute: (originIata: string, destinationIata: string, distanceKm: number) => Promise<void>;
   rebaseRoute: (routeId: string, newOriginIata: string) => Promise<void>;
   closeRoute: (routeId: string) => Promise<void>;
