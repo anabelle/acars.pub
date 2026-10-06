@@ -38,5 +38,34 @@ test("route rows and the hangar show aircraft liveries", async ({ page, problems
   if (process.env.S44_SCREENSHOT) {
     await page.screenshot({ path: path.resolve(process.env.S44_SCREENSHOT, "hangar.png") });
   }
+
+  // S44.3: the fleet poster renders identically each time, at both sizes.
+  await page.getByTestId("open-fleet-poster").click();
+  const canvas = page.getByTestId("fleet-poster-canvas");
+  await expect(canvas).toHaveAttribute("data-ready", "true", { timeout: 15_000 });
+  const portraitA = await canvas.evaluate((el) => (el as HTMLCanvasElement).toDataURL());
+  await expect(canvas).toHaveJSProperty("width", 1080);
+  if (process.env.S44_SCREENSHOT) {
+    await canvas.screenshot({
+      path: path.resolve(process.env.S44_SCREENSHOT, "poster-portrait.png"),
+    });
+  }
+  await page.getByRole("button", { name: /landscape/i }).click();
+  await expect(canvas).toHaveJSProperty("width", 1200);
+  await expect(canvas).toHaveAttribute("data-ready", "true");
+  if (process.env.S44_SCREENSHOT) {
+    await canvas.screenshot({
+      path: path.resolve(process.env.S44_SCREENSHOT, "poster-landscape.png"),
+    });
+  }
+  await page.getByRole("button", { name: /portrait/i }).click();
+  await expect(canvas).toHaveJSProperty("width", 1080);
+  await expect(canvas).toHaveAttribute("data-ready", "true");
+  const portraitB = await canvas.evaluate((el) => (el as HTMLCanvasElement).toDataURL());
+  expect(portraitB).toBe(portraitA);
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download PNG" }).click();
+  expect((await download).suggestedFilename()).toBe("e2e-air-fleet-1080x1350.png");
+
   expect(problems.pageErrors).toEqual([]);
 });

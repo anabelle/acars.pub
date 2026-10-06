@@ -47,6 +47,7 @@ import { cn } from "@/shared/lib/utils";
 import { getAircraftBaseHub } from "../utils/aircraftBaseHub";
 import { getAircraftTimer } from "../utils/aircraftTimers";
 import { AircraftMaintenanceRow } from "./AircraftMaintenanceRow";
+import { FleetPosterDialog } from "./FleetPosterDialog";
 import { HangarGallery } from "./HangarGallery";
 import { AircraftDealer } from "./AircraftDealer";
 import { AircraftLiveryImage } from "./AircraftLiveryImage";
@@ -126,6 +127,7 @@ export function FleetManager() {
   const tickProgress = useEngineStore((state) => state.tickProgress);
   const [view, setView] = useState<"owned" | "dealer">("owned");
   const [layout, setLayout] = useState<"list" | "hangar">("list");
+  const [posterOpen, setPosterOpen] = useState(false);
   const [search, setSearch] = useState("");
   const confirm = useConfirm();
   // Demand snapshots only change meaningfully per game-minute; recomputing
@@ -388,7 +390,29 @@ export function FleetManager() {
             </p>
           </div>
         ) : layout === "hangar" ? (
-          <HangarGallery fleet={filteredFleet} airline={airline} routes={routes} />
+          <>
+            {airline ? (
+              <div className="mb-3 flex justify-end">
+                <button
+                  type="button"
+                  data-testid="open-fleet-poster"
+                  onClick={() => setPosterOpen(true)}
+                  className="rounded-xl border border-primary/40 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/10"
+                >
+                  {t("fleet.poster.button", { ns: "game" })}
+                </button>
+              </div>
+            ) : null}
+            <HangarGallery fleet={filteredFleet} airline={airline} routes={routes} />
+            {posterOpen && airline ? (
+              <FleetPosterDialog
+                airline={airline}
+                fleet={fleet}
+                routes={routes}
+                onClose={() => setPosterOpen(false)}
+              />
+            ) : null}
+          </>
         ) : (
           <div
             className={isVirtualized ? "relative" : undefined}

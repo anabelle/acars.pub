@@ -265,6 +265,20 @@
       "gallery": "Hangar",
       "viewAria": "Vista de la flota",
       "parked": "Estacionado en {{base}}"
+    },
+    "poster": {
+      "button": "Póster de la flota",
+      "title": "Póster de la flota",
+      "portrait": "Vertical · 1080×1350",
+      "landscape": "Horizontal · 1200×630",
+      "download": "Descargar PNG",
+      "aircraft": "Aviones",
+      "routes": "Rutas",
+      "tier": "Nivel",
+      "footer": "Volando en acars.pub",
+      "failed": "No se pudo crear el póster",
+      "closeAria": "Cerrar",
+      "formatAria": "Tamaño del póster"
     }
   },
   "network": {
