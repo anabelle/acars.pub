@@ -1,7 +1,7 @@
 # S50 — Public airline pages + dynamic OG images
 
-> **Status:** ☑ ready for review
-> **Next step:** — (awaiting merge of #178; owner: run a card validator on the preview)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #178; owner: run a card validator on a real airline)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #178
 >

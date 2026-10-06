@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DARK_MAP_PALETTE, EARTH_MAP_PALETTE } from "../theme.js";
 import { addAirportLayers, buildPresenceBadge } from "./airports.js";
-import { addFlightLayers, registerAircraftIcons } from "./flights.js";
+import {
+  AIRCRAFT_ICON_SIZE,
+  addFlightLayers,
+  registerAircraftIcons,
+  TRAIL_OPACITY,
+} from "./flights.js";
+import { TRAIL_MIN_ZOOM, TRAIL_TAIL_OFFSET } from "../trail.js";
 import {
   ATMOSPHERE_FADE_END_ZOOM,
   applyGlobeView,
@@ -56,7 +62,15 @@ function fakeCanvas() {
     putImageData(image: { data: Uint8ClampedArray }) {
       this.written = image;
     },
-    getImageData: (_x: number, _y: number, w: number, h: number) => ({ width: w, height: h }),
+    drawn: 0,
+    drawImage() {
+      ctx.drawn++;
+    },
+    getImageData: (_x: number, _y: number, w: number, h: number) => ({
+      width: w,
+      height: h,
+      data: new Uint8ClampedArray(w * h * 4),
+    }),
     beginPath: () => {},
     arc() {
       ctx.arcs.push(ctx.strokeStyle);
@@ -115,8 +129,10 @@ describe("map layer modules", () => {
       "active-hub-glow",
       "airports-layer",
       "ground-presence-layer",
+      "global-flight-trail",
       "global-flights-layer",
       "global-flights-accent-layer",
+      "flight-trail",
       "flights-layer",
       "flights-accent-layer",
       "flight-glow",
@@ -140,6 +156,57 @@ describe("map layer modules", () => {
     expect(player["line-color"]).toEqual(routeColorExpression(EARTH_MAP_PALETTE));
   });
 
+  it("outlines the player's aircraft in the theme's halo colour, not rivals'", () => {
+    for (const palette of [DARK_MAP_PALETTE, EARTH_MAP_PALETTE]) {
+      const { map, layers } = fakeMap();
+      addFlightLayers(map, palette);
+      const paint = (id: string) =>
+        layers.find((l) => l.id === id)?.spec.paint as Record<string, unknown>;
+      expect(paint("flights-layer")["icon-halo-color"]).toBe(palette.flights.playerHalo);
+      expect(paint("flights-layer")["icon-halo-width"]).toBeDefined();
+      expect(paint("global-flights-layer")["icon-halo-width"]).toBeUndefined();
+    }
+    expect(DARK_MAP_PALETTE.flights.playerHalo).not.toBe(EARTH_MAP_PALETTE.flights.playerHalo);
+  });
+
+  it("sizes every aircraft layer and its lights with one expression", () => {
+    const { map, layers } = fakeMap();
+    addFlightLayers(map, DARK_MAP_PALETTE);
+    const size = (id: string) =>
+      (layers.find((l) => l.id === id)?.spec.layout as Record<string, unknown>)["icon-size"];
+    for (const id of [
+      "global-flights-layer",
+      "global-flights-accent-layer",
+      "flights-layer",
+      "flights-accent-layer",
+      "flight-light-port",
+      "flight-light-stbd",
+    ]) {
+      expect(size(id)).toBe(AIRCRAFT_ICON_SIZE);
+    }
+  });
+
+  it("draws contrails behind both fleets, stronger for the player", () => {
+    const { map, layers } = fakeMap();
+    addFlightLayers(map, DARK_MAP_PALETTE);
+    const trail = (id: string) => layers.find((l) => l.id === id)?.spec as Record<string, never>;
+    for (const [id, source] of [
+      ["flight-trail", "flights"],
+      ["global-flight-trail", "global-flights"],
+    ]) {
+      const spec = trail(id);
+      expect(spec.source).toBe(source);
+      expect(spec.minzoom).toBe(TRAIL_MIN_ZOOM);
+      const layout = spec.layout as Record<string, unknown>;
+      expect(layout["icon-image"]).toBe("contrail");
+      expect(layout["icon-anchor"]).toBe("top");
+      expect(layout["icon-offset"]).toEqual([0, TRAIL_TAIL_OFFSET]);
+      expect(layout["icon-size"]).toBe(AIRCRAFT_ICON_SIZE);
+    }
+    expect(TRAIL_OPACITY.player).toBeGreaterThan(TRAIL_OPACITY.rivals);
+    expect(WORLD_LAYER_IDS).toContain("global-flight-trail");
+  });
+
   it("registers every aircraft family icon once", () => {
     const { map, images } = fakeMap();
     registerAircraftIcons(map);
@@ -148,6 +215,34 @@ describe("map layer modules", () => {
     expect(images.has("airplane-a320-accent")).toBe(true);
     expect(images.has("airplane-icon")).toBe(true);
     expect(images.has("light-dot")).toBe(true);
+  });
+
+  it("registers icons as device-resolution distance fields", () => {
+    const added: Array<{
+      id: string;
+      image: { width: number; data: Uint8ClampedArray };
+      options: unknown;
+    }> = [];
+    const map = {
+      hasImage: () => false,
+      addImage: (id: string, image: { width: number; data: Uint8ClampedArray }, options: unknown) =>
+        added.push({ id, image, options }),
+    };
+    registerAircraftIcons(map as never);
+    const a320 = added.find((a) => a.id === "airplane-a320");
+    expect(a320?.options).toEqual({ sdf: true, pixelRatio: 2 });
+    // 48 px logical + 4 px buffer each side, at 2× → 112 px.
+    expect(a320?.image.width).toBe(112);
+    expect(a320?.image.data.length).toBe(112 * 112 * 4);
+    expect(added.find((a) => a.id === "light-dot")?.image.width).toBe(40);
+  });
+
+  it("skips icons when no 2D context is available", () => {
+    vi.stubGlobal("document", { createElement: () => ({ getContext: () => null }) });
+    const { map, images } = fakeMap();
+    registerAircraftIcons(map);
+    // Only the contrail, which is built without a canvas.
+    expect([...images.keys()]).toEqual(["contrail"]);
   });
 });
 
