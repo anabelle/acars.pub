@@ -20,6 +20,7 @@
     "test:coverage": "pnpm -r test -- --run --coverage.enabled --coverage.thresholds.autoUpdate=false",
     "test:e2e": "pnpm --filter @acars/web test:e2e",
     "balance": "pnpm --filter @acars/store balance",
+    "funnel": "node --experimental-strip-types --no-warnings scripts/funnel.ts",
     "screenshots": "pnpm --filter @acars/web screenshots:e2e",
     "typecheck:functions": "tsc -p functions --noEmit",
     "verify:contracts": "pnpm -r build && pnpm -r typecheck",

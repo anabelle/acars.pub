@@ -1,8 +1,8 @@
 # S04 — Funnel metrics from Nostr events
 
-> **Status:** ☐ not started
-> **Next step:** S04.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S04.2
+> **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
 > **Track:** Foundations · **Size:** M (4 steps) · **Depends on:** — · **Unblocks:** S53, success metrics in README §6
@@ -37,7 +37,7 @@ Measure the funnel without tracking users: derive activation and retention from 
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S04.1** Relay reader: fetch action events by date range, count by type/day. _Done when:_ counts print for the last 7 days.
+- [x] **S04.1** Relay reader: fetch action events by date range, count by type/day. _Done when:_ counts print for the last 7 days.
 - [ ] **S04.2** Funnel, time-to-first-assignment, D1/D7/D30 cohorts. _Done when:_ numbers sanity-checked vs leaderboard.
 - [ ] **S04.3** Report writer + first report in `docs/overhaul/metrics/` + usage docs. _Done when:_ report committed.
 - [ ] **S04.4** (Optional) cookie-less page-view counter function. _Done when:_ counter increments in a local Pages dev run.
@@ -57,11 +57,20 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-06 · S04.1 · (this commit) · Relay reader. `packages/nostr/src/funnel.ts` is pure and dependency-free:
+
+- `parseFunnelEvent` reads world actions plus airline checkpoints.
+- `collectFunnelEvents` de-duplicates across relays.
+- `countByDayAndType` lists every UTC day, with per-type counts and active airlines.
+- `formatDailyCounts` prints the table.
+- `FUNNEL_WORLD_ID` is tested to equal `WORLD_ID`.
+
+`scripts/funnel.ts` (`pnpm funnel --days 7 [--relay url]`) pages kind-30078 events by `until` from each relay and prints counts only. **Live run blocked in the agent container:** the environment's network policy answers 403 to every relay host (`nostr.acars.pub`, `relay.damus.io`, `nos.lol`, …). The CLI runs and prints the empty 7-day table, and the counting logic is covered by fixture tests. Sanity-checking against real data needs the relay hosts allowed, or a run from a machine with relay access.
 
 ## Follow-ups
 
-_None yet._
+- `scripts/backfill-relay.ts` still uses world id `dev-v3` (the game is on `v6-beta`), so it backfills nothing current. Import `FUNNEL_WORLD_ID` or `WORLD_ID` instead.
+- Regular action events expire from relays after 14 days (only `AIRLINE_CREATE` and `AIRLINE_DISSOLVE` persist). D30 retention must therefore lean on each airline's latest checkpoint (`created_at`) as 'last seen' (S04.2).
 
 ## Handoff notes
 
