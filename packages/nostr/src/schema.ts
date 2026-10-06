@@ -102,12 +102,19 @@ const MARKETPLACE_PAGE_CAP = 10;
 const UNKNOWN_SELLER_STALE_TTL_SEC = 3600;
 
 /**
- * Structural actions that must never expire from relays: AIRLINE_CREATE is the
- * genesis event third parties need to bootstrap/replay an airline, and
- * AIRLINE_DISSOLVE is its non-replaceable counterpart. Everything else
+ * Actions that must never expire from relays: AIRLINE_CREATE is the genesis
+ * event third parties need to bootstrap/replay an airline, and
+ * AIRLINE_DISSOLVE is its non-replaceable counterpart. ROUTE_OPEN and
+ * ROUTE_ASSIGN_AIRCRAFT are the funnel's route and assignment stages
+ * (`pnpm funnel`), which must stay measurable past 14 days. Everything else
  * (TICK_UPDATE, regular actions) keeps the 14-day expiration.
  */
-const PERSISTENT_ACTION_TYPES = new Set(["AIRLINE_CREATE", "AIRLINE_DISSOLVE"]);
+const PERSISTENT_ACTION_TYPES = new Set([
+  "AIRLINE_CREATE",
+  "AIRLINE_DISSOLVE",
+  "ROUTE_OPEN",
+  "ROUTE_ASSIGN_AIRCRAFT",
+]);
 
 const ACTION_EXPIRATION_SEC = 14 * 24 * 60 * 60;
 
@@ -395,10 +402,9 @@ export async function loadCatalogImages(): Promise<Map<string, CatalogImageRecor
  * Publishes a single game action event to Nostr.
  *
  * Expiration policy: regular actions (TICK_UPDATE, purchases, ...) expire from
- * relays after 14 days, but structural actions (AIRLINE_CREATE,
- * AIRLINE_DISSOLVE) are published WITHOUT expiration — they are the genesis
- * events third parties need to bootstrap and replay an airline, and must never
- * vanish from relays.
+ * relays after 14 days, but the PERSISTENT_ACTION_TYPES (airline genesis and
+ * dissolve, plus the funnel's route-open and assignment stages) are published
+ * WITHOUT expiration and must never vanish from relays.
  */
 export async function publishAction(action: ActionEnvelope, seq?: number): Promise<NDKEvent> {
   await ensureConnected();

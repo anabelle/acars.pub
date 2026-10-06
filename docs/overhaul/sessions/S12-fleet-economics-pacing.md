@@ -1,7 +1,7 @@
 # S12 — Lease vs buy, tier pacing, milestone rungs
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting review)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #173)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #173
 >
