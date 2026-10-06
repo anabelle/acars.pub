@@ -1,3 +1,4 @@
+import { leaseBuyBreakEvenMonths } from "@acars/core";
 import { describe, expect, it } from "vitest";
 import {
   aircraftByFamilyId,
@@ -169,6 +170,17 @@ describe("aircraft", () => {
       const regionals = getAircraftByType("regional");
       expect(regionals.length).toBe(7);
       expect(regionals.every((a) => a.type === "regional")).toBe(true);
+    });
+  });
+
+  describe("lease vs buy (S12)", () => {
+    it("every model: leasing is cheaper short-term, buying wins within 3–5 years", () => {
+      for (const model of aircraftModels) {
+        const months = leaseBuyBreakEvenMonths(model);
+        expect(months, model.id).not.toBeNull();
+        expect(months, model.id).toBeGreaterThanOrEqual(36);
+        expect(months, model.id).toBeLessThanOrEqual(60);
+      }
     });
   });
 });

@@ -1,12 +1,19 @@
 import type { FixedPoint } from "@acars/core";
-import { evaluateTier, fp, fpAdd, fpScale, fpSub, fpSum, ROUTE_SLOT_FEE } from "@acars/core";
+import {
+  evaluateTier,
+  fp,
+  fpAdd,
+  fpScale,
+  fpSub,
+  fpSum,
+  leaseDeposit,
+  ROUTE_SLOT_FEE,
+} from "@acars/core";
 import { getAircraftById, getAirports } from "@acars/data";
 import { type LegMetrics, routeDistanceKm, runLegScenario } from "./legScenario.js";
 
 /** Starting cash for a new airline (identity setup). */
 export const STARTING_BALANCE = fp(100_000_000);
-/** Lease deposit share of the aircraft price (fleetSlice.purchaseAircraft). */
-const LEASE_DEPOSIT_SHARE = 0.1;
 const DAYS_PER_LEASE_MONTH = 30;
 
 export interface Strategy {
@@ -93,7 +100,7 @@ export function simulateStrategy(
 ): StrategyResult {
   const model = getAircraftById(strategy.modelId);
   if (!model) throw new Error(`Unknown model ${strategy.modelId}`);
-  const perAircraftUpfront = fpAdd(fpScale(model.price, LEASE_DEPOSIT_SHARE), ROUTE_SLOT_FEE);
+  const perAircraftUpfront = fpAdd(leaseDeposit(model.price), ROUTE_SLOT_FEE);
   const destinations = hubDestinations(hubIata, model.rangeKm, maxDestinations);
   const affordable = Math.floor(Number(STARTING_BALANCE) / Math.max(1, Number(perAircraftUpfront)));
   const aircraft = Math.min(
