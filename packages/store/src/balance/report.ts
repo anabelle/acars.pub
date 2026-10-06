@@ -1,4 +1,4 @@
-import { MAX_ROUTE_FREQUENCY_PER_WEEK } from "@acars/core";
+import { MAX_ROUTE_FREQUENCY_PER_WEEK, TIER_THRESHOLDS } from "@acars/core";
 import {
   BRAND_MARKET,
   BRAND_STRATEGIES,
@@ -251,6 +251,15 @@ function brandSection(days: number): string {
   return lines.join("\n");
 }
 
+function tierNeeds(): string {
+  return [2, 3, 4]
+    .map((tier) => {
+      const { minCumulativeRevenue, minActiveRoutes } = TIER_THRESHOLDS[tier];
+      return `T${tier} ${money(dollars(minCumulativeRevenue))} revenue + ${minActiveRoutes} routes`;
+    })
+    .join(", ");
+}
+
 /** README §6 balance targets, checked from the same engine runs. */
 function targetsSection(sweeps: FareSweep[]): string {
   const outOfBand = sweeps.filter(
@@ -317,7 +326,7 @@ export function generateBalanceReport(extraSections: ReportSection[] = []): stri
     { title: "4. Aircraft families at suggested fares", body: familyTable() },
     {
       title: "5. Day-one strategies from a MAD hub ($100M start)",
-      body: `${strategyTable(365)}\n\n_One leased aircraft per route to the most populous airports in range; each route's economics from a real engine leg at 7 round trips a week (what a new route gets). Tier needs: T2 $5M revenue + 3 routes, T3 $50M + 10, T4 $250M + 25. Ignores the 3-minute delivery, rivals and network effects; strategies keep the ATR 72 after unlocks._`,
+      body: `${strategyTable(365)}\n\n_One leased aircraft per route to the most populous airports in range; each route's economics from a real engine leg at 7 round trips a week (what a new route gets). Tier needs: ${tierNeeds()}. Ignores the 3-minute delivery, rivals and network effects; strategies keep the ATR 72 after unlocks._`,
     },
     {
       title: `6. Over-assignment curve (${BRAND_MARKET.modelId} on ${BRAND_MARKET.origin}–${BRAND_MARKET.destination}, 1–${MAX_CURVE_AIRCRAFT} aircraft, suggested fares, every aircraft flying as much as it can)`,

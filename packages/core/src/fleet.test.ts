@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { fp, fpScale, fpToNumber } from "./fixed-point.js";
-import { calculateBookValue, computeRouteFrequency, getMaintenanceDowntimeTicks } from "./fleet.js";
+import {
+  calculateBookValue,
+  computeRouteFrequency,
+  getMaintenanceDowntimeTicks,
+  LEASE_DEPOSIT_SHARE,
+  leaseBuyBreakEvenMonths,
+  leaseDeposit,
+  leaseMonthlyPayment,
+  ownershipCost,
+} from "./fleet.js";
 
 const mockModel = {
   id: "a320-neo",
@@ -167,5 +176,45 @@ describe("fleet", () => {
         6 * TICKS_PER_HOUR,
       );
     });
+  });
+});
+
+describe("lease vs buy (S12)", () => {
+  const leased = { ...mockModel, monthlyLease: leaseMonthlyPayment(mockModel.price) };
+
+  it("prices deposit and lease from the aircraft price", () => {
+    expect(fpToNumber(leaseDeposit(fp(26_000_000)))).toBe(26_000_000 * LEASE_DEPOSIT_SHARE);
+    expect(fpToNumber(leaseMonthlyPayment(fp(26_000_000)))).toBe(156_000);
+  });
+
+  it("leasing is cheaper at first, buying wins after 3–5 years", () => {
+    for (const month of [1, 6, 12, 18, 30, 42]) {
+      expect(ownershipCost(leased, month, "lease")).toBeLessThan(
+        ownershipCost(leased, month, "buy"),
+      );
+    }
+    expect(ownershipCost(leased, 72, "buy")).toBeLessThan(ownershipCost(leased, 72, "lease"));
+    const months = leaseBuyBreakEvenMonths(leased);
+    expect(months).not.toBeNull();
+    expect(months).toBeGreaterThanOrEqual(36);
+    expect(months).toBeLessThanOrEqual(60);
+  });
+
+  it("costs only the deposit (lease) or the scrap loss (buy) at month zero", () => {
+    expect(ownershipCost(leased, 0, "lease")).toBe(leaseDeposit(leased.price));
+    expect(fpToNumber(ownershipCost(leased, 0, "buy"))).toBeCloseTo(110_000_000 * 0.3, 0);
+  });
+
+  it("is the first month when only the deposit undercuts buying", () => {
+    expect(leaseBuyBreakEvenMonths({ ...leased, monthlyLease: leased.price }, 24)).toBe(1);
+  });
+
+  it("depreciates smoothly within a year", () => {
+    const half = calculateBookValue(mockModel, 0, 1, 0, TICKS_PER_YEAR / 2);
+    expect(fpToNumber(half)).toBeCloseTo(110_000_000 * 0.9 ** 0.5, -1);
+  });
+
+  it("reports no break-even when the lease is near free", () => {
+    expect(leaseBuyBreakEvenMonths({ ...leased, monthlyLease: fp(1) }, 24)).toBeNull();
   });
 });

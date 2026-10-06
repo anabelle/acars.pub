@@ -1,7 +1,7 @@
 # S11 — Oversupply curve + brand score v2
 
-> **Status:** ☑ ready for review
-> **Next step:** — (all steps done; awaiting review)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #172)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #172
 >

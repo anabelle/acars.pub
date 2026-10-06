@@ -1,5 +1,13 @@
 import type { AircraftModel } from "@acars/core";
-import { createLogger, FP_ZERO, fpFormat, fpScale, TICK_DURATION } from "@acars/core";
+import {
+  createLogger,
+  FP_ZERO,
+  fpFormat,
+  LEASE_DEPOSIT_SHARE,
+  leaseBuyBreakEvenMonths,
+  leaseDeposit,
+  TICK_DURATION,
+} from "@acars/core";
 import { aircraftModels, getAircraftById } from "@acars/data";
 import { loadMarketplace, type MarketplaceListing, type SellerFleetIndex } from "@acars/nostr";
 import { useAirlineStore } from "@acars/store";
@@ -706,7 +714,7 @@ function PurchaseModal({
   const bgGradient =
     gradientMap[aircraft.manufacturer] || "from-zinc-500/20 via-zinc-900/10 to-transparent";
 
-  const upfrontCost = purchaseType === "buy" ? aircraft.price : fpScale(aircraft.price, 0.1); // 10% Deposit
+  const upfrontCost = purchaseType === "buy" ? aircraft.price : leaseDeposit(aircraft.price);
   const canAfford = typeof corporateBalance === "number" ? corporateBalance >= upfrontCost : true;
   const baseCapacity =
     aircraft.capacity.economy + aircraft.capacity.business + aircraft.capacity.first;
@@ -870,7 +878,9 @@ function PurchaseModal({
                 <p className="px-2 text-[10px] italic text-muted-foreground">
                   {t("fleet.leaseTerms", {
                     ns: "game",
+                    percent: Math.round(LEASE_DEPOSIT_SHARE * 100),
                     amount: fpFormat(aircraft.monthlyLease, 0),
+                    months: leaseBuyBreakEvenMonths(aircraft) ?? "—",
                   })}
                 </p>
               )}
@@ -977,7 +987,10 @@ function PurchaseModal({
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {purchaseType === "buy"
                       ? t("fleet.fullPurchasePrice", { ns: "game" })
-                      : t("fleet.securityDeposit", { ns: "game" })}
+                      : t("fleet.securityDeposit", {
+                          ns: "game",
+                          percent: Math.round(LEASE_DEPOSIT_SHARE * 100),
+                        })}
                   </p>
                   <p
                     className={`mt-1 truncate text-3xl font-black ${canAfford ? "text-primary" : "text-red-500"}`}

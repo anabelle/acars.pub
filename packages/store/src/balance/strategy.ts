@@ -1,12 +1,19 @@
 import type { FixedPoint } from "@acars/core";
-import { evaluateTier, fp, fpAdd, fpScale, fpSub, fpSum, ROUTE_SLOT_FEE } from "@acars/core";
+import {
+  evaluateTier,
+  fp,
+  fpAdd,
+  fpScale,
+  fpSub,
+  fpSum,
+  leaseDeposit,
+  ROUTE_SLOT_FEE,
+} from "@acars/core";
 import { getAircraftById, getAirports } from "@acars/data";
 import { type LegMetrics, routeDistanceKm, runLegScenario } from "./legScenario.js";
 
 /** Starting cash for a new airline (identity setup). */
 export const STARTING_BALANCE = fp(100_000_000);
-/** Lease deposit share of the aircraft price (fleetSlice.purchaseAircraft). */
-const LEASE_DEPOSIT_SHARE = 0.1;
 const DAYS_PER_LEASE_MONTH = 30;
 
 export interface Strategy {
@@ -28,17 +35,19 @@ export const STRATEGIES: Strategy[] = [
   },
   {
     name: "Balanced",
-    description: "10 ATR 72s, 2× fares",
+    description: "10 ATR 72s, 1.2× fares (top of the fair band)",
     modelId: "atr72-600",
     aircraft: 10,
-    fareMultiplier: 2,
+    fareMultiplier: 1.2,
   },
   {
+    // S12: with fares capped at 3× and a real market, overpricing no longer
+    // pays; greedy now means max lease at the revenue-maximising fare.
     name: "Greedy",
-    description: "lease every ATR 72 the cash allows, 5× fares",
+    description: "lease every ATR 72 the cash allows, 1.4× fares",
     modelId: "atr72-600",
     aircraft: "max",
-    fareMultiplier: 5,
+    fareMultiplier: 1.4,
   },
 ];
 
@@ -93,7 +102,7 @@ export function simulateStrategy(
 ): StrategyResult {
   const model = getAircraftById(strategy.modelId);
   if (!model) throw new Error(`Unknown model ${strategy.modelId}`);
-  const perAircraftUpfront = fpAdd(fpScale(model.price, LEASE_DEPOSIT_SHARE), ROUTE_SLOT_FEE);
+  const perAircraftUpfront = fpAdd(leaseDeposit(model.price), ROUTE_SLOT_FEE);
   const destinations = hubDestinations(hubIata, model.rangeKm, maxDestinations);
   const affordable = Math.floor(Number(STARTING_BALANCE) / Math.max(1, Number(perAircraftUpfront)));
   const aircraft = Math.min(

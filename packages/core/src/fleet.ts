@@ -1,7 +1,7 @@
-import { fpScale } from "./fixed-point.js";
+import { fpAdd, fpScale, fpSub } from "./fixed-point.js";
 import { detPow } from "./det-math.js";
 import type { AircraftModel, FixedPoint } from "./types.js";
-import { TICKS_PER_HOUR } from "./types.js";
+import { TICKS_PER_HOUR, TICKS_PER_MONTH } from "./types.js";
 
 export function getMaintenanceDowntimeTicks(model: AircraftModel): number {
   switch (model.type) {
@@ -66,7 +66,8 @@ export function calculateBookValue(
   const ticksPerDay = TICKS_PER_HOUR * 24;
   const ticksPerYear = ticksPerDay * 365;
   const ageTicks = Math.max(0, currentTick - manufactureTick);
-  const ageYears = Math.floor(ageTicks / ticksPerYear);
+  // Continuous (S12): value falls smoothly, not in yearly steps.
+  const ageYears = ageTicks / ticksPerYear;
 
   // 2. Declining Balance Depreciation (Exponential)
   // Most aircraft lose 8-12% of their value per year.
@@ -96,4 +97,66 @@ export function calculateBookValue(
 
   // 5. Floor at residual value
   return baseValue > residualValue ? baseValue : residualValue;
+}
+
+// ============================================================
+// Lease vs buy (S12)
+// ============================================================
+
+/**
+ * Lease deposit, as a share of the aircraft price, paid up front and not
+ * refunded. Large enough that cash, not route count, limits a day-one fleet
+ * ($100M leases ~14 ATR 72s, not ~37), and below the 30% scrap loss so a
+ * lease is the cheaper way to start.
+ */
+export const LEASE_DEPOSIT_SHARE = 0.25;
+/**
+ * Monthly lease payment as a share of the aircraft price (a "lease rate
+ * factor"). With the deposit and the scrap resale below, leasing is cheaper
+ * for the first ~3 years and buying wins from month ~40 on, for every model.
+ */
+export const LEASE_MONTHLY_RATE = 0.006;
+/** Share of book value recovered when an owned aircraft is sold for scrap. */
+export const SCRAP_RESALE_SHARE = 0.7;
+
+export function leaseDeposit(price: FixedPoint): FixedPoint {
+  return fpScale(price, LEASE_DEPOSIT_SHARE);
+}
+
+export function leaseMonthlyPayment(price: FixedPoint): FixedPoint {
+  return fpScale(price, LEASE_MONTHLY_RATE);
+}
+
+/**
+ * Net cost of operating one aircraft for `months` billing months, excluding
+ * flying costs (identical either way). Buying: price minus what scrapping it
+ * then returns (book value at full condition and normal use). Leasing: the
+ * deposit plus the payments.
+ */
+export function ownershipCost(
+  model: AircraftModel,
+  months: number,
+  purchaseType: "buy" | "lease",
+): FixedPoint {
+  const wholeMonths = Math.max(0, Math.floor(months));
+  if (purchaseType === "lease") {
+    return fpAdd(leaseDeposit(model.price), fpScale(model.monthlyLease, wholeMonths));
+  }
+  const ageTicks = wholeMonths * TICKS_PER_MONTH;
+  const normalHours = (model.blockHoursPerDay * ageTicks) / (TICKS_PER_HOUR * 24);
+  const bookValue = calculateBookValue(model, normalHours, 1, 0, ageTicks);
+  return fpSub(model.price, fpScale(bookValue, SCRAP_RESALE_SHARE));
+}
+
+/**
+ * Billing month from which buying stays no more expensive than leasing, or
+ * null if leasing is still cheaper at `maxMonths`.
+ */
+export function leaseBuyBreakEvenMonths(model: AircraftModel, maxMonths = 360): number | null {
+  const leaseCheaper = (month: number) =>
+    ownershipCost(model, month, "lease") < ownershipCost(model, month, "buy");
+  if (leaseCheaper(maxMonths)) return null;
+  let month = maxMonths;
+  while (month > 0 && !leaseCheaper(month - 1)) month -= 1;
+  return month;
 }

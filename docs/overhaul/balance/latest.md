@@ -58,11 +58,11 @@ _Overpricing share: how much of the best profit/leg comes from pricing above the
 
 | Strategy | Aircraft / routes | Day-one cost | Profit/day | Cash after 30 days | Days to Tier 2 | Days to Tier 3 | Days to Tier 4 |
 | --- | --: | --: | --: | --: | --: | --: | --: |
-| **Cautious**: 3 ATR 72s, suggested fares | 3 | $8,100,000 | $21,111 | $92,533,338 | 55 | > 365 | > 365 |
-| **Balanced**: 10 ATR 72s, 2× fares | 10 | $27,000,000 | -$2,696 | $72,919,120 | 24 | 239 | > 365 |
-| **Greedy**: lease every ATR 72 the cash allows, 5× fares | 37 | $99,900,000 | -$245,497 | -$7,264,903 | 11 | 105 | > 365 |
+| **Cautious**: 3 ATR 72s, suggested fares | 3 | $19,800,000 | $17,511 | $80,725,338 | 11 | > 365 | > 365 |
+| **Balanced**: 10 ATR 72s, 1.2× fares (top of the fair band) | 10 | $66,000,000 | $121,440 | $37,643,194 | 3 | 28 | > 365 |
+| **Greedy**: lease every ATR 72 the cash allows, 1.4× fares | 15 | $99,000,000 | $130,404 | $4,912,135 | 3 | 21 | > 365 |
 
-_One leased aircraft per route to the most populous airports in range; each route's economics from a real engine leg at 7 round trips a week (what a new route gets). Tier needs: T2 $5M revenue + 3 routes, T3 $50M + 10, T4 $250M + 25. Ignores the 3-minute delivery, rivals and network effects; strategies keep the ATR 72 after unlocks._
+_One leased aircraft per route to the most populous airports in range; each route's economics from a real engine leg at 7 round trips a week (what a new route gets). Tier needs: T2 $1,000,000 revenue + 3 routes, T3 $10,000,000 revenue + 10 routes, T4 $60,000,000 revenue + 25 routes. Ignores the 3-minute delivery, rivals and network effects; strategies keep the ATR 72 after unlocks._
 
 ## 6. Over-assignment curve (atr72-600 on MAD–LIS, 1–20 aircraft, suggested fares, every aircraft flying as much as it can)
 

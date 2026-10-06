@@ -5,6 +5,9 @@
 // Brand (S11)
 export * from "./brand.js";
 
+// Milestones (S12)
+export * from "./milestones.js";
+
 // Checkpoints
 export {
   canonicalize,
@@ -91,6 +94,13 @@ export {
   calculateBookValue,
   computeRouteFrequency,
   getMaintenanceDowntimeTicks,
+  LEASE_DEPOSIT_SHARE,
+  LEASE_MONTHLY_RATE,
+  leaseBuyBreakEvenMonths,
+  leaseDeposit,
+  leaseMonthlyPayment,
+  ownershipCost,
+  SCRAP_RESALE_SHARE,
 } from "./fleet.js";
 export {
   FUEL_PRICE_EPOCH_TICKS,

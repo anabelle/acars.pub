@@ -19,10 +19,12 @@ import {
   getMaintenanceDowntimeTicks,
   getMaxFares,
   getSuggestedFares,
+  leaseDeposit,
   MAX_ROUTE_FREQUENCY_PER_WEEK,
   MIN_ROUTE_FREQUENCY_PER_WEEK,
   REPLACEABLE_ACTION_TYPES,
   ROUTE_SLOT_FEE,
+  SCRAP_RESALE_SHARE,
   TICK_DURATION,
   TICKS_PER_HOUR,
 } from "@acars/core";
@@ -1108,7 +1110,7 @@ export async function replayActionLog(params: {
           cargoKg: clampInt(configurationPayload?.cargoKg, 0, 1000000) ?? model.capacity.cargoKg,
         };
         const purchaseType = payload.purchaseType === "lease" ? "lease" : "buy";
-        const price = purchaseType === "buy" ? model.price : fpScale(model.price, 0.1);
+        const price = purchaseType === "buy" ? model.price : leaseDeposit(model.price);
         if (!canAfford(price)) break;
         const name =
           clampString(payload.name, MAX_NAME_LENGTH) ??
@@ -1168,7 +1170,7 @@ export async function replayActionLog(params: {
               aircraft?.birthTick || aircraft?.purchasedAtTick || actionTick,
               actionTick,
             );
-        const salePrice = fpScale(marketValue, 0.7);
+        const salePrice = fpScale(marketValue, SCRAP_RESALE_SHARE);
         applyBalanceDelta(salePrice);
         updateLastTick(actionTick);
         pushTimelineEvent({

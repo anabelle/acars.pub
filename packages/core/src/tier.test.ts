@@ -11,13 +11,13 @@ import {
 
 describe("tier progression", () => {
   it("keeps tier when requirements are unmet", () => {
-    const tier = evaluateTier(1, fp(1_000_000), 1);
+    const tier = evaluateTier(1, fp(500_000), 1);
     expect(tier).toBe(1);
   });
 
   it("breaks on active route count even when revenue threshold is met", () => {
-    // Revenue meets tier-2 (5M) but only 1 active route (< 3) → break, stays 1.
-    const tier = evaluateTier(1, fp(5_000_000), 1);
+    // Revenue meets tier-2 (1M) but only 1 active route (< 3) → break, stays 1.
+    const tier = evaluateTier(1, fp(1_000_000), 1);
     expect(tier).toBe(1);
   });
 
@@ -107,14 +107,14 @@ describe("estimateHistoricRevenue", () => {
 
 describe("getTierProgress", () => {
   it("measures both requirements towards the next tier", () => {
-    expect(getTierProgress(1, fp(1_250_000), 2)).toEqual({
+    expect(getTierProgress(1, fp(250_000), 2)).toEqual({
       tier: 1,
       nextTier: 2,
       revenuePct: 25,
       routesPct: 66,
       revenueMet: false,
       routesMet: false,
-      revenueTarget: fp(5_000_000),
+      revenueTarget: fp(1_000_000),
       routesTarget: 3,
     });
   });

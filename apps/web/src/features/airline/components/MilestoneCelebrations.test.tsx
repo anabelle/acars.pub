@@ -74,7 +74,7 @@ describe("MilestoneCelebrations", () => {
     expect(dialog).toHaveTextContent("Tier 2 reached!");
     expect(dialog).toHaveTextContent("Routes up to 7,000 km");
     expect(dialog).toHaveTextContent("Up to 3 hubs");
-    expect(dialog).toHaveTextContent("Next: Tier 3 at $50,000,000");
+    expect(dialog).toHaveTextContent("Next: Tier 3 at $10,000,000");
     fireEvent.click(screen.getByRole("button", { name: "Keep flying" }));
     expect(screen.queryByTestId("tier-up-dialog")).not.toBeInTheDocument();
   });

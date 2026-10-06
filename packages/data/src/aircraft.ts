@@ -1,11 +1,11 @@
 import type { AircraftModel } from "@acars/core";
-import { fp } from "@acars/core";
+import { fp, leaseMonthlyPayment } from "@acars/core";
 
 // Data policy: physical specs follow OEM / certification references where available,
 // while cabin and economics use representative in-service layouts and benchmarked
 // operating assumptions normalized to the rest of the catalog.
 
-export const aircraftModels: AircraftModel[] = [
+const catalog: Array<Omit<AircraftModel, "monthlyLease">> = [
   // ================================================================
   // TIER 1: REGIONAL STARTUP
   // Domestic routes only (<2000km), Economy class only
@@ -33,7 +33,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 8,
     turnaroundTimeMinutes: 25,
     price: fp(21000000),
-    monthlyLease: fp(100000),
     casm: fp(0.002),
     maintCostPerHour: fp(400),
     crewRequired: {
@@ -68,7 +67,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 9,
     turnaroundTimeMinutes: 25,
     price: fp(26000000),
-    monthlyLease: fp(120000),
     casm: fp(0.0018),
     maintCostPerHour: fp(450),
     crewRequired: {
@@ -103,7 +101,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 8,
     turnaroundTimeMinutes: 25,
     price: fp(22000000),
-    monthlyLease: fp(105000),
     casm: fp(0.0019),
     maintCostPerHour: fp(470),
     crewRequired: {
@@ -138,7 +135,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 9,
     turnaroundTimeMinutes: 25,
     price: fp(32000000),
-    monthlyLease: fp(145000),
     casm: fp(0.0016),
     maintCostPerHour: fp(520),
     crewRequired: {
@@ -179,7 +175,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 11,
     turnaroundTimeMinutes: 30,
     price: fp(49000000),
-    monthlyLease: fp(220000),
     casm: fp(0.0011),
     maintCostPerHour: fp(600),
     crewRequired: {
@@ -214,7 +209,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 11,
     turnaroundTimeMinutes: 30,
     price: fp(55000000),
-    monthlyLease: fp(250000),
     casm: fp(0.001),
     maintCostPerHour: fp(650),
     crewRequired: {
@@ -249,7 +243,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 10,
     turnaroundTimeMinutes: 30,
     price: fp(43000000),
-    monthlyLease: fp(190000),
     casm: fp(0.00125),
     maintCostPerHour: fp(560),
     crewRequired: {
@@ -284,7 +277,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 10,
     turnaroundTimeMinutes: 30,
     price: fp(47000000),
-    monthlyLease: fp(210000),
     casm: fp(0.0012),
     maintCostPerHour: fp(580),
     crewRequired: {
@@ -319,7 +311,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 11,
     turnaroundTimeMinutes: 30,
     price: fp(53000000),
-    monthlyLease: fp(240000),
     casm: fp(0.0011),
     maintCostPerHour: fp(620),
     crewRequired: {
@@ -354,7 +345,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 10,
     turnaroundTimeMinutes: 30,
     price: fp(50000000),
-    monthlyLease: fp(225000),
     casm: fp(0.00115),
     maintCostPerHour: fp(610),
     crewRequired: {
@@ -389,7 +379,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 11,
     turnaroundTimeMinutes: 30,
     price: fp(60000000),
-    monthlyLease: fp(265000),
     casm: fp(0.001),
     maintCostPerHour: fp(670),
     crewRequired: {
@@ -424,7 +413,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 11,
     turnaroundTimeMinutes: 35,
     price: fp(101000000),
-    monthlyLease: fp(360000),
     casm: fp(0.00082),
     maintCostPerHour: fp(820),
     crewRequired: {
@@ -459,7 +447,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 11,
     turnaroundTimeMinutes: 35,
     price: fp(98000000),
-    monthlyLease: fp(320000),
     casm: fp(0.00095),
     maintCostPerHour: fp(880),
     crewRequired: {
@@ -494,7 +481,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 12,
     turnaroundTimeMinutes: 35,
     price: fp(110000000),
-    monthlyLease: fp(380000),
     casm: fp(0.0008),
     maintCostPerHour: fp(850),
     crewRequired: {
@@ -529,7 +515,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 11,
     turnaroundTimeMinutes: 35,
     price: fp(90000000),
-    monthlyLease: fp(290000),
     casm: fp(0.001),
     maintCostPerHour: fp(760),
     crewRequired: {
@@ -564,7 +549,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 12,
     turnaroundTimeMinutes: 35,
     price: fp(106000000),
-    monthlyLease: fp(350000),
     casm: fp(0.0009),
     maintCostPerHour: fp(800),
     crewRequired: {
@@ -599,7 +583,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 12,
     turnaroundTimeMinutes: 40,
     price: fp(114000000),
-    monthlyLease: fp(390000),
     casm: fp(0.00086),
     maintCostPerHour: fp(860),
     crewRequired: {
@@ -634,7 +617,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 12,
     turnaroundTimeMinutes: 35,
     price: fp(121000000),
-    monthlyLease: fp(420000),
     casm: fp(0.0007),
     maintCostPerHour: fp(780),
     crewRequired: {
@@ -669,7 +651,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 12,
     turnaroundTimeMinutes: 40,
     price: fp(128000000),
-    monthlyLease: fp(440000),
     casm: fp(0.00072),
     maintCostPerHour: fp(810),
     crewRequired: {
@@ -704,7 +685,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 12,
     turnaroundTimeMinutes: 40,
     price: fp(135000000),
-    monthlyLease: fp(470000),
     casm: fp(0.00068),
     maintCostPerHour: fp(920),
     crewRequired: {
@@ -739,7 +719,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 12,
     turnaroundTimeMinutes: 40,
     price: fp(129000000),
-    monthlyLease: fp(450000),
     casm: fp(0.0007),
     maintCostPerHour: fp(900),
     crewRequired: {
@@ -774,7 +753,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 12,
     turnaroundTimeMinutes: 40,
     price: fp(145000000),
-    monthlyLease: fp(520000),
     casm: fp(0.00066),
     maintCostPerHour: fp(950),
     crewRequired: {
@@ -815,7 +793,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 13,
     turnaroundTimeMinutes: 60,
     price: fp(238000000),
-    monthlyLease: fp(720000),
     casm: fp(0.00065),
     maintCostPerHour: fp(1750),
     crewRequired: {
@@ -850,7 +827,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 13,
     turnaroundTimeMinutes: 60,
     price: fp(264000000),
-    monthlyLease: fp(800000),
     casm: fp(0.0006),
     maintCostPerHour: fp(1800),
     crewRequired: {
@@ -885,7 +861,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 13,
     turnaroundTimeMinutes: 60,
     price: fp(296000000),
-    monthlyLease: fp(880000),
     casm: fp(0.0006),
     maintCostPerHour: fp(1700),
     crewRequired: {
@@ -920,7 +895,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 13,
     turnaroundTimeMinutes: 55,
     price: fp(248000000),
-    monthlyLease: fp(860000),
     casm: fp(0.00052),
     maintCostPerHour: fp(1550),
     crewRequired: {
@@ -955,7 +929,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 13,
     turnaroundTimeMinutes: 55,
     price: fp(292000000),
-    monthlyLease: fp(950000),
     casm: fp(0.0005),
     maintCostPerHour: fp(1600),
     crewRequired: {
@@ -990,7 +963,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 13,
     turnaroundTimeMinutes: 60,
     price: fp(338000000),
-    monthlyLease: fp(1060000),
     casm: fp(0.00049),
     maintCostPerHour: fp(1700),
     crewRequired: {
@@ -1025,7 +997,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 13,
     turnaroundTimeMinutes: 65,
     price: fp(306000000),
-    monthlyLease: fp(980000),
     casm: fp(0.0006),
     maintCostPerHour: fp(2050),
     crewRequired: {
@@ -1060,7 +1031,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 14,
     turnaroundTimeMinutes: 70,
     price: fp(375000000),
-    monthlyLease: fp(1200000),
     casm: fp(0.00055),
     maintCostPerHour: fp(2200),
     crewRequired: {
@@ -1101,7 +1071,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 14,
     turnaroundTimeMinutes: 65,
     price: fp(366000000),
-    monthlyLease: fp(1180000),
     casm: fp(0.00046),
     maintCostPerHour: fp(1950),
     crewRequired: {
@@ -1136,7 +1105,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 14,
     turnaroundTimeMinutes: 60,
     price: fp(317000000),
-    monthlyLease: fp(1050000),
     casm: fp(0.00048),
     maintCostPerHour: fp(1800),
     crewRequired: {
@@ -1171,7 +1139,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 14,
     turnaroundTimeMinutes: 65,
     price: fp(346000000),
-    monthlyLease: fp(1100000),
     casm: fp(0.00058),
     maintCostPerHour: fp(2150),
     crewRequired: {
@@ -1206,7 +1173,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 14,
     turnaroundTimeMinutes: 90,
     price: fp(445000000),
-    monthlyLease: fp(1500000),
     casm: fp(0.00042),
     maintCostPerHour: fp(3500),
     crewRequired: {
@@ -1241,7 +1207,6 @@ export const aircraftModels: AircraftModel[] = [
     blockHoursPerDay: 14,
     turnaroundTimeMinutes: 85,
     price: fp(418000000),
-    monthlyLease: fp(1350000),
     casm: fp(0.00045),
     maintCostPerHour: fp(3000),
     crewRequired: {
@@ -1255,6 +1220,12 @@ export const aircraftModels: AircraftModel[] = [
     deliveryTimeTicks: 400,
   },
 ];
+
+/** Every lease is priced from the aircraft price (S12: `LEASE_MONTHLY_RATE`). */
+export const aircraftModels: AircraftModel[] = catalog.map((model) => ({
+  ...model,
+  monthlyLease: leaseMonthlyPayment(model.price),
+}));
 
 export const aircraftByFamilyId = new Map<string, AircraftModel[]>();
 for (const aircraft of aircraftModels) {

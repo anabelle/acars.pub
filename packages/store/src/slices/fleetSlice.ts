@@ -16,6 +16,8 @@ import {
   GENESIS_TIME,
   getMaintenanceDowntimeTicks,
   haversineDistance,
+  leaseDeposit,
+  SCRAP_RESALE_SHARE,
   TICK_DURATION,
   TICKS_PER_HOUR,
 } from "@acars/core";
@@ -97,7 +99,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
       throw new Error("A purchase for this aircraft model is already in progress.");
     }
 
-    const upfrontCost = purchaseType === "buy" ? model.price : fpScale(model.price, 0.1);
+    const upfrontCost = purchaseType === "buy" ? model.price : leaseDeposit(model.price);
 
     if (airline.corporateBalance < upfrontCost) {
       const label = purchaseType === "buy" ? "purchase" : "lease deposit";
@@ -371,7 +373,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
     // SCRAP / QUICK-SALE PENALTY (30%)
     // You only get 70% of book value when selling instantly to the "scrap yard".
     // To get full value, you must list it on the used marketplace.
-    const resaleValue = fpScale(marketValue, 0.7);
+    const resaleValue = fpScale(marketValue, SCRAP_RESALE_SHARE);
 
     const updatedAirline = {
       ...airline,

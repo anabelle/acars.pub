@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { BRAND_STRATEGIES, brandTrajectory, overAssignmentCurve } from "./brand.js";
 import { runLegScenario } from "./legScenario.js";
 import { generateBalanceReport } from "./report.js";
+import { STRATEGIES, simulateStrategy } from "./strategy.js";
 
 beforeAll(() => {
   setAirportsCatalog(airports);
@@ -57,5 +58,23 @@ describe("balance harness", () => {
     for (const trajectory of greedy) {
       expect(trajectory.brandByDay[30]).toBeLessThan(0.45);
     }
+  });
+
+  it("tier pacing hits the S12 targets", () => {
+    const [cautious, balanced, greedy] = STRATEGIES.map((strategy) =>
+      simulateStrategy(strategy, { days: 60 }),
+    );
+    const t2 = balanced.daysToTier[2];
+    const t3 = balanced.daysToTier[3];
+    expect(t2).not.toBeNull();
+    expect(t2).toBeGreaterThanOrEqual(1);
+    expect(t2).toBeLessThanOrEqual(3);
+    expect(t3).toBeGreaterThanOrEqual(21);
+    expect(t3).toBeLessThanOrEqual(28);
+    // Greedy is never more than 2× faster than balanced.
+    expect((greedy.daysToTier[2] ?? 0) * 2).toBeGreaterThanOrEqual(t2 ?? 0);
+    expect((greedy.daysToTier[3] ?? 0) * 2).toBeGreaterThanOrEqual(t3 ?? 0);
+    // Cautious still gets there, just later.
+    expect(cautious.daysToTier[2]).toBeGreaterThan(t2 ?? 0);
   });
 });
