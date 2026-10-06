@@ -101,6 +101,8 @@ Precache: `/`, the manifest, the favicon and an icon. Old caches are dropped on 
 - **e2e** `notification-settings.spec.ts`: with notifications permission granted, turn on, uncheck Rivals; the choice is saved. Switch to Spanish and reload: the card is translated and the choice persisted. Screenshots `notifications-off-en`, `notifications-on-en` and `notifications-on-es` were checked by eye.
 - **Tests.** The card (grant, refuse, already granted, blocked, unsupported, categories, off) and the permission wrapper.
 
+2026-10-06 · S34.4 fix · (this commit) · **CI e2e.** CI's Playwright headless shell has no usable Notification permission, so the card showed its unsupported or blocked state and the spec never found "Turn on alerts". Reproduced locally with the headless shell. The spec now installs a stand-in Notification API (permission persisted across the reload), because it tests the app's settings flow, not the browser. The real permission wrapper is unit-tested. The spec passes in both the headless shell and full Chromium.
+
 ## Follow-ups
 
 - **Nostr DM bot (D3, part 2).** A scheduled Worker with a bot key that reads opted-in players' checkpoints and DMs groundings, tier-ups and rival moves, so alerts arrive while ACARS is closed. It needs a bot secret in Pages env, a cron trigger and an opt-in event.

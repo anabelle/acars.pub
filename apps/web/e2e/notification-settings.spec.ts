@@ -2,7 +2,7 @@ import path from "node:path";
 import { expect, test } from "./fixtures";
 import { createAirline, MADRID_PLAYER, navigateInApp } from "./signup";
 
-test.use({ ...MADRID_PLAYER, permissions: [...MADRID_PLAYER.permissions, "notifications"] });
+test.use(MADRID_PLAYER);
 
 const shot = async (page: import("@playwright/test").Page, name: string) => {
   if (!process.env.S34_SCREENSHOT) return;
@@ -11,9 +11,30 @@ const shot = async (page: import("@playwright/test").Page, name: string) => {
     .screenshot({ path: path.resolve(process.env.S34_SCREENSHOT, name) });
 };
 
+/**
+ * A stand-in Notification API whose permission ("default" until granted)
+ * survives reloads. Browsers differ here (CI's headless shell has no usable
+ * Notification permission), and what this spec checks is the app's settings
+ * flow, so the permission must not depend on the test browser.
+ */
+const FAKE_NOTIFICATIONS = () => {
+  const KEY = "__e2e_notification_permission";
+  class FakeNotification {
+    static get permission() {
+      return localStorage.getItem(KEY) ?? "default";
+    }
+    static async requestPermission() {
+      localStorage.setItem(KEY, "granted");
+      return "granted";
+    }
+  }
+  Object.defineProperty(window, "Notification", { value: FakeNotification, configurable: true });
+};
+
 // S34: a player turns on alerts in the cockpit and picks categories (en + es).
 test("a player turns on alerts and picks categories", async ({ page, problems }) => {
   test.setTimeout(180_000);
+  await page.addInitScript(FAKE_NOTIFICATIONS);
   await createAirline(page);
   await navigateInApp(page, "/?panel=cockpit");
 
