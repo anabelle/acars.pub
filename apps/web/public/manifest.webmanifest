@@ -1,0 +1,24 @@
+{
+  "name": "ACARS — Run a real airline on the real clock",
+  "short_name": "ACARS",
+  "description": "A free, open-source airline tycoon on a live world map. Real routes, real flight times, rival airlines.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#050a14",
+  "theme_color": "#050a14",
+  "lang": "en",
+  "categories": ["games", "simulation"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
