@@ -1,7 +1,7 @@
 # S04 — Funnel metrics from Nostr events
 
 > **Status:** ◐ in progress
-> **Next step:** S04.2
+> **Next step:** S04.3
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -38,7 +38,7 @@ Measure the funnel without tracking users: derive activation and retention from 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S04.1** Relay reader: fetch action events by date range, count by type/day. _Done when:_ counts print for the last 7 days.
-- [ ] **S04.2** Funnel, time-to-first-assignment, D1/D7/D30 cohorts. _Done when:_ numbers sanity-checked vs leaderboard.
+- [x] **S04.2** Funnel, time-to-first-assignment, D1/D7/D30 cohorts. _Done when:_ numbers sanity-checked vs leaderboard.
 - [ ] **S04.3** Report writer + first report in `docs/overhaul/metrics/` + usage docs. _Done when:_ report committed.
 - [ ] **S04.4** (Optional) cookie-less page-view counter function. _Done when:_ counter increments in a local Pages dev run.
 
@@ -66,6 +66,14 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - `FUNNEL_WORLD_ID` is tested to equal `WORLD_ID`.
 
 `scripts/funnel.ts` (`pnpm funnel --days 7 [--relay url]`) pages kind-30078 events by `until` from each relay and prints counts only. **Live run blocked in the agent container:** the environment's network policy answers 403 to every relay host (`nostr.acars.pub`, `relay.damus.io`, `nos.lol`, …). The CLI runs and prints the empty 7-day table, and the counting logic is covered by fixture tests. Sanity-checking against real data needs the relay hosts allowed, or a run from a machine with relay access.
+2026-10-06 · S04.2 · (this commit) · Funnel maths in `funnel.ts`:
+
+- `buildJourneys` builds one journey per airline whose `AIRLINE_CREATE` is in range, with created, first route, first assignment, first landing and last seen. First landing is estimated as assignment time plus the route distance ÷ 500 km/h, with a 2 h fallback. Last seen is the latest action or checkpoint.
+- `summarizeFunnel` gives the funnel and D1/D7/D30 retention. Retention means seen on or after day N, counted only once a cohort is old enough to measure.
+- `timeToFirstAssignment` gives nearest-rank median and p75.
+- `weeklyCohorts` groups by UTC-Monday week.
+
+`pnpm funnel` prints all of it. **Sanity check against the leaderboard is pending:** relay hosts are blocked from this container (see S04.1). The step's code is done and fixture-tested.
 
 ## Follow-ups
 

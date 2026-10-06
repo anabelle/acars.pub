@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildJourneys,
   CHECKPOINT_TYPE,
+  FIRST_LANDING_FALLBACK_SEC,
+  type FunnelEvent,
   FUNNEL_WORLD_ID,
+  percentile,
+  summarizeFunnel,
+  timeToFirstAssignment,
+  utcWeekStart,
+  weeklyCohorts,
   collectFunnelEvents,
   countByDayAndType,
   formatDailyCounts,
@@ -16,7 +24,13 @@ const DAY = 86_400;
 const T0 = Date.UTC(2026, 9, 1) / 1000; // 2026-10-01T00:00Z
 
 let nextId = 0;
-function action(pubkey: string, createdAt: number, type: string, world = WORLD): RawNostrEvent {
+function action(
+  pubkey: string,
+  createdAt: number,
+  type: string,
+  world = WORLD,
+  payload: Record<string, unknown> = {},
+): RawNostrEvent {
   nextId += 1;
   return {
     id: `e${nextId}`,
@@ -24,7 +38,7 @@ function action(pubkey: string, createdAt: number, type: string, world = WORLD):
     created_at: createdAt,
     kind: 30078,
     tags: [["d", `airtr:world:${world}:action:${type.toLowerCase()}`]],
-    content: JSON.stringify({ schemaVersion: 2, action: type, payload: {} }),
+    content: JSON.stringify({ schemaVersion: 2, action: type, payload }),
   };
 }
 
@@ -104,5 +118,112 @@ describe("countByDayAndType()", () => {
 describe("FUNNEL_WORLD_ID", () => {
   it("tracks the game's world id", () => {
     expect(FUNNEL_WORLD_ID).toBe(WORLD_ID);
+  });
+});
+
+describe("payload fields", () => {
+  it("keeps route id and distance, ignoring bad values", () => {
+    const open = action("a", T0, "ROUTE_OPEN", WORLD, { routeId: "r1", distanceKm: 483 });
+    expect(parseFunnelEvent(open, WORLD)).toMatchObject({ routeId: "r1", distanceKm: 483 });
+    const bad = action("a", T0, "ROUTE_OPEN", WORLD, { routeId: "", distanceKm: -1 });
+    const parsed = parseFunnelEvent(bad, WORLD);
+    expect(parsed?.routeId).toBeUndefined();
+    expect(parsed?.distanceKm).toBeUndefined();
+    const noPayload = { ...open, content: JSON.stringify({ action: "ROUTE_OPEN" }) };
+    expect(parseFunnelEvent(noPayload, WORLD)).toEqual({
+      pubkey: "a",
+      createdAt: T0,
+      type: "ROUTE_OPEN",
+    });
+  });
+});
+
+const ev = (
+  pubkey: string,
+  at: number,
+  type: string,
+  extra: Partial<FunnelEvent> = {},
+): FunnelEvent => ({
+  pubkey,
+  createdAt: at,
+  type,
+  ...extra,
+});
+
+describe("buildJourneys()", () => {
+  const events: FunnelEvent[] = [
+    // a: full journey, back on day 8
+    ev("a", T0, "AIRLINE_CREATE"),
+    ev("a", T0 + 600, "ROUTE_OPEN", { routeId: "r1", distanceKm: 500 }),
+    ev("a", T0 + 900, "ROUTE_ASSIGN_AIRCRAFT", { routeId: "r1" }),
+    ev("a", T0 + 8 * DAY, CHECKPOINT_TYPE),
+    // b: opened a route, assigned to an unknown route, gone after an hour
+    ev("b", T0 + 100, "AIRLINE_CREATE"),
+    ev("b", T0 + 200, "ROUTE_OPEN"),
+    ev("b", T0 + 300, "ROUTE_ASSIGN_AIRCRAFT", { routeId: "zz" }),
+    // c: created and left
+    ev("c", T0 + 2 * DAY, "AIRLINE_CREATE"),
+    // d: activity but genesis outside the window → no journey
+    ev("d", T0, "ROUTE_OPEN"),
+  ];
+  const journeys = buildJourneys(events);
+
+  it("builds one journey per created airline", () => {
+    expect(journeys).toHaveLength(3);
+  });
+
+  it("estimates first landing from the route distance, or a fallback", () => {
+    expect(journeys[0]).toEqual({
+      createdAt: T0,
+      firstRouteAt: T0 + 600,
+      firstAssignAt: T0 + 900,
+      firstLandingAt: T0 + 900 + 3600,
+      lastSeenAt: T0 + 8 * DAY,
+    });
+    expect(journeys[1].firstLandingAt).toBe(T0 + 300 + FIRST_LANDING_FALLBACK_SEC);
+    expect(journeys[2]).toMatchObject({
+      firstRouteAt: null,
+      firstAssignAt: null,
+      firstLandingAt: null,
+    });
+  });
+
+  it("summarizes the funnel with only measurable retention", () => {
+    const summary = summarizeFunnel(journeys, T0 + 10 * DAY);
+    expect(summary).toMatchObject({ created: 3, openedRoute: 2, assigned: 2, landed: 2 });
+    expect(summary.retention[1]).toEqual({ eligible: 3, retained: 1 });
+    expect(summary.retention[7]).toEqual({ eligible: 3, retained: 1 });
+    expect(summary.retention[30]).toEqual({ eligible: 0, retained: 0 });
+    // A landing still in the air does not count.
+    expect(summarizeFunnel(journeys, T0 + 1000).landed).toBe(0);
+  });
+
+  it("measures time to first assignment", () => {
+    expect(timeToFirstAssignment(journeys)).toEqual({ count: 2, median: 200, p75: 900 });
+    expect(timeToFirstAssignment([])).toEqual({ count: 0, median: null, p75: null });
+  });
+
+  it("groups cohorts by creation week", () => {
+    const later = buildJourneys([...events, ev("e", T0 + 7 * DAY, "AIRLINE_CREATE")]);
+    const cohorts = weeklyCohorts(later, T0 + 10 * DAY);
+    expect(cohorts.map((c) => [c.week, c.created])).toEqual([
+      ["2026-09-28", 3],
+      ["2026-10-05", 1],
+    ]);
+  });
+});
+
+describe("percentile() and utcWeekStart()", () => {
+  it("uses nearest rank", () => {
+    expect(percentile([5, 1, 3, 2, 4], 50)).toBe(3);
+    expect(percentile([5, 1, 3, 2, 4], 75)).toBe(4);
+    expect(percentile([7], 0)).toBe(7);
+    expect(percentile([], 50)).toBeNull();
+  });
+
+  it("finds the Monday of the week", () => {
+    expect(utcWeekStart(T0)).toBe("2026-09-28"); // Thu 2026-10-01
+    expect(utcWeekStart(Date.UTC(2026, 9, 5) / 1000)).toBe("2026-10-05"); // a Monday
+    expect(utcWeekStart(Date.UTC(2026, 9, 11, 23) / 1000)).toBe("2026-10-05"); // Sunday
   });
 });

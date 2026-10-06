@@ -17,12 +17,16 @@
  */
 
 import {
+  buildJourneys,
   collectFunnelEvents,
   countByDayAndType,
   FUNNEL_ACTION_KIND,
   FUNNEL_WORLD_ID,
   formatDailyCounts,
   type RawNostrEvent,
+  summarizeFunnel,
+  timeToFirstAssignment,
+  weeklyCohorts,
 } from "../packages/nostr/src/funnel.ts";
 
 const DEFAULT_RELAYS = [
@@ -155,6 +159,32 @@ async function main() {
   const events = collectFunnelEvents(raw, options.world);
   console.log(`World ${options.world}, last ${options.days} days: ${events.length} game events`);
   console.log(formatDailyCounts(countByDayAndType(events, since, until)));
+
+  const journeys = buildJourneys(events);
+  const summary = summarizeFunnel(journeys, until);
+  const pct = (n: number, of: number) => (of > 0 ? `${Math.round((n / of) * 100)}%` : "—");
+  console.log(`\nFunnel (airlines created in the window: ${summary.created})`);
+  console.log(
+    `  opened a route   ${summary.openedRoute} (${pct(summary.openedRoute, summary.created)})`,
+  );
+  console.log(`  assigned a plane ${summary.assigned} (${pct(summary.assigned, summary.created)})`);
+  console.log(`  first landing*   ${summary.landed} (${pct(summary.landed, summary.created)})`);
+  for (const [day, { eligible, retained }] of Object.entries(summary.retention)) {
+    console.log(`  D${day} retained     ${retained}/${eligible} (${pct(retained, eligible)})`);
+  }
+  const ttfa = timeToFirstAssignment(journeys);
+  const minutes = (sec: number | null) => (sec === null ? "—" : `${Math.round(sec / 60)} min`);
+  console.log(
+    `\nTime to first assignment (n=${ttfa.count}): median ${minutes(ttfa.median)}, p75 ${minutes(ttfa.p75)}`,
+  );
+  console.log("\nWeekly cohorts: week, created, route, assigned, D1, D7, D30");
+  for (const cohort of weeklyCohorts(journeys, until)) {
+    const d = (n: 1 | 7 | 30) => pct(cohort.retention[n].retained, cohort.retention[n].eligible);
+    console.log(
+      `  ${cohort.week}  ${cohort.created}  ${pct(cohort.openedRoute, cohort.created)}  ${pct(cohort.assigned, cohort.created)}  ${d(1)}  ${d(7)}  ${d(30)}`,
+    );
+  }
+  console.log("\n* estimated: first assignment + flight time on that route.");
 }
 
 main().catch((error) => {
