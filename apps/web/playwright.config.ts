@@ -20,6 +20,9 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: "retain-on-failure",
+    // The production build registers a service worker (S34); it would serve
+    // requests that specs mock with page.route. Only pwa.spec.ts allows it.
+    serviceWorkers: "block",
     launchOptions: { executablePath },
   },
   // `pnpm test:e2e` runs desktop + mobile. The screenshots project only runs

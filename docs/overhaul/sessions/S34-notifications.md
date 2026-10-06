@@ -1,9 +1,9 @@
 # S34 — PWA + notifications
 
 > **Status:** ◐ in progress
-> **Next step:** S34.2 (S34.3 waits on decision D3)
+> **Next step:** S34.3 (waits on decision D3)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #181
 >
 > **Track:** Loop · **Size:** M (4 steps) · **Depends on:** decision D3 · **Unblocks:** S52 · **Gated by D3**
 >
@@ -37,7 +37,7 @@ Installable app and a reason to come back: alerts for groundings, tier-ups and r
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S34.1** Manifest + icons + installability. _Done when:_ Lighthouse installable.
-- [ ] **S34.2** Service worker shell caching + offline banner. _Done when:_ offline reload shows last state.
+- [x] **S34.2** Service worker shell caching + offline banner. _Done when:_ offline reload shows last state.
 - [ ] **S34.3** Notification pipeline per D3. _Done when:_ simulated grounding notifies.
 - [ ] **S34.4** Notification settings UI (en + es). _Done when:_ screenshots.
 
@@ -61,6 +61,23 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **`index.html`.** Links the manifest and Apple touch icon, with the iOS standalone metas. The CSP needs no change: manifest and icons are same-origin.
 - **e2e** `pwa.spec.ts`: the manifest's fields; every icon exists, is a PNG and has its declared size; one is maskable. Chrome's own check (`Page.getInstallabilityErrors`, the check behind the install prompt and Lighthouse's installability audit) reports no errors. `in-incognito` is excluded: Playwright's contexts always report it.
 - **Note.** D3 (notification architecture) is still open; S34.1–S34.2 don't depend on it, S34.3 does.
+
+2026-10-06 · S34.2 · (this commit) · **Offline shell.** New hand-written `public/sw.js` (no new dependency), with these routes:
+
+| Request                                 | Strategy                                                        |
+| --------------------------------------- | --------------------------------------------------------------- |
+| Page loads                              | Network first; the newest `/` shell is cached and used offline. |
+| Hashed `/assets/*`                      | Cache first, capped at 150.                                     |
+| Other same-origin static files          | Served from cache, refreshed in the background.                 |
+| Non-GET, `/api/*`, relays, cross-origin | Never touched.                                                  |
+
+Precache: `/`, the manifest, the favicon and an icon. Old caches are dropped on activate; it claims clients.
+
+- **Registration.** `registerServiceWorker()`: production builds only, after load. It registers immediately if the page has already loaded; `main.tsx` awaits i18n first, so the load event had usually fired, and a load-only listener never registered (caught by the e2e).
+- **Banner.** `OfflineBanner` (`useOnlineStatus` over online/offline events), en/es: "Offline: showing your last saved state. Changes are queued and sync when you're back." The airline state itself comes from the existing local persistence (Dexie + action outbox).
+- **Playwright.** It now blocks service workers by default (they would serve requests that specs mock); the PWA specs allow them.
+- **e2e** `pwa-offline.spec.ts`: create an airline, wait for the worker to take control, reload, go offline, reload again. The shell boots with the saved airline (name, balance, tier) and the banner; back online, the banner goes. `offline.png` was checked by eye.
+- **Tests.** Registration (production after load, already loaded, failure logged, dev or unsupported), banner (offline → online).
 
 ## Follow-ups
 

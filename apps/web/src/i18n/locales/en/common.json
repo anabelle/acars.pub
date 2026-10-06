@@ -196,5 +196,8 @@
     "timesPerWeek": "{{value}}×/wk",
     "perWeek": "{{value}} / wk",
     "perHour": "{{value}}/h"
+  },
+  "offline": {
+    "banner": "Offline: showing your last saved state. Changes are queued and sync when you're back."
   }
 }

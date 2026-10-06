@@ -8,8 +8,10 @@ import "../index.css";
 // loaded before any component that uses useTranslation mounts
 import { initI18n } from "../i18n";
 import { BankruptcyOverlay } from "@/features/identity/components/BankruptcyOverlay";
+import { OfflineBanner } from "@/shared/components/feedback/OfflineBanner";
 import { TimelineToastBridge } from "@/shared/components/feedback/TimelineToastBridge";
 import { ToastHost } from "@/shared/components/feedback/ToastHost";
+import { registerServiceWorker } from "@/shared/lib/serviceWorker";
 import { ConfirmProvider } from "@/shared/lib/useConfirm";
 
 // Create a new router instance
@@ -33,6 +35,9 @@ declare module "@tanstack/react-router" {
 // Initialize i18n (loads the detected locale's bundles) before first render
 await initI18n();
 
+// Installable app shell that works offline (S34; production builds only).
+registerServiceWorker();
+
 // Render the app
 const rootElement = document.getElementById("root")!;
 if (!rootElement.innerHTML) {
@@ -44,6 +49,7 @@ if (!rootElement.innerHTML) {
         <ToastHost />
         <TimelineToastBridge />
         <BankruptcyOverlay />
+        <OfflineBanner />
       </ConfirmProvider>
     </React.StrictMode>,
   );
