@@ -238,11 +238,16 @@ describe("schema I/O — publish paths", () => {
     expect(isTransientPublishError(mangled)).toBe(true);
   });
 
-  it("structural actions (AIRLINE_CREATE / AIRLINE_DISSOLVE) publish WITHOUT expiration", async () => {
+  it("persistent actions (airline genesis/dissolve, funnel stages) publish WITHOUT expiration", async () => {
     mock.state.publishImpl = async (ev) => {
       mock.state.publishedEvents.push(ev);
     };
-    for (const action of ["AIRLINE_CREATE", "AIRLINE_DISSOLVE"] as const) {
+    for (const action of [
+      "AIRLINE_CREATE",
+      "AIRLINE_DISSOLVE",
+      "ROUTE_OPEN",
+      "ROUTE_ASSIGN_AIRCRAFT",
+    ] as const) {
       const ev = await publishAction({ action, payload: {} });
       expect(ev.tags.some((t) => t[0] === "expiration")).toBe(false);
     }
