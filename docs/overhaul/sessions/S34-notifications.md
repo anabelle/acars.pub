@@ -1,7 +1,7 @@
 # S34 — PWA + notifications
 
 > **Status:** ◐ in progress
-> **Next step:** S34.3 (waits on decision D3)
+> **Next step:** S34.4
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #181
 >
@@ -38,7 +38,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S34.1** Manifest + icons + installability. _Done when:_ Lighthouse installable.
 - [x] **S34.2** Service worker shell caching + offline banner. _Done when:_ offline reload shows last state.
-- [ ] **S34.3** Notification pipeline per D3. _Done when:_ simulated grounding notifies.
+- [x] **S34.3** Notification pipeline per D3. _Done when:_ simulated grounding notifies.
 - [ ] **S34.4** Notification settings UI (en + es). _Done when:_ screenshots.
 
 ## Details & guidance
@@ -78,6 +78,18 @@ Precache: `/`, the manifest, the favicon and an icon. Old caches are dropped on 
 - **Playwright.** It now blocks service workers by default (they would serve requests that specs mock); the PWA specs allow them.
 - **e2e** `pwa-offline.spec.ts`: create an airline, wait for the worker to take control, reload, go offline, reload again. The shell boots with the saved airline (name, balance, tier) and the banner; back online, the banner goes. `offline.png` was checked by eye.
 - **Tests.** Registration (production after load, already loaded, failure logged, dev or unsupported), banner (offline → online).
+
+2026-10-06 · S34.3 · (this commit) · **Notifications (D3 decided by the owner: local first, Nostr DM bot later).**
+
+- **Rules.** `features/notifications/notificationRules.ts`:
+  - Four categories: grounding (the engine's daily `evt-grounded-*` safety alert, not routine checks), tier-up, rivals (new `competitor_route` plus `competitor_hub`) and finance (warning, bankruptcy).
+  - `planNotification` gives a tag per aircraft / route / category, so a notification refreshes instead of stacking, and drops the `[SAFETY ALERT]` log prefix.
+  - Settings: master switch off by default, every category on, persisted in localStorage with validation; `notificationSettings.ts` is an external store hook for S34.4.
+- **Bridge.** `NotificationBridge` (mounted in `main.tsx`) raises a system notification for new events only while the app is out of view (in view, the toasts already show them) and only with permission granted. It shows through the service-worker registration when there is one (required on Android), else with `new Notification`. At most 3 per batch. Catch-ups after an absence are skipped (the away report covers them).
+- **Service worker.** `sw.js` focuses an open window on a notification tap, or opens `/`.
+- **New event.** `competitor_route` (core type, reducer whitelist, toast title en/es). World sync calls the pure `rivalRoutesNewOnYourPairs` (either direction, active routes only, silent on a rival's first sync) next to the competitor-hub alert.
+- **Refactor.** The toasts, map landing labels and notifications now share `subscribeToNewTimelineEvents` (live events, catch-ups skipped) instead of three copies.
+- **Tests.** Categories, plans, settings storage and store, notifier (permission, visibility, service worker vs direct). A simulated grounding notifies when hidden and stays quiet in view, without permission, when off or during a catch-up. The rival-route detector has its own tests.
 
 ## Follow-ups
 

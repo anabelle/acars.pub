@@ -8,6 +8,7 @@ import "../index.css";
 // loaded before any component that uses useTranslation mounts
 import { initI18n } from "../i18n";
 import { BankruptcyOverlay } from "@/features/identity/components/BankruptcyOverlay";
+import { NotificationBridge } from "@/features/notifications/NotificationBridge";
 import { OfflineBanner } from "@/shared/components/feedback/OfflineBanner";
 import { TimelineToastBridge } from "@/shared/components/feedback/TimelineToastBridge";
 import { ToastHost } from "@/shared/components/feedback/ToastHost";
@@ -48,6 +49,7 @@ if (!rootElement.innerHTML) {
         <RouterProvider router={router} />
         <ToastHost />
         <TimelineToastBridge />
+        <NotificationBridge />
         <BankruptcyOverlay />
         <OfflineBanner />
       </ConfirmProvider>

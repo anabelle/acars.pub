@@ -82,7 +82,8 @@
       "tierUpgrade": "Tier Upgraded",
       "bankruptcy": "BANKRUPTCY FILED",
       "financialWarning": "Financial Warning",
-      "operationsUpdate": "Operations Update"
+      "operationsUpdate": "Operations Update",
+      "competitorRoute": "Rival on your route"
     }
   },
   "fleet": {
@@ -1005,5 +1006,11 @@
     "revenue": "Revenue",
     "network": "Network",
     "fleet": "Fleet"
+  },
+  "notifications": {
+    "groundingTitle": "Aircraft grounded",
+    "tierUpTitle": "Tier up!",
+    "rivalsTitle": "Rival move",
+    "financeTitle": "Finance alert"
   }
 }

@@ -96,6 +96,7 @@ const TIMELINE_EVENT_TYPES: ReadonlySet<TimelineEventType> = new Set([
   "route_change",
   "ferry",
   "competitor_hub",
+  "competitor_route",
   "price_war",
   "tier_upgrade",
   "bankruptcy",

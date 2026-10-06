@@ -11,6 +11,8 @@
  * - Never touched: non-GET requests, /api/* (Pages Functions), relays and
  *   any cross-origin request (basemap tiles, Blossom images).
  *
+ * It also handles taps on system notifications (focus or open the app).
+ *
  * Plain JS on purpose: it is served as-is from public/ at the site root so
  * its scope covers the whole app.
  */
@@ -113,4 +115,15 @@ self.addEventListener("fetch", (event) => {
   if (route === "page") event.respondWith(page(event.request));
   else if (route === "asset") event.respondWith(asset(event.request));
   else if (route === "static") event.respondWith(staticFile(event.request, event));
+});
+
+// Notifications (S34): a tap focuses an open ACARS window, or opens one.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((client) => new URL(client.url).origin === self.location.origin);
+      return open ? open.focus() : self.clients.openWindow("/");
+    }),
+  );
 });

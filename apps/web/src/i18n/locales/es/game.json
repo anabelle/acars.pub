@@ -82,7 +82,8 @@
       "tierUpgrade": "Nivel mejorado",
       "bankruptcy": "QUIEBRA DECLARADA",
       "financialWarning": "Aviso financiero",
-      "operationsUpdate": "Actualización operativa"
+      "operationsUpdate": "Actualización operativa",
+      "competitorRoute": "Rival en tu ruta"
     }
   },
   "fleet": {
@@ -1005,5 +1006,11 @@
     "revenue": "Ingresos",
     "network": "Red",
     "fleet": "Flota"
+  },
+  "notifications": {
+    "groundingTitle": "Avión en tierra",
+    "tierUpTitle": "¡Subes de nivel!",
+    "rivalsTitle": "Movimiento rival",
+    "financeTitle": "Alerta financiera"
   }
 }

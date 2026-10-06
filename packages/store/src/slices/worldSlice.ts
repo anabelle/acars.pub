@@ -29,6 +29,7 @@ import { replayActionLog } from "../actionReducer";
 import { useEngineStore } from "../engine";
 import { reconcileFleetToTick } from "../FlightEngine";
 import { computeRejectedBuyEventIds } from "../marketplaceReplay";
+import { rivalRoutesNewOnYourPairs } from "../rivalRoutes";
 import { scopeActionsToCheckpoint } from "../scopeActions";
 import { verifySnapshotPayload } from "../snapshotValidation";
 import type { AirlineState } from "../types";
@@ -341,6 +342,23 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
                   description: `Competitor ${airline.name} just opened a hub at ${hub}!`,
                 });
               }
+            }
+
+            // Alert when they start flying one of our city pairs (S34).
+            for (const pair of rivalRoutesNewOnYourPairs(
+              existingState.routes,
+              existingState.routesByOwner.get(pubkey),
+              routes,
+            )) {
+              newTimelineEvents.push({
+                id: `evt-comp-route-${pubkey}-${pair.key}-${currentTick}`,
+                tick: currentTick,
+                timestamp: GENESIS_TIME + currentTick * TICK_DURATION,
+                type: "competitor_route",
+                originIata: pair.originIata,
+                destinationIata: pair.destinationIata,
+                description: `Competitor ${airline.name} now flies ${pair.originIata}–${pair.destinationIata}, one of your routes.`,
+              });
             }
 
             let finalAirline = airline;
