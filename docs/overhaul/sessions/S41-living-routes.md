@@ -1,8 +1,8 @@
 # S41 — Living routes
 
-> **Status:** ☐ not started
-> **Next step:** S41.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S41.2
+> **Branch:** claude/zen-darwin-3op878
 > **PR:** —
 >
 > **Track:** Graphics · **Size:** M (3 steps) · **Depends on:** S40 · **Unblocks:** S42
@@ -35,7 +35,7 @@ Routes show the business: color by profit, width by frequency, motion by directi
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S41.1** Route feature properties: profit/hour, weekly frequency, owner. _Done when:_ unit tests for property builder.
+- [x] **S41.1** Route feature properties: profit/hour, weekly frequency, owner. _Done when:_ unit tests for property builder.
 - [ ] **S41.2** Color/width expressions + legend chip. _Done when:_ screenshots.
 - [ ] **S41.3** Dash-flow animation + my-network/world toggle. _Done when:_ frame time within 10% of S40.
 
@@ -52,7 +52,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-06 · S41.1 · (this commit) · New `packages/map/src/routeFeatures.ts`, exported from the package. `MapRoute` describes what the map draws per route: owner, `isPlayer`, `frequencyPerWeek`, `profitPerHour` (null until flown) and the rival's livery `color`. `routeFeatureProperties` derives `profitScore` (−1…+1), profit normalised against the player's largest |profit|, so the colour ramp works at any airline size; unknown profit stays null. Frequency defaults to 7 and is at least 1. `buildRouteFeatures` makes one origin→destination arc per route, so a dash animation flows in the direction of travel. It splits at the antimeridian, skips unknown airports and takes a culling predicate plus the caller's arc cache. Context: today the globe draws the player's lines per aircraft in flight (`arcs`), not per route, and gets no player routes; S41.2 switches to route features. 6 tests, 100% coverage.
 
 ## Follow-ups
 
