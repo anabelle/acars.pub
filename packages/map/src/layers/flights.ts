@@ -9,6 +9,7 @@ import {
   svgLogicalSize,
 } from "../sdf.js";
 import type { MapPalette } from "../theme.js";
+import { buildContrailImage, TRAIL_MIN_ZOOM, TRAIL_TAIL_OFFSET } from "../trail.js";
 
 /**
  * Registers the per-family aircraft icons and the navigation-light dot as
@@ -50,6 +51,13 @@ export function registerAircraftIcons(map: maplibregl.Map): void {
 
   // Register navigation light icon (single SDF circle, positioned via icon-offset)
   addIcon("light-dot", LIGHT_DOT_SVG);
+
+  // Contrail: a plain (non-SDF) white gradient, drawn behind moving aircraft.
+  if (!map.hasImage("contrail")) {
+    map.addImage("contrail", buildContrailImage(ICON_PIXEL_RATIO), {
+      pixelRatio: ICON_PIXEL_RATIO,
+    });
+  }
 }
 
 /**
@@ -92,8 +100,47 @@ export const AIRCRAFT_ICON_SIZE = iconSizeExpression();
  */
 export const PLAYER_HALO_PER_ICON_SIZE = 2.6;
 
+/** Trail opacity for the player's aircraft and for rivals'. */
+export const TRAIL_OPACITY = { player: 0.4, rivals: 0.22 } as const;
+
+/**
+ * A contrail behind each aircraft of `sourceId`: same size expression and
+ * bearing as the aircraft, anchored at the tail. Fades in above TRAIL_MIN_ZOOM.
+ */
+function addTrailLayer(map: maplibregl.Map, id: string, sourceId: string, opacity: number) {
+  map.addLayer({
+    id,
+    type: "symbol",
+    source: sourceId,
+    minzoom: TRAIL_MIN_ZOOM,
+    layout: {
+      "icon-image": "contrail",
+      "icon-size": AIRCRAFT_ICON_SIZE,
+      "icon-rotate": ["get", "bearing"],
+      "icon-rotation-alignment": "map",
+      "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
+      "icon-anchor": "top",
+      "icon-offset": [0, TRAIL_TAIL_OFFSET],
+    },
+    paint: {
+      "icon-opacity": [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        TRAIL_MIN_ZOOM,
+        0,
+        TRAIL_MIN_ZOOM + 1,
+        opacity,
+      ],
+    },
+  });
+}
+
 /** Aircraft layers: rivals' and the player's flights (body + livery accent), glow and navigation lights. */
 export function addFlightLayers(map: maplibregl.Map, mapThemePalette: MapPalette): void {
+  addTrailLayer(map, "global-flight-trail", "global-flights", TRAIL_OPACITY.rivals);
+
   // Layer: Global Flights (body — primary color)
   map.addLayer({
     id: "global-flights-layer",
@@ -189,6 +236,8 @@ export function addFlightLayers(map: maplibregl.Map, mapThemePalette: MapPalette
       "icon-opacity": 0.8,
     },
   });
+
+  addTrailLayer(map, "flight-trail", "flights", TRAIL_OPACITY.player);
 
   // Layer: Active Flights — body (primary color)
   map.addLayer({

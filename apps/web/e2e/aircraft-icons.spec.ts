@@ -13,6 +13,7 @@ import {
   svgLogicalSize,
 } from "../../../packages/map/src/sdf";
 import { DARK_MAP_PALETTE } from "../../../packages/map/src/theme";
+import { buildContrailImage } from "../../../packages/map/src/trail";
 
 /**
  * Aircraft icon harness (S42): every family drawn by MapLibre with the real
@@ -168,7 +169,7 @@ async function openHarness(page: Page) {
   const icons = await buildSdfIcons(page);
   const layers = recordFlightLayers();
   await page.evaluate(
-    ({ icons, layers, background, pixelRatio }) =>
+    ({ icons, contrail, layers, background, pixelRatio }) =>
       new Promise<void>((resolve) => {
         const { maplibregl } = window as unknown as {
           maplibregl: typeof import("maplibre-gl");
@@ -201,13 +202,31 @@ async function openHarness(page: Page) {
           const empty = { type: "FeatureCollection" as const, features: [] };
           map.addSource("flights", { type: "geojson", data: empty });
           map.addSource("global-flights", { type: "geojson", data: empty });
+          map.addImage(
+            "contrail",
+            {
+              width: contrail.width,
+              height: contrail.height,
+              data: new Uint8ClampedArray(contrail.data),
+            },
+            { pixelRatio },
+          );
           for (const { spec, before } of layers) {
             map.addLayer(spec as Parameters<typeof map.addLayer>[0], before);
           }
           resolve();
         });
       }),
-    { icons, layers, background: BACKGROUND, pixelRatio: ICON_PIXEL_RATIO },
+    {
+      icons,
+      contrail: (() => {
+        const image = buildContrailImage(ICON_PIXEL_RATIO);
+        return { width: image.width, height: image.height, data: Array.from(image.data) };
+      })(),
+      layers,
+      background: BACKGROUND,
+      pixelRatio: ICON_PIXEL_RATIO,
+    },
   );
 }
 
@@ -335,5 +354,131 @@ test.describe("aircraft icons", () => {
     const [withRivals] = await countColors(page, [DARK_MAP_PALETTE.flights.playerHalo], 60);
     expect(withPlayer).toBeGreaterThan(150);
     expect(withRivals).toBeLessThan(withPlayer / 10);
+  });
+
+  test("moving aircraft trail a contrail from the tail", async ({ page }) => {
+    test.setTimeout(120_000);
+    await openHarness(page);
+    const zoom = 6;
+    const grid = gridFeatures(zoom, 180);
+    await showFlights(page, zoom, grid.slice(0, 6), grid.slice(6));
+    await screenshot(page, "trails-z6.png");
+    // Contrails are white at partial opacity: count faint grey pixels, which
+    // the aircraft themselves (saturated liveries) don't produce.
+    const [faint] = await countColors(page, ["#3c4250"], 22);
+    await showFlights(page, 3, grid.slice(0, 6), grid.slice(6));
+    const [faintLowZoom] = await countColors(page, ["#3c4250"], 22);
+    expect(faint).toBeGreaterThan(200);
+    // Below TRAIL_MIN_ZOOM there are no trails (what's left is icon edges).
+    expect(faintLowZoom).toBeLessThan(faint / 4);
+  });
+
+  // Opt-in (S42_PERF=1): main-thread cost of 10k rival aircraft updated at
+  // 5 Hz, with and without the trail layers, for the S41 comparison.
+  test("perf: 10k aircraft with and without trails", async ({ page }) => {
+    test.skip(!process.env.S42_PERF, "set S42_PERF=1 to measure");
+    test.setTimeout(300_000);
+    await openHarness(page);
+    const families = Object.keys(FAMILY_ICONS);
+    const many: Feature[] = Array.from({ length: 10_000 }, (_, i) => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [((i * 37) % 3600) / 10 - 180, ((i * 53) % 1400) / 10 - 70],
+      },
+      properties: {
+        id: `ac${i}`,
+        familyId: families[i % families.length],
+        bearing: (i * 29) % 360,
+        sizeScale: 0.8,
+        strobeOn: 0,
+        primaryColor: LIVERIES[i % LIVERIES.length][0],
+        secondaryColor: LIVERIES[i % LIVERIES.length][1],
+      },
+    }));
+    const client = await page.context().newCDPSession(page);
+    await client.send("Performance.enable");
+    const scriptTime = async () => {
+      const { metrics } = await client.send("Performance.getMetrics");
+      return metrics.find((m) => m.name === "ScriptDuration")?.value ?? 0;
+    };
+    const measure = async (trails: boolean) => {
+      await page.evaluate(
+        ({ trails, many }) => {
+          const w = window as unknown as {
+            harnessMap: import("maplibre-gl").Map;
+            perfFeatures: unknown[];
+            perfTimer?: number;
+          };
+          const map = w.harnessMap;
+          for (const id of ["global-flight-trail", "flight-trail"]) {
+            map.setLayoutProperty(id, "visibility", trails ? "visible" : "none");
+          }
+          map.jumpTo({ center: [10, 45], zoom: 5 });
+          w.perfFeatures = many;
+          let step = 0;
+          clearInterval(w.perfTimer);
+          w.perfTimer = window.setInterval(() => {
+            step++;
+            const moved = (w.perfFeatures as Array<{ geometry: { coordinates: number[] } }>).map(
+              (f) => ({
+                ...f,
+                geometry: {
+                  ...f.geometry,
+                  coordinates: [f.geometry.coordinates[0] + step * 0.01, f.geometry.coordinates[1]],
+                },
+              }),
+            );
+            (map.getSource("global-flights") as import("maplibre-gl").GeoJSONSource).setData({
+              type: "FeatureCollection",
+              features: moved as never,
+            });
+          }, 200);
+        },
+        { trails, many },
+      );
+      await page.waitForTimeout(2_000);
+      const before = await scriptTime();
+      const frames = await page.evaluate(
+        () =>
+          new Promise<number[]>((resolve) => {
+            const times: number[] = [];
+            const start = performance.now();
+            const tick = (now: number) => {
+              times.push(now);
+              if (now - start < 5_000) requestAnimationFrame(tick);
+              else resolve(times);
+            };
+            requestAnimationFrame(tick);
+          }),
+      );
+      const after = await scriptTime();
+      const gaps = frames
+        .slice(1)
+        .map((t, i) => t - frames[i])
+        .sort((a, b) => a - b);
+      return {
+        fps: Math.round((frames.length / 5) * 10) / 10,
+        p95: Math.round(gaps[Math.floor(gaps.length * 0.95)] ?? 0),
+        jsMsPerS: Math.round(((after - before) * 1000) / 5),
+      };
+    };
+    // Alternate the cases so warm-up and drift hit both equally.
+    const runs: Array<{ trails: boolean } & Awaited<ReturnType<typeof measure>>> = [];
+    for (const trails of [false, true, true, false, false, true]) {
+      runs.push({ trails, ...(await measure(trails)) });
+    }
+    const mean = (trails: boolean, key: "fps" | "p95" | "jsMsPerS") => {
+      const values = runs.filter((r) => r.trails === trails).map((r) => r[key]);
+      return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+    };
+    const summary = Object.fromEntries(
+      (["fps", "p95", "jsMsPerS"] as const).map((k) => [
+        k,
+        { off: mean(false, k), on: mean(true, k) },
+      ]),
+    );
+    console.log("S42 perf runs", JSON.stringify(runs));
+    console.log("S42 perf mean", JSON.stringify(summary));
   });
 });

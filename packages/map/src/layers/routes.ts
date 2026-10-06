@@ -114,6 +114,7 @@ export function routeFlowDash(nowMs: number): number[] {
 /** Layers holding rivals' routes and aircraft, hidden in "my network" view. */
 export const WORLD_LAYER_IDS = [
   "global-arcs-layer",
+  "global-flight-trail",
   "global-flights-layer",
   "global-flights-accent-layer",
   "global-flight-light-port",

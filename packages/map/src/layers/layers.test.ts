@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DARK_MAP_PALETTE, EARTH_MAP_PALETTE } from "../theme.js";
 import { addAirportLayers, buildPresenceBadge } from "./airports.js";
-import { AIRCRAFT_ICON_SIZE, addFlightLayers, registerAircraftIcons } from "./flights.js";
+import {
+  AIRCRAFT_ICON_SIZE,
+  addFlightLayers,
+  registerAircraftIcons,
+  TRAIL_OPACITY,
+} from "./flights.js";
+import { TRAIL_MIN_ZOOM, TRAIL_TAIL_OFFSET } from "../trail.js";
 import {
   ATMOSPHERE_FADE_END_ZOOM,
   applyGlobeView,
@@ -123,8 +129,10 @@ describe("map layer modules", () => {
       "active-hub-glow",
       "airports-layer",
       "ground-presence-layer",
+      "global-flight-trail",
       "global-flights-layer",
       "global-flights-accent-layer",
+      "flight-trail",
       "flights-layer",
       "flights-accent-layer",
       "flight-glow",
@@ -178,6 +186,27 @@ describe("map layer modules", () => {
     }
   });
 
+  it("draws contrails behind both fleets, stronger for the player", () => {
+    const { map, layers } = fakeMap();
+    addFlightLayers(map, DARK_MAP_PALETTE);
+    const trail = (id: string) => layers.find((l) => l.id === id)?.spec as Record<string, never>;
+    for (const [id, source] of [
+      ["flight-trail", "flights"],
+      ["global-flight-trail", "global-flights"],
+    ]) {
+      const spec = trail(id);
+      expect(spec.source).toBe(source);
+      expect(spec.minzoom).toBe(TRAIL_MIN_ZOOM);
+      const layout = spec.layout as Record<string, unknown>;
+      expect(layout["icon-image"]).toBe("contrail");
+      expect(layout["icon-anchor"]).toBe("top");
+      expect(layout["icon-offset"]).toEqual([0, TRAIL_TAIL_OFFSET]);
+      expect(layout["icon-size"]).toBe(AIRCRAFT_ICON_SIZE);
+    }
+    expect(TRAIL_OPACITY.player).toBeGreaterThan(TRAIL_OPACITY.rivals);
+    expect(WORLD_LAYER_IDS).toContain("global-flight-trail");
+  });
+
   it("registers every aircraft family icon once", () => {
     const { map, images } = fakeMap();
     registerAircraftIcons(map);
@@ -212,7 +241,8 @@ describe("map layer modules", () => {
     vi.stubGlobal("document", { createElement: () => ({ getContext: () => null }) });
     const { map, images } = fakeMap();
     registerAircraftIcons(map);
-    expect(images.size).toBe(0);
+    // Only the contrail, which is built without a canvas.
+    expect([...images.keys()]).toEqual(["contrail"]);
   });
 });
 

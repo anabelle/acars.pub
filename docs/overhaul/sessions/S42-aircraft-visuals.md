@@ -1,7 +1,7 @@
 # S42 — Aircraft family icons + livery tint
 
-> **Status:** ◐ in progress
-> **Next step:** S42.3
+> **Status:** ☑ ready for review
+> **Next step:** — (awaiting merge of #179)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #179
 >
@@ -38,7 +38,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S42.1** SDF icon set per aircraft family. _Done when:_ icons render at 3 zooms.
 - [x] **S42.2** Icon-image expression + livery tint. _Done when:_ screenshots.
-- [ ] **S42.3** Trails + interpolation. _Done when:_ perf within 10% of S41.
+- [x] **S42.3** Trails + interpolation. _Done when:_ perf within 10% of S41.
 
 ## Details & guidance
 
@@ -47,7 +47,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] Screenshots at 3 zoom levels; perf within 10% of S41.
+- [x] Screenshots at 3 zoom levels; perf within 10% of S41 (relative, software GL; see S42.3).
 
 ## Progress log
 
@@ -72,10 +72,36 @@ This step fixed what was wrong with the icons:
 - **Harness.** A second scene gives player and rival aircraft identical liveries at zoom 6. It asserts the outline is present on yours (>150 light pixels) and absent on theirs (<10%), and saves `player-vs-rivals.png`; I checked it by eye.
 - **Tests.** Halo colour per theme, no halo on rival layers, and one size expression shared by the aircraft and light layers.
 
+2026-10-06 · S42.3 · (this commit) · **Trails.** New `trail.ts`: `buildContrailImage` is a white gradient that is narrow and strongest at the tail, then widens and fades. A symbol layer on each flight source (`flight-trail`, `global-flight-trail`) draws it under the aircraft: anchored at its top, offset to the tail (`TRAIL_TAIL_OFFSET`), rotated with the bearing, sized with `AIRCRAFT_ICON_SIZE`. It fades in from zoom 4, at opacity 0.4 behind yours and 0.22 behind rivals'. There are no extra features and no per-frame JS; the world toggle hides rival trails (`WORLD_LAYER_IDS`).
+
+- **Interpolation.** This already existed: positions are interpolated between ticks at 5 Hz from the engine clock's sub-tick progress (pre-S42).
+- **Harness.** A trails scene (`trails-z6.png`; asserts contrail pixels at z6 and none below z4) and an opt-in perf scene (`S42_PERF=1`): 10k rival aircraft re-uploaded at 5 Hz, trails on and off, alternated over 6 rounds.
+
+**Means, software GL, no GPU (relative numbers only, as in S40/S41):**
+
+| Trails | fps  | p95 frame | JS (ms/s) |
+| ------ | ---- | --------- | --------- |
+| Off    | 18.3 | 111 ms    | 240       |
+| On     | 16.6 | 111 ms    | 258       |
+
+- **Result.** p95 frame time is unchanged, JS +7.5% and fps −9%: within the 10% budget.
+- **Checks.** The app's own `map.spec` still passes. Tests cover the contrail image (fade, widening, soft edges) and the trail layers (source, minzoom, anchor, offset, size, player stronger, world toggle).
+
 ## Follow-ups
 
-_None yet._
+- **Rival trails at continent zoom.** They cost about 7% JS at 10k aircraft. If a real device shows strain, give `global-flight-trail` a higher minzoom (e.g. 6) than the player's; at zoom 4–5 they're mostly visual noise.
+- **Per-aircraft update cost.** The S40 follow-up still applies (about 50 ms per 5 Hz update at 10k). This session added no per-aircraft JS.
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped.**
+  - True SDF aircraft icons (crisp at every zoom), a low-zoom size floor and two accent SVG fixes.
+  - An outline on your aircraft (theme-aware), with livery tints for everyone.
+  - Contrail trails as instanced symbols.
+  - An e2e icon harness: every family at 3 zooms, player vs rivals, trails, and opt-in perf.
+- **Already existed (audit predated it).** Per-family silhouettes, livery tint, interpolation.
+- **Gotchas.**
+  - The SDF halo width must scale with icon size; a fixed width fills small icons' squares.
+  - TinySDF distances run centre to centre, so a hard edge pixel encodes at 191 ± 32, not 191.
+  - The harness serves maplibre's ESM from `node_modules` through Playwright routing and reuses the app's `/maplibre/` worker copy, so it needs the built preview server like the other specs.
+  - Vitest's `node` environment hangs in apps/web (S50); the map package's node environment is fine.
