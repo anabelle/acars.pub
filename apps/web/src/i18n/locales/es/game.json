@@ -908,5 +908,36 @@
       "continue": "Seguir volando",
       "close": "Cerrar"
     }
+  },
+  "assign": {
+    "addAircraft": "Añadir avión",
+    "title": "Añadir avión",
+    "closeAria": "Cerrar",
+    "empty": "Aún no tienes aviones. Arrienda uno en la pestaña Flota.",
+    "assign": "Asignar",
+    "assigning": "Asignando…",
+    "assigned": "{{aircraft}} ya vuela {{origin}}–{{destination}}.",
+    "failed": "No se pudo asignar el avión",
+    "readyAt": "En {{iata}} · listo",
+    "reassigns": "Deja su ruta actual",
+    "needsFerry": "En {{base}} · necesita un ferry de {{km}} km a {{to}}",
+    "blocked": {
+      "alreadyAssigned": "Ya está en esta ruta",
+      "unknownModel": "Modelo de avión desconocido",
+      "outOfRange": "No tiene alcance para esta ruta",
+      "enroute": "En vuelo: inténtalo cuando aterrice",
+      "notIdle": "Ocupado en {{base}}: podrá hacer ferry cuando esté libre",
+      "noHubEndpoint": "Ningún extremo de la ruta es uno de tus hubs",
+      "ferryOutOfRange": "Demasiado lejos de {{origin}} para hacer ferry"
+    },
+    "ferryAndAssign": "Ferry + asignar",
+    "ferryConfirmTitle": "¿Hacer ferry y asignar?",
+    "ferryConfirmDescription": "{{aircraft}} vuela vacío de {{from}} a {{to}} ({{km}} km) y se une a {{origin}}–{{destination}} al aterrizar. Mantén el juego abierto hasta entonces.",
+    "ferryFailed": "No se pudo iniciar el ferry",
+    "ferrying": "{{aircraft}} vuela en ferry a {{to}}; se une a {{origin}}–{{destination}} al aterrizar.",
+    "routeTitle": "Asignar ruta",
+    "assignRoute": "Asignar ruta",
+    "changeRoute": "Cambiar ruta",
+    "noRoutes": "Aún no tienes rutas activas. Abre una desde un aeropuerto."
   }
 }

@@ -1,7 +1,7 @@
 # S04 — Funnel metrics from Nostr events
 
-> **Status:** ☑ ready for review
-> **Next step:** — (S04.4 is optional and deferred: it needs a storage choice from the owner)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #174; S04.4 deferred)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #174
 >
