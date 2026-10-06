@@ -175,6 +175,8 @@ export function leaseBuyBreakEvenMonths(model: AircraftModel, maxMonths = 360): 
 export const GROUNDED_MIN_CONDITION = 0.2;
 /** …or above this many flight hours since its last check. */
 export const GROUNDED_MAX_HOURS_SINCE_CHECK = 600;
+/** Condition lost per flight hour (1.0 → 0 over 20,000 h). */
+export const CONDITION_WEAR_PER_FLIGHT_HOUR = 0.00005;
 /** Auto-maintenance services at this share of the hours limit (540 h). */
 export const AUTO_MAINTENANCE_HOURS_SHARE = 0.9;
 /** Allowed auto-maintenance condition thresholds (kept above grounding). */

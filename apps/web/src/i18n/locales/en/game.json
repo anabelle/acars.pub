@@ -238,7 +238,28 @@
     "monthlyLease": "Monthly Lease",
     "assignRouteAria": "Assign route for {{name}}",
     "assignmentFailed": "Assignment failed",
-    "scrapAria": "Scrap {{name}}"
+    "scrapAria": "Scrap {{name}}",
+    "autoMaintenance": {
+      "title": "Auto-maintenance",
+      "description": "Service aircraft automatically before they ground, even while you're away. Same price as a manual check.",
+      "on": "On",
+      "off": "Off",
+      "thresholdLabel": "Service at",
+      "thresholdOption": "{{pct}}% condition",
+      "hubOnly": "Only at a hub",
+      "failed": "Couldn't save the maintenance policy",
+      "aircraftLabel": "Auto-service",
+      "inheritOn": "Fleet default (on)",
+      "inheritOff": "Fleet default (off)",
+      "alwaysOn": "On for this aircraft",
+      "alwaysOff": "Off for this aircraft",
+      "nextService_one": "Next service in ~{{count}} day",
+      "nextService_other": "Next service in ~{{count}} days",
+      "dueNow": "Service due at the next turnaround",
+      "groundsIn_one": "Grounds in ~{{count}} day unless serviced",
+      "groundsIn_other": "Grounds in ~{{count}} days unless serviced",
+      "groundsNow": "Grounding: service it now"
+    }
   },
   "network": {
     "title": "Network",

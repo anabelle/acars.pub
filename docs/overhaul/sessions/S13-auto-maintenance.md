@@ -1,7 +1,7 @@
 # S13 — Auto-maintenance policy
 
-> **Status:** ◐ in progress
-> **Next step:** S13.3
+> **Status:** ☑ ready for review
+> **Next step:** — (all steps done; awaiting review)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #176
 >
@@ -39,7 +39,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S13.1** `SET_MAINTENANCE_POLICY` action + reducer + tests. _Done when:_ tests green.
 - [x] **S13.2** Engine rule (constant in core) + 90-day absence replay test. _Done when:_ no grounding with policy on.
-- [ ] **S13.3** Fleet UI toggles + "next service" estimate + i18n. _Done when:_ screenshots.
+- [x] **S13.3** Fleet UI toggles + "next service" estimate + i18n. _Done when:_ screenshots.
 
 ## Details & guidance
 
@@ -48,7 +48,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] An aircraft with the policy on never grounds in a 90-day simulated absence; costs are charged identically on replay.
+- [x] An aircraft with the policy on never grounds in a 90-day simulated absence; costs are charged identically on replay.
 
 ## Progress log
 
@@ -78,11 +78,24 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - an aircraft override beats the fleet default.
 
 The balance report is unchanged.
+2026-10-06 · S13.3 · (this commit) · Fleet UI:
+
+- **Fleet default.** `MaintenancePolicyControl` in the fleet header has an on/off switch, 'Service at' 30–70% condition and 'Only at a hub'.
+- **Per aircraft.** `AircraftMaintenanceRow` on each card offers 'Fleet default (on/off)', 'On for this aircraft' or 'Off for this aircraft'. It also shows 'Next service in ~N days', or, with the policy off, 'Grounds in ~N days unless serviced'. The estimate comes from `nextService.ts` (route utilization, capped at block hours). When viewing another airline it shows the estimate only.
+- **Core.** `CONDITION_WEAR_PER_FLIGHT_HOUR` moved to core and the engine uses it.
+- **i18n and tests.** en and es strings under `fleet.autoMaintenance.*`; unit tests for the util and both components; e2e `maintenance-policy.spec.ts` turns the default on and checks the estimate. It passes locally, and I checked a screenshot.
 
 ## Follow-ups
 
-_None yet._
+- The visual catch-up projection (`reconcileFleetToTick`, `capLandingsForGrounding`) doesn't know about the policy. During a long catch-up the map may briefly show a policy-covered aircraft as parked until the tick loop reaches it. Money and state are unaffected.
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped.**
+  - The `SET_MAINTENANCE_POLICY` action (fleet default plus per-aircraft override).
+  - The engine rule at idle and turnaround end, at the manual price, only when affordable.
+  - A fix for turnaround skipping grounding.
+  - Fleet UI with a next-service estimate.
+- **Gotchas.**
+  - **Busy aircraft without a policy now really ground at 600 h.** Before this fix they never did. That's the intended rule, and it's why the auto policy matters.
+  - commitlint rejects subjects that start upper-case (e.g. an action name).

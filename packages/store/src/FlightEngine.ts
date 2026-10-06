@@ -20,6 +20,7 @@ import {
   calculateSupplyPressure,
   canonicalRouteKey,
   computeRouteFrequency,
+  CONDITION_WEAR_PER_FLIGHT_HOUR,
   countLandingsBetween,
   detectPriceWar,
   entrantMarketShare,
@@ -867,7 +868,7 @@ export function processFlightEngine(
         ac.flightHoursTotal += flightHoursData;
         ac.flightHoursSinceCheck += flightHoursData;
         // Wear and Tear: 1.0 (100%) -> 0.0 (0%) over 20,000 flight hours (Realistic Mid-Life/D-Check interval)
-        ac.condition = Math.max(0, ac.condition - 0.00005 * flightHoursData);
+        ac.condition = Math.max(0, ac.condition - CONDITION_WEAR_PER_FLIGHT_HOUR * flightHoursData);
 
         // Set to Turnaround
         const turnaroundTicks = Math.ceil((model.turnaroundTimeMinutes / 60) * TICKS_PER_HOUR);
@@ -1134,7 +1135,7 @@ function applyFlightHours(updated: AircraftInstance, hoursToAdd: number): void {
   if (hoursToAdd <= 0) return;
   updated.flightHoursTotal += hoursToAdd;
   updated.flightHoursSinceCheck += hoursToAdd;
-  updated.condition = Math.max(0, updated.condition - 0.00005 * hoursToAdd);
+  updated.condition = Math.max(0, updated.condition - CONDITION_WEAR_PER_FLIGHT_HOUR * hoursToAdd);
 }
 
 const DEFAULT_RECONCILE_LOAD_FACTOR = 0.65;
@@ -1215,7 +1216,8 @@ function capLandingsForGrounding(
   allowCurrentLeg: boolean,
 ): number {
   if (landings <= 0 || hoursPerLeg <= 0) return landings;
-  const remainingHoursByCondition = (ac.condition - MIN_GROUNDED_CONDITION) / 0.00005;
+  const remainingHoursByCondition =
+    (ac.condition - MIN_GROUNDED_CONDITION) / CONDITION_WEAR_PER_FLIGHT_HOUR;
   const remainingHoursByCheck = MAX_HOURS_SINCE_CHECK - ac.flightHoursSinceCheck;
   const remainingHours = Math.min(remainingHoursByCondition, remainingHoursByCheck);
 

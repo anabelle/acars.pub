@@ -238,7 +238,28 @@
     "monthlyLease": "Alquiler mensual",
     "assignRouteAria": "Asignar ruta para {{name}}",
     "assignmentFailed": "Error al asignar la ruta",
-    "scrapAria": "Desechar {{name}}"
+    "scrapAria": "Desechar {{name}}",
+    "autoMaintenance": {
+      "title": "Mantenimiento automático",
+      "description": "Revisa los aviones automáticamente antes de que queden en tierra, incluso si no estás. Mismo precio que una revisión manual.",
+      "on": "Activado",
+      "off": "Desactivado",
+      "thresholdLabel": "Revisar al",
+      "thresholdOption": "{{pct}} % de estado",
+      "hubOnly": "Solo en un hub",
+      "failed": "No se pudo guardar la política de mantenimiento",
+      "aircraftLabel": "Revisión automática",
+      "inheritOn": "Según la flota (activado)",
+      "inheritOff": "Según la flota (desactivado)",
+      "alwaysOn": "Activado para este avión",
+      "alwaysOff": "Desactivado para este avión",
+      "nextService_one": "Próxima revisión en ~{{count}} día",
+      "nextService_other": "Próxima revisión en ~{{count}} días",
+      "dueNow": "Revisión en la próxima escala",
+      "groundsIn_one": "Queda en tierra en ~{{count}} día si no se revisa",
+      "groundsIn_other": "Queda en tierra en ~{{count}} días si no se revisa",
+      "groundsNow": "En tierra: revísalo ahora"
+    }
   },
   "network": {
     "title": "Red",
