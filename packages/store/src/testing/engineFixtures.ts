@@ -56,6 +56,7 @@ export const makeAircraft = (overrides: Partial<AircraftInstance> = {}): Aircraf
     condition: overrides.condition ?? 1.0,
     routeAssignedAtTick: overrides.routeAssignedAtTick,
     routeAssignedAtIata: overrides.routeAssignedAtIata,
+    maintenancePolicy: overrides.maintenancePolicy,
   };
 };
 

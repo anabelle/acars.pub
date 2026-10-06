@@ -1,9 +1,9 @@
 # S13 — Auto-maintenance policy
 
 > **Status:** ◐ in progress
-> **Next step:** S13.2
+> **Next step:** S13.3
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #176
 >
 > **Track:** Economy · **Size:** M (3 steps) · **Depends on:** — · **Unblocks:** —
 >
@@ -38,7 +38,7 @@ Remove the manual maintenance chore while keeping its cost trade-off.
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S13.1** `SET_MAINTENANCE_POLICY` action + reducer + tests. _Done when:_ tests green.
-- [ ] **S13.2** Engine rule (constant in core) + 90-day absence replay test. _Done when:_ no grounding with policy on.
+- [x] **S13.2** Engine rule (constant in core) + 90-day absence replay test. _Done when:_ no grounding with policy on.
 - [ ] **S13.3** Fleet UI toggles + "next service" estimate + i18n. _Done when:_ screenshots.
 
 ## Details & guidance
@@ -64,6 +64,20 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Action.** New `SET_MAINTENANCE_POLICY` with payload `{instanceId?, policy | null}`. The reducer sets the fleet default, or sets or clears an aircraft override, and ignores malformed payloads. Every later airline update spreads the airline, so the policy survives replay.
 - **Store.** `setMaintenancePolicy(policy, aircraftId?)` updates optimistically, publishes, and rolls back if the publish fails.
 - **Tests.** Core, reducer replay and slice.
+  2026-10-06 · S13.2 · (this commit) · Engine rule:
+- **New argument.** `processFlightEngine` takes a `maintenance` argument (`{fleetPolicy, hubs}`, passed by the engine slice).
+- **Idle aircraft.** When the effective policy (the aircraft's own, else the fleet default) says it's due, the aircraft is serviced at `maintenanceCost` (the manual price), if the airline can pay. It gets the same downtime and an `evt-automaint-*` timeline event.
+- **Pre-existing bug fixed.** Turnaround chained straight into the next departure, so busy aircraft never went idle and the 600 h / 20% grounding was never enforced. A 90-day ATR run reached 1,362 h. Turnaround end now drops a grounded or due aircraft to idle, where the rule above services or grounds it.
+- **Constants.** Grounding constants now come from core; the visual catch-up keeps its own landing cap and doesn't apply the policy.
+- **Tests.** `autoMaintenance.test.ts` runs a 90-day absence (MAD–BCN, 70 round trips a week):
+  - policy off: grounds;
+  - policy on: never grounds, and is serviced on time;
+  - charges identically on replay;
+  - hub-only services only at MAD;
+  - no service when the airline can't pay;
+  - an aircraft override beats the fleet default.
+
+The balance report is unchanged.
 
 ## Follow-ups
 

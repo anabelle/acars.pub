@@ -6,6 +6,7 @@ import type {
   FixedPoint,
   FlightOffer,
   IncumbentOffer,
+  MaintenancePolicy,
   Route,
   TimelineEvent,
 } from "@acars/core";
@@ -26,20 +27,27 @@ import {
   fp,
   fpAdd,
   fpDiv,
+  fpFormat,
   fpSub,
   fpToNumber,
   GENESIS_TIME,
   getCyclePhase,
+  GROUNDED_MAX_HOURS_SINCE_CHECK,
+  GROUNDED_MIN_CONDITION,
   getFuelPriceAtTick,
   getHubCongestionModifier,
   getHubDemandModifier,
   getIncumbentOffer,
+  getMaintenanceDowntimeTicks,
   getMaxFares,
   getProsperityIndex,
   getSeason,
   getSuggestedFares,
+  isGrounded,
   legTicksFor,
+  maintenanceCost,
   NATURAL_LF_CEILING,
+  needsAutoMaintenance,
   PRICE_ELASTICITY_BUSINESS,
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
@@ -535,6 +543,14 @@ export interface EngineTickResult {
 /**
  * Advances the deterministic flight engine for a single tick.
  */
+/** The airline's auto-maintenance inputs (S13): fleet default and hubs. */
+export interface EngineMaintenanceContext {
+  fleetPolicy?: MaintenancePolicy;
+  hubs: readonly string[];
+}
+
+const NO_MAINTENANCE_POLICY: EngineMaintenanceContext = { hubs: [] };
+
 export function processFlightEngine(
   tick: number,
   fleet: AircraftInstance[],
@@ -545,6 +561,7 @@ export function processFlightEngine(
   playerPubkey: string = "",
   playerBrandScore: number = 0.5,
   distanceLimitKm: number = Number.POSITIVE_INFINITY,
+  maintenance: EngineMaintenanceContext = NO_MAINTENANCE_POLICY,
 ): EngineTickResult {
   let hasChanges = false;
   let corporateBalance = initialBalance;
@@ -608,6 +625,36 @@ export function processFlightEngine(
     const model = getAircraftById(ac.modelId);
     if (!model) continue;
 
+    // AUTO-MAINTENANCE (S13): an idle aircraft (turnaround done) whose policy
+    // says it is due is serviced now, at the manual action's price, if the
+    // airline can pay. Deterministic: depends only on state at this tick.
+    if (ac.status === "idle") {
+      const policy = ac.maintenancePolicy ?? maintenance.fleetPolicy;
+      if (policy && needsAutoMaintenance(ac, policy, maintenance.hubs)) {
+        const cost = maintenanceCost(model, ac.condition);
+        if (corporateBalance >= cost) {
+          corporateBalance = fpSub(corporateBalance, cost);
+          ac.condition = 1;
+          ac.flightHoursSinceCheck = 0;
+          ac.status = "maintenance";
+          ac.maintenanceStartTick = tick;
+          ac.turnaroundEndTick = tick + getMaintenanceDowntimeTicks(model);
+          hasChanges = true;
+          events.push({
+            id: `evt-automaint-${ac.id}-${tick}`,
+            tick,
+            timestamp: simulatedTimestamp,
+            type: "maintenance",
+            aircraftId: ac.id,
+            aircraftName: ac.name,
+            cost,
+            description: `Auto-maintenance on ${ac.name} (${fpFormat(cost, 0)}).`,
+          });
+          continue;
+        }
+      }
+    }
+
     // --- FLIGHT STATE MACHINE ---
 
     // State: IDLE -> Start Flight if assigned
@@ -615,9 +662,7 @@ export function processFlightEngine(
       const route = routeById.get(ac.assignedRouteId);
       if (route && route.status === "active") {
         // SAFETY GROUNDING CHECK
-        const isGrounded = ac.condition < 0.2 || ac.flightHoursSinceCheck > 600;
-
-        if (isGrounded) {
+        if (isGrounded(ac)) {
           // Logic: If maintenance is ignored, the plane sits idle
           // and generates a warning event once per day (roughly)
           if (tick % (TICKS_PER_HOUR * 24) === 0) {
@@ -896,6 +941,18 @@ export function processFlightEngine(
 
       const route = routeById.get(ac.assignedRouteId ?? "") ?? null;
       if (route && ac.flight) {
+        // S13: a grounded aircraft, or one its policy says is due for service,
+        // does not depart from turnaround. It drops to idle, where the idle
+        // path services it (policy) or grounds it. Before this, busy
+        // schedules chained turnaround → departure and skipped grounding.
+        const policy = ac.maintenancePolicy ?? maintenance.fleetPolicy;
+        if (isGrounded(ac) || (policy && needsAutoMaintenance(ac, policy, maintenance.hubs))) {
+          ac.status = "idle";
+          ac.turnaroundEndTick = undefined;
+          hasChanges = true;
+          continue;
+        }
+
         const hours = route.distanceKm / (model.speedKmh || 800);
         const durationTicks = Math.ceil(hours * TICKS_PER_HOUR);
         const isReturning = ac.flight.direction === "outbound";
@@ -1148,8 +1205,8 @@ function accumulateLandingProfit(
   }, fp(0));
 }
 
-const MIN_GROUNDED_CONDITION = 0.2;
-const MAX_HOURS_SINCE_CHECK = 600;
+const MIN_GROUNDED_CONDITION = GROUNDED_MIN_CONDITION;
+const MAX_HOURS_SINCE_CHECK = GROUNDED_MAX_HOURS_SINCE_CHECK;
 
 function capLandingsForGrounding(
   ac: AircraftInstance,
