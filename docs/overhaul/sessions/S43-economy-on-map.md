@@ -1,9 +1,9 @@
 # S43 — Economy on the map
 
 > **Status:** ◐ in progress
-> **Next step:** S43.2
+> **Next step:** S43.3
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #180
 >
 > **Track:** Graphics · **Size:** M (3 steps) · **Depends on:** S42, S23 (S33 for event pins) · **Unblocks:** —
 >
@@ -37,7 +37,7 @@ Money and opportunity are visible on the world itself.
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S43.1** Pooled floating `+$` landing labels (reduced-motion aware). _Done when:_ screen recording.
-- [ ] **S43.2** Worker-based opportunity computation + cache per hub/tick bucket. _Done when:_ no main-thread task > 50 ms.
+- [x] **S43.2** Worker-based opportunity computation + cache per hub/tick bucket. _Done when:_ no main-thread task > 50 ms.
 - [ ] **S43.3** Heatmap layer + event pins (if S33 merged). _Done when:_ screenshots.
 
 ## Details & guidance
@@ -69,6 +69,17 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - Under reduced motion the keyframes carry no transform.
   - `S43_VIDEO=1` records them; `bursts.png` and `landing-labels.webm` were checked by eye.
 - **Tests.** Pool (dedupe, cap and recycling, expiry, clear, memory bound, real timers), slot (placement, animation, reduced motion, no WAAPI), formatter, hook (order, cap, catch-up skip).
+
+2026-10-06 · S43.2 · (this commit) · **Opportunities off the main thread.**
+
+- **Computation.** `hubOpportunities.ts`:
+  - `candidateDestinations` picks the 60 most populous airports in the tier's range (≥ 200 km) that the hub doesn't serve yet.
+  - `computeHubOpportunities` projects each with `recommendAircraftForRoute`: the same profit/day after lease the Opportunities list shows, with rival offers from the global registry and the candidate in the network.
+  - `opportunityCacheKey` (hub + game hour + network signature) and an LRU `OpportunityCache` (8 entries).
+- **Worker.** `opportunityRequests.ts` `createOpportunityHandler` serves from the cache or computes once the airports catalog is loaded. `workers/opportunities.ts` is a module worker wired to it.
+- **Hook.** `useHubOpportunities(hub)` creates the worker lazily (one per hook) and re-asks only on hub, game-hour or network changes. It drops superseded replies and terminates the worker on unmount.
+- **Cost.** One hub on the real catalog takes 40–100 ms (MAD tier 1/2, JFK tier 3, desktop CPU): over the 50 ms long-task budget, so it stays in the worker. Main-thread long tasks are measured in the app in S43.3, once the layer uses the hook.
+- **Tests.** Candidates (range, minimum distance, served, limit), ranking, cache key and LRU, handler caching, hook (inputs, hour throttle, stale replies, no hub, terminate).
 
 ## Follow-ups
 
