@@ -855,7 +855,14 @@
   "worldMap": {
     "switchToLightTheme": "Cambiar al mapa claro",
     "switchToDarkTheme": "Cambiar al mapa oscuro",
-    "focus": "Enfoque: {{iata}}"
+    "focus": "Enfoque: {{iata}}",
+    "legend": {
+      "title": "Tus rutas",
+      "losing": "Pierde",
+      "breakEven": "Equilibrio",
+      "earning": "Gana",
+      "width": "Más gruesa = más vuelos por semana"
+    }
   },
   "awayReport": {
     "eyebrow": "Mientras no estabas · {{duration}}",

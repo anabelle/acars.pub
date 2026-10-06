@@ -1,6 +1,9 @@
 import type { AircraftInstance, Airport, Route } from "@acars/core";
 import { TICK_DURATION } from "@acars/core";
 import { getAirports } from "@acars/data";
+import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
+import { RouteLegend } from "@/features/network/components/RouteLegend";
+import { toMapRoutes } from "@/features/network/utils/mapRoutes";
 import {
   DEFAULT_MAP_THEME,
   Globe as CoreGlobe,
@@ -103,6 +106,13 @@ export function WorldMap() {
   const routesByOwner = useAirlineStore((s) => s.routesByOwner);
   const competitors = useAirlineStore((s) => s.competitors);
   const routes = useAirlineStore((s) => s.routes);
+  const timeline = useAirlineStore((s) => s.timeline);
+  const routePerformance = useRoutePerformance(timeline, routes);
+  // The player's routes styled by profit and frequency on the globe (S41).
+  const playerRoutes = useMemo(
+    () => toMapRoutes(routes, routePerformance),
+    [routes, routePerformance],
+  );
   const pubkey = useAirlineStore((s) => s.pubkey);
   const [inspectedAirport, setInspectedAirport] = useState<Airport | null>(null);
   const [inspectedAircraft, setInspectedAircraft] = useState<AircraftInstance | null>(null);
@@ -309,6 +319,7 @@ export function WorldMap() {
         fleet={fleet}
         competitorFleet={competitorFleet}
         competitorRoutes={competitorRoutes}
+        playerRoutes={playerRoutes}
         playerLivery={airline?.livery || null}
         competitorLiveries={competitorLiveries}
         playerHubs={playerHubs}
@@ -317,6 +328,7 @@ export function WorldMap() {
         engineClock={engineClockRef}
         theme={mapTheme}
       />
+      {playerRoutes.length > 0 ? <RouteLegend /> : null}
       {inspectedAirport ? (
         <AirportInfoPanel airport={inspectedAirport} onClose={clearAirportFocus} />
       ) : null}

@@ -31,6 +31,7 @@ type AirlineStoreState = {
   pubkey: string | null;
   competitors: Map<string, unknown>;
   routes: unknown[];
+  timeline?: unknown[];
 };
 
 const mockUseEngineStore = vi.fn();
@@ -123,6 +124,7 @@ describe("WorldMap", () => {
       pubkey: null,
       competitors: new Map(),
       routes: [],
+      timeline: [],
     });
 
     const { container } = render(<WorldMap />);
@@ -200,6 +202,7 @@ describe("WorldMap", () => {
         ],
       ]),
       routes: [],
+      timeline: [],
     });
 
     render(<WorldMap />);
@@ -223,6 +226,7 @@ describe("WorldMap", () => {
       pubkey: "test-pubkey",
       competitors: new Map(),
       routes: [],
+      timeline: [],
     });
 
     render(<WorldMap />);
@@ -246,6 +250,7 @@ describe("WorldMap", () => {
       pubkey: "test-pubkey",
       competitors: new Map(),
       routes: [],
+      timeline: [],
     });
 
     const { container } = render(<WorldMap />);
@@ -271,6 +276,7 @@ describe("WorldMap", () => {
       pubkey: "test-pubkey",
       competitors: new Map(),
       routes: [],
+      timeline: [],
     });
 
     render(<WorldMap />);
@@ -293,6 +299,7 @@ describe("WorldMap", () => {
       pubkey: "test-pubkey",
       competitors: new Map(),
       routes: [],
+      timeline: [],
     });
 
     render(<WorldMap />);
@@ -320,6 +327,7 @@ describe("WorldMap", () => {
       pubkey: "test-pubkey",
       competitors: new Map(),
       routes: [],
+      timeline: [],
     });
 
     render(<WorldMap />);

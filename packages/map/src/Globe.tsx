@@ -8,11 +8,11 @@ import { aircraftModels } from "@acars/data";
 import {
   getBearing,
   getGreatCircleInterpolation,
-  makeArcFeature,
   pointInViewport,
   routeIntersectsViewport,
 } from "./geo.js";
 import { planCameraFlight } from "./camera.js";
+import { buildRouteFeatures, type MapRoute, routeStyleSignature } from "./routeFeatures.js";
 import { resolveMapSelection } from "./interactions.js";
 import {
   type AirportClass,
@@ -39,7 +39,12 @@ export {
   type MapTheme,
 } from "./theme.js";
 export { isMajorAirport } from "./layers/airports.js";
-export { arcCacheKey, getSegmentCount } from "./layers/routes.js";
+export { arcCacheKey, getSegmentCount, ROUTE_PROFIT_COLORS } from "./layers/routes.js";
+
+// Stable defaults: fresh []/new Map() per render would re-run every arc effect.
+const NO_ROUTES: MapRoute[] = [];
+const NO_RIVAL_ROUTES: Route[] = [];
+const NO_LIVERIES = new Map<string, { primary: string; secondary: string }>();
 
 const aircraftModelMap = new Map(aircraftModels.map((m) => [m.id, m]));
 
@@ -55,6 +60,8 @@ export interface GlobeProps {
   competitorFleet?: AircraftInstance[];
   /** Competitor routes — routes NOT owned by the current player */
   competitorRoutes?: Route[];
+  /** The player's routes with frequency and profit (S41: drawn by profit and frequency). */
+  playerRoutes?: MapRoute[];
   playerLivery?: { primary: string; secondary: string } | null;
   competitorLiveries?: Map<string, { primary: string; secondary: string }>;
   playerHubs?: string[];
@@ -86,9 +93,10 @@ export function Globe({
   groundPresence,
   fleet = [],
   competitorFleet = [],
-  competitorRoutes = [],
+  competitorRoutes = NO_RIVAL_ROUTES,
+  playerRoutes = NO_ROUTES,
   playerLivery = null,
-  competitorLiveries = new Map(),
+  competitorLiveries = NO_LIVERIES,
   playerHubs = [],
   competitorHubColors = new Map(),
   playerRouteDestinations = new Set(),
@@ -143,6 +151,40 @@ export function Globe({
       return points;
     },
     [],
+  );
+
+  // Rivals' routes as map routes, in their livery colour.
+  const competitorMapRoutes = useMemo<MapRoute[]>(
+    () =>
+      competitorRoutes.map((route) => ({
+        originIata: route.originIata,
+        destinationIata: route.destinationIata,
+        ownerPubkey: route.airlinePubkey,
+        isPlayer: false,
+        frequencyPerWeek: route.frequencyPerWeek,
+        color: competitorLiveries.get(route.airlinePubkey)?.primary,
+      })),
+    [competitorRoutes, competitorLiveries],
+  );
+
+  /** Arc features for the player's routes and rivals' routes in view, at the given LOD. */
+  const buildArcs = useCallback(
+    (bounds: maplibregl.LngLatBounds, segments: number) => {
+      const arcFor = (origin: Airport, dest: Airport) => getOrComputeArc(origin, dest, segments);
+      const inView = (origin: Airport, dest: Airport) =>
+        routeIntersectsViewport(
+          origin.longitude,
+          origin.latitude,
+          dest.longitude,
+          dest.latitude,
+          bounds,
+        );
+      return {
+        arcFeatures: buildRouteFeatures(playerRoutes, airportIndex, arcFor, inView),
+        globalArcFeatures: buildRouteFeatures(competitorMapRoutes, airportIndex, arcFor, inView),
+      };
+    },
+    [playerRoutes, competitorMapRoutes, airportIndex, getOrComputeArc],
   );
 
   // Invalidate arc cache when zoom changes LOD tier (segment count changes).
@@ -477,52 +519,8 @@ export function Globe({
       lastAirportGeojson.current = airportGeojson;
     }
 
-    // --- Player flight arcs (with culling + LOD + caching) ---
-    const arcFeatures: Feature[] = [];
-    for (const ac of fleet) {
-      if (ac.status !== "enroute" || !ac.flight) continue;
-      const origin = airportIndex.get(ac.flight.originIata);
-      const dest = airportIndex.get(ac.flight.destinationIata);
-      if (!origin || !dest) continue;
-
-      // Viewport culling
-      if (
-        !routeIntersectsViewport(
-          origin.longitude,
-          origin.latitude,
-          dest.longitude,
-          dest.latitude,
-          bounds,
-        )
-      )
-        continue;
-
-      const points = getOrComputeArc(origin, dest, segments);
-      arcFeatures.push(makeArcFeature(points));
-    }
-
-    // --- Global route arcs (with culling + LOD + caching) ---
-    const globalArcFeatures: Feature[] = [];
-    for (const route of competitorRoutes) {
-      const origin = airportIndex.get(route.originIata);
-      const dest = airportIndex.get(route.destinationIata);
-      if (!origin || !dest) continue;
-
-      // Viewport culling
-      if (
-        !routeIntersectsViewport(
-          origin.longitude,
-          origin.latitude,
-          dest.longitude,
-          dest.latitude,
-          bounds,
-        )
-      )
-        continue;
-
-      const points = getOrComputeArc(origin, dest, segments);
-      globalArcFeatures.push(makeArcFeature(points));
-    }
+    // --- Route arcs: the player's routes and rivals' (culling + LOD + caching) ---
+    const { arcFeatures, globalArcFeatures } = buildArcs(bounds, segments);
 
     if (!airportsDataUnchanged) {
       (map.getSource("airports") as maplibregl.GeoJSONSource)?.setData(airportGeojson);
@@ -541,6 +539,8 @@ export function Globe({
       firstArcCoords?.coordinates?.length ?? 0,
       lastArcCoords?.coordinates?.length ?? 0,
       globalArcFeatures.length,
+      routeStyleSignature(playerRoutes),
+      routeStyleSignature(competitorMapRoutes),
     ].join("|");
     if (arcsSig !== lastArcsSig.current) {
       lastArcsSig.current = arcsSig;
@@ -558,6 +558,9 @@ export function Globe({
     mapLoaded,
     fleet,
     competitorRoutes,
+    playerRoutes,
+    competitorMapRoutes,
+    buildArcs,
     airportIndex,
     getOrComputeArc,
     playerHubs,
@@ -590,44 +593,7 @@ export function Globe({
           lastSegmentCount.current = segments;
         }
 
-        const arcFeatures: Feature[] = [];
-        for (const ac of latestFleet.current) {
-          if (ac.status !== "enroute" || !ac.flight) continue;
-          const origin = airportIndex.get(ac.flight.originIata);
-          const dest = airportIndex.get(ac.flight.destinationIata);
-          if (!origin || !dest) continue;
-          if (
-            !routeIntersectsViewport(
-              origin.longitude,
-              origin.latitude,
-              dest.longitude,
-              dest.latitude,
-              bounds,
-            )
-          )
-            continue;
-          const points = getOrComputeArc(origin, dest, segments);
-          arcFeatures.push(makeArcFeature(points));
-        }
-
-        const globalArcFeatures: Feature[] = [];
-        for (const route of competitorRoutes) {
-          const origin = airportIndex.get(route.originIata);
-          const dest = airportIndex.get(route.destinationIata);
-          if (!origin || !dest) continue;
-          if (
-            !routeIntersectsViewport(
-              origin.longitude,
-              origin.latitude,
-              dest.longitude,
-              dest.latitude,
-              bounds,
-            )
-          )
-            continue;
-          const points = getOrComputeArc(origin, dest, segments);
-          globalArcFeatures.push(makeArcFeature(points));
-        }
+        const { arcFeatures, globalArcFeatures } = buildArcs(bounds, segments);
 
         (map.getSource("arcs") as maplibregl.GeoJSONSource)?.setData({
           type: "FeatureCollection",
@@ -648,7 +614,7 @@ export function Globe({
       map.off("moveend", onViewChange);
       map.off("zoomend", onViewChange);
     };
-  }, [mapLoaded, airportIndex, getOrComputeArc, competitorRoutes]);
+  }, [mapLoaded, buildArcs]);
 
   // =========================================================================
   // REAL-TIME MOVEMENT: requestAnimationFrame-based 60fps interpolation

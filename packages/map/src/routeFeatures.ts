@@ -82,3 +82,18 @@ export function buildRouteFeatures(
   }
   return features;
 }
+
+/**
+ * Cheap fingerprint of everything that styles the routes (endpoints,
+ * frequency, profit rounded to the dollar, colour), so the map re-uploads arcs
+ * only when something visible changed. O(routes).
+ */
+export function routeStyleSignature(routes: readonly MapRoute[]): string {
+  let sig = "";
+  for (const route of routes) {
+    sig += `${route.originIata}${route.destinationIata}:${route.frequencyPerWeek ?? ""}:${
+      route.profitPerHour == null ? "" : Math.round(route.profitPerHour)
+    }:${route.color ?? ""};`;
+  }
+  return sig;
+}

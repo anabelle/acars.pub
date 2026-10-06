@@ -30,32 +30,81 @@ export function arcCacheKey(originIata: string, destIata: string, segments: numb
   return `${originIata}-${destIata}-${segments}`;
 }
 
-/** Route arc layers: rivals' routes (faint) under the player's active ones (dashed). */
+/** Profit colour ramp for the player's routes: losing, breaking even, earning. */
+export const ROUTE_PROFIT_COLORS = {
+  loss: "#ef4444",
+  even: "#f59e0b",
+  profit: "#22c55e",
+} as const;
+
+/**
+ * Player route colour from `profitScore` (−1…+1, see routeFeatures): red for
+ * the worst loss through amber at break-even to green for the best earner.
+ * Routes that haven't flown yet (no score) use the theme's route colour.
+ */
+export function routeColorExpression(palette: MapPalette): maplibregl.ExpressionSpecification {
+  return [
+    "case",
+    ["==", ["typeof", ["get", "profitScore"]], "number"],
+    [
+      "interpolate",
+      ["linear"],
+      ["get", "profitScore"],
+      -1,
+      ROUTE_PROFIT_COLORS.loss,
+      0,
+      ROUTE_PROFIT_COLORS.even,
+      1,
+      ROUTE_PROFIT_COLORS.profit,
+    ],
+    palette.routes.active,
+  ];
+}
+
+/** Rival route colour: their livery, else the theme's world-route colour. */
+export function rivalRouteColorExpression(palette: MapPalette): maplibregl.ExpressionSpecification {
+  return ["coalesce", ["get", "color"], palette.routes.global];
+}
+
+/**
+ * Line width from weekly round trips (1×/wk thin … 42×/wk thick), scaled up as
+ * you zoom in. `scale` makes rivals thinner than the player's routes.
+ */
+export function routeWidthExpression(scale: number): maplibregl.ExpressionSpecification {
+  const byFrequency = (factor: number): maplibregl.ExpressionSpecification => [
+    "*",
+    factor * scale,
+    ["interpolate", ["linear"], ["get", "frequencyPerWeek"], 1, 0.8, 7, 1.6, 21, 2.8, 42, 4],
+  ];
+  return ["interpolate", ["linear"], ["zoom"], 1, byFrequency(0.6), 6, byFrequency(1.2)];
+}
+
+/**
+ * Route layers: rivals' routes (thin, in their livery) under the player's,
+ * coloured by profit and sized by frequency.
+ */
 export function addRouteLayers(map: maplibregl.Map, mapThemePalette: MapPalette): void {
-  // Layer: Global Arcs
   map.addLayer({
     id: "global-arcs-layer",
     type: "line",
     source: "global-arcs",
     layout: { "line-cap": "round", "line-join": "round" },
     paint: {
-      "line-color": mapThemePalette.routes.global,
-      "line-width": 0.5,
-      "line-opacity": 0.2,
+      "line-color": rivalRouteColorExpression(mapThemePalette),
+      "line-width": routeWidthExpression(0.5),
+      "line-opacity": 0.3,
     },
   });
 
-  // Layer: Active Flight Arcs (dashed)
   map.addLayer({
     id: "arcs-layer",
     type: "line",
     source: "arcs",
     layout: { "line-cap": "round", "line-join": "round" },
     paint: {
-      "line-color": mapThemePalette.routes.active,
-      "line-width": 1,
-      "line-opacity": 0.3,
-      "line-dasharray": [2, 2],
+      "line-color": routeColorExpression(mapThemePalette),
+      "line-width": routeWidthExpression(1),
+      "line-opacity": 0.85,
     },
   });
 }

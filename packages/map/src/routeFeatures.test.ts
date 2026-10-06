@@ -5,6 +5,7 @@ import {
   type MapRoute,
   profitScale,
   routeFeatureProperties,
+  routeStyleSignature,
 } from "./routeFeatures.js";
 
 const airport = (iata: string, longitude: number, latitude: number) =>
@@ -124,5 +125,18 @@ describe("buildRouteFeatures", () => {
       [d.longitude, d.latitude],
     ];
     expect(buildRouteFeatures([pacific], index, curve)[0].geometry.type).toBe("MultiLineString");
+  });
+});
+
+describe("routeStyleSignature", () => {
+  it("changes when anything visible changes, not otherwise", () => {
+    const base = [mine("BCN", 300.2, 7)];
+    expect(routeStyleSignature(base)).toBe(routeStyleSignature([mine("BCN", 299.9, 7)]));
+    expect(routeStyleSignature(base)).not.toBe(routeStyleSignature([mine("BCN", 450, 7)]));
+    expect(routeStyleSignature(base)).not.toBe(routeStyleSignature([mine("BCN", 300, 14)]));
+    expect(routeStyleSignature([{ ...base[0], color: "#fff" }])).not.toBe(
+      routeStyleSignature(base),
+    );
+    expect(routeStyleSignature([mine("BCN", null)])).toBe("MADBCN:::;");
   });
 });
