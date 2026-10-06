@@ -1,5 +1,6 @@
 import type { FixedPoint } from "@acars/core";
 import {
+  brandServiceGrade,
   fp,
   fpScale,
   fpToNumber,
@@ -42,6 +43,8 @@ export interface LegMetrics extends LegScenario {
   legsPerDayPerAircraft: number;
   /** Route profit per day: every aircraft, both directions, at this leg's result. */
   profitPerDay: FixedPoint;
+  /** Brand service grade of this leg, -1..1 (S11). */
+  brandGrade: number;
 }
 
 let airportIndex: Map<string, { latitude: number; longitude: number }> | null = null;
@@ -115,16 +118,22 @@ export function runLegScenario(scenario: LegScenario): LegMetrics {
   );
   const legsPerDayPerAircraft = (2 * TICKS_PER_DAY) / periodTicks;
   const profitPerLeg = landing.profit ?? fp(0);
+  const loadFactor = landing.details?.loadFactor ?? 0;
 
   return {
     ...scenario,
     distanceKm,
-    loadFactor: landing.details?.loadFactor ?? 0,
+    loadFactor,
     passengers: landing.details?.passengers?.total ?? 0,
     revenuePerLeg: landing.revenue ?? fp(0),
     profitPerLeg,
     legsPerDayPerAircraft,
     profitPerDay: fpScale(profitPerLeg, legsPerDayPerAircraft * scenario.aircraftCount),
+    brandGrade: brandServiceGrade({
+      loadFactor,
+      fareRatio: landing.details?.fareRatio ?? 1,
+      condition: landing.details?.aircraftCondition ?? 1,
+    }),
   };
 }
 

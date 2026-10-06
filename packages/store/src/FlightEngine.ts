@@ -731,6 +731,9 @@ export function processFlightEngine(
           seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first,
         });
 
+        // Economy fare ÷ market reference fare, graded by the brand (S11).
+        let fareRatio = 1;
+
         if (route || (isOrphan && hasFareSnapshot)) {
           const routeKey =
             originIata && destinationIata ? canonicalRouteKey(originIata, destinationIata) : "";
@@ -782,6 +785,11 @@ export function processFlightEngine(
             seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first,
           });
           tickRevenue = fpAdd(tickRevenue, rev.revenueTotal);
+
+          const referenceEconomy = fpToNumber(
+            getSuggestedFares(route ? route.distanceKm : (ac.flight?.distanceKm ?? 0)).economy,
+          );
+          fareRatio = referenceEconomy > 0 ? fpToNumber(fareEconomy) / referenceEconomy : 1;
 
           ac.lastKnownLoadFactor = rev.loadFactor;
         }
@@ -849,6 +857,8 @@ export function processFlightEngine(
                 },
                 seatsOffered: rev.seatsOffered,
                 loadFactor: rev.loadFactor,
+                fareRatio,
+                aircraftCondition: ac.condition,
                 spilledPassengers: rev.spilledPassengers,
                 routeId: route?.id,
                 flightDurationTicks: ac.flight.arrivalTick - ac.flight.departureTick,

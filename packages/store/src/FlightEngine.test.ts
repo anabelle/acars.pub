@@ -142,6 +142,31 @@ describe("FlightEngine — Solo/Offline scenarios", () => {
     expect(landing.details?.seatsOffered).toBe(10);
   });
 
+  it("records brand inputs (fare ratio, condition) on landings", () => {
+    const aircraft = makeAircraft({
+      id: "ac-brand",
+      modelId: "a320neo",
+      assignedRouteId: "route-brand",
+      baseAirportIata: "JFK",
+      condition: 0.9,
+    });
+    const reference = getSuggestedFares(3000).economy;
+    const route = makeRoute({
+      id: "route-brand",
+      originIata: "JFK",
+      destinationIata: "LAX",
+      distanceKm: 3000,
+      assignedAircraftIds: [aircraft.id],
+      fareEconomy: fp(fpToNumber(reference) * 1.5),
+    });
+
+    const { landing } = simulateSingleLanding(aircraft, route);
+
+    expect(landing.details?.fareRatio).toBeCloseTo(1.5, 2);
+    expect(landing.details?.aircraftCondition).toBeGreaterThan(0.89);
+    expect(landing.details?.aircraftCondition).toBeLessThanOrEqual(0.9);
+  });
+
   it("oversized aircraft on thin route yields low load factor", () => {
     const aircraft = makeAircraft({
       id: "ac-a380",

@@ -2,6 +2,9 @@
 // @acars/core — Public API
 // ============================================================
 
+// Brand (S11)
+export * from "./brand.js";
+
 // Checkpoints
 export {
   canonicalize,
@@ -31,6 +34,7 @@ export {
   calculateDemand,
   calculatePriceElasticity,
   calculateSupplyPressure,
+  supplyLoadFactor,
   getHubCongestionModifier,
   getHubDemandModifier,
   getProsperityIndex,

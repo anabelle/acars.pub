@@ -261,30 +261,43 @@ export function scaleToAddressableMarket(demand: DemandResult): DemandResult {
 }
 
 /**
- * Compute a load-factor multiplier based on supply vs demand.
+ * Expected load factor for a route's weekly seats against its weekly demand:
+ * the share of seats demand can fill, capped at the natural ceiling (~88%:
+ * some seats always go unsold). Oversupply is counted exactly once (S11), so
+ * twice the seats demand needs fills half of them, not ~20% as the old double
+ * penalty did. Continuous and monotone in the supply ratio.
  *
- * - When supply ≤ demand → NATURAL_LF_CEILING (best case, ~88%)
- * - When supply > demand → smooth decay via 1/R^1.1
- * - Hard floor at 0.15 (even a dead route has some passengers)
+ * @param totalWeeklySeats  Seats this airline offers per week on this route
+ * @param weeklyDemand      This airline's weekly passenger allocation (post-share)
+ * @returns Load factor in [0, NATURAL_LF_CEILING]
+ */
+export function supplyLoadFactor(totalWeeklySeats: number, weeklyDemand: number): number {
+  if (weeklyDemand <= 0) return 0;
+  if (totalWeeklySeats <= 0) return NATURAL_LF_CEILING;
+  return Math.min(NATURAL_LF_CEILING, weeklyDemand / totalWeeklySeats);
+}
+
+/**
+ * Multiplier on per-flight demand (weekly demand ÷ weekly frequency) that
+ * turns it into passengers per flight, so that, after the engine's seat cap,
+ * a flight fills {@link supplyLoadFactor} of its seats. Dividing demand
+ * across more flights already thins each one out; this multiplier only
+ * applies the natural ceiling and adds no second oversupply penalty.
  *
- * @param totalWeeklySeats  Total seats this airline offers per week on this route
- * @param weeklyDemand      This airline's weekly passenger allocation (post-QSI)
- * @returns Multiplier for per-flight pax count (0.15 - 0.88)
+ *   oversupplied: pax/flight = (demand / frequency) × 1 = supplyLoadFactor × seats/flight
+ *
+ * @param totalWeeklySeats  Seats this airline offers per week on this route
+ * @param weeklyDemand      This airline's weekly passenger allocation (post-share)
+ * @returns Multiplier in [NATURAL_LF_CEILING, 1], or 0 with no demand
  */
 export function calculateSupplyPressure(totalWeeklySeats: number, weeklyDemand: number): number {
-  if (weeklyDemand <= 0) return 0.15;
+  if (weeklyDemand <= 0) return 0;
   if (totalWeeklySeats <= 0) return NATURAL_LF_CEILING;
-
-  const supplyRatio = totalWeeklySeats / weeklyDemand;
-
-  if (supplyRatio <= 1.0) {
-    // Under-supplied or balanced: cap at natural ceiling
-    return NATURAL_LF_CEILING;
-  }
-
-  // Over-supplied: decay with slight aggression (exponent 1.1)
-  const pressure = NATURAL_LF_CEILING / detPow(supplyRatio, 1.1);
-  return Math.max(0.15, pressure);
+  // Undersupplied: per-flight demand already exceeds the seats, so keep the
+  // multiplier at the ceiling and let the engine's per-cabin seat cap bind
+  // (scaling it below that would starve small cabins on a busy route).
+  const ratio = totalWeeklySeats / weeklyDemand;
+  return Math.min(1, Math.max(NATURAL_LF_CEILING, NATURAL_LF_CEILING * ratio));
 }
 
 /**

@@ -4,7 +4,7 @@ import {
   type HubState,
   calculateDemand,
   calculatePriceElasticity,
-  calculateSupplyPressure,
+  supplyLoadFactor,
   getHubCongestionModifier,
   getHubDemandModifier,
   getProsperityIndex,
@@ -232,7 +232,8 @@ export function getRouteDemandSnapshot(
 
   const weeklyAddressableTotal =
     addressableDemand.economy + addressableDemand.business + addressableDemand.first;
-  const pressureMultiplier = calculateSupplyPressure(totalWeeklySeats, weeklyAddressableTotal);
+  // Expected load factor: oversupply counted once (S11).
+  const pressureMultiplier = supplyLoadFactor(totalWeeklySeats, weeklyAddressableTotal);
   const isOversupplied = totalWeeklySeats > weeklyAddressableTotal;
 
   const referenceFares = getSuggestedFares(route.distanceKm);

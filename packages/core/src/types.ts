@@ -362,6 +362,10 @@ export interface TimelineEvent {
     };
     seatsOffered?: number;
     loadFactor?: number;
+    /** Economy fare ÷ market reference fare (brand input, S11). */
+    fareRatio?: number;
+    /** Aircraft condition after the flight, 0–1 (brand input, S11). */
+    aircraftCondition?: number;
     spilledPassengers?: number;
     routeId?: string;
     flightDurationTicks?: number;
