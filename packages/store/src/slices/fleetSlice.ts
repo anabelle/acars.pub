@@ -3,6 +3,7 @@ import type {
   AircraftModel,
   Airport,
   FixedPoint,
+  MaintenancePolicy,
   TimelineEvent,
 } from "@acars/core";
 import {
@@ -62,6 +63,11 @@ export interface FleetSlice {
   performMaintenance: (aircraftId: string) => Promise<void>;
   ferryAircraft: (aircraftId: string, destinationIata: string) => Promise<void>;
   updateAircraftLivery: (aircraftId: string, imageUrl: string, promptHash: string) => Promise<void>;
+  /**
+   * S13: set the fleet-wide auto-maintenance default (no `aircraftId`), or an
+   * aircraft's override (`policy` null clears it back to the default).
+   */
+  setMaintenancePolicy: (policy: MaintenancePolicy | null, aircraftId?: string) => Promise<void>;
 }
 
 const logger = createLogger("Fleet");
@@ -1042,6 +1048,66 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         };
       });
       console.error("Maintenance sync failed:", e);
+    }
+  },
+
+  setMaintenancePolicy: async (policy: MaintenancePolicy | null, aircraftId?: string) => {
+    const { airline, fleet } = get();
+    if (!airline) throw new Error("No active airline loaded.");
+    if (!aircraftId && !policy) throw new Error("The fleet default needs a policy.");
+    const previousAirlinePolicy = airline.maintenancePolicy;
+    const previousAircraftPolicy = aircraftId
+      ? fleet.find((ac) => ac.id === aircraftId)?.maintenancePolicy
+      : undefined;
+    if (aircraftId && !fleet.some((ac) => ac.id === aircraftId)) {
+      throw new Error("Aircraft not found.");
+    }
+
+    if (aircraftId) {
+      set((state) => ({
+        fleet: state.fleet.map((ac) =>
+          ac.id === aircraftId ? { ...ac, maintenancePolicy: policy } : ac,
+        ),
+      }));
+    } else if (policy) {
+      set((state) => ({
+        airline: state.airline ? { ...state.airline, maintenancePolicy: policy } : state.airline,
+      }));
+    }
+
+    try {
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: "SET_MAINTENANCE_POLICY",
+          payload: {
+            ...(aircraftId ? { instanceId: aircraftId } : {}),
+            policy,
+            tick: useEngineStore.getState().tick,
+          },
+        },
+        get,
+        set,
+      });
+    } catch (e) {
+      // Merge-safe rollback: restore only the policy we changed.
+      set((state) =>
+        aircraftId
+          ? {
+              fleet: state.fleet.map((ac) =>
+                ac.id === aircraftId && ac.maintenancePolicy === policy
+                  ? { ...ac, maintenancePolicy: previousAircraftPolicy }
+                  : ac,
+              ),
+            }
+          : {
+              airline:
+                state.airline && state.airline.maintenancePolicy === policy
+                  ? { ...state.airline, maintenancePolicy: previousAirlinePolicy }
+                  : state.airline,
+            },
+      );
+      throw e;
     }
   },
 

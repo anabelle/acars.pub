@@ -187,6 +187,8 @@ export interface AircraftInstance {
   flightHoursTotal: number;
   flightHoursSinceCheck: number;
   condition: number; // 0.0 to 1.0 (1.0 = brand new)
+  /** Per-aircraft auto-maintenance override (S13); absent or null inherits the airline's. */
+  maintenancePolicy?: MaintenancePolicy | null;
 
   // Derived metrics (latest flight outcomes)
   lastKnownLoadFactor?: number; // 0.0 - 1.0
@@ -219,6 +221,8 @@ export interface AirlineEntity {
   brandScore: number;
   tier: number;
   cumulativeRevenue: FixedPoint;
+  /** Fleet-wide auto-maintenance default (S13); absent means off. */
+  maintenancePolicy?: MaintenancePolicy;
 
   // Financials
   corporateBalance: FixedPoint;
@@ -402,6 +406,16 @@ export interface Checkpoint {
   timeline: TimelineEvent[];
 }
 
+// --- Maintenance policy (S13) ---
+
+export interface MaintenancePolicy {
+  enabled: boolean;
+  /** Service when condition falls to this (0–1). */
+  minCondition: number;
+  /** Only service while based at one of the airline's hubs. */
+  hubOnly: boolean;
+}
+
 // --- Game Actions ---
 
 export type GameActionType =
@@ -426,7 +440,8 @@ export type GameActionType =
   | "AIRCRAFT_BUY_USED"
   | "AIRCRAFT_MAINTENANCE"
   | "AIRCRAFT_FERRY"
-  | "AIRCRAFT_UPDATE_LIVERY";
+  | "AIRCRAFT_UPDATE_LIVERY"
+  | "SET_MAINTENANCE_POLICY";
 
 /**
  * Actions whose Nostr events use a UNIQUE d-tag per (author, action) so

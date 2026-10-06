@@ -46,8 +46,10 @@ import { useConfirm } from "@/shared/lib/useConfirm";
 import { cn } from "@/shared/lib/utils";
 import { getAircraftBaseHub } from "../utils/aircraftBaseHub";
 import { getAircraftTimer } from "../utils/aircraftTimers";
+import { AircraftMaintenanceRow } from "./AircraftMaintenanceRow";
 import { AircraftDealer } from "./AircraftDealer";
 import { AircraftLiveryImage } from "./AircraftLiveryImage";
+import { MaintenancePolicyControl } from "./MaintenancePolicyControl";
 
 const timerStyleMap = {
   enroute: {
@@ -118,6 +120,7 @@ export function FleetManager() {
       ferryAircraft: state.ferryAircraft,
     })),
   );
+  const routeById = useMemo(() => new Map(routes.map((route) => [route.id, route])), [routes]);
   const tick = useEngineStore((state) => state.tick);
   const tickProgress = useEngineStore((state) => state.tickProgress);
   const [view, setView] = useState<"owned" | "dealer">("owned");
@@ -327,6 +330,11 @@ export function FleetManager() {
             </button>
           )}
         </div>
+        {!isViewingOther && fleet.length > 0 ? (
+          <div className="mt-3">
+            <MaintenancePolicyControl />
+          </div>
+        ) : null}
       </div>
 
       <div ref={fleetListRef} className="pb-8">
@@ -625,6 +633,17 @@ export function FleetManager() {
                                   />
                                 </div>
                               </div>
+                              <AircraftMaintenanceRow
+                                aircraft={ac}
+                                model={model}
+                                route={
+                                  ac.assignedRouteId
+                                    ? (routeById.get(ac.assignedRouteId) ?? null)
+                                    : null
+                                }
+                                fleetPolicy={airline?.maintenancePolicy}
+                                readOnly={isViewingOther}
+                              />
                               {ac.purchasePrice && (
                                 <div>
                                   <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">

@@ -3,12 +3,18 @@ import { fp, fpScale, fpToNumber } from "./fixed-point.js";
 import {
   calculateBookValue,
   computeRouteFrequency,
+  DEFAULT_MAINTENANCE_POLICY,
+  effectiveMaintenancePolicy,
   getMaintenanceDowntimeTicks,
+  isGrounded,
   LEASE_DEPOSIT_SHARE,
   leaseBuyBreakEvenMonths,
   leaseDeposit,
   leaseMonthlyPayment,
+  maintenanceCost,
+  needsAutoMaintenance,
   ownershipCost,
+  sanitizeMaintenancePolicy,
 } from "./fleet.js";
 
 const mockModel = {
@@ -216,5 +222,66 @@ describe("lease vs buy (S12)", () => {
 
   it("reports no break-even when the lease is near free", () => {
     expect(leaseBuyBreakEvenMonths({ ...leased, monthlyLease: fp(1) }, 24)).toBeNull();
+  });
+});
+
+describe("maintenance policy (S13)", () => {
+  const ac = (condition: number, flightHoursSinceCheck: number, baseAirportIata = "MAD") => ({
+    condition,
+    flightHoursSinceCheck,
+    baseAirportIata,
+  });
+  const on = { enabled: true, minCondition: 0.4, hubOnly: false };
+
+  it("prices a check like the manual action", () => {
+    expect(fpToNumber(maintenanceCost(mockModel, 1))).toBe(15_000);
+    expect(fpToNumber(maintenanceCost(mockModel, 0.5))).toBe(15_000 + 110_000_000 * 0.05);
+  });
+
+  it("grounds below 20% condition or above 600 hours", () => {
+    expect(isGrounded(ac(0.2, 600))).toBe(false);
+    expect(isGrounded(ac(0.19, 0))).toBe(true);
+    expect(isGrounded(ac(1, 600.5))).toBe(true);
+  });
+
+  it("sanitizes untrusted policies", () => {
+    expect(sanitizeMaintenancePolicy(null)).toBeNull();
+    expect(sanitizeMaintenancePolicy({ enabled: "yes" })).toBeNull();
+    expect(sanitizeMaintenancePolicy({ enabled: true })).toEqual({
+      enabled: true,
+      minCondition: DEFAULT_MAINTENANCE_POLICY.minCondition,
+      hubOnly: false,
+    });
+    expect(sanitizeMaintenancePolicy({ enabled: true, minCondition: 0.01, hubOnly: true })).toEqual(
+      {
+        enabled: true,
+        minCondition: 0.25,
+        hubOnly: true,
+      },
+    );
+    expect(sanitizeMaintenancePolicy({ enabled: false, minCondition: 2 })?.minCondition).toBe(0.95);
+    expect(sanitizeMaintenancePolicy({ enabled: true, minCondition: 0.456 })?.minCondition).toBe(
+      0.46,
+    );
+  });
+
+  it("resolves the aircraft override, then the airline default, then off", () => {
+    const fleetDefault = { enabled: true, minCondition: 0.5, hubOnly: true };
+    expect(
+      effectiveMaintenancePolicy({ maintenancePolicy: on }, { maintenancePolicy: fleetDefault }),
+    ).toBe(on);
+    expect(
+      effectiveMaintenancePolicy({ maintenancePolicy: null }, { maintenancePolicy: fleetDefault }),
+    ).toBe(fleetDefault);
+    expect(effectiveMaintenancePolicy({}, null)).toBe(DEFAULT_MAINTENANCE_POLICY);
+  });
+
+  it("services at the threshold or near the hours limit, optionally only at a hub", () => {
+    expect(needsAutoMaintenance(ac(0.4, 0), on, ["MAD"])).toBe(true);
+    expect(needsAutoMaintenance(ac(0.41, 539), on, ["MAD"])).toBe(false);
+    expect(needsAutoMaintenance(ac(0.9, 540), on, ["MAD"])).toBe(true);
+    expect(needsAutoMaintenance(ac(0.1, 0), { ...on, enabled: false }, ["MAD"])).toBe(false);
+    expect(needsAutoMaintenance(ac(0.3, 0, "BCN"), { ...on, hubOnly: true }, ["MAD"])).toBe(false);
+    expect(needsAutoMaintenance(ac(0.3, 0, "MAD"), { ...on, hubOnly: true }, ["MAD"])).toBe(true);
   });
 });

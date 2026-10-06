@@ -548,3 +548,52 @@ describe("listAircraft", () => {
     expect(vi.mocked(nostr.deleteMarketplaceListing)).not.toHaveBeenCalled();
   });
 });
+
+describe("setMaintenancePolicy (S13)", () => {
+  const policy = { enabled: true, minCondition: 0.5, hubOnly: false };
+
+  it("sets the fleet default and publishes it", async () => {
+    const { state } = createSliceState({ airline: makeAirline(["BOG"]), fleet: [] });
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockClear();
+    await state.setMaintenancePolicy(policy);
+    expect(state.airline?.maintenancePolicy).toEqual(policy);
+    expect(vi.mocked(publishActionWithChain).mock.calls[0][0].action).toMatchObject({
+      action: "SET_MAINTENANCE_POLICY",
+      payload: { policy, tick: 100 },
+    });
+  });
+
+  it("sets and clears an aircraft override", async () => {
+    const { state } = createSliceState({
+      airline: makeAirline(["BOG"]),
+      fleet: [makeAircraft("ac-1", "BOG")],
+    });
+    await state.setMaintenancePolicy(policy, "ac-1");
+    expect(state.fleet[0].maintenancePolicy).toEqual(policy);
+    await state.setMaintenancePolicy(null, "ac-1");
+    expect(state.fleet[0].maintenancePolicy).toBeNull();
+  });
+
+  it("rejects bad input", async () => {
+    const { state } = createSliceState({ airline: null, fleet: [] });
+    await expect(state.setMaintenancePolicy(policy)).rejects.toThrow("No active airline");
+    state.airline = makeAirline(["BOG"]);
+    await expect(state.setMaintenancePolicy(null)).rejects.toThrow("needs a policy");
+    await expect(state.setMaintenancePolicy(policy, "missing")).rejects.toThrow("not found");
+  });
+
+  it("rolls back on a failed publish", async () => {
+    const { state } = createSliceState({
+      airline: makeAirline(["BOG"]),
+      fleet: [makeAircraft("ac-1", "BOG")],
+    });
+    const { publishActionWithChain } = await import("../actionChain");
+    vi.mocked(publishActionWithChain).mockRejectedValueOnce(new Error("relay down"));
+    await expect(state.setMaintenancePolicy(policy)).rejects.toThrow("relay down");
+    expect(state.airline?.maintenancePolicy).toBeUndefined();
+    vi.mocked(publishActionWithChain).mockRejectedValueOnce(new Error("relay down"));
+    await expect(state.setMaintenancePolicy(policy, "ac-1")).rejects.toThrow("relay down");
+    expect(state.fleet[0].maintenancePolicy).toBeUndefined();
+  });
+});

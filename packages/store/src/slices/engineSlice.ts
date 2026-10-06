@@ -406,6 +406,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             get().pubkey || "",
             currentBrandScore,
             distanceLimitKm,
+            { fleetPolicy: airline.maintenancePolicy, hubs: currentHubs },
           );
         } catch (error) {
           processingError = true;
