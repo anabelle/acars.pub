@@ -1,5 +1,6 @@
 import {
   brandServiceGrade,
+  nextBrandScore,
   CHAPTER11_BALANCE_THRESHOLD_USD,
   estimateHistoricRevenue,
   evaluateTier,
@@ -10,7 +11,6 @@ import {
   GENESIS_TIME,
   getMaxRouteDistanceKm,
   TICK_DURATION,
-  TICKS_PER_HOUR,
   TICKS_PER_MONTH,
 } from "@acars/core";
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
@@ -215,8 +215,6 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       const currentHubs = airline.hubs || [];
       const initialAirlineStatus = airline.status;
       const distanceLimitKm = getMaxRouteDistanceKm(airline.tier);
-      const brandScorePerTick = 0.002 / TICKS_PER_HOUR;
-      const brandPenaltyPerTick = 0.003 / TICKS_PER_HOUR;
 
       const ticksPerMonth = TICKS_PER_MONTH;
 
@@ -433,7 +431,8 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           }
 
           // Brand v2 (S11): grade each landing on fair fares, aircraft
-          // condition and a healthy load factor; move by the average grade.
+          // condition and a healthy load factor; pull the brand toward the score
+          // that grade earns.
           let landingCount = 0;
           let landingGradeTotal = 0;
           for (const event of result.events) {
@@ -448,9 +447,11 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             });
           }
           if (landingCount > 0) {
-            const grade = landingGradeTotal / landingCount;
-            currentBrandScore += grade * (grade > 0 ? brandScorePerTick : brandPenaltyPerTick);
-            currentBrandScore = Math.min(1, Math.max(0.1, currentBrandScore));
+            currentBrandScore = nextBrandScore(
+              currentBrandScore,
+              landingGradeTotal / landingCount,
+              landingCount,
+            );
           }
 
           // Deduplicate events by ID before merging into the timeline

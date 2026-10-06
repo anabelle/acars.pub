@@ -1,4 +1,11 @@
 import { MAX_ROUTE_FREQUENCY_PER_WEEK } from "@acars/core";
+import {
+  BRAND_MARKET,
+  BRAND_STRATEGIES,
+  brandTrajectory,
+  MAX_CURVE_AIRCRAFT,
+  overAssignmentCurve,
+} from "./brand.js";
 import { dollars, type LegMetrics, runLegScenario } from "./legScenario.js";
 import { hubDestinations, STRATEGIES, simulateStrategy } from "./strategy.js";
 
@@ -199,6 +206,51 @@ function strategyTable(days: number): string {
   return lines.join("\n");
 }
 
+function overAssignmentSection(): string {
+  const curve = overAssignmentCurve();
+  const lines = [header(["Aircraft", "LF", "", "Route profit/day", "Brand grade"])];
+  for (const m of curve) {
+    lines.push(
+      row([
+        m.aircraftCount,
+        pct(m.loadFactor),
+        `\`${"█".repeat(Math.round(m.loadFactor * 40)).padEnd(40, "·")}\``,
+        money(dollars(m.profitPerDay)),
+        m.brandGrade.toFixed(2),
+      ]),
+    );
+  }
+  return lines.join("\n");
+}
+
+function brandSection(days: number): string {
+  const checkpoints = [0, 7, 14, 21, days];
+  const lines = [
+    header([
+      "Strategy",
+      "LF",
+      "Brand grade",
+      "Landings/day",
+      "Route profit/day",
+      ...checkpoints.map((day) => `Brand day ${day}`),
+    ]),
+  ];
+  for (const strategy of BRAND_STRATEGIES) {
+    const t = brandTrajectory(strategy, days);
+    lines.push(
+      row([
+        `**${strategy.name}**: ${strategy.description}`,
+        pct(t.leg.loadFactor),
+        t.leg.brandGrade.toFixed(2),
+        t.landingsPerDay.toFixed(1),
+        money(dollars(t.leg.profitPerDay)),
+        ...checkpoints.map((day) => t.brandByDay[day].toFixed(2)),
+      ]),
+    );
+  }
+  return lines.join("\n");
+}
+
 /** README §6 balance targets, checked from the same engine runs. */
 function targetsSection(sweeps: FareSweep[]): string {
   const outOfBand = sweeps.filter(
@@ -266,6 +318,14 @@ export function generateBalanceReport(extraSections: ReportSection[] = []): stri
     {
       title: "5. Day-one strategies from a MAD hub ($100M start)",
       body: `${strategyTable(365)}\n\n_One leased aircraft per route to the most populous airports in range; each route's economics from a real engine leg at 7 round trips a week (what a new route gets). Tier needs: T2 $5M revenue + 3 routes, T3 $50M + 10, T4 $250M + 25. Ignores the 3-minute delivery, rivals and network effects; strategies keep the ATR 72 after unlocks._`,
+    },
+    {
+      title: `6. Over-assignment curve (${BRAND_MARKET.modelId} on ${BRAND_MARKET.origin}–${BRAND_MARKET.destination}, 1–${MAX_CURVE_AIRCRAFT} aircraft, suggested fares, every aircraft flying as much as it can)`,
+      body: `${overAssignmentSection()}\n\n_Oversupply is applied once (S11): LF = min(88%, demand ÷ seats). Past 16 aircraft the route's frequency cap binds, so extra aircraft sit idle._`,
+    },
+    {
+      title: `7. Brand trajectories over 30 days (${BRAND_MARKET.origin}–${BRAND_MARKET.destination}, new airline at 0.5)`,
+      body: `${brandSection(30)}\n\n_Brand v2 (S11): each landing is graded on fare vs the market reference (fair up to 1.2×), aircraft condition (≥ 0.6) and load factor (+1 only in 60–90%, penalised below 50%). The brand closes 1/400 of the gap to the grade's target (0.1–0.9) per landing._`,
     },
     ...extraSections,
   ];

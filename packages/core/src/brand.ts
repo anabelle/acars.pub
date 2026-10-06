@@ -2,8 +2,10 @@
  * Brand score v2 (S11): brand rewards good service, not full planes at any
  * price. Each landing is graded on three inputs — fare against the market
  * reference, aircraft condition, and load factor within a healthy band — and
- * the engine moves the airline's brand by the average grade. O(1) per landing.
+ * the brand moves toward the score that grade earns. O(1) per tick.
  */
+
+import { detPow } from "./det-math.js";
 
 /** Fare ÷ market reference fare at or below which a fare counts as fair. */
 export const BRAND_FAIR_FARE_MAX = 1.2;
@@ -47,4 +49,27 @@ export function brandServiceGrade({ loadFactor, fareRatio, condition }: BrandSer
   const penalty = gouging + worn + empty;
   if (penalty > 0) return -Math.min(1, penalty);
   return loadFactor >= BRAND_HEALTHY_LF_MIN && loadFactor <= BRAND_HEALTHY_LF_MAX ? 1 : 0;
+}
+
+/** Brand a grade earns if sustained: -1 → 0.1, 0 → 0.5, +1 → 0.9. */
+export function brandTarget(grade: number): number {
+  return 0.5 + 0.4 * clamp(grade, -1, 1);
+}
+
+/**
+ * Share of the gap to the target that each landing closes. Reputation is the
+ * memory of roughly the last 400 flights: a one-aircraft airline (≈2 landings
+ * a day) moves ~14% of the way in a month, a ten-aircraft one ~78%.
+ */
+export const BRAND_LANDING_WEIGHT = 1 / 400;
+
+/**
+ * Brand after `landings` landings with average service grade `grade`: an
+ * exponential pull toward {@link brandTarget}, closed form so a busy tick
+ * costs O(1). Stays within [0.1, 1].
+ */
+export function nextBrandScore(brand: number, grade: number, landings: number): number {
+  if (landings <= 0) return brand;
+  const pull = 1 - detPow(1 - BRAND_LANDING_WEIGHT, landings);
+  return clamp(brand + (brandTarget(grade) - brand) * pull, 0.1, 1);
 }
