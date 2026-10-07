@@ -1118,5 +1118,14 @@
       "tierUp": "{{airline}} just reached tier {{tier}} on ACARS ✈️",
       "firstJet": "{{airline}} took delivery of its first jet, a {{model}} ✈️"
     }
+  },
+  "play": {
+    "badge": "Globe prototype",
+    "routeSummary": "{{yours}} of your routes · {{world}} in the world",
+    "classic": "Classic view",
+    "disabledTitle": "Globe prototype is off",
+    "disabledBody": "This is an experimental, globe-first interface. Turn it on for this browser to try it.",
+    "enable": "Turn it on",
+    "back": "Back to the game"
   }
 }

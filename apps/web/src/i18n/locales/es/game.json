@@ -1118,5 +1118,14 @@
       "tierUp": "{{airline}} acaba de alcanzar el nivel {{tier}} en ACARS ✈️",
       "firstJet": "{{airline}} ha recibido su primer jet, un {{model}} ✈️"
     }
+  },
+  "play": {
+    "badge": "Prototipo de globo",
+    "routeSummary": "{{yours}} rutas tuyas · {{world}} en el mundo",
+    "classic": "Vista clásica",
+    "disabledTitle": "El prototipo de globo está desactivado",
+    "disabledBody": "Es una interfaz experimental centrada en el globo. Actívala en este navegador para probarla.",
+    "enable": "Activarlo",
+    "back": "Volver al juego"
   }
 }

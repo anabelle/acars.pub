@@ -1,8 +1,8 @@
 # S45 — Globe-first 3D shell prototype (deck.gl)
 
-> **Status:** ☐ not started
-> **Next step:** S45.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S45.2
+> **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
 > **Track:** Graphics · **Size:** L (4 steps) · **Depends on:** S01 · **Unblocks:** Decision D4
@@ -36,7 +36,7 @@ Prove or disprove the globe-first 3D interface: the world is the whole UI, with 
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S45.1** Flagged `/play` route: deck.gl on globe with 3D arcs. _Done when:_ renders with real routes.
+- [x] **S45.1** Flagged `/play` route: deck.gl on globe with 3D arcs. _Done when:_ renders with real routes.
 - [ ] **S45.2** Aircraft layer + synthetic load generator (1k/10k/50k). _Done when:_ fps recorded.
 - [ ] **S45.3** Briefing drawer + contextual airport/route/plane cards. _Done when:_ screen recording.
 - [ ] **S45.4** `docs/overhaul/prototype-report.md` with perf + parity checklist. _Done when:_ owner can decide D4.
@@ -55,7 +55,20 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-07 · S45.1 · (this commit) · **Flagged `/play`: deck.gl on the MapLibre globe, with 3D arcs from real routes.**
+
+- **Flag.** `features/play/playFlag.ts`: off by default. It turns on for a build with `VITE_PLAY_PROTOTYPE=1`, or for one browser by opening `/play?prototype=on` (`?prototype=off` turns it off again). With the flag off, `/play` shows a short explainer with a button to turn it on.
+- **Shell.** `/play` is a standalone route: no HUD, and no background globe, so two WebGL maps never compete. `__root.tsx` is the only existing file touched (`OWN_WORLD_ROUTES`). deck.gl and its MapLibre map load in a lazy chunk (`PlayGlobe`, about 214 kB gzipped) only when the flag is on.
+- **World.** `PlayGlobe` creates its own MapLibre globe, with deck.gl **interleaved** in the same WebGL context through `MapboxOverlay`. It opens on the player's own network, tilted 40°. `usePlayArcs` builds arcs from the store: rival routes from world sync (dimmer and thinner) and the player's routes on top, in livery colours, with width by weekly frequency.
+- **Findings for D4 (deck.gl on MapLibre v6):**
+  1. deck.gl 9.4 reads `map.transform`. MapLibre v6 moved it to `map._camera.transform`, which crashed every frame. `mapCompat.ts` shims it back; deck.gl relies on MapLibre internals.
+  2. deck.gl's `ArcLayer` drew nothing useful on the v6 globe in either interleaved or overlaid mode: tall arcs were clipped to stubs, and flat great-circle arcs didn't show at all. A `ScatterplotLayer` rendered fine. The prototype builds the 3D arc itself (`arcPath`: points along the great circle raised on a sine curve, peak 8% of the length) and draws it with a `PathLayer`.
+  3. MapLibre makes its container `position: relative`, so the map needs a positioned wrapper.
+  4. Many liveries are dark navy and vanish on the night globe, so `readableOnDark` lifts colours below 0.18 luminance toward white, keeping the hue.
+- **Dependencies:** `@deck.gl/core`, `@deck.gl/layers`, `@deck.gl/mapbox` 9.4 in `apps/web`. deck.gl pulls in `apache-arrow`, which depends on `@types/node` 25 and dragged the root test tooling's types along with it. A `pnpm` override (`apache-arrow>@types/node`) keeps the lockfile change to the new packages.
+- **Tests:**
+  - Unit tests for the flag, arcs, colours, camera focus, `arcPath` and the shim.
+  - e2e `play-prototype.spec.ts`: `/play` is off by default. Turned on, it draws the player's launched MAD → BCN as one arc (`data-arc-count`), deck.gl reports frames (`window.__acarsPlayStats`), and "Classic view" goes back.
 
 ## Follow-ups
 

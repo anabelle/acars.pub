@@ -1,9 +1,9 @@
 # S26 — Guest sandbox airline
 
-> **Status:** ☑ ready for review
+> **Status:** ☑ merged
 > **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #186
+> **PR:** — (merged in #186)
 >
 > **Track:** UX · **Size:** L (4 steps) · **Depends on:** S21, S23 · **Unblocks:** —
 >
