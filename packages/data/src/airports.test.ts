@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WORLD_EVENT_TEMPLATES } from "@acars/core";
 import { airports } from "./airports.js";
 
 describe("airports data", () => {
@@ -25,5 +26,13 @@ describe("airports data", () => {
     expect(airports.find((airport) => airport.iata === "LAX")?.runwayLengthFt).toBe(12923);
     expect(airports.find((airport) => airport.iata === "LCY")?.runwayLengthFt).toBe(4948);
     expect(airports.find((airport) => airport.iata === "POM")?.runwayLengthFt).toBe(9022);
+  });
+});
+
+describe("world event airports (S33)", () => {
+  it("every airport an event can target is in the catalog", () => {
+    const known = new Set(airports.map((airport) => airport.iata));
+    const targets = WORLD_EVENT_TEMPLATES.flatMap((template) => template.airports);
+    expect(targets.filter((iata) => !known.has(iata))).toEqual([]);
   });
 });
