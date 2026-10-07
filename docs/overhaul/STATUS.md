@@ -128,16 +128,16 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 
 Update when the owner decides. Full context is in [`README.md` §2](README.md#2-decisions-the-owner-must-make).
 
-| ID  | Decision                          | Status     | Date       | Outcome                                                                                                           |
-| --- | --------------------------------- | ---------- | ---------- | ----------------------------------------------------------------------------------------------------------------- |
-| D1  | Flat ~87% LF intentional?         | ✅ decided | 2026-10-05 | No: make it a real market (S10: incumbents + fare cap, gentle Tier 1).                                            |
-| D2  | Activation-tick rulesets          | ✅ decided | 2026-10-05 | No versioning: no real players yet, so rules change in place. S03 skipped.                                        |
-| D3  | Notification architecture         | ✅ decided | 2026-10-06 | Local first: system notifications from the app/PWA; Nostr DM bot later.                                           |
-| D4  | Globe-first 3D shell go/no-go     | ⏳ open    | 2026-10-07 | Desktop: 89 fps at 50k planes. Mobile never loaded; a fuel-price boot freeze was found and fixed. Re-test mobile. |
-| D5  | Fast Tycoon sandbox               | ✅ decided | 2026-10-07 | Option C: no second mode; make the 1:1 world more eventful (`tycoon-mode.md`).                                    |
-| D6  | Reward validation model           | ✅ decided | 2026-10-07 | Replay-verified claims: rewards are pure functions of the action log.                                             |
-| D7  | Store/domain/social account owner | ⏸ deferred | 2026-10-07 | Left for later by the owner; S52 waits.                                                                           |
-| D8  | Flights follow route frequency    | ✅ decided | 2026-10-05 | Yes: respect the weekly frequency (S14), capped by physics.                                                       |
+| ID  | Decision                          | Status     | Date       | Outcome                                                                                                               |
+| --- | --------------------------------- | ---------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| D1  | Flat ~87% LF intentional?         | ✅ decided | 2026-10-05 | No: make it a real market (S10: incumbents + fare cap, gentle Tier 1).                                                |
+| D2  | Activation-tick rulesets          | ✅ decided | 2026-10-05 | No versioning: no real players yet, so rules change in place. S03 skipped.                                            |
+| D3  | Notification architecture         | ✅ decided | 2026-10-06 | Local first: system notifications from the app/PWA; Nostr DM bot later.                                               |
+| D4  | Globe-first 3D shell go/no-go     | ⏳ open    | 2026-10-07 | Measured: desktop 89 fps at 50k planes; Android 30–60 fps, globe loads in 5.2 s. Clears the bar; owner to pick A/B/C. |
+| D5  | Fast Tycoon sandbox               | ✅ decided | 2026-10-07 | Option C: no second mode; make the 1:1 world more eventful (`tycoon-mode.md`).                                        |
+| D6  | Reward validation model           | ✅ decided | 2026-10-07 | Replay-verified claims: rewards are pure functions of the action log.                                                 |
+| D7  | Store/domain/social account owner | ⏸ deferred | 2026-10-07 | Left for later by the owner; S52 waits.                                                                               |
+| D8  | Flights follow route frequency    | ✅ decided | 2026-10-05 | Yes: respect the weekly frequency (S14), capped by physics.                                                           |
 
 ## 5. Budget notes
 
