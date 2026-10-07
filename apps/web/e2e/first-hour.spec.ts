@@ -19,6 +19,14 @@ test("the first-hour checklist guides a new airline", async ({ page, problems })
   // The next step links to where it is done.
   await checklist.getByRole("link", { name: /find a route/i }).click();
   await expect(page).toHaveURL(/\/network\?tab=opportunities/);
+  // S55.1: a first route should land in the first session, so the top
+  // suggestion is a profitable short hop, labelled as such.
+  const topSuggestion = page.locator('[data-index="0"]');
+  await expect(topSuggestion.getByTestId("first-hop-badge")).toBeVisible({ timeout: 30_000 });
+  await expect(topSuggestion.getByTestId("first-hop-badge")).toContainText(
+    /First landing in ~[\d.]+ h/,
+  );
+  await page.screenshot({ path: "test-results/checklist-0b-first-hop.png" });
 
   // Launch MAD → BCN from the airport panel.
   await navigateInApp(page, "/airport/BCN");

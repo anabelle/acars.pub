@@ -701,7 +701,8 @@
       "costSplit": "Reparto de costes",
       "fuelCrew": "Combustible {{fuel}} • Tripulación {{crew}}",
       "searchMinChars": "Escribe al menos 2 caracteres para buscar…",
-      "searchNoResults": "Ningún aeropuerto coincide con «{{query}}»"
+      "searchNoResults": "Ningún aeropuerto coincide con «{{query}}»",
+      "quickFirstHop": "Primer aterrizaje en ~{{hours}} h"
     },
     "card": {
       "distance": "Distancia {{km}} km",

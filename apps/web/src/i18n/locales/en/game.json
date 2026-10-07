@@ -701,7 +701,8 @@
       "costSplit": "Cost split",
       "fuelCrew": "Fuel {{fuel}} • Crew {{crew}}",
       "searchMinChars": "Type at least 2 characters to search…",
-      "searchNoResults": "No airports found matching “{{query}}”"
+      "searchNoResults": "No airports found matching “{{query}}”",
+      "quickFirstHop": "First landing in ~{{hours}} h"
     },
     "card": {
       "distance": "Distance {{km}} km",
