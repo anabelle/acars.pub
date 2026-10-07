@@ -14,6 +14,7 @@ import {
   shareNetwork,
   summaryFromState,
 } from "./shareNetwork";
+import { withReferral } from "./referral";
 
 /**
  * "Share my network" (S51.1): the airline's network card plus its public
@@ -45,7 +46,8 @@ export function ShareNetworkButton({
       const fileName = shareFileName(airline.icaoCode);
       const outcome = await shareNetwork({
         summary,
-        url: `${window.location.origin}${airlinePath(pubkey)}`,
+        // Your page, crediting you if a visitor starts an airline (S51.3).
+        url: withReferral(`${window.location.origin}${airlinePath(pubkey)}`, pubkey),
         title: t("share.title", { name: airline.name }),
         text: t("share.text", { routes: summary.routes, aircraft: summary.aircraft }),
         airportByIata: catalogAirportByIata,

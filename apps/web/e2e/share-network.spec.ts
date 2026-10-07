@@ -20,7 +20,7 @@ test("desktop: share my network copies the link and offers the image", async ({
   await page.getByTestId("share-network").click();
   await expect(page.getByText("Link copied")).toBeVisible({ timeout: 30_000 });
   const copied = await page.evaluate(() => navigator.clipboard.readText());
-  expect(copied).toMatch(/\/airline\/npub1[0-9a-z]+$/);
+  expect(copied).toMatch(/\/airline\/(npub1[0-9a-z]+)\?ref=\1$/);
 
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download image" }).click();

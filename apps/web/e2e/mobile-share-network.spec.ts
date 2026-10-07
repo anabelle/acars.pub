@@ -57,7 +57,7 @@ test("mobile: share my network sends the image and the link to the share sheet",
       ).__shared,
   );
   expect(shared.title).toMatch(/on ACARS$/);
-  expect(shared.url).toMatch(/\/airline\/npub1[0-9a-z]+$/);
+  expect(shared.url).toMatch(/\/airline\/(npub1[0-9a-z]+)\?ref=\1$/);
   expect(shared.files).toHaveLength(1);
   expect(shared.files[0]).toMatchObject({ type: "image/png" });
   expect(shared.files[0].name).toMatch(/-network\.png$/);

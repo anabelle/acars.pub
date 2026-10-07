@@ -182,6 +182,7 @@ describe("buildJourneys()", () => {
       firstAssignAt: T0 + 900,
       firstLandingAt: T0 + 900 + 3600,
       lastSeenAt: T0 + 8 * DAY,
+      referrer: null,
     });
     expect(journeys[1].firstLandingAt).toBe(T0 + 300 + FIRST_LANDING_FALLBACK_SEC);
     expect(journeys[2]).toMatchObject({
@@ -284,5 +285,58 @@ describe("formatFunnelReport()", () => {
     });
     expect(ok).toContain("Relays read: 1 of 1. Game events: 0.");
     expect(ok).toContain("median —");
+  });
+});
+
+describe("referrals (S51)", () => {
+  const A = "a".repeat(64);
+  const B = "b".repeat(64);
+  const C = "c".repeat(64);
+
+  it("reads a valid referrer from AIRLINE_CREATE only, never self", () => {
+    const create = (pubkey: string, referrer: unknown) =>
+      parseFunnelEvent(action(pubkey, T0, "AIRLINE_CREATE", WORLD, { referrer }), WORLD);
+    expect(create(B, A)?.referrer).toBe(A);
+    expect(create(A, A)?.referrer).toBeUndefined();
+    expect(create(B, "npub1nothex")?.referrer).toBeUndefined();
+    expect(
+      parseFunnelEvent(action(B, T0, "ROUTE_OPEN", WORLD, { referrer: A }), WORLD)?.referrer,
+    ).toBeUndefined();
+  });
+
+  it("reports referred signups as counts, without pubkeys", () => {
+    const events = collectFunnelEvents(
+      [
+        action(A, T0, "AIRLINE_CREATE"),
+        action(B, T0 + 60, "AIRLINE_CREATE", WORLD, { referrer: A }),
+        action(B, T0 + 120, "ROUTE_OPEN", WORLD, { routeId: "r1", distanceKm: 500 }),
+        action(C, T0 + 180, "AIRLINE_CREATE", WORLD, { referrer: A }),
+      ],
+      WORLD,
+    );
+    expect(buildJourneys(events).map((j) => j.referrer)).toEqual([null, A, A]);
+    const report = formatFunnelReport({
+      worldId: WORLD,
+      sinceSec: T0,
+      untilSec: T0 + 2 * DAY,
+      relays: [{ url: "wss://r", events: events.length }],
+      events,
+    });
+    expect(report).toContain("## Referrals");
+    expect(report).toContain("Referred airlines: 2 of 3 created (67%), from 1 referring player.");
+    expect(report).not.toContain(A);
+    expect(report).not.toContain(B);
+  });
+
+  it("says so when nobody was referred", () => {
+    const events = collectFunnelEvents([action(A, T0, "AIRLINE_CREATE")], WORLD);
+    const report = formatFunnelReport({
+      worldId: WORLD,
+      sinceSec: T0,
+      untilSec: T0 + DAY,
+      relays: [],
+      events,
+    });
+    expect(report).toContain("No referred airlines yet");
   });
 });

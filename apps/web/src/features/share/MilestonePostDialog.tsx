@@ -8,6 +8,7 @@ import { renderAirlineCardPng } from "@/features/airline/utils/ogImage";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 import type { PostableMilestone } from "./milestonePosts";
 import { type NotePoster, nostrPoster } from "./notePoster";
+import { withReferral } from "./referral";
 import { catalogAirportByIata, shareFileName, summaryFromState } from "./shareNetwork";
 
 /**
@@ -70,7 +71,7 @@ export function MilestonePostDialog({
       const note = await poster.build({
         text,
         imageUrl,
-        link: `${window.location.origin}${airlinePath(pubkey)}`,
+        link: withReferral(`${window.location.origin}${airlinePath(pubkey)}`, pubkey),
       });
       await poster.publish(note);
       toast.success(t("milestonePost.posted"));

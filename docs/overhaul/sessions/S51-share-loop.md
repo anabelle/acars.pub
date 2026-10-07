@@ -1,7 +1,7 @@
 # S51 — Share loop + milestone posts
 
-> **Status:** ◐ in progress
-> **Next step:** S51.3
+> **Status:** ☑ ready for review
+> **Next step:** — (awaiting merge of #185)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #185
 >
@@ -39,7 +39,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S51.1** "Share my network" via Web Share + copy fallback. _Done when:_ works on mobile + desktop.
 - [x] **S51.2** Opt-in milestone kind-1 posts with preview. _Done when:_ post appears on relays.
-- [ ] **S51.3** Referral `?ref=` attribution (reward only if D6 decided). _Done when:_ attribution in S04 report.
+- [x] **S51.3** Referral `?ref=` attribution (reward only if D6 decided). _Done when:_ attribution in S04 report.
 
 ## Details & guidance
 
@@ -48,7 +48,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] Share flows work on mobile and desktop; referral attribution appears in the S04 report.
+- [x] Share flows work on mobile and desktop; referral attribution appears in the S04 report.
 
 ## Progress log
 
@@ -89,10 +89,32 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - celebrations: the tier-up share opens the composer, and the first jet toasts once, with its action.
 - **No e2e.** The full flow isn't covered end to end. Tier 1 can only buy turboprops, so the first jet comes with tier 2, which needs about $5M in revenue: out of reach for an e2e run. The fake relay and the sandbox's lack of network also rule out a real relay check here.
 
+2026-10-07 · S51.3 · (this commit) · **Referral attribution.**
+
+- **Capture.** `apps/web/src/features/share/referral.ts`: at startup, `captureReferral` stores the first `?ref=<npub|hex>` seen on the device (first touch wins; blocked storage is harmless). `readReferral` never returns the player themself.
+- **Creation.** `AirlineCreator` passes the referrer, and `createAirline` adds `payload.referrer` (hex) to `AIRLINE_CREATE`, attribution only. The replay ignores it; the action chain hashes it like the rest of the payload.
+- **Share links carry `?ref=`.** "Share my network" and milestone posts link to your page with your own `?ref=`, so visitors who start an airline credit you.
+- **Funnel (S04).** `parseFunnelEvent` reads a valid hex referrer from `AIRLINE_CREATE` (never self), and journeys hold it in memory. The report gains a **Referrals** section: referred airlines out of all created, distinct referring players, and how far the referred got (route, assignment, D1, D7). Counts only, never pubkeys (a test checks).
+- **Not shipped: the referral reward.** D6 makes rewards replay-verified, but a reward claimed by the referrer would need the referred player's log inside the referrer's replay, which clients don't load. Logged as a follow-up that needs a design (e.g. the reward claimed in the referred player's own log).
+- **Tests:**
+  - capture: npub/hex, first touch wins, malformed, blocked storage; never self; link building;
+  - funnel: parsing, journeys, the report section, the empty case;
+  - e2e `referral.spec.ts`: arriving through `/?ref=npub…`, the published `AIRLINE_CREATE` carries the referrer;
+  - the share e2e specs now expect `?ref=` on the shared link.
+
 ## Follow-ups
 
+- Referral reward (D6-compatible design: e.g. a claim in the referred player's own log once they reach a milestone, crediting both).
 - An e2e for milestone posts once there is a test hook to seed an airline at a higher tier (or a debug "simulate tier-up").
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped:**
+  - "Share my network": the network card image plus the public link, via the share sheet or a copied link with the image to download; mobile and desktop e2e.
+  - Opt-in, previewed milestone posts: kind-1 notes for tier-ups and the first jet, with the image on Blossom.
+  - Referral attribution through `?ref=`, from `AIRLINE_CREATE` to the funnel report.
+- **Not shipped:** the referral reward (cross-log verification design needed) and an e2e for milestone posts (needs a higher-tier test airline). See Follow-ups.
+- **Gotchas:**
+  - jsdom has no `URL.createObjectURL`; stub it in component tests that preview images.
+  - Rendering the network PNG takes about a second under jsdom; give share assertions more than the default `waitFor` timeout.
+  - The Nostr package is loaded only when posting (`notePoster.ts`); keep it out of static imports in root-mounted components.
