@@ -1126,6 +1126,10 @@
     "disabledTitle": "Globe prototype is off",
     "disabledBody": "This is an experimental, globe-first interface. Turn it on for this browser to try it.",
     "enable": "Turn it on",
-    "back": "Back to the game"
+    "back": "Back to the game",
+    "planeSummary_one": "{{count}} aircraft in the air",
+    "planeSummary_other": "{{count}} aircraft in the air",
+    "loadLabel": "Synthetic traffic",
+    "loadNone": "real"
   }
 }

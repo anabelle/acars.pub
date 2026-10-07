@@ -1,7 +1,7 @@
 # S45 — Globe-first 3D shell prototype (deck.gl)
 
 > **Status:** ◐ in progress
-> **Next step:** S45.2
+> **Next step:** S45.3
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -37,7 +37,7 @@ Prove or disprove the globe-first 3D interface: the world is the whole UI, with 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S45.1** Flagged `/play` route: deck.gl on globe with 3D arcs. _Done when:_ renders with real routes.
-- [ ] **S45.2** Aircraft layer + synthetic load generator (1k/10k/50k). _Done when:_ fps recorded.
+- [x] **S45.2** Aircraft layer + synthetic load generator (1k/10k/50k). _Done when:_ fps recorded.
 - [ ] **S45.3** Briefing drawer + contextual airport/route/plane cards. _Done when:_ screen recording.
 - [ ] **S45.4** `docs/overhaul/prototype-report.md` with perf + parity checklist. _Done when:_ owner can decide D4.
 
@@ -69,6 +69,28 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Tests:**
   - Unit tests for the flag, arcs, colours, camera focus, `arcPath` and the shim.
   - e2e `play-prototype.spec.ts`: `/play` is off by default. Turned on, it draws the player's launched MAD → BCN as one arc (`data-arc-count`), deck.gl reports frames (`window.__acarsPlayStats`), and "Classic view" goes back.
+
+2026-10-07 · S45.2 · (this commit) · **Aircraft layer and load generator; fps recorded.**
+
+- **Aircraft.** `features/play/aircraft.ts`: every in-flight aircraft (player and rivals) plus `?load=1000|10000|50000` synthetic ones.
+  - Synthetic flights are seeded and drawn between the 2,000 most-populated airports, 300–9,000 km apart. Each loops its leg, so the load stays constant.
+  - Planes ride their route's arc: position along the great circle, altitude from the same curve as the arcs.
+  - Every 200 ms (the S54 map-clock rate), positions are written into typed arrays that deck.gl reads as binary attributes. That is O(N), with no per-plane objects.
+- **Drawn as dots, not icons.** deck.gl 9.4's `IconLayer` drew nothing on the MapLibre v6 globe: not with binary or plain data, and not with an SVG or a PNG atlas. A `ScatterplotLayer` works, and is what the numbers below measure. A further gotcha: deck.gl fetches icon atlases, and the app's CSP blocks `data:` fetches (`connect-src`), so a same-origin file is needed.
+- **Benchmark.** `e2e/play-perf.spec.ts`, serial: `/play?load=N&orbit=1` turns the camera every frame, forcing a full redraw, and samples 10 s after a 3 s warm-up. `S45_PERF_OUT` writes JSON.
+- **Numbers.** CI-class machine, headless Chromium, **software WebGL** (the worst case, as in S54). A GPU desktop and a mid-range Android still need measuring for the report (S45.4).
+
+  |           Load | fps | Position update (JS) | JS heap |
+  | -------------: | --: | -------------------: | ------: |
+  | 0 (globe only) | 8.5 |               0.3 ms |   37 MB |
+  |             1k | 7.2 |               0.7 ms |   37 MB |
+  |            10k | 3.5 |                 4 ms |   35 MB |
+  |            50k | 1.4 |                18 ms |   42 MB |
+  - Under software rendering the globe alone sets the ceiling (8.5 fps). Planes cost little at 1k, then pixels dominate.
+  - The JS update stays well inside the 200 ms clock even at 50k (18 ms, about 9% of a tick), so CPU-side position math scales.
+  - deck.gl counts two frames per browser frame: one per interleaved layer group (arcs, planes).
+
+- **Seen in the screenshots.** Long-haul planes fly visibly high (the 8% peak means about 700 km on a 9,000 km leg) and show past the globe's edge. Cap the altitude if this goes further.
 
 ## Follow-ups
 

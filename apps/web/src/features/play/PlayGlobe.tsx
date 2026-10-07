@@ -4,8 +4,16 @@ import { MapboxOverlay } from "@deck.gl/mapbox";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+import {
+  allocatePlaneBuffers,
+  type PlaneBuffers,
+  type PlaneSchedule,
+  writePlanePositions,
+} from "./aircraft";
 import { playerNetworkFocus, type RouteArc } from "./arcs";
 import { shimMapTransform } from "./mapCompat";
+import { planeLayer } from "./planeLayer";
+import { nowTick } from "./usePlayPlanes";
 
 // Same stable worker copy as the main globe (see WorldMap.tsx): maplibre v6
 // otherwise resolves a worker file Vite never emits.
@@ -14,8 +22,13 @@ maplibregl.config.WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
 /** What the prototype exposes for the perf probe and e2e (S45). */
 export interface PlayGlobeStats {
   arcs: number;
+  planes: number;
   /** Frames deck.gl has drawn. */
   deckFrames: number;
+  /** Browser animation frames (rAF): the real frame rate when the camera moves. */
+  rafFrames: number;
+  /** Moving average of one plane-position update (JS side), ms. */
+  updateMs: number;
 }
 
 declare global {
@@ -25,7 +38,7 @@ declare global {
 }
 
 function stats(): PlayGlobeStats {
-  window.__acarsPlayStats ??= { arcs: 0, deckFrames: 0 };
+  window.__acarsPlayStats ??= { arcs: 0, planes: 0, deckFrames: 0, rafFrames: 0, updateMs: 0 };
   return window.__acarsPlayStats;
 }
 
@@ -42,17 +55,32 @@ function arcLayer(arcs: readonly RouteArc[]) {
   });
 }
 
+/** Same cadence as the main globe's map clock (S54): planes move 5 times a second. */
+const PLANE_CLOCK_MS = 200;
+/** Degrees per frame the camera turns in orbit mode (the fps benchmark). */
+const ORBIT_DEGREES_PER_FRAME = 0.2;
+
 /**
  * The prototype's world (S45.1): a MapLibre globe with deck.gl drawing into
  * the same WebGL context (interleaved), so arcs depth-sort with the planet.
  * The map is created once; data changes only swap deck.gl layers.
  */
-export function PlayGlobe({ arcs }: { arcs: readonly RouteArc[] }) {
+export function PlayGlobe({
+  arcs,
+  planes,
+  orbit = false,
+}: {
+  arcs: readonly RouteArc[];
+  planes: readonly PlaneSchedule[];
+  /** Turn the camera every frame, forcing a full redraw (fps benchmark). */
+  orbit?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const [ready, setReady] = useState(false);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const focusedRef = useRef(false);
+  const arcLayerRef = useRef<PathLayer<RouteArc> | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -95,7 +123,8 @@ export function PlayGlobe({ arcs }: { arcs: readonly RouteArc[] }) {
 
   useEffect(() => {
     if (!ready || !overlayRef.current) return;
-    overlayRef.current.setProps({ layers: [arcLayer(arcs)] });
+    arcLayerRef.current = arcLayer(arcs);
+    overlayRef.current.setProps({ layers: [arcLayerRef.current] });
     stats().arcs = arcs.length;
     // Open on the player's own network, once.
     const focus = focusedRef.current ? null : playerNetworkFocus(arcs);
@@ -106,6 +135,46 @@ export function PlayGlobe({ arcs }: { arcs: readonly RouteArc[] }) {
     }
   }, [arcs, ready]);
 
+  // The plane clock: write every position into typed buffers, hand them to
+  // deck.gl. O(planes) per tick, nothing allocated per plane.
+  useEffect(() => {
+    if (!ready) return;
+    const buffers: PlaneBuffers = allocatePlaneBuffers(planes);
+    stats().planes = planes.length;
+    let version = 0;
+    const tick = () => {
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const started = performance.now();
+      writePlanePositions(planes, nowTick(), buffers);
+      version++;
+      const layers = arcLayerRef.current ? [arcLayerRef.current] : [];
+      overlay.setProps({ layers: [...layers, planeLayer(buffers, version)] });
+      const s = stats();
+      s.updateMs =
+        s.updateMs === 0
+          ? performance.now() - started
+          : s.updateMs * 0.9 + (performance.now() - started) * 0.1;
+    };
+    tick();
+    const timer = window.setInterval(tick, PLANE_CLOCK_MS);
+    return () => window.clearInterval(timer);
+  }, [planes, ready]);
+
+  // Frame counter, and the orbiting camera for the benchmark.
+  useEffect(() => {
+    let frame = 0;
+    const loop = () => {
+      stats().rafFrames++;
+      if (orbit && mapRef.current) {
+        mapRef.current.setBearing(mapRef.current.getBearing() + ORBIT_DEGREES_PER_FRAME);
+      }
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
+  }, [orbit]);
+
   // MapLibre makes its container `position: relative`, so size it from a wrapper.
   return (
     <div className="absolute inset-0">
@@ -114,6 +183,7 @@ export function PlayGlobe({ arcs }: { arcs: readonly RouteArc[] }) {
         data-testid="play-globe"
         data-ready={ready}
         data-arc-count={ready ? arcs.length : 0}
+        data-plane-count={ready ? planes.length : 0}
         className="h-full w-full"
       />
     </div>

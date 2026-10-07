@@ -5,6 +5,7 @@ import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { resolvePlayPrototypeFlag } from "@/features/play/playFlag";
 import { usePlayArcs } from "@/features/play/usePlayArcs";
+import { PLAY_LOADS, parseLoad, usePlayPlanes } from "@/features/play/usePlayPlanes";
 
 // deck.gl + MapLibre load only when the prototype is on.
 const PlayGlobe = lazy(() =>
@@ -54,13 +55,18 @@ export default function PlayPage() {
 function PlayShell() {
   const { t } = useTranslation("game");
   const airline = useAirlineStore((s) => s.airline);
+  const [{ load, orbit }] = useState(() => ({
+    load: parseLoad(window.location.search),
+    orbit: new URLSearchParams(window.location.search).get("orbit") === "1",
+  }));
   const arcs = usePlayArcs();
+  const planes = usePlayPlanes(load);
   const playerArcs = arcs.filter((arc) => arc.isPlayer).length;
 
   return (
     <div data-testid="play-shell" className="relative h-full w-full bg-black">
       <Suspense fallback={null}>
-        <PlayGlobe arcs={arcs} />
+        <PlayGlobe arcs={arcs} planes={planes} orbit={orbit} />
       </Suspense>
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
         <div className="pointer-events-auto rounded-2xl border border-white/10 bg-black/60 px-4 py-2 backdrop-blur">
@@ -71,6 +77,22 @@ function PlayShell() {
           <p data-testid="play-route-summary" className="text-xs text-white/70">
             {t("play.routeSummary", { yours: playerArcs, world: arcs.length })}
           </p>
+          <p data-testid="play-plane-summary" className="text-xs text-white/70">
+            {t("play.planeSummary", { count: planes.length })}
+          </p>
+          {/* Load generator (S45.2): synthetic traffic for the perf report. */}
+          <nav aria-label={t("play.loadLabel")} className="mt-1 flex gap-1">
+            {PLAY_LOADS.map((value) => (
+              <a
+                key={value}
+                href={`/play?load=${value}`}
+                aria-current={value === load ? "true" : undefined}
+                className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${value === load ? "bg-primary text-primary-foreground" : "bg-white/10 text-white/70 hover:bg-white/20"}`}
+              >
+                {value === 0 ? t("play.loadNone") : `+${value / 1000}k`}
+              </a>
+            ))}
+          </nav>
         </div>
         <Link
           to="/"

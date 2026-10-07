@@ -1126,6 +1126,10 @@
     "disabledTitle": "El prototipo de globo está desactivado",
     "disabledBody": "Es una interfaz experimental centrada en el globo. Actívala en este navegador para probarla.",
     "enable": "Activarlo",
-    "back": "Volver al juego"
+    "back": "Volver al juego",
+    "planeSummary_one": "{{count}} avión en el aire",
+    "planeSummary_other": "{{count}} aviones en el aire",
+    "loadLabel": "Tráfico sintético",
+    "loadNone": "real"
   }
 }
