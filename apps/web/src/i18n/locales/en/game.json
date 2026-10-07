@@ -474,6 +474,14 @@
     "guestDescription": "Click any airport to see who flies there. When you're ready, start your own airline — free, about a minute, no sign-up.",
     "guestCta": "Start your airline"
   },
+  "briefing": {
+    "kicker": "Briefing",
+    "cash": "Cash",
+    "routes": "Routes",
+    "inAir": "In the air",
+    "collapse": "Hide the briefing",
+    "expand": "Show the briefing"
+  },
   "corporate": {
     "title": "Corporate",
     "financialPulse": "Financial Pulse",

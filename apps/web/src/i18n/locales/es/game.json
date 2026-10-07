@@ -474,6 +474,14 @@
     "guestDescription": "Haz clic en cualquier aeropuerto para ver quién vuela allí. Cuando quieras, crea tu propia aerolínea: gratis, en un minuto y sin registro.",
     "guestCta": "Crea tu aerolínea"
   },
+  "briefing": {
+    "kicker": "Resumen",
+    "cash": "Caja",
+    "routes": "Rutas",
+    "inAir": "En el aire",
+    "collapse": "Ocultar el resumen",
+    "expand": "Mostrar el resumen"
+  },
   "corporate": {
     "title": "Corporativo",
     "financialPulse": "Pulso Financiero",
