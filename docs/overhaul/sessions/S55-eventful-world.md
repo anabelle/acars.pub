@@ -1,9 +1,9 @@
 # S55 — An eventful real-time world (D5 = option C)
 
-> **Status:** ☑ ready for review
+> **Status:** ☑ merged
 > **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #190
+> **PR:** — (merged in #190)
 >
 > **Track:** Growth · **Size:** M (4 steps) · **Depends on:** S31, S32, S33, S34 · **Unblocks:** — · **Decided by D5 (2026-10-07)**
 >
