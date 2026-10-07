@@ -28,7 +28,6 @@ import {
   addRouteLayers,
   arcCacheKey,
   getSegmentCount,
-  ROUTE_FLOW_STEP_MS,
   routeFlowDash,
   WORLD_LAYER_IDS,
 } from "./layers/routes.js";
@@ -36,6 +35,7 @@ import { addOpportunityLayers, OPPORTUNITY_SOURCE } from "./layers/opportunities
 import { addDataSources } from "./layers/sources.js";
 import { buildOpportunityFeatures, type MapOpportunity } from "./opportunities.js";
 import { mapRenderStats, trackMapRenders } from "./renderStats.js";
+import { initialMapClockState, MAP_CLOCK_MS, planMapClockTick, planWrites } from "./mapClock.js";
 import { DEFAULT_MAP_THEME, getMapPalette, getMapStyleUrl, type MapTheme } from "./theme.js";
 
 // Public API kept on this module (re-exported from the package index).
@@ -797,6 +797,12 @@ export function Globe({
     };
 
     let isAnimating = true;
+    // Route flow (dashes travelling origin → destination): off for reduced motion.
+    const flowMotion = !(
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+    let clock = initialMapClockState();
 
     let lastFrame = 0;
     const animate = (now: number) => {
@@ -805,11 +811,12 @@ export function Globe({
         rafId.current = requestAnimationFrame(animate);
         return;
       }
-      // Throttled to ~5fps: full-fleet interpolation + a setData re-upload of
-      // both GeoJSON sources is far too expensive to run at display rate
-      // (structured clone + worker re-tiling + GPU re-upload). 5 updates per
-      // second still reads as smooth motion for aircraft at map scale.
-      if (now - lastFrame < 200) {
+      // One map clock (S54): flight positions and the route-flow step are
+      // written together every MAP_CLOCK_MS, so MapLibre redraws once per
+      // tick, and not at all when nothing changed. A setData re-upload is a
+      // structured clone + worker re-tiling + GPU re-upload: far too costly
+      // at display rate, and 5 a second still reads as smooth motion.
+      if (now - lastFrame < MAP_CLOCK_MS) {
         rafId.current = requestAnimationFrame(animate);
         return;
       }
@@ -841,15 +848,32 @@ export function Globe({
             now,
           );
 
-      mapRenderStats().requests++;
-      (map.getSource("flights") as maplibregl.GeoJSONSource)?.setData({
-        type: "FeatureCollection",
-        features: flightFeatures,
+      const flowOn =
+        flowMotion &&
+        latestPlayerRouteCount.current > 0 &&
+        Boolean(map.getLayer("arcs-flow-layer"));
+      const plan = planMapClockTick(clock, {
+        flights: flightFeatures.length,
+        globalFlights: globalFlightFeatures.length,
+        flowDash: flowOn ? routeFlowDash(now) : null,
       });
-      (map.getSource("global-flights") as maplibregl.GeoJSONSource)?.setData({
-        type: "FeatureCollection",
-        features: globalFlightFeatures,
-      });
+      clock = plan.next;
+      if (planWrites(plan)) mapRenderStats().requests++;
+      if (plan.uploadFlights) {
+        (map.getSource("flights") as maplibregl.GeoJSONSource)?.setData({
+          type: "FeatureCollection",
+          features: flightFeatures,
+        });
+      }
+      if (plan.uploadGlobalFlights) {
+        (map.getSource("global-flights") as maplibregl.GeoJSONSource)?.setData({
+          type: "FeatureCollection",
+          features: globalFlightFeatures,
+        });
+      }
+      if (plan.flowDash) {
+        map.setPaintProperty("arcs-flow-layer", "line-dasharray", [...plan.flowDash]);
+      }
 
       rafId.current = requestAnimationFrame(animate);
     };
@@ -876,27 +900,6 @@ export function Globe({
       if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", showWorld ? "visible" : "none");
     }
   }, [showWorld, mapLoaded]);
-
-  // =========================================================================
-  // Route flow: dashes travel along the player's routes, origin → destination.
-  // A paint-property step ~10×/s; skipped for reduced motion, hidden tabs and
-  // airlines without routes.
-  // =========================================================================
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!mapLoaded || !map) return;
-    const reduceMotion =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion) return;
-    const id = setInterval(() => {
-      if (document.hidden || latestPlayerRouteCount.current === 0) return;
-      if (!map.getLayer("arcs-flow-layer")) return;
-      mapRenderStats().requests++;
-      map.setPaintProperty("arcs-flow-layer", "line-dasharray", routeFlowDash(performance.now()));
-    }, ROUTE_FLOW_STEP_MS);
-    return () => clearInterval(id);
-  }, [mapLoaded]);
 
   // =========================================================================
   // Initial fly-to on first airport selection or focus change

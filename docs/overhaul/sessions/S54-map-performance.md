@@ -1,9 +1,9 @@
 # S54 — Map performance: stop the constant redraws
 
 > **Status:** ◐ in progress
-> **Next step:** S54.2
+> **Next step:** S54.3
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #183
 >
 > **Track:** Graphics · **Size:** M (4 steps) · **Depends on:** S40–S43 (the globe layers) · **Unblocks:** — · **Not gated**
 >
@@ -44,7 +44,7 @@ The game feels light on any machine, including browsers without GPU acceleration
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S54.1** Perf probe e2e + baseline numbers. _Done when:_ the probe reports redraws/s, draw calls and long tasks for idle play.
-- [ ] **S54.2** One map clock (flights + route flow in the same frame). _Done when:_ idle redraws/s drop to the flight cadence.
+- [x] **S54.2** One map clock (flights + route flow in the same frame). _Done when:_ idle redraws/s drop to the flight cadence.
 - [ ] **S54.3** Low-power mode (software renderer, slow frames, hidden map). _Done when:_ software rendering idles at ≤ ~1–2 redraws/s and the page stays responsive.
 - [ ] **S54.4** CI budget + before/after numbers. _Done when:_ the probe fails CI above budget.
 
@@ -73,6 +73,21 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 | 7.3        | 4.3       | 431     | 978            | 4.3          |
 
 The page is blocked about 98% of the time. Renders are capped by software rendering (~230 ms a frame); `requests` would be ~15/s on a fast machine (5 flight uploads + 10 flow steps) but timers starve here.
+
+2026-10-07 · S54.2 · (this commit) · **One map clock.** New `packages/map/src/mapClock.ts`.
+
+- **One cadence.** `MAP_CLOCK_MS` (200 ms) for everything that animates the globe. `planMapClockTick` (pure) decides each tick's writes:
+  - a flight source uploads while it has aircraft, plus once more to clear it;
+  - the flow dash is set only when its step changes.
+- **One redraw per tick.** The Globe's animation loop now makes those writes in a single task, so MapLibre folds them into one redraw. The separate 100 ms route-flow interval is gone, and `ROUTE_FLOW_STEP_MS` = `MAP_CLOCK_MS` (the flow cycles in 2.8 s instead of 1.4 s).
+- **Idle map.** An airline with nothing in the air no longer re-uploads empty collections 5 times a second, so its map stops redrawing.
+- **Probe:** redraw requests drop from 7.3 to 4.0 per second (about 15 to 5 per second on a GPU machine).
+
+| requests/s | renders/s | draws/s | long-task ms/s | long tasks/s |
+| ---------- | --------- | ------- | -------------- | ------------ |
+| 4.0        | 4.1       | 411     | 972            | 4.1          |
+
+Under software WebGL even 4 frames a second fill the main thread; that's S54.3.
 
 ## Follow-ups
 

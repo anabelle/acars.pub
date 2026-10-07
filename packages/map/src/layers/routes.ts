@@ -102,8 +102,11 @@ export const ROUTE_FLOW_DASHES: readonly (readonly number[])[] = [
   [0, 3.5, 3, 0.5],
 ];
 
-/** Milliseconds per flow step (~10 steps a second keeps it smooth but cheap). */
-export const ROUTE_FLOW_STEP_MS = 100;
+/**
+ * Milliseconds per flow step: one step per map-clock tick (S54, MAP_CLOCK_MS),
+ * so the flow never asks for a redraw of its own.
+ */
+export const ROUTE_FLOW_STEP_MS = 200;
 
 /** The dash pattern for a given animation clock. Pure. */
 export function routeFlowDash(nowMs: number): number[] {
