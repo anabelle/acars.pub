@@ -1090,5 +1090,14 @@
     },
     "ticker": "Event",
     "tickerValue": "{{kind}} · {{place}} · {{time}}"
+  },
+  "share": {
+    "button": "Share my network",
+    "sharing": "Preparing…",
+    "title": "{{name}} on ACARS",
+    "text": "{{routes}} routes, {{aircraft}} aircraft and counting. Follow my airline:",
+    "copied": "Link copied",
+    "download": "Download image",
+    "failed": "Couldn't share"
   }
 }

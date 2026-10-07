@@ -22,6 +22,7 @@ import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse"
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 import { WorldEventsCard } from "@/features/events/WorldEventsCard";
+import { ShareNetworkButton } from "@/features/share/ShareNetworkButton";
 import { NotificationSettingsCard } from "@/features/notifications/NotificationSettingsCard";
 import { DailyObjectivesCard } from "./DailyObjectivesCard";
 import { FirstHourChecklist } from "./FirstHourChecklist";
@@ -145,6 +146,7 @@ export function OperationsCockpit() {
   const { t } = useTranslation(["common", "game"]);
   const navigate = useNavigate();
   const { airline: activeAirline, fleet, routes, timeline, isViewingOther } = useActiveAirline();
+  const ownPubkey = useAirlineStore((state) => state.pubkey);
   const identityStatus = useAirlineStore((state) => state.identityStatus);
   const competitors = useAirlineStore((state) => state.competitors);
   const viewAs = useAirlineStore((state) => state.viewAs);
@@ -580,6 +582,15 @@ export function OperationsCockpit() {
                     competitors: numberFormatter.format(competitors.size),
                   })}
             </p>
+            {!isViewingOther && ownPubkey && (
+              <ShareNetworkButton
+                className="mt-3"
+                pubkey={ownPubkey}
+                airline={activeAirline}
+                fleet={fleet}
+                routes={routes}
+              />
+            )}
           </div>
           <button
             type="button"
