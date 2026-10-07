@@ -12,6 +12,8 @@ test.use(MADRID_PLAYER);
  * - `renders`: frames MapLibre actually drew;
  * - `draws`: WebGL draw calls;
  * - `longTaskMs`: main-thread time lost to tasks over 50 ms.
+ * The sample is taken while the route's aircraft is in the air: game time is
+ * stepped forward until the map starts uploading flight positions.
  * The headless browser renders WebGL in software, the slow case players
  * without GPU acceleration live in.
  */
@@ -65,6 +67,8 @@ const snapshot = (page: import("@playwright/test").Page) =>
 test("perf probe: idle play on the map", async ({ page, problems }) => {
   test.setTimeout(240_000);
   await page.addInitScript(PROBES);
+  // Fake timers with time flowing normally, so we can jump to a departure.
+  await page.clock.install();
   await createAirline(page);
 
   // One flying route so aircraft move and the route flows.
@@ -83,7 +87,23 @@ test("perf probe: idle play on the map", async ({ page, problems }) => {
     .first()
     .click();
   await navigateInApp(page, "/");
-  await page.waitForTimeout(3_000);
+
+  // Step game time until the aircraft is airborne (the clock uploads positions).
+  const requests = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as { __acarsMapStats?: { requests: number } }).__acarsMapStats
+          ?.requests ?? 0,
+    );
+  let airborne = false;
+  for (let step = 0; step < 60 && !airborne; step++) {
+    const start = await requests();
+    await page.clock.fastForward("00:05:00");
+    await page.waitForTimeout(1_500);
+    airborne = (await requests()) > start;
+  }
+  expect(airborne).toBe(true);
+  await page.waitForTimeout(2_000);
 
   const before = await snapshot(page);
   await page.waitForTimeout(SAMPLE_MS);
@@ -92,7 +112,12 @@ test("perf probe: idle play on the map", async ({ page, problems }) => {
   const seconds = SAMPLE_MS / 1000;
   const rate = (key: keyof Snapshot) =>
     Math.round(((after[key] - before[key]) / seconds) * 10) / 10;
+  const lowPower = await page.evaluate(
+    () =>
+      (window as unknown as { __acarsMapStats?: { lowPower: boolean } }).__acarsMapStats?.lowPower,
+  );
   const result = {
+    lowPower,
     requestsPerSecond: rate("requests"),
     rendersPerSecond: rate("renders"),
     drawsPerSecond: rate("draws"),

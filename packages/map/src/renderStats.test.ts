@@ -8,7 +8,7 @@ afterEach(() => {
 describe("map render stats", () => {
   it("is one shared counter object on the page", () => {
     const stats = mapRenderStats();
-    expect(stats).toEqual({ renders: 0, requests: 0 });
+    expect(stats).toEqual({ renders: 0, requests: 0, lowPower: false });
     expect(mapRenderStats()).toBe(stats);
     expect((globalThis as { __acarsMapStats?: unknown }).__acarsMapStats).toBe(stats);
   });

@@ -36,6 +36,12 @@ import { addDataSources } from "./layers/sources.js";
 import { buildOpportunityFeatures, type MapOpportunity } from "./opportunities.js";
 import { mapRenderStats, trackMapRenders } from "./renderStats.js";
 import { initialMapClockState, MAP_CLOCK_MS, planMapClockTick, planWrites } from "./mapClock.js";
+import {
+  FrameCostGovernor,
+  isSoftwareRenderer,
+  LOW_POWER_CLOCK_MS,
+  webglRenderer,
+} from "./renderMode.js";
 import { DEFAULT_MAP_THEME, getMapPalette, getMapStyleUrl, type MapTheme } from "./theme.js";
 
 // Public API kept on this module (re-exported from the package index).
@@ -349,6 +355,10 @@ export function Globe({
       zoom: initialZoom,
       pitch: 0,
       clickTolerance: 10,
+      // No symbol cross-fade (S54): every flight-position upload re-places
+      // the aircraft icons, and a 300 ms fade turns each upload into several
+      // extra frames. Icons simply move instead.
+      fadeDuration: 0,
     });
 
     map.doubleClickZoom.disable();
@@ -804,10 +814,47 @@ export function Globe({
     );
     let clock = initialMapClockState();
 
+    // Low-power rendering (S54.3): on from the start with a software WebGL
+    // renderer; otherwise switched by measured frame cost.
+    const stats = mapRenderStats();
+    const canvas = map.getCanvas();
+    const renderer = webglRenderer(
+      (canvas.getContext("webgl2") as WebGL2RenderingContext | null) ??
+        (canvas.getContext("webgl") as WebGLRenderingContext | null),
+    );
+    const governor = new FrameCostGovernor({ lowPower: isSoftwareRenderer(renderer) });
+    const applyPowerMode = (lowPower: boolean) => {
+      stats.lowPower = lowPower;
+      // Fewer pixels per frame: the biggest saving when the GPU is emulated.
+      const ratio = lowPower ? 1 : window.devicePixelRatio || 1;
+      if (map.getPixelRatio() !== ratio) map.setPixelRatio(ratio);
+    };
+    applyPowerMode(governor.lowPower);
+
+    // No ticks while the map is off screen (e.g. a full-screen panel on mobile).
+    let mapVisible = true;
+    const visibility =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver((entries) => {
+            mapVisible = entries.some((entry) => entry.isIntersecting);
+          })
+        : null;
+    visibility?.observe(canvas);
+
     let lastFrame = 0;
+    let lastRafAt: number | null = null;
+    let rendersAtLastRaf = stats.renders;
     const animate = (now: number) => {
       if (!isAnimating || !mapRef.current) return;
-      if (document.hidden) {
+      // Frame cost: the gap between two animation frames with a map redraw
+      // in between. It doesn't depend on how often we draw.
+      if (lastRafAt !== null && stats.renders !== rendersAtLastRaf) {
+        const wasLowPower = governor.lowPower;
+        if (governor.sample(now - lastRafAt) !== wasLowPower) applyPowerMode(governor.lowPower);
+      }
+      lastRafAt = now;
+      rendersAtLastRaf = stats.renders;
+      if (document.hidden || !mapVisible) {
         rafId.current = requestAnimationFrame(animate);
         return;
       }
@@ -816,7 +863,7 @@ export function Globe({
       // tick, and not at all when nothing changed. A setData re-upload is a
       // structured clone + worker re-tiling + GPU re-upload: far too costly
       // at display rate, and 5 a second still reads as smooth motion.
-      if (now - lastFrame < MAP_CLOCK_MS) {
+      if (now - lastFrame < (governor.lowPower ? LOW_POWER_CLOCK_MS : MAP_CLOCK_MS)) {
         rafId.current = requestAnimationFrame(animate);
         return;
       }
@@ -848,8 +895,10 @@ export function Globe({
             now,
           );
 
+      // The route flow is decoration: off in low-power mode.
       const flowOn =
         flowMotion &&
+        !governor.lowPower &&
         latestPlayerRouteCount.current > 0 &&
         Boolean(map.getLayer("arcs-flow-layer"));
       const plan = planMapClockTick(clock, {
@@ -858,7 +907,7 @@ export function Globe({
         flowDash: flowOn ? routeFlowDash(now) : null,
       });
       clock = plan.next;
-      if (planWrites(plan)) mapRenderStats().requests++;
+      if (planWrites(plan)) stats.requests++;
       if (plan.uploadFlights) {
         (map.getSource("flights") as maplibregl.GeoJSONSource)?.setData({
           type: "FeatureCollection",
@@ -882,6 +931,7 @@ export function Globe({
 
     return () => {
       isAnimating = false;
+      visibility?.disconnect();
       if (nightOverlayTimer.current) {
         clearInterval(nightOverlayTimer.current);
         nightOverlayTimer.current = null;

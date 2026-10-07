@@ -10,6 +10,8 @@ import type * as maplibregl from "maplibre-gl";
 export interface MapRenderStats {
   renders: number;
   requests: number;
+  /** Whether low-power rendering is on (S54.3). */
+  lowPower: boolean;
 }
 
 type StatsGlobal = { __acarsMapStats?: MapRenderStats };
@@ -17,7 +19,7 @@ type StatsGlobal = { __acarsMapStats?: MapRenderStats };
 /** The page-wide counters (on `globalThis`, i.e. `window`), created on first use. */
 export function mapRenderStats(): MapRenderStats {
   const g = globalThis as StatsGlobal;
-  g.__acarsMapStats ??= { renders: 0, requests: 0 };
+  g.__acarsMapStats ??= { renders: 0, requests: 0, lowPower: false };
   return g.__acarsMapStats;
 }
 

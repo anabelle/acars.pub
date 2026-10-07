@@ -1,7 +1,7 @@
 # S54 — Map performance: stop the constant redraws
 
 > **Status:** ◐ in progress
-> **Next step:** S54.3
+> **Next step:** S54.4
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #183
 >
@@ -45,7 +45,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S54.1** Perf probe e2e + baseline numbers. _Done when:_ the probe reports redraws/s, draw calls and long tasks for idle play.
 - [x] **S54.2** One map clock (flights + route flow in the same frame). _Done when:_ idle redraws/s drop to the flight cadence.
-- [ ] **S54.3** Low-power mode (software renderer, slow frames, hidden map). _Done when:_ software rendering idles at ≤ ~1–2 redraws/s and the page stays responsive.
+- [x] **S54.3** Low-power mode (software renderer, slow frames, hidden map). _Done when:_ software rendering idles at ≤ ~1–2 redraws/s and the page stays responsive.
 - [ ] **S54.4** CI budget + before/after numbers. _Done when:_ the probe fails CI above budget.
 
 ## Details & guidance
@@ -89,9 +89,28 @@ The page is blocked about 98% of the time. Renders are capped by software render
 
 Under software WebGL even 4 frames a second fill the main thread; that's S54.3.
 
+2026-10-07 · S54.3 · (this commit) · **Low-power mode.** New `packages/map/src/renderMode.ts`.
+
+- **Switching on.** Low-power mode starts on when the unmasked WebGL renderer is a software one (SwiftShader, llvmpipe, softpipe, "Basic Render Driver"). Otherwise `FrameCostGovernor` switches it on when the smoothed frame cost passes 100 ms, and back off only after 20 frames under 40 ms. Frame cost is the gap between two animation frames with a map redraw in between, which doesn't depend on how often we draw, so the mode can't oscillate.
+- **In low-power mode:** the map clock ticks once a second, the route flow is off, and the canvas renders at 1× pixel ratio. Aircraft still move.
+- **Always on, for everyone:**
+  - no clock ticks while the map canvas is off screen (`IntersectionObserver`);
+  - no symbol cross-fade (`fadeDuration: 0`). The 300 ms fade turned every position upload into several extra frames.
+- **`__acarsMapStats.lowPower`** reports the mode.
+- **Probe.** It now steps game time until the route's aircraft is airborne (MAD → BCN flies once a day, and an idle map now draws nothing at all), then samples 15 s mid-flight:
+
+| state                        | requests/s | renders/s | draws/s | long-task ms/s |
+| ---------------------------- | ---------- | --------- | ------- | -------------- |
+| low-power, before fade fix   | 0.9        | 3.3       | 367     | 786            |
+| low-power, `fadeDuration: 0` | 0.9        | 2.1       | 227     | 451            |
+
+- **Remaining cost.** About 2 frames per upload is MapLibre's own GeoJSON round trip: a frame at `setData`, and one when the worker returns the tiles.
+- **Idle map.** With no aircraft in the air, the map draws nothing at all: 0 requests and 0 renders (verified while debugging).
+
 ## Follow-ups
 
-_None yet._
+- A visible "Performance mode" toggle (force low-power on/off) in settings.
+- Move flight positions off GeoJSON `setData` (e.g. a custom layer that animates on the GPU) to drop the worker round trip.
 
 ## Handoff notes
 
