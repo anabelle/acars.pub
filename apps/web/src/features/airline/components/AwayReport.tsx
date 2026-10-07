@@ -1,11 +1,14 @@
 import type { FixedPoint } from "@acars/core";
 import { fpToNumber, TICKS_PER_HOUR } from "@acars/core";
+import { useAirlineStore } from "@acars/store";
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Plane, TrendingDown, TrendingUp, Users, X } from "lucide-react";
+import { ChevronRight, History, Plane, TrendingDown, TrendingUp, Users, X } from "lucide-react";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { useAwayReport } from "@/features/airline/hooks/useAwayReport";
+import { playTimeLapse } from "@/features/airline/lib/timeLapseState";
 import type { RouteResult, TimelineSummary } from "@/features/airline/utils/summarizeTimeline";
+import { buildTimeLapse } from "@/features/airline/utils/timeLapse";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 
 const money = new Intl.NumberFormat("en-US", {
@@ -81,6 +84,18 @@ export function AwayReportDialog({
   const ProfitIcon = profitable ? TrendingUp : TrendingDown;
   const quiet = summary.flights === 0;
   const duration = durationParts(summary.toTick - summary.coveredFromTick);
+  // The replay is built on demand from the timeline (S55.3); the store's
+  // timeline only changes once per tick, so this stays cheap.
+  const timeline = useAirlineStore((state) => state.timeline);
+  const lapse = React.useMemo(
+    () => (quiet ? null : buildTimeLapse(timeline, summary.coveredFromTick, summary.toTick)),
+    [quiet, timeline, summary.coveredFromTick, summary.toTick],
+  );
+  const watch = () => {
+    if (!lapse) return;
+    onClose();
+    playTimeLapse(lapse);
+  };
 
   React.useEffect(() => {
     closeRef.current?.focus();
@@ -257,6 +272,18 @@ export function AwayReportDialog({
             <p className="text-[11px] text-muted-foreground/80">
               {t("awayReport.partial", { ns: "game" })}
             </p>
+          ) : null}
+
+          {lapse ? (
+            <button
+              type="button"
+              onClick={watch}
+              data-testid="away-report-watch"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/50 bg-primary/10 px-4 py-2.5 text-sm font-bold text-primary hover:bg-primary/20"
+            >
+              <History className="h-4 w-4" aria-hidden="true" />
+              {t("awayReport.watch", { ns: "game", count: lapse.legs.length })}
+            </button>
           ) : null}
 
           <div className="flex flex-col gap-2 sm:flex-row-reverse">

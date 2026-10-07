@@ -977,7 +977,9 @@
     "partial": "Only the most recent events are kept, so this covers the latest part of your absence.",
     "continue": "Back to my airline",
     "close": "Close report",
-    "activity": "Full activity log"
+    "activity": "Full activity log",
+    "watch_one": "Watch what happened (1 flight)",
+    "watch_other": "Watch what happened ({{count}} flights)"
   },
   "milestones": {
     "toastTitle": "Milestone reached",
@@ -1156,5 +1158,10 @@
       "inAir": "In the air"
     },
     "fps": "{{fps}} fps"
+  },
+  "timeLapse": {
+    "speed": "×{{speed}}",
+    "landed": "{{landed}} of {{total}} flights landed",
+    "close": "Stop the replay"
   }
 }

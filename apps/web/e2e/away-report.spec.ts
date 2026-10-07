@@ -1,13 +1,11 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { createAirline, MADRID_PLAYER, navigateInApp } from "./signup";
 
 test.use(MADRID_PLAYER);
 
-test("after 12 hours away, the report tells what the airline did and links to it", async ({
-  page,
-  problems,
-}) => {
-  test.setTimeout(240_000);
+/** A Madrid airline flying MAD → BCN whose player comes back after 12 hours. */
+async function flyThenLeave(page: Page) {
   // Fake timers with time flowing normally, so we can jump ahead later.
   await page.clock.install();
   await createAirline(page);
@@ -31,6 +29,14 @@ test("after 12 hours away, the report tells what the airline did and links to it
 
   // The player leaves for 12 hours (the tab stays open: the device sleeps).
   await page.clock.fastForward("12:00:00");
+}
+
+test("after 12 hours away, the report tells what the airline did and links to it", async ({
+  page,
+  problems,
+}) => {
+  test.setTimeout(240_000);
+  await flyThenLeave(page);
 
   const report = page.getByTestId("away-report");
   await expect(report).toBeVisible({ timeout: 180_000 });
@@ -49,5 +55,38 @@ test("after 12 hours away, the report tells what the airline did and links to it
   await report.getByRole("link", { name: /best route/i }).click();
   await expect(report).toHaveCount(0);
   await expect(page).toHaveURL(/\/airport\/BCN/);
+  expect(problems.pageErrors).toEqual([]);
+});
+
+test("the away report replays the missed flights on the map (S55.3)", async ({
+  page,
+  problems,
+}) => {
+  test.setTimeout(240_000);
+  await flyThenLeave(page);
+
+  const report = page.getByTestId("away-report");
+  await expect(report).toBeVisible({ timeout: 180_000 });
+  await report.getByTestId("away-report-watch").click();
+  await expect(report).toHaveCount(0);
+
+  // The replay plays the night in at most 30 s: flights land as it runs.
+  const bar = page.getByTestId("time-lapse-bar");
+  await expect(bar).toBeVisible();
+  const total = Number(await bar.getAttribute("data-total"));
+  expect(total).toBeGreaterThan(1);
+  await page.clock.fastForward(10_000);
+  await expect
+    .poll(async () => Number(await bar.getAttribute("data-landed")), { timeout: 30_000 })
+    .toBeGreaterThan(0);
+
+  if (process.env.TIME_LAPSE_SCREENSHOT) {
+    await page.screenshot({ path: process.env.TIME_LAPSE_SCREENSHOT });
+  }
+
+  // It ends by itself and hands the map back to the live airline (the stop
+  // button is covered by the component test; the clock keeps running here).
+  await page.clock.fastForward(40_000);
+  await expect(bar).toHaveCount(0, { timeout: 30_000 });
   expect(problems.pageErrors).toEqual([]);
 });

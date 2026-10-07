@@ -1,20 +1,24 @@
 import type { AircraftInstance, Airport, Route } from "@acars/core";
 import { TICK_DURATION } from "@acars/core";
 import { getAirports } from "@acars/data";
-import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
-import { RouteLegend } from "@/features/network/components/RouteLegend";
-import { useHubOpportunities } from "@/features/network/hooks/useHubOpportunities";
-import type { HubOpportunity } from "@/features/network/utils/hubOpportunities";
-import { useLandingBursts } from "@/features/network/hooks/useLandingBursts";
-import { toMapRoutes } from "@/features/network/utils/mapRoutes";
 import {
-  DEFAULT_MAP_THEME,
   Globe as CoreGlobe,
+  DEFAULT_MAP_THEME,
   getGreatCircleInterpolation,
   type MapTheme,
 } from "@acars/map";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { config as maplibreConfig } from "maplibre-gl";
+import { stopTimeLapse, useTimeLapse } from "@/features/airline/lib/timeLapseState";
+import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
+import { RouteLegend } from "@/features/network/components/RouteLegend";
+import { TimeLapseBar } from "@/features/network/components/TimeLapseBar";
+import { useHubOpportunities } from "@/features/network/hooks/useHubOpportunities";
+import { useLandingBursts } from "@/features/network/hooks/useLandingBursts";
+import { useTimeLapsePlayback } from "@/features/network/hooks/useTimeLapsePlayback";
+import type { HubOpportunity } from "@/features/network/utils/hubOpportunities";
+import { toMapRoutes } from "@/features/network/utils/mapRoutes";
+
 // maplibre v6 resolves its worker at runtime from import.meta.url
 // (`/assets/maplibre-gl-worker.mjs`), a file Vite never emits — the module
 // worker 404s (text/html MIME error) and the canvas stays black while the
@@ -23,6 +27,7 @@ import { config as maplibreConfig } from "maplibre-gl";
 // names side by side: they are copied to public/maplibre/ (verbatim from
 // maplibre-gl@6.9.0 dist) and WORKER_URL points at the stable copy.
 maplibreConfig.WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
+
 import { Moon, Sun, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -54,6 +59,8 @@ const MAP_THEME_STORAGE_KEY = "acars:map:theme";
 const SHOW_WORLD_STORAGE_KEY = "acars_map_show_world";
 const SHOW_OPPORTUNITIES_STORAGE_KEY = "acars_map_show_opportunities";
 const NO_OPPORTUNITIES: HubOpportunity[] = [];
+const NO_FLEET: AircraftInstance[] = [];
+const NO_BURSTS: ReturnType<typeof useLandingBursts> = [];
 
 /** Per-viewer preference; off by default (it runs projections in a worker). */
 function getSavedShowOpportunities(): boolean {
@@ -135,6 +142,10 @@ export function WorldMap() {
   const routes = useAirlineStore((s) => s.routes);
   const timeline = useAirlineStore((s) => s.timeline);
   const landingBursts = useLandingBursts(lookupAirport);
+  // A time-lapse of the absence (S55.3) takes the map over while it plays:
+  // the replayed flights on the replay's clock, nothing live.
+  const timeLapse = useTimeLapse();
+  const replay = useTimeLapsePlayback(timeLapse, fleet);
   const routePerformance = useRoutePerformance(timeline, routes);
   // The player's routes styled by profit and frequency on the globe (S41).
   const playerRoutes = useMemo(
@@ -373,8 +384,8 @@ export function WorldMap() {
         onAircraftSelect={handleAircraftSelect}
         onMapClick={handleMapClick}
         groundPresence={groundPresence}
-        fleet={fleet}
-        competitorFleet={competitorFleet}
+        fleet={replay ? replay.fleet : fleet}
+        competitorFleet={replay ? NO_FLEET : competitorFleet}
         competitorRoutes={competitorRoutes}
         playerRoutes={playerRoutes}
         showWorld={showWorld}
@@ -383,11 +394,14 @@ export function WorldMap() {
         playerHubs={playerHubs}
         competitorHubColors={competitorHubColors}
         playerRouteDestinations={playerRouteDestinations}
-        engineClock={engineClockRef}
-        bursts={landingBursts}
+        engineClock={replay ? replay.clock : engineClockRef}
+        bursts={replay ? NO_BURSTS : landingBursts}
         opportunities={mapOpportunities}
         theme={mapTheme}
       />
+      {replay && timeLapse ? (
+        <TimeLapseBar lapse={timeLapse} elapsed={replay.elapsed} onClose={stopTimeLapse} />
+      ) : null}
       {playerRoutes.length > 0 ? (
         <RouteLegend showWorld={showWorld} onShowWorldChange={setShowWorld} />
       ) : null}

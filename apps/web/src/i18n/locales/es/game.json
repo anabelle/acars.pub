@@ -977,7 +977,9 @@
     "partial": "Solo se guardan los eventos más recientes, así que esto cubre la última parte de tu ausencia.",
     "continue": "Volver a mi aerolínea",
     "close": "Cerrar informe",
-    "activity": "Registro completo"
+    "activity": "Registro completo",
+    "watch_one": "Ver lo que pasó (1 vuelo)",
+    "watch_other": "Ver lo que pasó ({{count}} vuelos)"
   },
   "milestones": {
     "toastTitle": "Hito conseguido",
@@ -1156,5 +1158,10 @@
       "inAir": "En el aire"
     },
     "fps": "{{fps}} fps"
+  },
+  "timeLapse": {
+    "speed": "×{{speed}}",
+    "landed": "{{landed}} de {{total}} vuelos aterrizados",
+    "close": "Parar la repetición"
   }
 }

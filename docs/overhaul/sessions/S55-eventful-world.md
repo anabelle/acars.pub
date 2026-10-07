@@ -1,7 +1,7 @@
 # S55 — An eventful real-time world (D5 = option C)
 
 > **Status:** ◐ in progress
-> **Next step:** S55.3
+> **Next step:** S55.4
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #190
 >
@@ -46,7 +46,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S55.1** Short first hops: rank starter suggestions so a new airline's top picks fly about 1–2 h; checklist copy says when the first landing will come. _Done when:_ unit tests + e2e (a new airline's first suggestion lands within 2 h).
 - [x] **S55.2** Event-themed objectives ("fly into the festival at BCN"), deterministic from `getEventsForDay`, claimable like other objectives (replay-verified, D6). _Done when:_ core tests (determinism, verification) + component test.
-- [ ] **S55.3** Time-lapse replay: "Watch what happened" on the away report animates the missed flights on the map at 60×, from the timeline (no simulation). _Done when:_ component tests + e2e + screenshot.
+- [x] **S55.3** Time-lapse replay: "Watch what happened" on the away report animates the missed flights on the map at 60×, from the timeline (no simulation). _Done when:_ component tests + e2e + screenshot.
 - [ ] **S55.4** Local notification when an event starts on one of your routes (respecting notification settings). _Done when:_ unit tests + e2e with a pinned clock.
 
 ## Acceptance criteria
@@ -71,13 +71,22 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Checklist copy:** unchanged. The badge says when the first landing comes, right where the route is chosen, which covers the brief's ask.
 - **Tests:** unit tests for `rankForFirstRoute` (order, profit, ties) and `flightHours`. The e2e (`first-hour.spec.ts`) checks that a new airline's top suggestion carries the badge.
 
-2026-10-07 · S55.2 · (this commit) · **Event-themed daily objectives.**
+2026-10-07 · S55.2 · 2572f27 · **Event-themed daily objectives.**
 
 - **Core:** `eventObjectiveForDate(date)` picks that UTC day's first-starting airport event that lifts demand (festival, sports final), scanning `getEventsForDay` from 4 engine days before (so events already running count). Ties go to the lower id. It becomes a fourth objective, `routeToEvent`, appended after the three template draws, so the existing objectives and their ids don't change. Reward: $150k (`EVENT_OBJECTIVE_REWARD`).
 - **Progress:** a route opened that day with the event's airport at either end. Days without such an event (34 of 365 in 2026) keep the three objectives.
 - **Claims:** same path as the others. `verifyObjectiveClaim` rebuilds the day's objectives, so the replay check (D6) covers it with no store change.
 - **UI:** "Festival at BCN: open a route there" (en/es), reusing the world-event kind names.
 - **Tests:** core (pinned 2026-10-07 → festival at BCN, null on 2026-01-03, either-end evaluation, claim accepted/incomplete) and the card (title, completes on a route to BCN, Spanish).
+
+2026-10-07 · S55.3 · (this commit) · **Time-lapse of the absence.**
+
+- **Away report:** a "Watch what happened (N flights)" button, shown when at least one landing in the window can be replayed. It closes the report and plays the replay on the main map.
+- **From the timeline, no simulation:** each landing event carries its flight duration, so a leg is (landing tick − duration → landing tick). `buildTimeLapse` spans the first departure (or the start of the absence) to the last landing. Cosmetic only: game time and state are untouched (Rule 2).
+- **Speed:** at least 60×, but never longer than 30 s, so the speed rises to fit (12 hours plays at about 1,440×). The brief said 60×; at 60× a night would take 12 minutes, so the 30 s cap follows the "an evening in 20 seconds" intent in `tycoon-mode.md`.
+- **Map:** while it plays, `WorldMap` hands the globe the replayed legs in the air as stand-in aircraft (the real aircraft's model, so the right icon) on a replay clock passed through the existing `engineClock` ref. Rivals and landing bursts are hidden. The clock moves every frame through a ref; the plane list changes only when a leg departs or lands (checked 5×/s), so React barely re-renders. It hands the map back 2 s after the end, or on Stop/Escape.
+- **Replay bar** (portaled above the app chrome): replayed local time, speed, "N of M flights landed", progress, Stop. en/es.
+- **Tests:** `timeLapse` utils (legs, window, speed, clock, planes in the air, stand-ins), the playback hook (fake rAF: planes per leg, auto-stop), the bar (progress, stop, Spanish) and the away report button. The e2e (`away-report.spec.ts`) plays the replay after 12 h away, sees flights land and the map handed back. Screenshot: [`media/s55/time-lapse.png`](../media/s55/time-lapse.png).
 
 ## Follow-ups
 

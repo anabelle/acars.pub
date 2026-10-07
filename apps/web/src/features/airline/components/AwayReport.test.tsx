@@ -36,10 +36,19 @@ vi.mock("@tanstack/react-router", () => ({
   },
 }));
 
+const timeLapse = vi.hoisted(() => ({ playTimeLapse: vi.fn() }));
+vi.mock("@/features/airline/lib/timeLapseState", () => timeLapse);
+
+import type { TimelineEvent } from "@acars/core";
+import { useAirlineStore } from "@acars/store";
 import type { TimelineSummary } from "@/features/airline/utils/summarizeTimeline";
 import { AwayReportDialog } from "./AwayReport";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  timeLapse.playTimeLapse.mockClear();
+  useAirlineStore.setState({ timeline: [] });
+});
 
 const base: TimelineSummary = {
   fromTick: 0,
@@ -134,5 +143,33 @@ describe("AwayReportDialog", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "EC-AAA" }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers the time-lapse of the flights that landed, and starts it", () => {
+    const landing = (id: string, tick: number) =>
+      ({
+        id,
+        tick,
+        timestamp: 0,
+        type: "landing",
+        description: "",
+        aircraftId: "ac1",
+        originIata: "MAD",
+        destinationIata: "BCN",
+        details: { flightDurationTicks: 1_500 },
+      }) as TimelineEvent;
+    useAirlineStore.setState({ timeline: [landing("l1", 3_000), landing("l2", 6_000)] });
+    const onClose = vi.fn();
+    render(<AwayReportDialog summary={base} onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "Watch what happened (2 flights)" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(timeLapse.playTimeLapse).toHaveBeenCalledWith(
+      expect.objectContaining({ startTick: 1_500, endTick: 6_000 }),
+    );
+  });
+
+  it("has no time-lapse when no landing can be replayed", () => {
+    render(<AwayReportDialog summary={base} onClose={() => {}} />);
+    expect(screen.queryByTestId("away-report-watch")).not.toBeInTheDocument();
   });
 });
