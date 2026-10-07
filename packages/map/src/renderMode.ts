@@ -11,6 +11,23 @@
 /** Map-clock period in low-power mode. */
 export const LOW_POWER_CLOCK_MS = 1000;
 
+/** localStorage key forcing a mode: "low" or "full" (unset: automatic). */
+export const RENDER_MODE_STORAGE_KEY = "acars_map_render_mode";
+
+export type RenderModeOverride = "low" | "full";
+
+/** The forced render mode stored in `storage`, if any. Never throws. */
+export function readRenderModeOverride(
+  storage: Pick<Storage, "getItem"> | null | undefined,
+): RenderModeOverride | null {
+  try {
+    const value = storage?.getItem(RENDER_MODE_STORAGE_KEY);
+    return value === "low" || value === "full" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 const SOFTWARE_RENDERERS = /swiftshader|llvmpipe|softpipe|software|basic render driver/i;
 
 /** Whether a WebGL renderer string names a software rasteriser. */

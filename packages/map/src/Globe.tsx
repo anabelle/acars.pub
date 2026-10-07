@@ -40,6 +40,7 @@ import {
   FrameCostGovernor,
   isSoftwareRenderer,
   LOW_POWER_CLOCK_MS,
+  readRenderModeOverride,
   webglRenderer,
 } from "./renderMode.js";
 import { DEFAULT_MAP_THEME, getMapPalette, getMapStyleUrl, type MapTheme } from "./theme.js";
@@ -815,14 +816,20 @@ export function Globe({
     let clock = initialMapClockState();
 
     // Low-power rendering (S54.3): on from the start with a software WebGL
-    // renderer; otherwise switched by measured frame cost.
+    // renderer; otherwise switched by measured frame cost. A stored override
+    // ("low" / "full") fixes the mode instead.
     const stats = mapRenderStats();
     const canvas = map.getCanvas();
     const renderer = webglRenderer(
       (canvas.getContext("webgl2") as WebGL2RenderingContext | null) ??
         (canvas.getContext("webgl") as WebGLRenderingContext | null),
     );
-    const governor = new FrameCostGovernor({ lowPower: isSoftwareRenderer(renderer) });
+    const override = readRenderModeOverride(
+      typeof localStorage === "undefined" ? null : localStorage,
+    );
+    const governor = new FrameCostGovernor({
+      lowPower: override ? override === "low" : isSoftwareRenderer(renderer),
+    });
     const applyPowerMode = (lowPower: boolean) => {
       stats.lowPower = lowPower;
       // Fewer pixels per frame: the biggest saving when the GPU is emulated.
@@ -848,7 +855,7 @@ export function Globe({
       if (!isAnimating || !mapRef.current) return;
       // Frame cost: the gap between two animation frames with a map redraw
       // in between. It doesn't depend on how often we draw.
-      if (lastRafAt !== null && stats.renders !== rendersAtLastRaf) {
+      if (!override && lastRafAt !== null && stats.renders !== rendersAtLastRaf) {
         const wasLowPower = governor.lowPower;
         if (governor.sample(now - lastRafAt) !== wasLowPower) applyPowerMode(governor.lowPower);
       }

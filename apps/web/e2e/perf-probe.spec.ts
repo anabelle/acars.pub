@@ -4,6 +4,8 @@ import { expect, test } from "./fixtures";
 import { createAirline, MADRID_PLAYER, navigateInApp } from "./signup";
 
 test.use(MADRID_PLAYER);
+// Measured one at a time: parallel runs compete for the CPU and skew the numbers.
+test.describe.configure({ mode: "serial" });
 
 /**
  * S54 perf probe: what idle play costs. An airline with one flying route sits
@@ -15,7 +17,11 @@ test.use(MADRID_PLAYER);
  * The sample is taken while the route's aircraft is in the air: game time is
  * stepped forward until the map starts uploading flight positions.
  * The headless browser renders WebGL in software, the slow case players
- * without GPU acceleration live in.
+ * without GPU acceleration live in, so automatic mode runs in low power
+ * there. A second run forces full mode to guard the one-clock cadence.
+ *
+ * Budgets (S54.4) are rates, not timings, so a slower CI machine doesn't
+ * fail them; the long-task cost is logged for comparison only.
  */
 
 const SAMPLE_MS = 15_000;
@@ -64,14 +70,19 @@ const snapshot = (page: import("@playwright/test").Page) =>
     };
   });
 
-test("perf probe: idle play on the map", async ({ page, problems }) => {
-  test.setTimeout(240_000);
+type Mode = "auto" | "full";
+
+/** Samples idle play mid-flight; returns per-second rates. */
+async function measure(page: import("@playwright/test").Page, mode: Mode) {
   await page.addInitScript(PROBES);
+  if (mode === "full") {
+    await page.addInitScript(() => localStorage.setItem("acars_map_render_mode", "full"));
+  }
   // Fake timers with time flowing normally, so we can jump to a departure.
   await page.clock.install();
   await createAirline(page);
 
-  // One flying route so aircraft move and the route flows.
+  // One route; its aircraft flies once a day.
   await navigateInApp(page, "/airport/BCN");
   await page
     .getByTestId("route-decision-card")
@@ -117,6 +128,7 @@ test("perf probe: idle play on the map", async ({ page, problems }) => {
       (window as unknown as { __acarsMapStats?: { lowPower: boolean } }).__acarsMapStats?.lowPower,
   );
   const result = {
+    mode,
     lowPower,
     requestsPerSecond: rate("requests"),
     rendersPerSecond: rate("renders"),
@@ -127,13 +139,30 @@ test("perf probe: idle play on the map", async ({ page, problems }) => {
   console.log("S54 perf probe", JSON.stringify(result));
   if (process.env.S54_PERF_OUT) {
     fs.writeFileSync(
-      path.resolve(process.env.S54_PERF_OUT, "perf-probe.json"),
+      path.resolve(process.env.S54_PERF_OUT, `perf-probe-${mode}.json`),
       JSON.stringify(result),
     );
   }
+  return result;
+}
 
-  // The map is alive and the counters work; budgets come in S54.4.
-  expect(after.renders).toBeGreaterThan(before.renders);
-  expect(after.requests).toBeGreaterThan(before.requests);
+test("perf budget: software WebGL idles in low-power mode", async ({ page, problems }) => {
+  test.setTimeout(240_000);
+  const result = await measure(page, "auto");
+  expect(result.lowPower).toBe(true);
+  // One clock tick a second; MapLibre's GeoJSON round trip adds a frame per upload.
+  expect(result.requestsPerSecond).toBeGreaterThan(0);
+  expect(result.requestsPerSecond).toBeLessThanOrEqual(1.5);
+  expect(result.rendersPerSecond).toBeLessThanOrEqual(3);
+  expect(problems.pageErrors).toEqual([]);
+});
+
+test("perf budget: full mode redraws once per map-clock tick", async ({ page, problems }) => {
+  test.setTimeout(240_000);
+  const result = await measure(page, "full");
+  expect(result.lowPower).toBe(false);
+  // At most one redraw-forcing write per 200 ms tick (flights and flow together).
+  expect(result.requestsPerSecond).toBeGreaterThan(0);
+  expect(result.requestsPerSecond).toBeLessThanOrEqual(5.5);
   expect(problems.pageErrors).toEqual([]);
 });

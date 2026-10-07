@@ -1,7 +1,7 @@
 # S54 — Map performance: stop the constant redraws
 
-> **Status:** ◐ in progress
-> **Next step:** S54.4
+> **Status:** ☑ ready for review
+> **Next step:** — (awaiting merge of #183)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #183
 >
@@ -46,7 +46,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S54.1** Perf probe e2e + baseline numbers. _Done when:_ the probe reports redraws/s, draw calls and long tasks for idle play.
 - [x] **S54.2** One map clock (flights + route flow in the same frame). _Done when:_ idle redraws/s drop to the flight cadence.
 - [x] **S54.3** Low-power mode (software renderer, slow frames, hidden map). _Done when:_ software rendering idles at ≤ ~1–2 redraws/s and the page stays responsive.
-- [ ] **S54.4** CI budget + before/after numbers. _Done when:_ the probe fails CI above budget.
+- [x] **S54.4** CI budget + before/after numbers. _Done when:_ the probe fails CI above budget.
 
 ## Details & guidance
 
@@ -55,8 +55,8 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] Idle play requests at most the flight cadence in redraws (5/s), and about 1/s in low-power mode.
-- [ ] Main-thread long tasks during idle play drop sharply against the baseline.
+- [x] Idle play requests at most the flight cadence in redraws (5/s), and about 1/s in low-power mode.
+- [x] Main-thread long tasks during idle play drop sharply against the baseline.
 
 ## Progress log
 
@@ -107,6 +107,26 @@ Under software WebGL even 4 frames a second fill the main thread; that's S54.3.
 - **Remaining cost.** About 2 frames per upload is MapLibre's own GeoJSON round trip: a frame at `setData`, and one when the worker returns the tiles.
 - **Idle map.** With no aircraft in the air, the map draws nothing at all: 0 requests and 0 renders (verified while debugging).
 
+2026-10-07 · S54.4 · (this commit) · **Budgets.**
+
+- **Override.** `acars_map_render_mode` in localStorage (`low` / `full`; unset is automatic) fixes the mode and stops the governor. Pure reader: `readRenderModeOverride`.
+- **Two budgeted runs** in `perf-probe.spec.ts`, serial so they don't compete for the CPU:
+  - **Automatic:** CI's software WebGL must land in low-power mode, with ≤ 1.5 redraw requests/s and ≤ 3 frames/s.
+  - **Forced full mode** guards the one-clock cadence: ≤ 5.5 requests/s (the old code was at 7.3 even with starved timers).
+
+  The budgets are rates, not timings, so a slower CI machine can't fail them; long-task cost is logged only.
+
+- **Before/after**, idle play mid-flight, headless shell (software WebGL):
+
+| run                                     | requests/s | renders/s | draws/s | long-task ms/s |
+| --------------------------------------- | ---------- | --------- | ------- | -------------- |
+| baseline (S54.1)                        | 7.3        | 4.3       | 431     | 978            |
+| after, automatic (low-power)            | 1.0        | 2.1       | 227     | 504            |
+| after, forced full mode                 | 1.9        | 4.3       | 477     | 985            |
+| after, nothing in the air (either mode) | 0          | 0         | 0       | ~0             |
+
+- **On a GPU machine** the automatic mode stays full, and the gain is fewer redraws: about 5/s mid-flight instead of about 15/s, and none at all while nothing flies (the old code redrew all the time).
+
 ## Follow-ups
 
 - A visible "Performance mode" toggle (force low-power on/off) in settings.
@@ -114,4 +134,17 @@ Under software WebGL even 4 frames a second fill the main thread; that's S54.3.
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped:**
+  - render counters (`window.__acarsMapStats`);
+  - one map clock (flights and route flow share a redraw; unchanged writes are skipped);
+  - low-power mode (software renderer or slow frames: 1 update/s, no flow, 1× pixel ratio);
+  - no clock while the map is off screen; no symbol cross-fade;
+  - a localStorage override;
+  - a budgeted perf probe in CI.
+- **Measured:**
+  - Software WebGL, mid-flight: main-thread blocking roughly halved (978 → 504 ms per second).
+  - Any machine with nothing in the air: the map no longer redraws at all.
+- **Not shipped:** a settings toggle for the mode, and moving aircraft off GeoJSON `setData` (each upload still costs MapLibre a worker round trip and about 2 frames). See Follow-ups.
+- **Gotchas:**
+  - The probe must sample while an aircraft is airborne. An idle map now draws nothing, so the probe steps game time until positions upload.
+  - Run perf measurements serially: parallel e2e workers double the long-task numbers.

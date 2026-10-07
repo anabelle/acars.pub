@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { FrameCostGovernor, isSoftwareRenderer, webglRenderer } from "./renderMode";
+import {
+  FrameCostGovernor,
+  isSoftwareRenderer,
+  RENDER_MODE_STORAGE_KEY,
+  readRenderModeOverride,
+  webglRenderer,
+} from "./renderMode";
 
 describe("isSoftwareRenderer()", () => {
   it("recognises software rasterisers", () => {
@@ -69,5 +75,29 @@ describe("FrameCostGovernor", () => {
     expect(governor.sample(200)).toBe(true); // a slow frame resets the count
     for (let i = 0; i < 4; i++) governor.sample(10);
     expect(governor.sample(10)).toBe(false);
+  });
+});
+
+describe("readRenderModeOverride()", () => {
+  const storage = (value: string | null) => ({
+    getItem: (key: string) => (key === RENDER_MODE_STORAGE_KEY ? value : null),
+  });
+
+  it("reads a forced mode", () => {
+    expect(readRenderModeOverride(storage("low"))).toBe("low");
+    expect(readRenderModeOverride(storage("full"))).toBe("full");
+  });
+
+  it("is automatic otherwise, even when storage is missing or throws", () => {
+    expect(readRenderModeOverride(storage(null))).toBeNull();
+    expect(readRenderModeOverride(storage("turbo"))).toBeNull();
+    expect(readRenderModeOverride(null)).toBeNull();
+    expect(
+      readRenderModeOverride({
+        getItem: () => {
+          throw new Error("blocked");
+        },
+      }),
+    ).toBeNull();
   });
 });
