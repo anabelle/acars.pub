@@ -3,7 +3,7 @@
 > **Status:** ☑ ready for review
 > **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #188
 >
 > **Track:** Growth · **Size:** S (2 steps) · **Depends on:** S04 (data), decision D5 · **Unblocks:** — · **Gated by D5**
 >
