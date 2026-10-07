@@ -85,3 +85,57 @@ Keep one world. Attack "nothing happens" directly in the real-time game:
 | Serves "a season tonight" | Yes                            | Yes (solo)                      | No                   |
 
 The recommendation and cost estimate follow in the next section (S53.2).
+
+## Recommendation (S53.2)
+
+**Do C now. Prepare B as the fast mode, built only if the data asks for it. Defer A until the ranked world is busy.**
+
+1. **C first (now).** It improves the one world every player sees and costs no new infrastructure. It is also how we learn whether pacing is the real problem: if first sessions with a time-lapse and a 1–2 hour first flight still churn, the case for a fast mode becomes evidence instead of a hunch.
+2. **B is the right fast mode for ACARS today**, when the data supports it. It answers "nothing happens" for a newcomer without splitting a small player base or risking the ranked world, and it doubles as the tutorial. Its biggest piece, the local sandbox, was already designed in S26.1.
+3. **A only when the ranked world is busy enough to share players.** A second multiplayer world is only fun with rivals. Splitting a small community in two makes both feel empty.
+
+### What would trigger B (proposed bar for D5)
+
+Measured by the funnel report (`pnpm funnel --report`) over at least 4 weekly cohorts of 50 or more new airlines, with C shipped:
+
+- D1 retention is at least 35% (people like the game), **but**
+- D7 is under 15% (they don't stay for the real-time loop), **and**
+- the median time to first landing is under 60 minutes (so the first loop is not the problem).
+
+If D1 is low too, the issue is onboarding or the game itself, not pacing: fix that first. If D7 is healthy, don't build a fast mode.
+
+### Cost estimate
+
+In the overhaul's own units: steps (one commit each, gate green), grouped into sessions.
+
+| Piece                                                                                   | Needed by | Size | Steps |
+| --------------------------------------------------------------------------------------- | --------- | ---- | ----: |
+| **World clock:** `WorldClock { genesis, msPerTick }` in core; the 22 + 15 files read it | A, B      | M    |     3 |
+| **C:** time-lapse replay of the last hours on the map (cosmetic)                        | C         | M    |     3 |
+| **C:** starter routes biased to 1–2 h hops; checklist copy                              | C         | S    |     1 |
+| **C:** event-themed objectives and push for events touching the player                  | C         | S    |     2 |
+| **B:** local sandbox identity and action log (S26.1 option A)                           | B         | L    |     4 |
+| **B:** rivals for the practice run (seeded bots or a frozen snapshot)                   | B         | M    |     2 |
+| **B:** speed control, "start for real" hand-off, UI mode banner                         | B         | S    |     2 |
+| **A:** world switcher, per-world relays, filters and storage                            | A         | M    |     3 |
+| **A:** seasons (monthly genesis and `WORLD_ID`), per-season leaderboard                 | A         | M    |     3 |
+| **A:** relay load test at 24× and notification throttling                               | A         | S    |     2 |
+
+| Path                | Steps | Roughly                                                |
+| ------------------- | ----: | ------------------------------------------------------ |
+| **C**               |     6 | Two sessions                                           |
+| **B** (after C)     |    11 | Four sessions (clock plus sandbox plus rivals plus UI) |
+| **A**               |    14 | Five sessions, plus ongoing season operations          |
+| **B, then A** later |    22 | Shares the world clock (built once)                    |
+
+Risks:
+
+- **The clock abstraction touches many files.** A missed conversion makes a fast world drift between clients. Mitigation: a single `useWorldClock()`, plus a lint rule banning direct `TICK_DURATION`/`GENESIS_TIME` imports outside core.
+- **B's no-pubkey path** is the risk S26 flagged. Keep it read-only towards relays and behind one `sandbox` flag in the identity slice.
+- **A's event volume** is about 24× per active airline-hour. Measure it on the S54 relay set before launch.
+
+### What the owner decides (D5)
+
+- [ ] **C now**: queue a session for the time-lapse, starter routes and event objectives (recommended).
+- [ ] **Bar for B**: accept the D1/D7/time-to-first-landing bar above, or set your own.
+- [ ] **A**: defer until the ranked world is busy (recommended), or plan it now.
