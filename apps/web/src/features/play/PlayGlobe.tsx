@@ -1,5 +1,5 @@
 import { DARK_MAP_STYLE_URL, getMapPalette } from "@acars/map";
-import { PathLayer } from "@deck.gl/layers";
+import type { Layer } from "@deck.gl/core";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -10,9 +10,10 @@ import {
   type PlaneSchedule,
   writePlanePositions,
 } from "./aircraft";
-import { playerNetworkFocus, type RouteArc } from "./arcs";
+import { networkAirports, playerNetworkFocus, type RouteArc } from "./arcs";
+import { airportLayer, arcLayer, planeLayer } from "./layers";
 import { shimMapTransform } from "./mapCompat";
-import { planeLayer } from "./planeLayer";
+import { bestPick, type PlaySelection, selectionFromPick } from "./selection";
 import { nowTick } from "./usePlayPlanes";
 
 // Same stable worker copy as the main globe (see WorldMap.tsx): maplibre v6
@@ -34,6 +35,8 @@ export interface PlayGlobeStats {
 declare global {
   interface Window {
     __acarsPlayStats?: PlayGlobeStats;
+    /** Screen pixel of a surface point, for e2e clicks (prototype only). */
+    __acarsPlayProject?: (lng: number, lat: number) => [number, number];
   }
 }
 
@@ -42,23 +45,20 @@ function stats(): PlayGlobeStats {
   return window.__acarsPlayStats;
 }
 
-function arcLayer(arcs: readonly RouteArc[]) {
-  return new PathLayer<RouteArc>({
-    id: "play-route-arcs",
-    data: arcs,
-    getPath: (arc) => arc.path,
-    getColor: (arc) => arc.color,
-    getWidth: (arc) => arc.width,
-    widthUnits: "pixels",
-    jointRounded: true,
-    capRounded: true,
-  });
-}
-
 /** Same cadence as the main globe's map clock (S54): planes move 5 times a second. */
 const PLANE_CLOCK_MS = 200;
 /** Degrees per frame the camera turns in orbit mode (the fps benchmark). */
 const ORBIT_DEGREES_PER_FRAME = 0.2;
+
+interface PlayLayers {
+  arcs: Layer | null;
+  airports: Layer | null;
+  planes: Layer | null;
+}
+
+function drawLayers(overlay: MapboxOverlay | null, { arcs, airports, planes }: PlayLayers): void {
+  overlay?.setProps({ layers: [arcs, airports, planes].filter((l): l is Layer => !!l) });
+}
 
 /**
  * The prototype's world (S45.1): a MapLibre globe with deck.gl drawing into
@@ -69,18 +69,30 @@ export function PlayGlobe({
   arcs,
   planes,
   orbit = false,
+  onSelect,
 }: {
   arcs: readonly RouteArc[];
   planes: readonly PlaneSchedule[];
   /** Turn the camera every frame, forcing a full redraw (fps benchmark). */
   orbit?: boolean;
+  /** A click on a route, airport or plane; null for empty space. */
+  onSelect?: (selection: PlaySelection | null) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const [ready, setReady] = useState(false);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const focusedRef = useRef(false);
-  const arcLayerRef = useRef<PathLayer<RouteArc> | null>(null);
+  // One ref per layer; `drawLayers` hands deck.gl whatever is current.
+  const layersRef = useRef<PlayLayers>({ arcs: null, airports: null, planes: null });
+  // The click handler lives on the overlay (created once): it reads the
+  // latest props through refs.
+  const planesRef = useRef(planes);
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => {
+    planesRef.current = planes;
+    onSelectRef.current = onSelect;
+  });
 
   useEffect(() => {
     const container = containerRef.current;
@@ -97,6 +109,16 @@ export function PlayGlobe({
     const overlay = new MapboxOverlay({
       interleaved: true,
       layers: [],
+      pickingRadius: 6,
+      onClick: (info) => {
+        // Everything under the cursor, then the most specific thing wins (a
+        // hub's dot over the arcs that end on it).
+        const picks = overlay.pickMultipleObjects({ x: info.x, y: info.y, radius: 6 });
+        const pick = bestPick(
+          picks.map((p) => ({ layerId: p.layer?.id, index: p.index, object: p.object })),
+        );
+        onSelectRef.current?.(pick ? selectionFromPick(pick, planesRef.current) : null);
+      },
       onAfterRender: () => {
         stats().deckFrames++;
       },
@@ -114,7 +136,13 @@ export function PlayGlobe({
     });
     map.addControl(overlay as unknown as maplibregl.IControl);
     map.once("load", () => setReady(true));
+    window.__acarsPlayProject = (lng, lat) => {
+      const point = map.project([lng, lat]);
+      const box = container.getBoundingClientRect();
+      return [box.left + point.x, box.top + point.y];
+    };
     return () => {
+      delete window.__acarsPlayProject;
       overlayRef.current = null;
       mapRef.current = null;
       map.remove();
@@ -123,8 +151,9 @@ export function PlayGlobe({
 
   useEffect(() => {
     if (!ready || !overlayRef.current) return;
-    arcLayerRef.current = arcLayer(arcs);
-    overlayRef.current.setProps({ layers: [arcLayerRef.current] });
+    layersRef.current.arcs = arcLayer(arcs);
+    layersRef.current.airports = airportLayer(networkAirports(arcs));
+    drawLayers(overlayRef.current, layersRef.current);
     stats().arcs = arcs.length;
     // Open on the player's own network, once.
     const focus = focusedRef.current ? null : playerNetworkFocus(arcs);
@@ -148,8 +177,8 @@ export function PlayGlobe({
       const started = performance.now();
       writePlanePositions(planes, nowTick(), buffers);
       version++;
-      const layers = arcLayerRef.current ? [arcLayerRef.current] : [];
-      overlay.setProps({ layers: [...layers, planeLayer(buffers, version)] });
+      layersRef.current.planes = planeLayer(buffers, version);
+      drawLayers(overlay, layersRef.current);
       const s = stats();
       s.updateMs =
         s.updateMs === 0

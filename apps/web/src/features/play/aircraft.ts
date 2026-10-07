@@ -8,6 +8,10 @@ import { ARC_PEAK_RATIO, greatCircleMeters, hexToRgb, readableOnDark } from "./a
  * pass over typed arrays with no per-plane objects (S45.2).
  */
 export interface PlaneSchedule {
+  /** Real flights only; synthetic ones have no airports or owner. */
+  originIata?: string;
+  destinationIata?: string;
+  isPlayer: boolean;
   source: [number, number];
   target: [number, number];
   /** Fractional engine ticks. */
@@ -48,6 +52,9 @@ export function planesFromFleet(
       const source: [number, number] = [origin.longitude, origin.latitude];
       const target: [number, number] = [destination.longitude, destination.latitude];
       planes.push({
+        originIata: flight.originIata,
+        destinationIata: flight.destinationIata,
+        isPlayer: owner.isPlayer,
         source,
         target,
         departureTick: flight.departureTick,
@@ -100,6 +107,7 @@ export function syntheticPlanes(
     const departureTick = nowTick - random() * durationTicks;
     const hue = random();
     planes.push({
+      isPlayer: false,
       source,
       target,
       departureTick,
@@ -121,7 +129,9 @@ export interface PlaneBuffers {
 
 export function allocatePlaneBuffers(planes: readonly PlaneSchedule[]): PlaneBuffers {
   const colors = new Uint8Array(planes.length * 4);
-  planes.forEach((plane, i) => colors.set(plane.color, i * 4));
+  planes.forEach((plane, i) => {
+    colors.set(plane.color, i * 4);
+  });
   return {
     length: planes.length,
     positions: new Float32Array(planes.length * 3),

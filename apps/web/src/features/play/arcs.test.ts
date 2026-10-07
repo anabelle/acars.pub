@@ -8,6 +8,7 @@ import {
   buildRouteArcs,
   greatCircleMeters,
   hexToRgb,
+  networkAirports,
   playerNetworkFocus,
   type RouteArc,
   readableOnDark,
@@ -44,6 +45,11 @@ describe("buildRouteArcs()", () => {
     expect(arcs).toEqual([
       {
         id: "r1",
+        originIata: "MAD",
+        destinationIata: "BCN",
+        ownerPubkey: "me",
+        frequencyPerWeek: undefined,
+        distanceKm: 483,
         source: [-3.56, 40.47],
         target: [2.08, 41.3],
         path: expect.any(Array),
@@ -112,6 +118,11 @@ describe("hexToRgb()", () => {
 describe("playerNetworkFocus()", () => {
   const arc = (source: [number, number], target: [number, number], isPlayer = true): RouteArc => ({
     id: "a",
+    originIata: "AAA",
+    destinationIata: "BBB",
+    ownerPubkey: "me",
+    frequencyPerWeek: 7,
+    distanceKm: 1,
     source,
     target,
     path: [],
@@ -168,5 +179,26 @@ describe("arcPath()", () => {
 
   it("measures MAD–BCN at about 483 km", () => {
     expect(greatCircleMeters([-3.56, 40.47], [2.08, 41.3]) / 1000).toBeCloseTo(483, -1);
+  });
+});
+
+describe("networkAirports()", () => {
+  it("lists each endpoint once, flagging the player's", () => {
+    const arcs = buildRouteArcs(
+      [
+        { routes: [route({ id: "mine" })], colorHex: "#00ff00", isPlayer: true },
+        {
+          routes: [route({ id: "theirs", destinationIata: "LHR", airlinePubkey: "rival" })],
+          colorHex: "#0000ff",
+          isPlayer: false,
+        },
+      ],
+      lookup,
+    );
+    const airports = networkAirports(arcs);
+    expect(airports.map((a) => a.iata).sort()).toEqual(["BCN", "LHR", "MAD"]);
+    expect(airports.find((a) => a.iata === "MAD")?.isPlayer).toBe(true);
+    expect(airports.find((a) => a.iata === "LHR")?.isPlayer).toBe(false);
+    expect(airports.find((a) => a.iata === "MAD")?.position).toEqual([-3.56, 40.47]);
   });
 });

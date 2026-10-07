@@ -31,6 +31,7 @@ const aircraft = (overrides: Partial<AircraftInstance>): AircraftInstance =>
   }) as AircraftInstance;
 
 const leg = (overrides: Partial<PlaneSchedule> = {}): PlaneSchedule => ({
+  isPlayer: true,
   source: [-3.56, 40.47],
   target: [2.08, 41.3],
   departureTick: 100,
@@ -68,6 +69,9 @@ describe("planesFromFleet()", () => {
     );
     expect(planes).toHaveLength(1);
     expect(planes[0]).toMatchObject({
+      originIata: "MAD",
+      destinationIata: "BCN",
+      isPlayer: true,
       source: [-3.56, 40.47],
       target: [2.08, 41.3],
       departureTick: 100,

@@ -3,6 +3,26 @@ import { expect, gotoReady, test } from "./fixtures";
 import { createAirline, MADRID_PLAYER, navigateInApp } from "./signup";
 
 test.use(MADRID_PLAYER);
+// S45_VIDEO=1 records the run (the S45.3 screen recording).
+test.use({ video: process.env.S45_VIDEO ? "on" : "off" });
+
+/** Clicks the globe where a surface point is (via the prototype's test hook). */
+async function clickLngLat(page: import("@playwright/test").Page, lng: number, lat: number) {
+  const [x, y] = await page.evaluate(
+    ([a, b]) =>
+      (
+        window as unknown as { __acarsPlayProject: (lng: number, lat: number) => [number, number] }
+      ).__acarsPlayProject(a, b),
+    [lng, lat] as const,
+  );
+  await page.mouse.click(x, y);
+}
+
+const shot = async (page: import("@playwright/test").Page, name: string) => {
+  if (!process.env.S45_SCREENSHOT) return;
+  await page.waitForTimeout(1_500);
+  await page.screenshot({ path: path.resolve(process.env.S45_SCREENSHOT, name) });
+};
 
 const deckFrames = (page: import("@playwright/test").Page) =>
   page.evaluate(
@@ -42,10 +62,39 @@ test("the globe prototype draws the player's routes as 3D arcs", async ({ page, 
   await expect(page.getByTestId("play-route-summary")).toContainText("1 of your routes");
   // deck.gl is drawing into the globe's WebGL context.
   await expect.poll(() => deckFrames(page), { timeout: 30_000 }).toBeGreaterThan(0);
-  if (process.env.S45_SCREENSHOT) {
-    await page.waitForTimeout(3_000);
-    await page.screenshot({ path: path.resolve(process.env.S45_SCREENSHOT, "play-arcs.png") });
-  }
+  await shot(page, "play-arcs.png");
+
+  // S45.3: click the airport, the route and empty space for contextual cards.
+  const card = page.getByTestId("play-card");
+  await page.waitForTimeout(1_000);
+  await clickLngLat(page, 2.08, 41.3);
+  await expect(card).toHaveAttribute("data-kind", "airport");
+  await expect(card).toContainText("BCN");
+  await expect(card).toContainText("1 of your routes");
+  await shot(page, "play-card-airport.png");
+
+  // 12% of the way along MAD → BCN: the arc is still near the ground there
+  // (the hook projects surface points), and clear of Madrid's dot.
+  await clickLngLat(page, -2.88, 40.57);
+  await expect(card).toHaveAttribute("data-kind", "route");
+  await expect(card).toContainText("Your route");
+  await expect(card).toContainText("MAD → BCN");
+  await expect(card).toContainText("E2E Air");
+  await shot(page, "play-card-route.png");
+
+  await card.getByRole("button", { name: "Close" }).click();
+  await expect(card).toHaveCount(0);
+
+  // The briefing drawer: today's numbers plus the cockpit's own cards.
+  await page.getByRole("button", { name: "Briefing" }).click();
+  const briefing = page.getByTestId("play-briefing");
+  await expect(briefing).toContainText("Today's briefing");
+  await expect(briefing).toContainText("Cash");
+  await expect(briefing.getByTestId("world-events")).toBeVisible();
+  await expect(briefing.getByTestId("daily-objectives")).toBeVisible();
+  await shot(page, "play-briefing.png");
+  await briefing.getByRole("button", { name: "Close the briefing" }).click();
+  await expect(briefing).toHaveCount(0);
 
   // Back to the classic view.
   await page.getByRole("link", { name: "Classic view" }).click();

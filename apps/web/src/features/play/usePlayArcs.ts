@@ -5,7 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import { type ArcOwner, buildRouteArcs, type RouteArc } from "./arcs";
 
 let airportIndex: Map<string, Airport> | null = null;
-const lookupAirport = (iata: string) => airportIndex?.get(iata);
+/** Catalog airport by IATA, once the catalog has loaded (else undefined). */
+export function lookupAirport(iata: string): Airport | undefined {
+  if (!airportIndex && isDataCatalogReady()) {
+    airportIndex = new Map(getAirports().map((a) => [a.iata, a]));
+  }
+  return airportIndex?.get(iata);
+}
 
 /** The world's active routes as arcs: rivals from world sync, then the player's. */
 export function usePlayArcs(): RouteArc[] {
@@ -28,7 +34,6 @@ export function usePlayArcs(): RouteArc[] {
 
   return useMemo(() => {
     if (!catalogReady) return [];
-    airportIndex ??= new Map(getAirports().map((a) => [a.iata, a]));
     const owners: ArcOwner[] = [];
     routesByOwner.forEach((ownerRoutes, owner) => {
       if (owner === pubkey) return;

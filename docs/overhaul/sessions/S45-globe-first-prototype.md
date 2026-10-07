@@ -1,7 +1,7 @@
 # S45 — Globe-first 3D shell prototype (deck.gl)
 
 > **Status:** ◐ in progress
-> **Next step:** S45.3
+> **Next step:** S45.4
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -38,7 +38,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S45.1** Flagged `/play` route: deck.gl on globe with 3D arcs. _Done when:_ renders with real routes.
 - [x] **S45.2** Aircraft layer + synthetic load generator (1k/10k/50k). _Done when:_ fps recorded.
-- [ ] **S45.3** Briefing drawer + contextual airport/route/plane cards. _Done when:_ screen recording.
+- [x] **S45.3** Briefing drawer + contextual airport/route/plane cards. _Done when:_ screen recording.
 - [ ] **S45.4** `docs/overhaul/prototype-report.md` with perf + parity checklist. _Done when:_ owner can decide D4.
 
 ## Details & guidance
@@ -91,6 +91,20 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - deck.gl counts two frames per browser frame: one per interleaved layer group (arcs, planes).
 
 - **Seen in the screenshots.** Long-haul planes fly visibly high (the 8% peak means about 700 km on a 9,000 km leg) and show past the globe's edge. Cap the altitude if this goes further.
+
+2026-10-07 · S45.3 · (this commit) · **Briefing drawer and contextual cards, with a screen recording.**
+
+- **Cards.** Routes (arcs), airports (a new clickable layer of every network endpoint) and planes are pickable, and a click opens a card at the bottom of the screen:
+  - **Route:** whose it is, flights a week and distance.
+  - **Airport:** city and name, plus your routes and the world's routes through it.
+  - **Plane:** a real flight's progress bar and minutes to landing, or "synthetic traffic" for the load generator.
+  - Route and airport cards link into the classic view (`/airport/$iata`). An empty click closes the card.
+- **Picking rule.** deck.gl returns every object within 6 px, and the most specific wins (airport, then plane, then route), so a click on a hub opens the airport, not one of the arcs ending on it.
+- **Briefing drawer.** A side panel with cash, routes and planes in the air, then the cockpit's own World events and Daily objectives cards (real content, no mock-ups).
+- **Logic in pure modules:** `cardModels.ts` and `selection.ts`, with unit tests.
+- **e2e** (`play-prototype.spec.ts`) clicks Barcelona (airport card), the MAD → BCN arc (route card), closes it, and opens and closes the briefing.
+- **Media** (`docs/overhaul/media/s45/`): `play-walkthrough.webm`, a 30 s recording of the e2e run (`S45_VIDEO=1`), plus screenshots of the route card, airport card, briefing and 10k aircraft.
+- **Gotcha:** a test that clicks an arc must account for its altitude. The projection hook (`window.__acarsPlayProject`) maps surface points, so the click goes near a route's end, where the arc is still low.
 
 ## Follow-ups
 

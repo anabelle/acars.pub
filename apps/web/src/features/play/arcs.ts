@@ -4,6 +4,11 @@ import { getGreatCircleInterpolation } from "@acars/map";
 /** One route as the deck.gl arc layer draws it. */
 export interface RouteArc {
   id: string;
+  originIata: string;
+  destinationIata: string;
+  ownerPubkey: string;
+  frequencyPerWeek: number | undefined;
+  distanceKm: number;
   /** [longitude, latitude] */
   source: [number, number];
   target: [number, number];
@@ -128,6 +133,11 @@ export function buildRouteArcs(
       const target: [number, number] = [destination.longitude, destination.latitude];
       arcs.push({
         id: route.id,
+        originIata: route.originIata,
+        destinationIata: route.destinationIata,
+        ownerPubkey: route.airlinePubkey,
+        frequencyPerWeek: route.frequencyPerWeek,
+        distanceKm: route.distanceKm,
         source,
         target,
         path: arcPath(source, target),
@@ -164,4 +174,28 @@ export function playerNetworkFocus(
   // About 360° of span at zoom 0; halve the span per zoom level, with margin.
   const zoom = Math.min(5, Math.max(1.2, Math.log2(360 / span) - 1.5));
   return { center, zoom };
+}
+
+/** An airport on someone's network, for the clickable airport layer. */
+export interface NetworkAirport {
+  iata: string;
+  position: [number, number];
+  /** On the player's own network. */
+  isPlayer: boolean;
+}
+
+/** Every airport at either end of an arc, once; the player's flag wins. O(arcs). */
+export function networkAirports(arcs: readonly RouteArc[]): NetworkAirport[] {
+  const byIata = new Map<string, NetworkAirport>();
+  for (const arc of arcs) {
+    for (const [iata, position] of [
+      [arc.originIata, arc.source],
+      [arc.destinationIata, arc.target],
+    ] as const) {
+      const known = byIata.get(iata);
+      if (known) known.isPlayer ||= arc.isPlayer;
+      else byIata.set(iata, { iata, position, isPlayer: arc.isPlayer });
+    }
+  }
+  return [...byIata.values()];
 }

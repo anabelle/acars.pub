@@ -3,7 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { FlaskConical } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { BriefingDrawer } from "@/features/play/BriefingDrawer";
+import { PlayContextCard } from "@/features/play/PlayContextCard";
 import { resolvePlayPrototypeFlag } from "@/features/play/playFlag";
+import type { PlaySelection } from "@/features/play/selection";
 import { usePlayArcs } from "@/features/play/usePlayArcs";
 import { PLAY_LOADS, parseLoad, usePlayPlanes } from "@/features/play/usePlayPlanes";
 
@@ -61,12 +64,14 @@ function PlayShell() {
   }));
   const arcs = usePlayArcs();
   const planes = usePlayPlanes(load);
+  const [selection, setSelection] = useState<PlaySelection | null>(null);
+  const [briefingOpen, setBriefingOpen] = useState(false);
   const playerArcs = arcs.filter((arc) => arc.isPlayer).length;
 
   return (
     <div data-testid="play-shell" className="relative h-full w-full bg-black">
       <Suspense fallback={null}>
-        <PlayGlobe arcs={arcs} planes={planes} orbit={orbit} />
+        <PlayGlobe arcs={arcs} planes={planes} orbit={orbit} onSelect={setSelection} />
       </Suspense>
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
         <div className="pointer-events-auto rounded-2xl border border-white/10 bg-black/60 px-4 py-2 backdrop-blur">
@@ -94,13 +99,28 @@ function PlayShell() {
             ))}
           </nav>
         </div>
-        <Link
-          to="/"
-          className="pointer-events-auto rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-xs font-semibold text-white backdrop-blur hover:bg-black/80"
-        >
-          {t("play.classic")}
-        </Link>
+        <div className="flex items-center gap-2">
+          <BriefingDrawer
+            open={false}
+            onToggle={() => setBriefingOpen(true)}
+            planesInAir={planes.length}
+          />
+          <Link
+            to="/"
+            className="pointer-events-auto rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-xs font-semibold text-white backdrop-blur hover:bg-black/80"
+          >
+            {t("play.classic")}
+          </Link>
+        </div>
       </header>
+      {selection && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-4">
+          <PlayContextCard selection={selection} arcs={arcs} onClose={() => setSelection(null)} />
+        </div>
+      )}
+      {briefingOpen && (
+        <BriefingDrawer open onToggle={() => setBriefingOpen(false)} planesInAir={planes.length} />
+      )}
     </div>
   );
 }
