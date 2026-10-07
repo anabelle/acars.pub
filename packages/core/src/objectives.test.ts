@@ -14,6 +14,7 @@ import {
   objectiveRetentionStart,
   pruneObjectiveLedger,
   utcDateForTick,
+  verifyObjectiveClaim,
 } from "./objectives.js";
 import { GENESIS_TIME, TICK_DURATION, TICKS_PER_HOUR } from "./types.js";
 
@@ -235,5 +236,83 @@ describe("objective ledger pruning", () => {
       "today",
     ]);
     expect(ledger.claimed).toEqual(["2026-10-06:tuneFares", "2026-10-07:openRoute"]);
+  });
+});
+
+describe("verifyObjectiveClaim()", () => {
+  // 2026-10-07: open a route ≥1,000 km, open a route to a business airport, adjust a schedule.
+  const DATE = "2026-10-07";
+  const day = objectiveDayWindow(DATE);
+  const lookup: ObjectiveAirportLookup = (iata) =>
+    ({
+      MAD: { latitude: 40.47, longitude: -3.56, tags: ["business" as const] },
+      JFK: { latitude: 40.64, longitude: -73.78, tags: ["business" as const] },
+    })[iata];
+  const schedule: ObjectiveActivity = {
+    type: "frequencyUpdated",
+    tick: day.startTick + 10,
+    routeId: "r1",
+  };
+  const verify = (
+    objectiveId: string,
+    tick: number,
+    activity: ObjectiveActivity[] = [schedule],
+    claimed: string[] = [],
+  ) => verifyObjectiveClaim({ objectiveId, tick, activity, claimed: new Set(claimed), lookup });
+
+  it("accepts a completed objective and returns its reward", () => {
+    const verdict = verify(`${DATE}:adjustSchedule`, day.startTick + 20);
+    expect(verdict.ok).toBe(true);
+    if (verdict.ok) expect(verdict.objective.reward).toBe(fp(25_000));
+  });
+
+  it("accepts it the next day, but not before the day or two days later", () => {
+    expect(verify(`${DATE}:adjustSchedule`, day.endTick + 100).ok).toBe(true);
+    expect(verify(`${DATE}:adjustSchedule`, day.startTick - 1)).toEqual({
+      ok: false,
+      reason: "expired",
+    });
+    expect(verify(`${DATE}:adjustSchedule`, day.endTick + (day.endTick - day.startTick))).toEqual({
+      ok: false,
+      reason: "expired",
+    });
+  });
+
+  it("rejects ids that aren't that day's objectives", () => {
+    for (const id of [
+      `${DATE}:tuneFares`,
+      "2026-02-30:adjustSchedule",
+      "nonsense",
+      `${DATE}:adjustSchedule:extra`,
+    ]) {
+      expect(verify(id, day.startTick + 20)).toEqual({ ok: false, reason: "invalid" });
+    }
+  });
+
+  it("rejects a second claim and an incomplete objective", () => {
+    expect(
+      verify(`${DATE}:adjustSchedule`, day.startTick + 20, [schedule], [`${DATE}:adjustSchedule`]),
+    ).toEqual({
+      ok: false,
+      reason: "claimed",
+    });
+    expect(verify(`${DATE}:openRoute`, day.startTick + 20)).toEqual({
+      ok: false,
+      reason: "incomplete",
+    });
+  });
+
+  it("only counts activity before the claim's position in the log", () => {
+    // The caller passes the ledger as of the claim; later actions aren't in it yet.
+    expect(verify(`${DATE}:openRoute`, day.startTick + 20, []).ok).toBe(false);
+    const opened: ObjectiveActivity = {
+      type: "routeOpened",
+      tick: day.startTick + 15,
+      routeId: "r2",
+      originIata: "MAD",
+      destinationIata: "JFK",
+    };
+    expect(verify(`${DATE}:openRoute`, day.startTick + 20, [opened]).ok).toBe(true);
+    expect(verify(`${DATE}:openRouteToTag`, day.startTick + 20, [opened]).ok).toBe(true);
   });
 });

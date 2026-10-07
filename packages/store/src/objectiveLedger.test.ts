@@ -74,32 +74,67 @@ describe("objective ledger in replay", () => {
       actions: [
         create(t),
         openRoute(t + 1, "r1", "BCN"),
+        buy(t + 2, "ac1"),
+        record("ROUTE_ASSIGN_AIRCRAFT", t + 3, { aircraftId: "ac1", routeId: "r1" }),
         // Invalid payload (no distance): rejected.
-        record("ROUTE_OPEN", t + 2, { routeId: "r2", originIata: "MAD", destinationIata: "LIS" }),
-        // Duplicate O/D: aliased, not a new route.
-        openRoute(t + 3, "r1-retry", "BCN"),
-        // Unknown model, unknown aircraft.
-        record("AIRCRAFT_PURCHASE", t + 4, { instanceId: "x", modelId: "nope" }),
-        record("AIRCRAFT_MAINTENANCE", t + 5, { instanceId: "x" }),
-        // Same frequency and same fares as the route already has.
-        record("ROUTE_UPDATE_FREQUENCY", t + 6, { routeId: "r1", frequencyPerWeek: 7 }),
+        record("ROUTE_OPEN", t + 4, { routeId: "r2", originIata: "MAD", destinationIata: "LIS" }),
+        // Duplicate O/D under a new id: aliased, not a new route.
+        openRoute(t + 5, "r1-retry", "BCN"),
+        // The same route id re-sent later: not a new opening.
+        openRoute(t + 6, "r1", "BCN"),
+        // The same aircraft id re-sent later: not a new acquisition.
+        buy(t + 7, "ac1"),
+        // Already on that route: not a new assignment.
+        record("ROUTE_ASSIGN_AIRCRAFT", t + 8, { aircraftId: "ac1", routeId: "r1" }),
+        // Unknown model, unknown aircraft, unknown route.
+        record("AIRCRAFT_PURCHASE", t + 9, { instanceId: "x", modelId: "nope" }),
+        record("AIRCRAFT_MAINTENANCE", t + 10, { instanceId: "x" }),
+        record("ROUTE_UPDATE_FREQUENCY", t + 11, { routeId: "nope", frequencyPerWeek: 9 }),
       ],
     });
-    expect(result.objectives.activity.map((a) => a.type)).toEqual(["routeOpened"]);
+    expect(result.objectives.activity.map((a) => a.type)).toEqual([
+      "routeOpened",
+      "aircraftAcquired",
+      "aircraftAssigned",
+    ]);
+  });
 
-    const fares = result.routes[0];
-    const unchanged = await replayActionLog({
+  it("counts an action re-applied on top of its own optimistic copy", async () => {
+    // publishActionWithChain replays each new action from the store state,
+    // which already has the optimistic route/aircraft/assignment.
+    const t = DAY.startTick + 100;
+    const optimistic = await replayActionLog({
       pubkey: PUBKEY,
       actions: [
         create(t),
         openRoute(t + 1, "r1", "BCN"),
-        record("ROUTE_UPDATE_FARES", t + 2, {
-          routeId: "r1",
-          fares: { economy: fares.fareEconomy, business: fares.fareBusiness },
-        }),
+        buy(t + 2, "ac1"),
+        record("ROUTE_ASSIGN_AIRCRAFT", t + 3, { aircraftId: "ac1", routeId: "r1" }),
       ],
     });
-    expect(unchanged.objectives.activity.map((a) => a.type)).toEqual(["routeOpened"]);
+    const baseline = {
+      schemaVersion: 1,
+      tick: t + 3,
+      createdAt: 0,
+      actionChainHash: optimistic.actionChainHash,
+      stateHash: "",
+      airline: { ...optimistic.airline!, objectives: { activity: [], claimed: [] } },
+      fleet: optimistic.fleet,
+      routes: optimistic.routes,
+      timeline: optimistic.timeline,
+    };
+    for (const action of [
+      openRoute(t + 1, "r1", "BCN"),
+      buy(t + 2, "ac1"),
+      record("ROUTE_ASSIGN_AIRCRAFT", t + 3, { aircraftId: "ac1", routeId: "r1" }),
+    ]) {
+      const replayed = await replayActionLog({
+        pubkey: PUBKEY,
+        actions: [action],
+        checkpoint: baseline,
+      });
+      expect(replayed.objectives.activity).toHaveLength(1);
+    }
   });
 
   it("keeps only the current and previous UTC day", async () => {
@@ -143,10 +178,11 @@ describe("objective ledger in replay", () => {
         fleet: partial.fleet,
         routes: partial.routes,
         timeline: partial.timeline,
-        objectives: partial.objectives,
       },
     });
     expect(resumed.objectives).toEqual(full.objectives);
+    // The ledger rides on the airline, so local storage and snapshots keep it.
+    expect(full.airline?.objectives).toEqual(full.objectives);
     expect(full.objectives.activity).toHaveLength(4);
   });
 

@@ -1,7 +1,7 @@
 # S32 — Deterministic daily objectives
 
 > **Status:** ◐ in progress
-> **Next step:** S32.3
+> **Next step:** S32.4
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #182
 >
@@ -39,7 +39,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S32.1** Objective templates + `getDailyObjectives(date)` + determinism tests. _Done when:_ same objectives across clients.
 - [x] **S32.2** Progress evaluator over action log + engine results. _Done when:_ tests green.
-- [ ] **S32.3** `CLAIM_OBJECTIVE` action + reducer verification + replay tests. _Done when:_ invalid claims rejected on replay.
+- [x] **S32.3** `CLAIM_OBJECTIVE` action + reducer verification + replay tests. _Done when:_ invalid claims rejected on replay.
 - [ ] **S32.4** Cockpit objectives widget (en + es). _Done when:_ screenshots.
 
 ## Details & guidance
@@ -75,9 +75,33 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Pruning and checkpoints.** The ledger (`activity` + `claimed`) is pruned to the newest activity's day and the day before. The cutoff is the ledger's own newest tick, not the clock, so pruning stays a pure function of the log. The ledger rides on `Checkpoint.objectives` (optional, so older checkpoints still load). A replay resumed from a checkpoint matches a full replay (test). It resets on airline create and dissolve.
 - **Not yet wired.** The store state and snapshots don't carry the ledger yet; S32.3 adds that with claims.
 
+2026-10-07 · S32.3 · (this commit) · **Claims.**
+
+- **`CLAIM_OBJECTIVE` `{ objectiveId }`.** The replay runs `verifyObjectiveClaim` (core) on every client. A claim pays only if all of these hold:
+  - the id is one of that day's objectives;
+  - it's made that UTC day or the next (a late check-in still pays), never before;
+  - it hasn't been claimed already;
+  - the ledger shows the objective complete at that point in the log.
+- **Rejected claims.** A claim that fails is ignored, like any other invalid action. A successful one credits the fixed-point reward and adds an `objective_reward` timeline entry ("Daily objective complete", en/es toast).
+- **Catalog.** The replay awaits the airport catalog only when the log contains a claim, so every verifier checks routes against the same data.
+- **Ledger placement.** The ledger moved onto `AirlineEntity.objectives` instead of a `Checkpoint` field, so local storage (Dexie), snapshots and the state hash carry it with no extra plumbing.
+- **Optimistic store.** The store applies actions before publishing, so the local replay of a new action sees its own optimistic copy. The rules that keep the local ledger the same as everyone else's:
+  - A route open or purchase re-applied at the same tick as its copy still counts (new `Route.openedAtTick`; the aircraft's `purchasedAtTick`). A later re-send of an old id doesn't.
+  - An assignment counts when it moves the aircraft or matches its `routeAssignedAtTick`.
+  - Fare and frequency updates count whenever accepted, even when nothing changed (the local replay can't tell). That is why those two pay the least ($25k).
+- **Store.** `claimObjective(id)` publishes without an optimistic update: the replay verifies and credits it.
+- **Tests.** Core verdicts: valid, next day, too early, too late, unknown id, duplicate, incomplete, order in the log. Store replays:
+  - credited once, with its timeline entry;
+  - a padded `distanceKm` doesn't pass;
+  - claiming before the work doesn't pay;
+  - another author's claim is ignored;
+  - optimistic re-application counts;
+  - a full replay and a checkpoint-resumed replay agree on balance and ledger after three claims and a duplicate across the boundary.
+
 ## Follow-ups
 
 - Engine-result objectives (carry N pax, hit a load-factor band) need durable daily summaries in the replay first.
+- Snapshot trust: a forged snapshot could carry a forged ledger, the same exposure as its forged balance today; the S12 verifier work covers both.
 
 ## Handoff notes
 

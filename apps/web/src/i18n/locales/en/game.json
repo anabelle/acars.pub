@@ -83,7 +83,8 @@
       "bankruptcy": "BANKRUPTCY FILED",
       "financialWarning": "Financial Warning",
       "operationsUpdate": "Operations Update",
-      "competitorRoute": "Rival on your route"
+      "competitorRoute": "Rival on your route",
+      "objectiveReward": "Daily objective complete"
     }
   },
   "fleet": {

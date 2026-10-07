@@ -24,6 +24,7 @@ import {
   leaseDeposit,
   MAX_ROUTE_FREQUENCY_PER_WEEK,
   MIN_ROUTE_FREQUENCY_PER_WEEK,
+  type ObjectiveAirportLookup,
   pruneObjectiveLedger,
   REPLACEABLE_ACTION_TYPES,
   ROUTE_SLOT_FEE,
@@ -31,8 +32,9 @@ import {
   SCRAP_RESALE_SHARE,
   TICK_DURATION,
   TICKS_PER_HOUR,
+  verifyObjectiveClaim,
 } from "@acars/core";
-import { getAircraftById } from "@acars/data";
+import { getAircraftById, getAirports, whenDataCatalogReady } from "@acars/data";
 import { reconcileFleetToTick } from "./FlightEngine";
 
 export interface ActionRecord {
@@ -106,6 +108,7 @@ const TIMELINE_EVENT_TYPES: ReadonlySet<TimelineEventType> = new Set([
   "tier_upgrade",
   "bankruptcy",
   "financial_warning",
+  "objective_reward",
 ]);
 
 const asString = (value: unknown): string | null =>
@@ -228,8 +231,10 @@ export async function replayActionLog(params: {
   const timelineEventIds = new Set(timeline.map((event) => event.id));
   let allowActionTimeline = timeline.length === 0;
   let actionChainHash = checkpoint?.actionChainHash ?? "";
-  const objectiveActivity: ObjectiveActivity[] = [...(checkpoint?.objectives?.activity ?? [])];
-  const objectiveClaims = new Set<string>(checkpoint?.objectives?.claimed ?? []);
+  const objectiveActivity: ObjectiveActivity[] = [
+    ...(checkpoint?.airline?.objectives?.activity ?? []),
+  ];
+  const objectiveClaims = new Set<string>(checkpoint?.airline?.objectives?.claimed ?? []);
   /** Records an accepted action for daily objectives (only state-changing ones). */
   const recordActivity = (activity: ObjectiveActivity) => {
     objectiveActivity.push(activity);
@@ -458,6 +463,16 @@ export async function replayActionLog(params: {
 
   const filteredActions = actions.filter((record) => record.authorPubkey === pubkey);
   const sortedActions = [...filteredActions].sort(compareActionRecords);
+
+  // Claims check route objectives against the airport catalog. Wait for it
+  // only when the log has a claim, so every client verifies against the
+  // same data and replays without claims never load it.
+  let objectiveLookup: ObjectiveAirportLookup | null = null;
+  if (sortedActions.some((record) => record.action.action === "CLAIM_OBJECTIVE")) {
+    await whenDataCatalogReady();
+    const byIata = new Map(getAirports().map((airport) => [airport.iata, airport]));
+    objectiveLookup = (iata) => byIata.get(iata);
+  }
   let bootstrapTick: number | null = null;
 
   // Bootstrap: If no checkpoint and no AIRLINE_CREATE in the action log,
@@ -852,6 +867,18 @@ export async function replayActionLog(params: {
           : undefined;
         const existingRoute = existingRouteId ? routesById.get(existingRouteId) : undefined;
         if (existingRoute) {
+          // The same event re-applied on top of its own optimistic copy
+          // (the store opens the route before publishing) still counts as
+          // opening it; a later re-send of an old route doesn't.
+          if (existingRoute.id === routeId && existingRoute.openedAtTick === actionTick) {
+            recordActivity({
+              type: "routeOpened",
+              tick: actionTick,
+              routeId,
+              originIata,
+              destinationIata,
+            });
+          }
           routeIdAliases.set(routeId, existingRoute.id);
           break;
         }
@@ -885,6 +912,7 @@ export async function replayActionLog(params: {
           fareBusiness,
           fareFirst,
           status: "active",
+          openedAtTick: actionTick,
         });
         routePairs.add(pairKey);
         routePairToRouteId.set(pairKey, routeId);
@@ -987,6 +1015,10 @@ export async function replayActionLog(params: {
         if (!aircraft || !route) break;
         // Remove from previous route's assignedAircraftIds
         const previousRouteId = aircraft.assignedRouteId;
+        // A real move, or this event re-applied on its optimistic copy
+        // (same route, assigned at this very tick). Not a no-op re-send.
+        const countsAsAssignment =
+          previousRouteId !== routeId || aircraft.routeAssignedAtTick === actionTick;
         if (previousRouteId != null && previousRouteId !== routeId) {
           const resolvedPrevious = resolveRouteId(previousRouteId);
           if (resolvedPrevious != null) {
@@ -1010,7 +1042,7 @@ export async function replayActionLog(params: {
           indexAircraftOnRoute(aircraftId, routeId);
         }
         updateLastTick(actionTick);
-        if (previousRouteId !== routeId) {
+        if (countsAsAssignment) {
           recordActivity({ type: "aircraftAssigned", tick: actionTick, aircraftId, routeId });
         }
         pushTimelineEvent({
@@ -1070,7 +1102,7 @@ export async function replayActionLog(params: {
         const route = routesById.get(routeId);
         if (!route || !faresPayload) break;
         const caps = fareCaps(route.distanceKm);
-        const nextRoute = {
+        routesById.set(routeId, {
           ...route,
           fareEconomy:
             faresPayload.economy != null
@@ -1085,16 +1117,12 @@ export async function replayActionLog(params: {
             faresPayload.first != null
               ? (clampFixedPoint(faresPayload.first, fpZero, caps.first) ?? route.fareFirst)
               : route.fareFirst,
-        };
-        routesById.set(routeId, nextRoute);
+        });
         updateLastTick(actionTick);
-        if (
-          nextRoute.fareEconomy !== route.fareEconomy ||
-          nextRoute.fareBusiness !== route.fareBusiness ||
-          nextRoute.fareFirst !== route.fareFirst
-        ) {
-          recordActivity({ type: "faresUpdated", tick: actionTick, routeId });
-        }
+        // Counted even when the fares match: the store applies them before
+        // publishing, so the local replay can't tell a change from a repeat.
+        // That's why this objective pays the least.
+        recordActivity({ type: "faresUpdated", tick: actionTick, routeId });
         pushTimelineEvent({
           id: `evt-action-${record.eventId}`,
           tick: actionTick,
@@ -1119,9 +1147,8 @@ export async function replayActionLog(params: {
         if (!route || frequencyPerWeek === null) break;
         routesById.set(routeId, { ...route, frequencyPerWeek });
         updateLastTick(actionTick);
-        if (frequencyPerWeek !== route.frequencyPerWeek) {
-          recordActivity({ type: "frequencyUpdated", tick: actionTick, routeId });
-        }
+        // Counted even when unchanged, like fares (optimistic store update).
+        recordActivity({ type: "frequencyUpdated", tick: actionTick, routeId });
         pushTimelineEvent({
           id: `evt-action-${record.eventId}`,
           tick: actionTick,
@@ -1139,7 +1166,17 @@ export async function replayActionLog(params: {
         const modelId = clampString(payload.modelId, 64);
         const deliveryHubIata = sanitizeIata(payload.deliveryHubIata) ?? "XXX";
         if (!instanceId || !modelId) break;
-        if (fleetById.has(instanceId)) break;
+        const existingAircraft = fleetById.get(instanceId);
+        if (existingAircraft) {
+          // Re-applied on its own optimistic copy: still an acquisition.
+          if (
+            existingAircraft.modelId === modelId &&
+            existingAircraft.purchasedAtTick === actionTick
+          ) {
+            recordActivity({ type: "aircraftAcquired", tick: actionTick, aircraftId: instanceId });
+          }
+          break;
+        }
         const model = getAircraftById(modelId);
         if (!model) break;
         const configurationPayload = asRecord(payload.configuration);
@@ -1478,11 +1515,48 @@ export async function replayActionLog(params: {
         updateLastTick(actionTick);
         break;
       }
+      case "CLAIM_OBJECTIVE": {
+        const objectiveId = clampString(payload.objectiveId, 64);
+        if (!objectiveId || !objectiveLookup) break;
+        const verdict = verifyObjectiveClaim({
+          objectiveId,
+          tick: actionTick,
+          activity: objectiveActivity,
+          claimed: objectiveClaims,
+          lookup: objectiveLookup,
+        });
+        if (!verdict.ok) break;
+        const { reward } = verdict.objective;
+        objectiveClaims.add(objectiveId);
+        applyBalanceDelta(reward);
+        updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "objective_reward",
+          revenue: reward,
+          description: `Daily objective complete: earned ${fpFormat(reward, 0)}.`,
+        });
+        break;
+      }
       default:
         updateLastTick(actionTick);
         break;
     }
   }
+
+  // Keep the ledger to the last two UTC days before the newest activity.
+  // Pruning against replayed ticks (never the wall clock) keeps the result
+  // a pure function of the log and the checkpoint.
+  const ledgerTick = objectiveActivity.reduce(
+    (latest, entry) => Math.max(latest, entry.tick),
+    airline?.lastTick ?? 0,
+  );
+  const objectives = pruneObjectiveLedger(
+    { activity: objectiveActivity, claimed: [...objectiveClaims] },
+    ledgerTick,
+  );
 
   let fleet = Array.from(fleetById.values());
   const routes = Array.from(routesById.values());
@@ -1503,20 +1577,9 @@ export async function replayActionLog(params: {
       fleetIds: authoritativeFleetIds ?? fleet.map((aircraft) => aircraft.id),
       routeIds: authoritativeRouteIds ?? routes.map((route) => route.id),
       timeline,
+      objectives,
     };
   }
-
-  // Keep the ledger to the last two UTC days before the newest activity.
-  // Pruning against the newest tick in the ledger itself (not the clock)
-  // keeps the result a pure function of the log.
-  const ledgerTick = objectiveActivity.reduce(
-    (latest, entry) => Math.max(latest, entry.tick),
-    airline?.lastTick ?? 0,
-  );
-  const objectives = pruneObjectiveLedger(
-    { activity: objectiveActivity, claimed: [...objectiveClaims] },
-    ledgerTick,
-  );
 
   return { airline, fleet, routes, timeline, actionChainHash, dissolved, objectives };
 }

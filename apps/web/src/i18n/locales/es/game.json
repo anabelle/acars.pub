@@ -83,7 +83,8 @@
       "bankruptcy": "QUIEBRA DECLARADA",
       "financialWarning": "Aviso financiero",
       "operationsUpdate": "Actualización operativa",
-      "competitorRoute": "Rival en tu ruta"
+      "competitorRoute": "Rival en tu ruta",
+      "objectiveReward": "Objetivo diario completado"
     }
   },
   "fleet": {

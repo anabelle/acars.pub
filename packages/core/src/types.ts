@@ -235,6 +235,12 @@ export interface AirlineEntity {
   // Engine State
   lastTick?: number;
   timeline?: TimelineEvent[];
+  /**
+   * Daily-objective ledger (S32): the last two UTC days of qualifying
+   * actions and claims. Rebuilt by the action replay; rides along in local
+   * storage and snapshots with the rest of the airline.
+   */
+  objectives?: import("./objectives.js").ObjectiveLedger;
 }
 
 // --- Route ---
@@ -248,6 +254,8 @@ export interface Route {
 
   // Schedule
   frequencyPerWeek?: number;
+  /** Tick of the ROUTE_OPEN that created it (S32; absent on older routes). */
+  openedAtTick?: number;
 
   // Operations
   assignedAircraftIds: string[]; // Which specific planes fly this?
@@ -342,7 +350,8 @@ export type TimelineEventType =
   | "price_war"
   | "tier_upgrade"
   | "bankruptcy"
-  | "financial_warning";
+  | "financial_warning"
+  | "objective_reward";
 
 export interface TimelineEvent {
   id: string;
@@ -405,8 +414,6 @@ export interface Checkpoint {
   fleet: AircraftInstance[];
   routes: Route[];
   timeline: TimelineEvent[];
-  /** Daily-objective ledger (S32). Optional: older checkpoints don't carry it. */
-  objectives?: import("./objectives.js").ObjectiveLedger;
 }
 
 // --- Maintenance policy (S13) ---
@@ -444,7 +451,8 @@ export type GameActionType =
   | "AIRCRAFT_MAINTENANCE"
   | "AIRCRAFT_FERRY"
   | "AIRCRAFT_UPDATE_LIVERY"
-  | "SET_MAINTENANCE_POLICY";
+  | "SET_MAINTENANCE_POLICY"
+  | "CLAIM_OBJECTIVE";
 
 /**
  * Actions whose Nostr events use a UNIQUE d-tag per (author, action) so

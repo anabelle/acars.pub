@@ -703,6 +703,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       fareBusiness: suggested.business,
       fareFirst: suggested.first,
       status: "active",
+      openedAtTick: currentTick,
     };
 
     const updatedRoutes = [...routes, newRoute];

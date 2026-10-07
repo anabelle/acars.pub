@@ -306,3 +306,44 @@ export function pruneObjectiveLedger(ledger: ObjectiveLedger, tick: number): Obj
     claimed: ledger.claimed.filter((id) => id.slice(0, 10) >= keepFromDate),
   };
 }
+
+// --- Claims (D6: replay-verified) ---
+
+export type ObjectiveClaimVerdict =
+  | { ok: true; objective: DailyObjective }
+  | { ok: false; reason: "invalid" | "expired" | "claimed" | "incomplete" };
+
+const OBJECTIVE_ID_PATTERN = /^(\d{4}-\d{2}-\d{2}):([A-Za-z]+)$/;
+
+/**
+ * Whether a CLAIM_OBJECTIVE at `tick` pays out. Every client runs this
+ * during replay with the same inputs, so a claim is accepted everywhere or
+ * nowhere:
+ * - the id names one of that day's objectives;
+ * - the claim is made on that UTC day or the day after (a late check-in
+ *   still pays), never before the day starts;
+ * - it hasn't been claimed already (idempotent per airline, date, kind);
+ * - the ledger shows the objective complete at the moment of the claim.
+ */
+export function verifyObjectiveClaim(params: {
+  objectiveId: string;
+  tick: number;
+  activity: readonly ObjectiveActivity[];
+  claimed: ReadonlySet<string>;
+  lookup: ObjectiveAirportLookup;
+}): ObjectiveClaimVerdict {
+  const { objectiveId, tick, activity, claimed, lookup } = params;
+  const match = OBJECTIVE_ID_PATTERN.exec(objectiveId);
+  if (!match || utcMidnight(match[1]) === null) return { ok: false, reason: "invalid" };
+  const objective = getDailyObjectives(match[1]).find((entry) => entry.id === objectiveId);
+  if (!objective) return { ok: false, reason: "invalid" };
+  const { startTick, endTick } = objectiveDayWindow(objective.date);
+  if (tick < startTick || tick >= endTick + (endTick - startTick)) {
+    return { ok: false, reason: "expired" };
+  }
+  if (claimed.has(objectiveId)) return { ok: false, reason: "claimed" };
+  if (!evaluateObjective(objective, activity, lookup).complete) {
+    return { ok: false, reason: "incomplete" };
+  }
+  return { ok: true, objective };
+}
