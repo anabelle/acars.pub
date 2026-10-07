@@ -1,9 +1,9 @@
 # S45 — Globe-first 3D shell prototype (deck.gl)
 
-> **Status:** ☑ ready for review
+> **Status:** ☑ merged
 > **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #187
+> **PR:** — (merged in #187)
 >
 > **Track:** Graphics · **Size:** L (4 steps) · **Depends on:** S01 · **Unblocks:** Decision D4
 >
