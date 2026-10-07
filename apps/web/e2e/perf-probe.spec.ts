@@ -94,10 +94,12 @@ async function measure(page: import("@playwright/test").Page, mode: Mode) {
     .click();
   // Wait on the route list, not the 4-second "is live" toast: forced full
   // mode under software WebGL starves the page, and polling can miss a toast.
+  // The toast can sit over the close button, and a pointer click waiting on it
+  // hovers the toast, which pauses its dismissal: dispatch the click instead.
   await page
     .getByRole("button", { name: /close airport panel/i })
     .first()
-    .click();
+    .dispatchEvent("click");
   await navigateInApp(page, "/network?tab=active");
   await expect(page.getByTestId("route-frequency").first()).toBeVisible({ timeout: 60_000 });
   await navigateInApp(page, "/");
