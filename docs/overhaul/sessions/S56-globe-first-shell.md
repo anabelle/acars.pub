@@ -3,7 +3,7 @@
 > **Status:** ◐ in progress
 > **Next step:** S56.2
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #191
 >
 > **Track:** UX · **Size:** L (4 steps) · **Depends on:** S45, S54 · **Unblocks:** — · **Decided by D4 (2026-10-07)**
 >
