@@ -1,7 +1,7 @@
 # S54 — Map performance: stop the constant redraws
 
-> **Status:** ☑ ready for review
-> **Next step:** — (awaiting merge of #183)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #183)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #183
 >

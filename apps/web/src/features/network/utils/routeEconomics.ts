@@ -11,7 +11,7 @@ import {
   fpScale,
   fpSub,
   fpToNumber,
-  getFuelPriceAtTick,
+  getEventFuelPriceAtTick,
   type Route,
 } from "@acars/core";
 import { getHubPricingForIata } from "@acars/data";
@@ -168,7 +168,7 @@ export function estimateRouteEconomics({
     actualPassengers: revenue.actualPassengers,
     blockHours,
     airportFeesMultiplier,
-    fuelPricePerKg: getFuelPriceAtTick(tick),
+    fuelPricePerKg: getEventFuelPriceAtTick(tick),
   });
 
   const weeklyLeaseShare = includeFixedCosts

@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
+import { WorldEventsCard } from "@/features/events/WorldEventsCard";
 import { NotificationSettingsCard } from "@/features/notifications/NotificationSettingsCard";
 import { DailyObjectivesCard } from "./DailyObjectivesCard";
 import { FirstHourChecklist } from "./FirstHourChecklist";
@@ -602,6 +603,7 @@ export function OperationsCockpit() {
           />
         )}
         {!isViewingOther && <DailyObjectivesCard ledger={activeAirline.objectives} />}
+        {!isViewingOther && <WorldEventsCard routes={routes} />}
         <section
           className={cn(
             // An odd last card spans the row in the two-column layout.

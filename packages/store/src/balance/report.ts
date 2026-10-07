@@ -1,4 +1,10 @@
-import { MAX_ROUTE_FREQUENCY_PER_WEEK, TIER_THRESHOLDS } from "@acars/core";
+import {
+  MAX_ROUTE_FREQUENCY_PER_WEEK,
+  setActiveEventsOverride,
+  TIER_THRESHOLDS,
+  WORLD_EVENT_TEMPLATES,
+  type WorldEvent,
+} from "@acars/core";
 import {
   BRAND_MARKET,
   BRAND_STRATEGIES,
@@ -299,6 +305,89 @@ function targetsSection(sweeps: FareSweep[]): string {
   return [fareLine, spreadLine].join("\n");
 }
 
+/** The market world events are measured on: medium demand, below the LF ceiling. */
+export const EVENT_MARKET = { origin: "DEN", destination: "SLC" } as const;
+
+/**
+ * World events (S33) on one market, each against the same calm leg: the
+ * event is pinned at the destination (or globally for fuel), so the only
+ * difference is the event itself. Includes the worst stacks the clamps allow.
+ */
+function worldEventsSection(): string {
+  const leg = () =>
+    runLegScenario({
+      originIata: EVENT_MARKET.origin,
+      destinationIata: EVENT_MARKET.destination,
+      modelId: BASE_MODEL,
+      fareMultiplier: 1,
+      aircraftCount: 1,
+    });
+  const pinned = (events: WorldEvent[]) => {
+    setActiveEventsOverride(events);
+    try {
+      return leg();
+    } finally {
+      setActiveEventsOverride([]);
+    }
+  };
+  const event = (
+    template: (typeof WORLD_EVENT_TEMPLATES)[number],
+    airportIata: string | null,
+  ): WorldEvent => ({
+    id: `${template.kind}@${airportIata ?? "global"}`,
+    kind: template.kind,
+    airportIata,
+    startTick: 0,
+    endTick: Number.MAX_SAFE_INTEGER,
+    demandMultiplier: template.demandMultiplier,
+    feesMultiplier: template.feesMultiplier,
+    fuelMultiplier: template.fuelMultiplier,
+  });
+  const template = (kind: WorldEvent["kind"]) =>
+    WORLD_EVENT_TEMPLATES.find((t) => t.kind === kind)!;
+
+  const calm = pinned([]);
+  const scenarios: Array<{ label: string; events: WorldEvent[] }> = [
+    ...WORLD_EVENT_TEMPLATES.map((t) => ({
+      label: t.kind,
+      events: [event(t, t.airports.length > 0 ? EVENT_MARKET.destination : null)],
+    })),
+    {
+      label: "strike at both ends",
+      events: [
+        event(template("strike"), EVENT_MARKET.origin),
+        event(template("strike"), EVENT_MARKET.destination),
+      ],
+    },
+    {
+      label: "festival + strike at DEN, final + congestion at SLC",
+      events: [
+        event(template("festival"), EVENT_MARKET.origin),
+        event(template("sportsFinal"), EVENT_MARKET.destination),
+        event(template("hubCongestion"), EVENT_MARKET.destination),
+        event(template("strike"), EVENT_MARKET.origin),
+      ],
+    },
+  ];
+  const calmProfit = dollars(calm.profitPerLeg);
+  const rows = scenarios.map(({ label, events }) => {
+    const m = pinned(events);
+    const profit = dollars(m.profitPerLeg);
+    const change = calmProfit !== 0 ? (profit - calmProfit) / Math.abs(calmProfit) : 0;
+    return row([
+      label,
+      pct(m.loadFactor),
+      money(profit),
+      `${change >= 0 ? "+" : ""}${Math.round(change * 100)}%`,
+    ]);
+  });
+  return [
+    header(["Event", "LF", "Profit/leg", "vs calm"]),
+    row(["calm (no events)", pct(calm.loadFactor), money(calmProfit), "—"]),
+    ...rows,
+  ].join("\n");
+}
+
 /** Extra sections appended by callers. */
 export type ReportSection = { title: string; body: string };
 
@@ -308,6 +397,17 @@ export type ReportSection = { title: string; body: string };
  * stated. Deterministic, so two runs on the same code are identical.
  */
 export function generateBalanceReport(extraSections: ReportSection[] = []): string {
+  // A calm world: the real schedule could put an event on a market at tick 1
+  // and shift every table. Section 8 pins events explicitly.
+  setActiveEventsOverride([]);
+  try {
+    return buildReport(extraSections);
+  } finally {
+    setActiveEventsOverride(null);
+  }
+}
+
+function buildReport(extraSections: ReportSection[]): string {
   const sweeps = MARKETS.map((m) => sweepFares(m.origin, m.destination, m.label));
   const sections: ReportSection[] = [
     { title: "0. Balance targets (README §6)", body: targetsSection(sweeps) },
@@ -335,6 +435,10 @@ export function generateBalanceReport(extraSections: ReportSection[] = []): stri
     {
       title: `7. Brand trajectories over 30 days (${BRAND_MARKET.origin}–${BRAND_MARKET.destination}, new airline at 0.5)`,
       body: `${brandSection(30)}\n\n_Brand v2 (S11): each landing is graded on fare vs the market reference (fair up to 1.2×), aircraft condition (≥ 0.6) and load factor (+1 only in 60–90%, penalised below 50%). The brand closes 1/400 of the gap to the grade's target (0.1–0.9) per landing._`,
+    },
+    {
+      title: `8. World events (${BASE_MODEL} on ${EVENT_MARKET.origin}–${EVENT_MARKET.destination}, 1 aircraft, suggested fares)`,
+      body: `${worldEventsSection()}\n\n_Each event pinned at ${EVENT_MARKET.destination} (fuel spike: global) against the same calm leg. Combined effects are clamped (S33): demand ×0.6–1.6, fees ≤ ×1.5, fuel ≤ ×1.2._`,
     },
     ...extraSections,
   ];

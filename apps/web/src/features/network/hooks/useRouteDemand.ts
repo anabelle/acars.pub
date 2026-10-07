@@ -14,6 +14,7 @@ import {
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
   scaleToAddressableMarket,
+  worldEventDemandMultiplier,
 } from "@acars/core";
 import { getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
@@ -213,12 +214,15 @@ export function getRouteDemandSnapshot(
 
   const weeklyDemand = calculateDemand(origin, destination, season, prosperity, hubModifier);
 
+  // Same world-event demand effect the engine applies at landing (S33).
+  const demandModifier =
+    congestionModifier * worldEventDemandMultiplier(tick, originIata, destinationIata);
   const totalDemand: DemandResult = {
     origin: originIata,
     destination: destinationIata,
-    economy: Math.round(weeklyDemand.economy * congestionModifier),
-    business: Math.round(weeklyDemand.business * congestionModifier),
-    first: Math.round(weeklyDemand.first * congestionModifier),
+    economy: Math.round(weeklyDemand.economy * demandModifier),
+    business: Math.round(weeklyDemand.business * demandModifier),
+    first: Math.round(weeklyDemand.first * demandModifier),
   };
 
   const addressableDemand = scaleToAddressableMarket(totalDemand);
