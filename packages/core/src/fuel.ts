@@ -58,71 +58,53 @@ function getEpochFuelPrice(epoch: number): FixedPoint {
   return price;
 }
 
-// Per-tick memoization. getFuelPriceAtTick is pure in (tick), so the
-// price series can be cached and extended incrementally instead of
-// re-walking from the epoch start on every call (O(ticks) per landing →
-// O(1) amortized). The cache covers a contiguous tick window
-// [cacheLowTick, cacheHighTick] and is bounded to three epochs; when it
-// overflows it resets to the requested tick and later lookups re-derive
-// from the epoch-start prices in `epochCache`. Output is bit-identical
-// to the naive epoch-walk (see fuel tests).
-const FUEL_TICK_CACHE_MAX = FUEL_PRICE_EPOCH_TICKS * 3;
-const tickCache = new Map<number, FixedPoint>([[0, FUEL_PRICE_MEAN_PER_KG]]);
-let cacheLowTick = 0;
-let cacheHighTick = 0;
+// Per-day checkpoints. The first lookup in a day walks that day once from its
+// day-start price and keeps every FUEL_CHECKPOINT_STRIDE-th price (an
+// Int32Array: fixed-point values are small integers, so exact). Any tick is
+// then at most STRIDE − 1 steps from a checkpoint, in any lookup order, and a
+// day costs ~4 kB (only days actually looked up are kept).
+// The earlier single-window tick cache reset whenever lookups jumped
+// backwards, which world sync does constantly (each rival's missed landings
+// start days in the past): it re-walked up to a day per landing and froze
+// the page. Output is bit-identical to the naive walk (see fuel tests).
+export const FUEL_CHECKPOINT_STRIDE = 30;
+const CHECKPOINTS_PER_DAY = FUEL_PRICE_EPOCH_TICKS / FUEL_CHECKPOINT_STRIDE;
+const dayCheckpoints = new Map<number, Int32Array>();
 
-function rebuildFromEpochStart(safeTick: number): FixedPoint {
-  const epoch = Math.floor(safeTick / FUEL_PRICE_EPOCH_TICKS);
+function getDayCheckpoints(epoch: number): Int32Array {
+  const cached = dayCheckpoints.get(epoch);
+  if (cached) return cached;
+  const checkpoints = new Int32Array(CHECKPOINTS_PER_DAY);
   const startTick = epoch * FUEL_PRICE_EPOCH_TICKS;
   let price = getEpochFuelPrice(epoch);
-
-  tickCache.clear();
-  tickCache.set(startTick, price);
-  cacheLowTick = startTick;
-
-  for (let tick = startTick; tick < safeTick; tick += 1) {
-    price = stepFuelPrice(price, tick);
-    tickCache.set(tick + 1, price);
+  for (let i = 0; i < FUEL_PRICE_EPOCH_TICKS; i += 1) {
+    if (i % FUEL_CHECKPOINT_STRIDE === 0) checkpoints[i / FUEL_CHECKPOINT_STRIDE] = price;
+    price = stepFuelPrice(price, startTick + i);
   }
-  cacheHighTick = safeTick;
-  return price;
+  dayCheckpoints.set(epoch, checkpoints);
+  return checkpoints;
 }
+
+// The engine asks for the same tick many times in a row (every landing in a tick).
+let lastTick = -1;
+let lastPrice = FUEL_PRICE_MEAN_PER_KG;
 
 export function getFuelPriceAtTick(tick: number): FixedPoint {
   const safeTick = Math.max(0, Math.floor(tick));
-
-  const cached = tickCache.get(safeTick);
-  if (cached !== undefined) return cached;
-
-  let price: FixedPoint;
-  if (safeTick - cacheHighTick > FUEL_TICK_CACHE_MAX) {
-    // Long forward jump (e.g. the first lookup of a session, from tick 0 to
-    // "now"): re-derive from the epoch-start price instead of caching every
-    // intermediate tick. Walking and storing each tick overflowed the Map's
-    // 2^24-entry limit once the game clock passed ~16.8M ticks.
-    price = rebuildFromEpochStart(safeTick);
-  } else if (safeTick > cacheHighTick) {
-    // Forward jump: advance incrementally from the highest cached tick.
-    price = tickCache.get(cacheHighTick)!;
-    for (let currentTick = cacheHighTick; currentTick < safeTick; currentTick += 1) {
-      price = stepFuelPrice(price, currentTick);
-      tickCache.set(currentTick + 1, price);
-    }
-    cacheHighTick = safeTick;
-  } else {
-    // Backward jump (rare): re-derive from the cached epoch-start state.
-    price = rebuildFromEpochStart(safeTick);
+  if (safeTick === lastTick) return lastPrice;
+  const epoch = Math.floor(safeTick / FUEL_PRICE_EPOCH_TICKS);
+  const offset = safeTick - epoch * FUEL_PRICE_EPOCH_TICKS;
+  const index = Math.floor(offset / FUEL_CHECKPOINT_STRIDE);
+  let price = getDayCheckpoints(epoch)[index] as FixedPoint;
+  for (
+    let t = epoch * FUEL_PRICE_EPOCH_TICKS + index * FUEL_CHECKPOINT_STRIDE;
+    t < safeTick;
+    t += 1
+  ) {
+    price = stepFuelPrice(price, t);
   }
-
-  if (cacheHighTick - cacheLowTick + 1 > FUEL_TICK_CACHE_MAX) {
-    // Cache bound exceeded: drop everything but the current answer.
-    // Future queries re-derive from `epochCache` as needed.
-    tickCache.clear();
-    tickCache.set(safeTick, price);
-    cacheLowTick = safeTick;
-    cacheHighTick = safeTick;
-  }
-
+  lastTick = safeTick;
+  lastPrice = price;
   return price;
 }
 

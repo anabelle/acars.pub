@@ -9,6 +9,7 @@ import { computeActionChainHash, fp, fpSub } from "@acars/core";
 import { getHubPricingForIata } from "@acars/data";
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
+import { bootMark } from "../bootTrace";
 import { useEngineStore } from "../engine";
 import { hydrateIdentityFromStorage } from "../localLoader";
 import type { AirlineState } from "../types";
@@ -60,6 +61,7 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
   latestCheckpoint: null,
 
   initializeIdentity: async () => {
+    bootMark("identity: start");
     const prevStatus = get().identityStatus;
     const hasExistingIdentity = prevStatus === "ready" && Boolean(get().airline || get().pubkey);
     set({ isLoading: true, error: null });

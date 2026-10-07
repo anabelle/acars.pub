@@ -1,4 +1,5 @@
 import { DARK_MAP_STYLE_URL, getMapPalette } from "@acars/map";
+import { bootMark } from "@acars/store";
 import type { Layer } from "@deck.gl/core";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import * as maplibregl from "maplibre-gl";
@@ -135,7 +136,10 @@ export function PlayGlobe({
       });
     });
     map.addControl(overlay as unknown as maplibregl.IControl);
-    map.once("load", () => setReady(true));
+    map.once("load", () => {
+      bootMark("play: globe loaded");
+      setReady(true);
+    });
     window.__acarsPlayProject = (lng, lat) => {
       const point = map.project([lng, lat]);
       const box = container.getBoundingClientRect();
@@ -169,6 +173,7 @@ export function PlayGlobe({
   useEffect(() => {
     if (!ready) return;
     const buffers: PlaneBuffers = allocatePlaneBuffers(planes);
+    if (planes.length > 0) bootMark("play: planes ready", `${planes.length}`);
     stats().planes = planes.length;
     let version = 0;
     const tick = () => {

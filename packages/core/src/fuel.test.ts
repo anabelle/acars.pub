@@ -220,3 +220,47 @@ describe("precomputed day-start prices (fuelEpochs.ts)", () => {
     expect(price).toBe(expected);
   });
 });
+
+describe("world-sync access pattern (per-day checkpoints)", () => {
+  /** Reference: walk from the precomputed start of the tick's day. */
+  const reference = (tick: number) => {
+    const epoch = Math.floor(tick / FUEL_PRICE_EPOCH_TICKS);
+    let price = FUEL_EPOCH_START_PRICES[epoch] as FixedPoint;
+    for (let t = epoch * FUEL_PRICE_EPOCH_TICKS; t < tick; t++) price = stepFuelPrice(price, t);
+    return price;
+  };
+
+  it("answers lookups jumping back and forth across days exactly", async () => {
+    vi.resetModules();
+    const fresh = await import("./fuel.js");
+    const base = 590 * FUEL_PRICE_EPOCH_TICKS;
+    const ticks = [
+      base + 7,
+      base + 5 * FUEL_PRICE_EPOCH_TICKS + 29,
+      base + 30,
+      base + 2 * FUEL_PRICE_EPOCH_TICKS + 12_345,
+      base + 31,
+      base + 5 * FUEL_PRICE_EPOCH_TICKS + 30,
+      base + FUEL_PRICE_EPOCH_TICKS - 1,
+      base + 7,
+    ];
+    for (const tick of ticks) expect(fresh.getFuelPriceAtTick(tick)).toBe(reference(tick));
+  });
+
+  it("prices many rivals' missed landings over a week quickly", async () => {
+    vi.resetModules();
+    const fresh = await import("./fuel.js");
+    const now = 600 * FUEL_PRICE_EPOCH_TICKS;
+    const started = performance.now();
+    // 20 rivals × 3 aircraft, each swept chronologically over 7 days (every ~2h).
+    for (let rival = 0; rival < 20; rival++) {
+      for (let ac = 0; ac < 3; ac++) {
+        for (let t = now - 7 * FUEL_PRICE_EPOCH_TICKS + rival * 37 + ac; t < now; t += 2400) {
+          fresh.getFuelPriceAtTick(t);
+        }
+      }
+    }
+    // Was ~20 s with the single-window tick cache (re-walked on every backward jump).
+    expect(performance.now() - started).toBeLessThan(2_000);
+  });
+});

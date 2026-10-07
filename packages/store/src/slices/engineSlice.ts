@@ -1,6 +1,5 @@
 import {
   brandServiceGrade,
-  nextBrandScore,
   CHAPTER11_BALANCE_THRESHOLD_USD,
   estimateHistoricRevenue,
   evaluateTier,
@@ -10,12 +9,14 @@ import {
   fpSub,
   GENESIS_TIME,
   getMaxRouteDistanceKm,
+  nextBrandScore,
   TICK_DURATION,
   TICKS_PER_MONTH,
 } from "@acars/core";
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
 import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
+import { bootMark } from "../bootTrace";
 import { useEngineStore } from "../engine";
 import { processFlightEngine, reconcileFleetToTick } from "../FlightEngine";
 import type { AirlineState } from "../types";
@@ -199,10 +200,12 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       const needsCatchupUI = targetTick - lastTick > CATCHUP_CHUNK;
       const clearCatchup = () => {
         if (useEngineStore.getState().catchupProgress) {
+          if (needsCatchupUI) bootMark("catch-up: done");
           useEngineStore.setState({ catchupProgress: null });
         }
       };
       if (needsCatchupUI) {
+        bootMark("catch-up: start", `${targetTick - lastTick} ticks, ${fleet.length} aircraft`);
         useEngineStore.setState({
           catchupProgress: {
             current: lastTick,

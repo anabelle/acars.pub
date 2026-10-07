@@ -6,7 +6,7 @@ import {
   whenDataCatalogReady,
 } from "@acars/data";
 import type { UserLocation } from "@acars/store";
-import { useAirlineStore, useEngineStore } from "@acars/store";
+import { bootMark, useAirlineStore, useEngineStore } from "@acars/store";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -102,7 +102,10 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     void whenDataCatalogReady().then(() => {
-      if (!cancelled) setCatalogReady(true);
+      if (!cancelled) {
+        bootMark("catalog: airports loaded");
+        setCatalogReady(true);
+      }
     });
     return () => {
       cancelled = true;

@@ -55,6 +55,7 @@ vi.mock("@acars/store", () => {
     { getState: () => mockUseEngineStore() as EngineStoreState },
   );
   return {
+    bootMark: () => {},
     useAirlineStore,
     useEngineStore,
   };

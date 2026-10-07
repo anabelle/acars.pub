@@ -31,6 +31,15 @@ const deckFrames = (page: import("@playwright/test").Page) =>
         ?.deckFrames ?? 0,
   );
 
+test("?boot=1 shows the startup trace", async ({ page, problems }) => {
+  await gotoReady(page, "/play?prototype=on&boot=1");
+  const trace = page.getByTestId("boot-trace");
+  await expect(trace).toContainText("app: script started");
+  await expect(trace).toContainText("play: globe loaded", { timeout: 60_000 });
+  await expect(trace).toContainText("long tasks:");
+  expect(problems.pageErrors).toEqual([]);
+});
+
 test("the globe prototype is off unless turned on", async ({ page, problems }) => {
   await gotoReady(page, "/play");
   await expect(page.getByTestId("play-disabled")).toContainText("Globe prototype is off");

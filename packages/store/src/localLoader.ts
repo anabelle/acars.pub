@@ -1,4 +1,5 @@
 import { type Checkpoint, fpAdd } from "@acars/core";
+import { bootMark } from "./bootTrace.js";
 import { useEngineStore } from "./engine.js";
 import { reconcileFleetToTick } from "./FlightEngine.js";
 import { flushOutbox } from "./outbox.js";
@@ -21,6 +22,10 @@ export async function hydrateIdentityFromStorage(
   const localAirline = await db.airline.where({ ceoPubkey: pubkey }).first();
   const localFleet = await db.fleet.where({ ownerPubkey: pubkey }).toArray();
   const localRoutes = await db.routes.where({ airlinePubkey: pubkey }).toArray();
+  bootMark(
+    "identity: device state loaded",
+    localAirline ? `${localFleet.length} aircraft, ${localRoutes.length} routes` : "none",
+  );
 
   let currentAirline = localAirline ?? null;
   let currentFleet = localFleet;
@@ -42,6 +47,7 @@ export async function hydrateIdentityFromStorage(
   try {
     const { loadSnapshot } = await import("@acars/nostr");
     const remote = await loadSnapshot(pubkey);
+    bootMark("identity: saved state fetched", remote ? `tick ${remote.tick}` : "none");
     if (remote) {
       // LWW-by-tick, but a remote snapshot only wins if it VERIFIES:
       // parseCheckpoint shape validation + recomputed state hash must
@@ -57,6 +63,7 @@ export async function hydrateIdentityFromStorage(
       // next snapshot publish. A proper three-way merge over the shared
       // action log is future work.
       const snapshotCheckpoint = await verifySnapshotPayload(remote);
+      bootMark("identity: saved state verified", snapshotCheckpoint ? "ok" : "rejected");
       const localTick = currentAirline?.lastTick ?? 0;
 
       if (snapshotCheckpoint && snapshotCheckpoint.tick > localTick) {
@@ -141,6 +148,10 @@ export async function hydrateIdentityFromStorage(
       events,
       balanceDelta,
     } = reconcileFleetToTick(fleet, routes, engineTick);
+    bootMark(
+      "identity: offline flights reconciled",
+      `${engineTick - (airline.lastTick ?? engineTick)} ticks, ${fleet.length} aircraft`,
+    );
     fleet = reconciled;
     airline.lastTick = engineTick;
     airline.corporateBalance = fpAdd(airline.corporateBalance, balanceDelta);
@@ -170,6 +181,7 @@ export async function hydrateIdentityFromStorage(
     identityStatus: "ready",
     isLoading: false,
   });
+  bootMark("identity: ready");
 
   // Re-send any actions that were persisted to the outbox but never
   // successfully published before the app closed (< 24h old).
