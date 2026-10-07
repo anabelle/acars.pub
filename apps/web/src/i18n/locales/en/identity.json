@@ -98,5 +98,13 @@
     "fleetLockedDescription": "Start your free airline to lease or buy aircraft and keep them flying.",
     "corporateLockedTitle": "Your airline’s finances live here",
     "corporateLockedDescription": "Start your free airline to track cash, hubs and route profits."
+  },
+  "backupPrompt": {
+    "landingTitle": "Your first flight landed. Keep your airline.",
+    "landingBody": "It lives on a key saved only in this browser. Copy it or download it now, and a cleared browser or a new device can't take your airline away.",
+    "returnTitle": "Welcome back. Your airline still lives in this browser only.",
+    "returnBody": "Back up your key once to play from any device and never lose your airline.",
+    "later": "Not now",
+    "close": "Close"
   }
 }

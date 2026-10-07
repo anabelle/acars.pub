@@ -1,7 +1,7 @@
 # S26 — Guest sandbox airline
 
-> **Status:** ◐ in progress
-> **Next step:** S26.3
+> **Status:** ☑ ready for review
+> **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #186
 >
@@ -38,7 +38,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S26.1** Write the sandbox time-mapping design in this brief (Follow-ups → Decisions). _Done when:_ owner can review.
 - [x] **S26.2** _(option B)_ Hide abandoned airlines from the world, rival lists and leaderboard. _Done when:_ unit + world-sync tests.
-- [ ] **S26.3** _(option B)_ Backup prompt at the right moments (after the first landing, on the first return visit), en/es. _Done when:_ component tests + e2e.
+- [x] **S26.3** _(option B)_ Backup prompt at the right moments (after the first landing, on the first return visit), en/es. _Done when:_ component tests + e2e.
 
 _The original S26.2–S26.4 (full sandbox) were replaced by the owner's choice of option B on 2026-10-07; option A stays documented under Decisions._
 
@@ -49,7 +49,7 @@ _The original S26.2–S26.4 (full sandbox) were replaced by the owner's choice o
 
 ## Acceptance criteria
 
-- [ ] _(option B)_ Guests keep instant play; abandoned airlines no longer clutter the world; guests are prompted to keep their key when it matters.
+- [x] _(option B)_ Guests keep instant play; abandoned airlines no longer clutter the world; guests are prompted to keep their key when it matters.
 
 ## Progress log
 
@@ -67,9 +67,23 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **They come back.** They stay on relays, and the next sync after they act brings them back. Opening their public page by URL still works (a separate per-airline sync).
 - **Tests:** the helper's edges; world sync drops a routeless airline idle 8 days (even one already listed) and keeps a rival flying a route.
 
+2026-10-07 · S26.3 · (this commit) · **Backup prompt at the moments that matter.**
+
+- **When.** `features/identity/lib/backupPrompt.ts` decides: the first time the airline has flown ("landing"), then once on the next visit, meaning a new browser session ("return"). Each is shown once per account. A first landing that happened while the player was away gets the landing prompt on that visit and the return prompt on the next. A backed-up key (copy or download) ends both. Blocked storage never throws.
+- **What.** `KeyBackupPrompt` is a floating card, not a modal, so it never stacks on the "while you were away" report. It reuses `EphemeralKeyBackupActions`, so one tap copies or downloads the key, without the wallet-upgrade button. It offers "Not now" and a close button. It is mounted next to the banner for ephemeral players only. The banner stays as the standing reminder.
+- **Strings:** en + es (`identity:backupPrompt.*`).
+- **Tests.**
+  - Unit: the decision across visits, accounts, a secured key and blocked storage.
+  - Component: waits for the landing, shows once per visit, welcomes the player back once, closes for good on copy, and never shows for a secured account.
+  - e2e (`key-backup-prompt.spec.ts`): a guest launches MAD → BCN, game time runs until the first landing, and the prompt appears. In English, downloading the key file dismisses it; in Spanish, "Ahora no" does.
+- **Not covered by e2e:** the return-visit prompt. The fake relay stores nothing, so a reload loses the airline; component tests cover it instead.
+- **Gotcha:** an e2e test that launches a route must wait for the "is live" toast before navigating away. The route list shows up as soon as the route opens, before the lease and assignment finish, and leaving early left the aircraft unassigned.
+- **Checks:** gate green, full e2e 68 passed.
+
 ## Follow-ups
 
-_None yet._
+- `?demo` read-only tour (option B, item 3): only if the S04 funnel shows guests bouncing before "Play for free".
+- Return-visit prompt in e2e, once the fake relay can persist events across a reload.
 
 ## Decisions (S26.1 design, for the owner)
 
@@ -118,4 +132,13 @@ Option B.
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped (option B):**
+  - Abandoned airlines (no active route, idle more than 7 days) drop out of the shared world: the map, rival lists and the leaderboard. They come back the moment they act again.
+  - Guests get a one-time "keep your airline" card after their first landing and again on their first return visit. It copies or downloads the key in one tap, in en and es.
+- **Not shipped:**
+  - Option A, the full local sandbox. The owner chose B; A stays designed under Decisions.
+  - The `?demo` tour, which waits on funnel evidence.
+- **Gotchas:**
+  - World sync filters per snapshot using max(`lastTick`, snapshot tick). An airline with unknown activity is never treated as abandoned.
+  - Prompt state lives in localStorage (shown) and sessionStorage (the current visit) per pubkey, under `acars:backup-prompt:*`.
+  - e2e route launches must wait for the "is live" toast (see the S26.3 log line).

@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { AirlineCreator } from "./AirlineCreator";
+import { KeyBackupPrompt } from "./KeyBackupPrompt";
 import { SecurityUpgradeBanner } from "./SecurityUpgradeBanner";
 
 export function IdentityGate({ children }: { children: React.ReactNode }) {
@@ -47,6 +48,7 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-full w-full flex-col">
       {isEphemeral && <SecurityUpgradeBanner />}
+      {isEphemeral && <KeyBackupPrompt />}
       {children}
     </div>
   );
