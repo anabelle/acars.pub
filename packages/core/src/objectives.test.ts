@@ -2,14 +2,16 @@ import { describe, expect, it } from "vitest";
 import { fp } from "./fixed-point.js";
 import {
   DAILY_OBJECTIVE_COUNT,
-  emptyObjectiveLedger,
   type DailyObjective,
+  EVENT_OBJECTIVE_REWARD,
+  emptyObjectiveLedger,
   evaluateDailyObjectives,
   evaluateObjective,
+  eventObjectiveForDate,
   getDailyObjectives,
+  OBJECTIVE_TEMPLATES,
   type ObjectiveActivity,
   type ObjectiveAirportLookup,
-  OBJECTIVE_TEMPLATES,
   objectiveDayWindow,
   objectiveRetentionStart,
   pruneObjectiveLedger,
@@ -36,13 +38,15 @@ describe("getDailyObjectives()", () => {
         "2026-10-07:openRoute",
         "2026-10-07:openRouteToTag",
         "2026-10-07:adjustSchedule",
+        "2026-10-07:routeToEvent",
       ]
     `);
   });
 
   it("gives three distinct kinds a day, with variants from the template table", () => {
     for (const date of datesFrom("2026-01-01", 400)) {
-      const objectives = getDailyObjectives(date);
+      // The event objective (S55.2) is checked separately below.
+      const objectives = getDailyObjectives(date).filter((o) => o.kind !== "routeToEvent");
       expect(objectives).toHaveLength(DAILY_OBJECTIVE_COUNT);
       expect(new Set(objectives.map((o) => o.kind)).size).toBe(DAILY_OBJECTIVE_COUNT);
       for (const objective of objectives) {
@@ -71,7 +75,8 @@ describe("getDailyObjectives()", () => {
     const seen = new Set(
       datesFrom("2026-01-01", 120).flatMap((date) => getDailyObjectives(date).map((o) => o.kind)),
     );
-    expect(seen.size).toBe(OBJECTIVE_TEMPLATES.length);
+    // Every template kind, plus the event objective.
+    expect(seen.size).toBe(OBJECTIVE_TEMPLATES.length + 1);
   });
 
   it("rejects malformed and impossible dates", () => {
@@ -147,6 +152,24 @@ describe("objective progress", () => {
     ).toBe(true);
     // Unknown airports never qualify.
     expect(evaluateObjective(objective({}), [route("XXX")], lookup).complete).toBe(false);
+  });
+
+  it("counts only routes touching the event's airport, either end", () => {
+    const festival = objective({ kind: "routeToEvent", airportIata: "BCN", eventKind: "festival" });
+    expect(evaluateObjective(festival, [route("JFK")], lookup).complete).toBe(false);
+    expect(evaluateObjective(festival, [route("BCN")], lookup).complete).toBe(true);
+    const fromBcn: ObjectiveActivity = {
+      type: "routeOpened",
+      tick: startTick + 10,
+      routeId: "r-out",
+      originIata: "BCN",
+      destinationIata: "JFK",
+    };
+    expect(evaluateObjective(festival, [fromBcn], lookup).complete).toBe(true);
+    // No airport, no progress.
+    expect(
+      evaluateObjective(objective({ kind: "routeToEvent" }), [route("BCN")], lookup).complete,
+    ).toBe(false);
   });
 
   it("checks the destination's tag", () => {
@@ -239,6 +262,32 @@ describe("objective ledger pruning", () => {
   });
 });
 
+describe("eventObjectiveForDate()", () => {
+  it("is deterministic and themed on that day's event", () => {
+    expect(eventObjectiveForDate("2026-10-07")).toEqual({
+      id: "2026-10-07:routeToEvent",
+      date: "2026-10-07",
+      kind: "routeToEvent",
+      target: 1,
+      reward: EVENT_OBJECTIVE_REWARD,
+      airportIata: "BCN",
+      eventKind: "festival",
+    });
+    expect(eventObjectiveForDate("2026-10-07")).toEqual(eventObjectiveForDate("2026-10-07"));
+  });
+
+  it("is absent on days without an airport event that lifts demand", () => {
+    expect(eventObjectiveForDate("2026-01-03")).toBeNull();
+    expect(getDailyObjectives("2026-01-03")).toHaveLength(DAILY_OBJECTIVE_COUNT);
+  });
+
+  it("is appended after the three template objectives", () => {
+    const objectives = getDailyObjectives("2026-10-07");
+    expect(objectives).toHaveLength(DAILY_OBJECTIVE_COUNT + 1);
+    expect(objectives.at(-1)?.kind).toBe("routeToEvent");
+  });
+});
+
 describe("verifyObjectiveClaim()", () => {
   // 2026-10-07: open a route ≥1,000 km, open a route to a business airport, adjust a schedule.
   const DATE = "2026-10-07";
@@ -276,6 +325,24 @@ describe("verifyObjectiveClaim()", () => {
       ok: false,
       reason: "expired",
     });
+  });
+
+  it("accepts the event objective for a route to the event's airport", () => {
+    const toBcn: ObjectiveActivity = {
+      type: "routeOpened",
+      tick: day.startTick + 10,
+      routeId: "r-bcn",
+      originIata: "MAD",
+      destinationIata: "BCN",
+    };
+    const verdict = verify(`${DATE}:routeToEvent`, day.startTick + 20, [toBcn]);
+    expect(verdict.ok).toBe(true);
+    if (verdict.ok) expect(verdict.objective.reward).toBe(EVENT_OBJECTIVE_REWARD);
+    expect(verify(`${DATE}:routeToEvent`, day.startTick + 20)).toEqual({
+      ok: false,
+      reason: "incomplete",
+    });
+    expect(verify("2026-01-03:routeToEvent", day.startTick + 20).ok).toBe(false);
   });
 
   it("rejects ids that aren't that day's objectives", () => {

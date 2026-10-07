@@ -456,7 +456,8 @@
         "tuneFares": "Ajusta las tarifas de una ruta",
         "adjustSchedule": "Cambia la frecuencia semanal de una ruta",
         "serviceAircraft_one": "Haz el mantenimiento de un avión",
-        "serviceAircraft_other": "Haz el mantenimiento de {{count}} aviones"
+        "serviceAircraft_other": "Haz el mantenimiento de {{count}} aviones",
+        "routeToEvent": "{{event}} en {{airport}}: abre una ruta allí"
       }
     }
   },

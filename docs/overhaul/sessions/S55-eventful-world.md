@@ -1,9 +1,9 @@
 # S55 — An eventful real-time world (D5 = option C)
 
 > **Status:** ◐ in progress
-> **Next step:** S55.2
+> **Next step:** S55.3
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #190
 >
 > **Track:** Growth · **Size:** M (4 steps) · **Depends on:** S31, S32, S33, S34 · **Unblocks:** — · **Decided by D5 (2026-10-07)**
 >
@@ -45,7 +45,7 @@ The 1:1 world feels busy from the first session: the first landing comes soon, t
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S55.1** Short first hops: rank starter suggestions so a new airline's top picks fly about 1–2 h; checklist copy says when the first landing will come. _Done when:_ unit tests + e2e (a new airline's first suggestion lands within 2 h).
-- [ ] **S55.2** Event-themed objectives ("fly into the festival at BCN"), deterministic from `getEventsForDay`, claimable like other objectives (replay-verified, D6). _Done when:_ core tests (determinism, verification) + component test.
+- [x] **S55.2** Event-themed objectives ("fly into the festival at BCN"), deterministic from `getEventsForDay`, claimable like other objectives (replay-verified, D6). _Done when:_ core tests (determinism, verification) + component test.
 - [ ] **S55.3** Time-lapse replay: "Watch what happened" on the away report animates the missed flights on the map at 60×, from the timeline (no simulation). _Done when:_ component tests + e2e + screenshot.
 - [ ] **S55.4** Local notification when an event starts on one of your routes (respecting notification settings). _Done when:_ unit tests + e2e with a pinned clock.
 
@@ -61,7 +61,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 2026-10-07 · brief · (S55.1 commit) · Written after the owner chose option C for D5.
 
-2026-10-07 · S55.1 · (this commit) · **Real first suggestions, short hops first.**
+2026-10-07 · S55.1 · 8e2968f · **Real first suggestions, short hops first.**
 
 - **Found:** the Opportunities tab (where the first-hour checklist sends new players) didn't choose routes. It sampled the 2 nearest airports, 2 from the middle of the distance list and the 2 farthest airports in the world. A new Madrid airline was offered 10–22 km hops losing about $2.3k/day and out-of-range routes to Shanshan or Masterton.
 - **Now:**
@@ -70,6 +70,14 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - Result: a new Madrid airline's top suggestion is MAD → ORY, +$999/day, about 1.9 h.
 - **Checklist copy:** unchanged. The badge says when the first landing comes, right where the route is chosen, which covers the brief's ask.
 - **Tests:** unit tests for `rankForFirstRoute` (order, profit, ties) and `flightHours`. The e2e (`first-hour.spec.ts`) checks that a new airline's top suggestion carries the badge.
+
+2026-10-07 · S55.2 · (this commit) · **Event-themed daily objectives.**
+
+- **Core:** `eventObjectiveForDate(date)` picks that UTC day's first-starting airport event that lifts demand (festival, sports final), scanning `getEventsForDay` from 4 engine days before (so events already running count). Ties go to the lower id. It becomes a fourth objective, `routeToEvent`, appended after the three template draws, so the existing objectives and their ids don't change. Reward: $150k (`EVENT_OBJECTIVE_REWARD`).
+- **Progress:** a route opened that day with the event's airport at either end. Days without such an event (34 of 365 in 2026) keep the three objectives.
+- **Claims:** same path as the others. `verifyObjectiveClaim` rebuilds the day's objectives, so the replay check (D6) covers it with no store change.
+- **UI:** "Festival at BCN: open a route there" (en/es), reusing the world-event kind names.
+- **Tests:** core (pinned 2026-10-07 → festival at BCN, null on 2026-01-03, either-end evaluation, claim accepted/incomplete) and the card (title, completes on a route to BCN, Spanish).
 
 ## Follow-ups
 

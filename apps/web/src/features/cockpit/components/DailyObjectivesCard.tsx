@@ -32,6 +32,11 @@ function useObjectiveTitle() {
         return t(`${base}.openRouteToTag`, {
           tag: t(`cockpit.objectives.tags.${objective.tag ?? "business"}`),
         });
+      case "routeToEvent":
+        return t(`${base}.routeToEvent`, {
+          event: t(`worldEvents.kinds.${objective.eventKind ?? "festival"}`),
+          airport: objective.airportIata ?? "",
+        });
       case "assignAircraft":
       case "serviceAircraft":
         return t(`${base}.${objective.kind}`, { count: objective.target });

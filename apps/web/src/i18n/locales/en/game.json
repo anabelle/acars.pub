@@ -456,7 +456,8 @@
         "tuneFares": "Adjust the fares on a route",
         "adjustSchedule": "Change a route's weekly frequency",
         "serviceAircraft_one": "Service an aircraft",
-        "serviceAircraft_other": "Service {{count}} aircraft"
+        "serviceAircraft_other": "Service {{count}} aircraft",
+        "routeToEvent": "{{event}} at {{airport}}: open a route there"
       }
     }
   },

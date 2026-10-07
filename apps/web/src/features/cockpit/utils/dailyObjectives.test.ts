@@ -2,7 +2,8 @@ import { type ObjectiveAirportLookup, objectiveDayWindow } from "@acars/core";
 import { describe, expect, it } from "vitest";
 import { deriveObjectiveBoard } from "./dailyObjectives";
 
-// 2026-10-07: open a route ≥1,000 km, open a route to a business airport, adjust a schedule.
+// 2026-10-07: open a route ≥1,000 km, open a route to a business airport, adjust a schedule,
+// plus the festival at BCN (S55.2).
 const DAY = objectiveDayWindow("2026-10-07");
 const YESTERDAY = objectiveDayWindow("2026-10-06");
 const lookup: ObjectiveAirportLookup = () => undefined;
@@ -23,6 +24,7 @@ describe("deriveObjectiveBoard()", () => {
       ["openRoute", false, false],
       ["openRouteToTag", false, false],
       ["adjustSchedule", true, true],
+      ["routeToEvent", false, false],
     ]);
     expect(board.carryover).toEqual([]);
   });
