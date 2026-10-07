@@ -1,9 +1,9 @@
 # S53 — Fast "Tycoon" sandbox: design doc
 
-> **Status:** ☑ ready for review
+> **Status:** ☑ merged
 > **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #188
+> **PR:** — (merged in #188)
 >
 > **Track:** Growth · **Size:** S (2 steps) · **Depends on:** S04 (data), decision D5 · **Unblocks:** — · **Gated by D5**
 >
@@ -72,7 +72,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 ## Follow-ups
 
-- **Owner:** record D5 (checklist at the end of `tycoon-mode.md`).
+- **Owner:** record D5 (checklist at the end of `tycoon-mode.md`). Done 2026-10-07: option C.
 - **If C is accepted:** a new session brief for the time-lapse replay, starter-route bias and event-themed objectives.
 
 ## Handoff notes

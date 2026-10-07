@@ -25,11 +25,12 @@ import {
 import { getAircraftById, getHubPricingForIata } from "@acars/data";
 import type { ActionLogEntry } from "@acars/nostr";
 import type { StateCreator } from "zustand";
+import { isAbandonedAirline } from "../abandonedAirlines";
 import { replayActionLog } from "../actionReducer";
+import { bootMark } from "../bootTrace";
 import { useEngineStore } from "../engine";
 import { reconcileFleetToTick } from "../FlightEngine";
 import { computeRejectedBuyEventIds } from "../marketplaceReplay";
-import { isAbandonedAirline } from "../abandonedAirlines";
 import { rivalRoutesNewOnYourPairs } from "../rivalRoutes";
 import { scopeActionsToCheckpoint } from "../scopeActions";
 import { verifySnapshotPayload } from "../snapshotValidation";
@@ -279,7 +280,9 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         // Load completely from Snapshot Rollups! Wait...
         const { loadAllSnapshots } = await import("@acars/nostr");
 
+        bootMark("world: fetching rivals");
         const allSnapshots = await loadAllSnapshots();
+        bootMark("world: rivals fetched", `${allSnapshots.size} snapshots`);
 
         const currentTick = useEngineStore.getState().tick;
         const myPubkey = existingState.pubkey;
@@ -427,6 +430,7 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
 
         await settleMarketplaceSales(get, set);
         useEngineStore.setState({ catchupProgress: null });
+        bootMark("world: synced", `${competitors.size} rivals`);
       } catch (error) {
         console.error("[WorldSlice] Failed to sync world:", error);
         useEngineStore.setState({ catchupProgress: null });
