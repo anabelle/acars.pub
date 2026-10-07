@@ -1,7 +1,7 @@
 # S32 — Deterministic daily objectives
 
-> **Status:** ◐ in progress
-> **Next step:** S32.4
+> **Status:** ☑ ready for review
+> **Next step:** — (awaiting merge of #182)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #182
 >
@@ -40,7 +40,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S32.1** Objective templates + `getDailyObjectives(date)` + determinism tests. _Done when:_ same objectives across clients.
 - [x] **S32.2** Progress evaluator over action log + engine results. _Done when:_ tests green.
 - [x] **S32.3** `CLAIM_OBJECTIVE` action + reducer verification + replay tests. _Done when:_ invalid claims rejected on replay.
-- [ ] **S32.4** Cockpit objectives widget (en + es). _Done when:_ screenshots.
+- [x] **S32.4** Cockpit objectives widget (en + es). _Done when:_ screenshots.
 
 ## Details & guidance
 
@@ -49,7 +49,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] Two independent replays agree on balances after claims; the widget shows progress live.
+- [x] Two independent replays agree on balances after claims; the widget shows progress live.
 
 ## Progress log
 
@@ -98,6 +98,21 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - optimistic re-application counts;
   - a full replay and a checkpoint-resumed replay agree on balance and ledger after three claims and a duplicate across the boundary.
 
+2026-10-07 · S32.4 · (this commit) · **Cockpit widget.**
+
+- **`DailyObjectivesCard`.** Shown under the first-hour checklist, own airline only. It lists:
+  - today's three objectives in plain sentences ("Open a route of at least 3,000 km", "Open a route to a ski destination");
+  - progress (n/target) and the reward;
+  - a Claim button only when the claim will pay (it runs the same evaluator as the replay), then a "Claimed" badge;
+  - the time until UTC midnight;
+  - "Still claimable from yesterday" for completed, unclaimed objectives from the day before.
+- **Claiming.** Goes through `claimObjective`, with a success or error toast. en/es strings.
+- **Helper.** `deriveObjectiveBoard` (pure) builds the board from the engine tick and the airline's ledger.
+- **Tests.**
+  - Unit: board, carryover, no ledger. Component: rows, progress, claim / claimed states, reset time, claim success and failure, Spanish.
+  - e2e `daily-objectives.spec.ts`, clock pinned to 2026-10-09: launch MAD → BCN (which also completes "buy or lease an aircraft", proving the optimistic re-application path live), add a weekly round trip, claim "change a route's weekly frequency", reload in Spanish and it's still claimed.
+  - Screenshots (en start / claimable / claimed, es claimed) were shared in the session (run with `S32_SCREENSHOT=<dir>` to regenerate).
+
 ## Follow-ups
 
 - Engine-result objectives (carry N pax, hit a load-factor band) need durable daily summaries in the replay first.
@@ -105,4 +120,9 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped.** Deterministic daily objectives (core), a two-day objective ledger built by the action replay and stored on the airline, replay-verified `CLAIM_OBJECTIVE` with fixed-point rewards, and the cockpit card (en/es).
+- **Not shipped.** Engine-result objectives (passengers, load factor) and weekly or seasonal objectives; see Follow-ups.
+- **Gotchas.**
+  - The store applies actions optimistically before publishing, so the local replay of a new action runs on top of its own copy. Activity recording therefore recognises "the same event re-applied" by tick (`Route.openedAtTick`, `purchasedAtTick`, `routeAssignedAtTick`). Keep that in mind before adding a new objective kind.
+  - Changing `OBJECTIVE_TEMPLATES` or the generator changes the objectives (and invalidates claims) for every day; the pinned inline snapshot in `objectives.test.ts` will flag it. With D2 (no versioning) that's allowed, but do it knowingly.
+  - The replay awaits the airport catalog only when the log contains a claim.
