@@ -92,11 +92,14 @@ async function measure(page: import("@playwright/test").Page, mode: Mode) {
     .getByRole("alertdialog")
     .getByRole("button", { name: /^launch$/i })
     .click();
-  await expect(page.getByText(/MAD → BCN is live/)).toBeVisible({ timeout: 30_000 });
+  // Wait on the route list, not the 4-second "is live" toast: forced full
+  // mode under software WebGL starves the page, and polling can miss a toast.
   await page
     .getByRole("button", { name: /close airport panel/i })
     .first()
     .click();
+  await navigateInApp(page, "/network?tab=active");
+  await expect(page.getByTestId("route-frequency").first()).toBeVisible({ timeout: 60_000 });
   await navigateInApp(page, "/");
 
   // Step game time until the aircraft is airborne (the clock uploads positions).
