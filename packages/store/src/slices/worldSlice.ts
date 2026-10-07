@@ -29,6 +29,7 @@ import { replayActionLog } from "../actionReducer";
 import { useEngineStore } from "../engine";
 import { reconcileFleetToTick } from "../FlightEngine";
 import { computeRejectedBuyEventIds } from "../marketplaceReplay";
+import { isAbandonedAirline } from "../abandonedAirlines";
 import { rivalRoutesNewOnYourPairs } from "../rivalRoutes";
 import { scopeActionsToCheckpoint } from "../scopeActions";
 import { verifySnapshotPayload } from "../snapshotValidation";
@@ -321,6 +322,17 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             }
             rejectedSnapshotSig.delete(pubkey);
             const { airline, fleet, routes } = snapshotCheckpoint;
+
+            // Abandoned airlines (S26): no active route and idle for a week.
+            // Mostly guests who left after a minute; hidden from the world,
+            // rival lists and leaderboard until they act again.
+            const lastActiveTick = Math.max(airline.lastTick ?? 0, snapshotCheckpoint.tick);
+            if (isAbandonedAirline(routes, lastActiveTick, currentTick)) {
+              competitors.delete(pubkey);
+              updatedFleetByOwner.delete(pubkey);
+              updatedRoutesByOwner.delete(pubkey);
+              continue;
+            }
 
             if (airline.status === "chapter11" || airline.status === "liquidated") {
               competitors.set(pubkey, airline);

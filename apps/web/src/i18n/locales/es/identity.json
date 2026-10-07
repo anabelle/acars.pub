@@ -98,5 +98,13 @@
     "fleetLockedDescription": "Crea tu aerolínea gratis para arrendar o comprar aviones y mantenerlos volando.",
     "corporateLockedTitle": "Aquí viven las finanzas de tu aerolínea",
     "corporateLockedDescription": "Crea tu aerolínea gratis para seguir tu caja, tus hubs y la rentabilidad de tus rutas."
+  },
+  "backupPrompt": {
+    "landingTitle": "Tu primer vuelo aterrizó. Conserva tu aerolínea.",
+    "landingBody": "Depende de una clave guardada solo en este navegador. Cópiala o descárgala ahora, y ni borrar el navegador ni cambiar de dispositivo te quitarán tu aerolínea.",
+    "returnTitle": "Bienvenido de nuevo. Tu aerolínea sigue solo en este navegador.",
+    "returnBody": "Guarda tu clave una vez para jugar desde cualquier dispositivo y no perder nunca tu aerolínea.",
+    "later": "Ahora no",
+    "close": "Cerrar"
   }
 }
