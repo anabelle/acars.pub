@@ -16,7 +16,12 @@ import { CheckCircle2, PlusCircle, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { rankByProfitPerDay } from "@/features/network/utils/opportunityRanking";
+import {
+  FIRST_HOP_MAX_HOURS,
+  flightHours,
+  rankByProfitPerDay,
+  rankForFirstRoute,
+} from "@/features/network/utils/opportunityRanking";
 import type { estimateRouteEconomics } from "@/features/network/utils/routeEconomics";
 import {
   NEW_ROUTE_WEEKLY_FREQUENCY,
@@ -73,6 +78,7 @@ export function OpportunitiesList({
 
   const ranked = useMemo(() => {
     const models = new Map<ProspectMarket, string>();
+    const hours = new Map<ProspectMarket, number>();
     const list = rankByProfitPerDay(markets, (market) => {
       if (!airline) return null;
       const recommendation = recommendAircraftForRoute({
@@ -97,10 +103,18 @@ export function OpportunitiesList({
       });
       if (!recommendation) return null;
       models.set(market, recommendation.model.name);
+      hours.set(market, flightHours(market.distance, recommendation.model.speedKmh));
       return recommendation.profitAfterLeasePerDay;
     });
-    return list.map((entry) => ({ ...entry, modelName: models.get(entry.market) ?? null }));
+    const entries = list.map((entry) => ({
+      ...entry,
+      modelName: models.get(entry.market) ?? null,
+      hours: hours.get(entry.market) ?? null,
+    }));
+    // A first route should land in the first session (S55.1): short hops first.
+    return routes.length === 0 ? rankForFirstRoute(entries, (entry) => entry.hours) : entries;
   }, [markets, airline, hourTick, pubkey, registry, routes]);
+  const isFirstRoute = routes.length === 0;
 
   const panelScrollRef = usePanelScrollRef();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -129,6 +143,13 @@ export function OpportunitiesList({
           const market = ranked[virtualItem.index].market;
           const profitPerDay = ranked[virtualItem.index].profitPerDay;
           const recommendedModel = ranked[virtualItem.index].modelName;
+          const hoursInAir = ranked[virtualItem.index].hours;
+          const quickFirstHop =
+            isFirstRoute &&
+            hoursInAir !== null &&
+            profitPerDay !== null &&
+            profitPerDay > 0 &&
+            hoursInAir <= FIRST_HOP_MAX_HOURS;
           const isAlreadyOpen = activeRoutes.some(
             (r) =>
               r.originIata === market.origin.iata && r.destinationIata === market.destination.iata,
@@ -176,6 +197,17 @@ export function OpportunitiesList({
                             )}
                         </span>
                         <TrendingUp className="h-4 w-4 text-accent" />
+                        {quickFirstHop && (
+                          <span
+                            data-testid="first-hop-badge"
+                            className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400"
+                          >
+                            {t("routeManager.opportunities.quickFirstHop", {
+                              ns: "game",
+                              hours: Math.max(1, Math.round(hoursInAir * 10) / 10),
+                            })}
+                          </span>
+                        )}
                       </div>
                       <span className="text-sm font-bold text-muted-foreground">
                         {market.destination.city}, {market.destination.country}

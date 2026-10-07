@@ -41,6 +41,7 @@ import {
   OpportunitiesList,
   type ProspectMarket,
 } from "@/features/network/components/OpportunitiesList";
+import { RouteFrequencyControl } from "@/features/network/components/RouteFrequencyControl";
 import { getRouteDemandSnapshotCached } from "@/features/network/hooks/useRouteDemand";
 import {
   getElasticityTone,
@@ -48,56 +49,41 @@ import {
   toneDotClass,
   toneTextClass,
 } from "@/features/network/utils/fareTones";
+import { candidateDestinations } from "@/features/network/utils/hubOpportunities";
 import {
   estimateRouteEconomics,
   getPrimaryAssignedAircraft,
 } from "@/features/network/utils/routeEconomics";
+import { LiveryThumb } from "@/shared/components/LiveryThumb";
 import { PanelHeader } from "@/shared/components/layout/PanelLayout";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
-import { LiveryThumb } from "@/shared/components/LiveryThumb";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
-import { RouteFrequencyControl } from "@/features/network/components/RouteFrequencyControl";
 import { useConfirm } from "@/shared/lib/useConfirm";
 
 // ---------------------------------------------------------------------------
-// Prospect markets: sorting the ~6k airport catalog by distance per render
-// was a top quadratic hotspot. The sorted-others cache mirrors the pattern in
-// @acars/store engine.ts (whose own cache is not exported), and results are
-// memoized per (originIata, dayBucket) — season/prosperity inputs only change
-// meaningfully per game-day.
+// Prospect markets (the Opportunities tab): the most populous unserved
+// airports in range, memoized per (origin, game day, tier, served set) since
+// season and prosperity only move meaningfully per game day.
 // ---------------------------------------------------------------------------
-let prospectSortedOthersCache: {
-  originIata: string | null;
-  sorted: { airport: Airport; distance: number }[] | null;
-} = { originIata: null, sorted: null };
-
+/** How many destinations the Opportunities tab projects (one recommendation each). */
+const PROSPECT_COUNT = 24;
 const prospectsMemo = new Map<string, ProspectMarket[]>();
 const PROSPECTS_MEMO_MAX_ENTRIES = 8;
 
-function buildProspects(origin: Airport, tick: number): ProspectMarket[] {
+function buildProspects(
+  origin: Airport,
+  tick: number,
+  tier: number,
+  served: ReadonlySet<string>,
+): ProspectMarket[] {
   const now = new Date();
   const prosperity = getProsperityIndex(tick);
-  if (prospectSortedOthersCache.originIata !== origin.iata) {
-    prospectSortedOthersCache = {
-      originIata: origin.iata,
-      sorted: getAirports()
-        .filter((a) => a.iata !== origin.iata)
-        .map((a) => ({
-          airport: a,
-          distance: haversineDistance(origin.latitude, origin.longitude, a.latitude, a.longitude),
-        }))
-        .sort((a, b) => a.distance - b.distance),
-    };
-  }
-  const others = prospectSortedOthersCache.sorted ?? [];
-
-  const picks: Airport[] = [];
-  if (others.length >= 2) picks.push(others[0].airport, others[1].airport);
-  const midIdx = Math.floor(others.length * 0.4);
-  const midIdx2 = Math.floor(others.length * 0.5);
-  if (others.length >= 6) picks.push(others[midIdx].airport, others[midIdx2].airport);
-  if (others.length >= 4)
-    picks.push(others[others.length - 2].airport, others[others.length - 1].airport);
+  // The most populous unserved airports in the tier's range (S55.1). This
+  // replaced a sample of the 2 nearest, 2 middling and 2 farthest airports in
+  // the world, which offered a new airline 10 km hops and out-of-range routes.
+  const picks = candidateDestinations(origin, getAirports(), tier, served, PROSPECT_COUNT).map(
+    (candidate) => candidate.airport,
+  );
 
   return picks.map((dest) => {
     const season = getSeason(dest.latitude, now);
@@ -149,12 +135,17 @@ function buildProspects(origin: Airport, tick: number): ProspectMarket[] {
   });
 }
 
-function getProspectMarkets(origin: Airport, tick: number): ProspectMarket[] {
+function getProspectMarkets(
+  origin: Airport,
+  tick: number,
+  tier: number,
+  served: ReadonlySet<string>,
+): ProspectMarket[] {
   const dayBucket = Math.floor(tick / TICKS_PER_DAY);
-  const memoKey = `${origin.iata}:${dayBucket}`;
+  const memoKey = `${origin.iata}:${dayBucket}:${tier}:${[...served].sort().join(",")}`;
   const memoized = prospectsMemo.get(memoKey);
   if (memoized) return memoized;
-  const built = buildProspects(origin, dayBucket * TICKS_PER_DAY);
+  const built = buildProspects(origin, dayBucket * TICKS_PER_DAY, tier, served);
   if (prospectsMemo.size >= PROSPECTS_MEMO_MAX_ENTRIES) prospectsMemo.clear();
   prospectsMemo.set(memoKey, built);
   return built;
@@ -293,9 +284,23 @@ export function RouteManager() {
 
   // Memoized per (origin, game-day bucket) at module level — see
   // getProspectMarkets. The heavy 6k-airport sort runs once per origin.
+  const tier = airline?.tier ?? 1;
+  const servedKey = routes
+    .filter((r) => r.status === "active" && r.originIata === planningOriginAirport?.iata)
+    .map((r) => r.destinationIata)
+    .sort()
+    .join(",");
   const prospectMarkets = useMemo(
-    () => (planningOriginAirport ? getProspectMarkets(planningOriginAirport, tick) : []),
-    [planningOriginAirport, tick],
+    () =>
+      planningOriginAirport
+        ? getProspectMarkets(
+            planningOriginAirport,
+            tick,
+            tier,
+            new Set(servedKey ? servedKey.split(",") : []),
+          )
+        : [],
+    [planningOriginAirport, tick, tier, servedKey],
   );
 
   const activeRoutes = useMemo(

@@ -456,7 +456,8 @@
         "tuneFares": "Adjust the fares on a route",
         "adjustSchedule": "Change a route's weekly frequency",
         "serviceAircraft_one": "Service an aircraft",
-        "serviceAircraft_other": "Service {{count}} aircraft"
+        "serviceAircraft_other": "Service {{count}} aircraft",
+        "routeToEvent": "{{event}} at {{airport}}: open a route there"
       }
     }
   },
@@ -701,7 +702,8 @@
       "costSplit": "Cost split",
       "fuelCrew": "Fuel {{fuel}} • Crew {{crew}}",
       "searchMinChars": "Type at least 2 characters to search…",
-      "searchNoResults": "No airports found matching “{{query}}”"
+      "searchNoResults": "No airports found matching “{{query}}”",
+      "quickFirstHop": "First landing in ~{{hours}} h"
     },
     "card": {
       "distance": "Distance {{km}} km",
@@ -975,7 +977,9 @@
     "partial": "Only the most recent events are kept, so this covers the latest part of your absence.",
     "continue": "Back to my airline",
     "close": "Close report",
-    "activity": "Full activity log"
+    "activity": "Full activity log",
+    "watch_one": "Watch what happened (1 flight)",
+    "watch_other": "Watch what happened ({{count}} flights)"
   },
   "milestones": {
     "toastTitle": "Milestone reached",
@@ -1044,10 +1048,12 @@
     "tierUpTitle": "Tier up!",
     "rivalsTitle": "Rival move",
     "financeTitle": "Finance alert",
+    "worldEventsTitle": "Event on your routes",
+    "worldEventBody": "{{kind}} at {{airport}} has just started. Your routes: {{routes}}.",
     "settings": {
       "kicker": "This device",
       "title": "Alerts on this device",
-      "description": "Get a system notification when an aircraft is grounded, you move up a tier, a rival moves onto your routes or your finances need attention, while ACARS is open in the background or installed as an app.",
+      "description": "Get a system notification when an aircraft is grounded, you move up a tier, a rival moves onto your routes, your finances need attention or an event starts at an airport you fly to, while ACARS is open in the background or installed as an app.",
       "turnOn": "Turn on alerts",
       "turnOff": "Turn off alerts",
       "blocked": "Notifications are blocked for ACARS in your browser settings. Allow them there to get alerts.",
@@ -1061,7 +1067,9 @@
         "rivals": "Rivals",
         "rivalsDesc": "A rival starts one of your routes or opens a hub at yours.",
         "finance": "Finance",
-        "financeDesc": "Cash warnings and bankruptcy."
+        "financeDesc": "Cash warnings and bankruptcy.",
+        "worldEvents": "World events",
+        "worldEventsDesc": "A festival, strike or other event starts at an airport you fly to."
       }
     }
   },
@@ -1154,5 +1162,10 @@
       "inAir": "In the air"
     },
     "fps": "{{fps}} fps"
+  },
+  "timeLapse": {
+    "speed": "×{{speed}}",
+    "landed": "{{landed}} of {{total}} flights landed",
+    "close": "Stop the replay"
   }
 }

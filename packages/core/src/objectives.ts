@@ -19,7 +19,9 @@ import {
   type FixedPoint,
   GENESIS_TIME,
   TICK_DURATION,
+  TICKS_PER_DAY,
 } from "./types.js";
+import { getEventsForDay, type WorldEventKind } from "./worldEvents.js";
 
 export type ObjectiveKind =
   | "openRoute"
@@ -28,7 +30,9 @@ export type ObjectiveKind =
   | "assignAircraft"
   | "tuneFares"
   | "adjustSchedule"
-  | "serviceAircraft";
+  | "serviceAircraft"
+  /** S55.2: open a route touching the airport of a demand-boosting world event. */
+  | "routeToEvent";
 
 export interface DailyObjective {
   /** `${date}:${kind}`, unique per day (kinds don't repeat within a day). */
@@ -44,9 +48,17 @@ export interface DailyObjective {
   tag?: Exclude<AirportTag, "general">;
   /** Cash credited once when claimed. */
   reward: FixedPoint;
+  /** routeToEvent: the event's airport (either end of the route counts). */
+  airportIata?: string;
+  /** routeToEvent: which event it is, for the wording. */
+  eventKind?: WorldEventKind;
 }
 
+/** Objectives drawn from the template table each day (an event objective may add one). */
 export const DAILY_OBJECTIVE_COUNT = 3;
+
+/** Reward for the event objective: like a themed route, for reacting to the news. */
+export const EVENT_OBJECTIVE_REWARD = fp(150_000);
 
 interface Template {
   kind: ObjectiveKind;
@@ -152,11 +164,61 @@ export function getDailyObjectives(date: string): DailyObjective[] {
     [order[i], order[j]] = [order[j], order[i]];
   }
 
-  return order.slice(0, DAILY_OBJECTIVE_COUNT).map((index) => {
+  const objectives: DailyObjective[] = order.slice(0, DAILY_OBJECTIVE_COUNT).map((index) => {
     const template = OBJECTIVE_TEMPLATES[index];
     const variant = template.variants[Math.floor(random() * template.variants.length)];
     return { id: `${date}:${template.kind}`, date, kind: template.kind, ...variant };
   });
+  // Appended after the PRNG draws, so the three template objectives (and
+  // claims already made against them) are unchanged.
+  const eventObjective = eventObjectiveForDate(date);
+  if (eventObjective) objectives.push(eventObjective);
+  return objectives;
+}
+
+/** Engine days of look-back: no event lasts longer than this. */
+const EVENT_LOOKBACK_DAYS = 4;
+
+/**
+ * The day's event objective (S55.2): the earliest-starting demand-boosting
+ * event with an airport (a festival or a sports final) active at any point
+ * of the UTC day, or null on days without one. Pure: world events are a
+ * function of the tick.
+ */
+export function eventObjectiveForDate(date: string): DailyObjective | null {
+  const { startTick, endTick } = objectiveDayWindow(date);
+  const firstDay = Math.floor(startTick / TICKS_PER_DAY) - EVENT_LOOKBACK_DAYS;
+  const lastDay = Math.floor((endTick - 1) / TICKS_PER_DAY);
+  let best: { startTick: number; id: string; airportIata: string; kind: WorldEventKind } | null =
+    null;
+  for (let day = firstDay; day <= lastDay; day++) {
+    for (const event of getEventsForDay(day)) {
+      if (event.airportIata === null || event.demandMultiplier <= 1) continue;
+      if (event.startTick >= endTick || event.endTick <= startTick) continue;
+      if (
+        !best ||
+        event.startTick < best.startTick ||
+        (event.startTick === best.startTick && event.id < best.id)
+      ) {
+        best = {
+          startTick: event.startTick,
+          id: event.id,
+          airportIata: event.airportIata,
+          kind: event.kind,
+        };
+      }
+    }
+  }
+  if (!best) return null;
+  return {
+    id: `${date}:routeToEvent`,
+    date,
+    kind: "routeToEvent",
+    target: 1,
+    reward: EVENT_OBJECTIVE_REWARD,
+    airportIata: best.airportIata,
+    eventKind: best.kind,
+  };
 }
 
 // --- Progress ---
@@ -257,6 +319,16 @@ export function evaluateObjective(
         break;
       case "serviceAircraft":
         if (activity.type === "aircraftServiced") subjects.add(activity.aircraftId);
+        break;
+      case "routeToEvent":
+        if (
+          activity.type === "routeOpened" &&
+          objective.airportIata !== undefined &&
+          (activity.originIata === objective.airportIata ||
+            activity.destinationIata === objective.airportIata)
+        ) {
+          subjects.add(activity.routeId);
+        }
         break;
     }
   }

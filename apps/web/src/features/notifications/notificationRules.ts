@@ -6,7 +6,13 @@ import type { TimelineEvent } from "@acars/core";
  * A Nostr DM bot for alerts while the app is closed is a later step.
  */
 
-export const NOTIFICATION_CATEGORIES = ["grounding", "tierUp", "rivals", "finance"] as const;
+export const NOTIFICATION_CATEGORIES = [
+  "grounding",
+  "tierUp",
+  "rivals",
+  "finance",
+  "worldEvents",
+] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
 export interface NotificationSettings {
@@ -17,7 +23,7 @@ export interface NotificationSettings {
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   enabled: false,
-  categories: { grounding: true, tierUp: true, rivals: true, finance: true },
+  categories: { grounding: true, tierUp: true, rivals: true, finance: true, worldEvents: true },
 };
 
 export const NOTIFICATION_SETTINGS_KEY = "acars:notifications";

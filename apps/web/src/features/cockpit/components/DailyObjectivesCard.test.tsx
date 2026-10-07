@@ -70,6 +70,23 @@ describe("DailyObjectivesCard", () => {
     expect(within(schedule).queryByRole("button")).not.toBeInTheDocument();
   });
 
+  it("shows the day's event objective, done by a route to its airport", () => {
+    store.tick = DAY.startTick + 100;
+    const { rerender } = render(<DailyObjectivesCard ledger={ledger} />);
+    const event = screen.getByTestId("objective-routeToEvent");
+    expect(within(event).getByText("Festival at BCN: open a route there")).toBeInTheDocument();
+    expect(event).toHaveAttribute("data-complete", "false");
+    const toBcn = {
+      type: "routeOpened" as const,
+      tick: DAY.startTick + 20,
+      routeId: "r2",
+      originIata: "MAD",
+      destinationIata: "BCN",
+    };
+    rerender(<DailyObjectivesCard ledger={{ ...ledger, activity: [...ledger.activity, toBcn] }} />);
+    expect(screen.getByTestId("objective-routeToEvent")).toHaveAttribute("data-complete", "true");
+  });
+
   it("claims through the store and confirms", async () => {
     store.tick = DAY.startTick + 100;
     render(<DailyObjectivesCard ledger={ledger} />);
@@ -96,6 +113,7 @@ describe("DailyObjectivesCard", () => {
     render(<DailyObjectivesCard ledger={ledger} />);
     expect(screen.getByText("Metas de hoy")).toBeInTheDocument();
     expect(screen.getByText("Abre una ruta a un destino de negocios")).toBeInTheDocument();
+    expect(screen.getByText("Festival en BCN: abre una ruta allí")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reclamar" })).toBeInTheDocument();
   });
 });

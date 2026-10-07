@@ -456,7 +456,8 @@
         "tuneFares": "Ajusta las tarifas de una ruta",
         "adjustSchedule": "Cambia la frecuencia semanal de una ruta",
         "serviceAircraft_one": "Haz el mantenimiento de un avión",
-        "serviceAircraft_other": "Haz el mantenimiento de {{count}} aviones"
+        "serviceAircraft_other": "Haz el mantenimiento de {{count}} aviones",
+        "routeToEvent": "{{event}} en {{airport}}: abre una ruta allí"
       }
     }
   },
@@ -701,7 +702,8 @@
       "costSplit": "Reparto de costes",
       "fuelCrew": "Combustible {{fuel}} • Tripulación {{crew}}",
       "searchMinChars": "Escribe al menos 2 caracteres para buscar…",
-      "searchNoResults": "Ningún aeropuerto coincide con «{{query}}»"
+      "searchNoResults": "Ningún aeropuerto coincide con «{{query}}»",
+      "quickFirstHop": "Primer aterrizaje en ~{{hours}} h"
     },
     "card": {
       "distance": "Distancia {{km}} km",
@@ -975,7 +977,9 @@
     "partial": "Solo se guardan los eventos más recientes, así que esto cubre la última parte de tu ausencia.",
     "continue": "Volver a mi aerolínea",
     "close": "Cerrar informe",
-    "activity": "Registro completo"
+    "activity": "Registro completo",
+    "watch_one": "Ver lo que pasó (1 vuelo)",
+    "watch_other": "Ver lo que pasó ({{count}} vuelos)"
   },
   "milestones": {
     "toastTitle": "Hito conseguido",
@@ -1044,10 +1048,12 @@
     "tierUpTitle": "¡Subes de nivel!",
     "rivalsTitle": "Movimiento rival",
     "financeTitle": "Alerta financiera",
+    "worldEventsTitle": "Evento en tus rutas",
+    "worldEventBody": "{{kind}} en {{airport}} acaba de empezar. Tus rutas: {{routes}}.",
     "settings": {
       "kicker": "Este dispositivo",
       "title": "Alertas en este dispositivo",
-      "description": "Recibe una notificación del sistema cuando un avión quede en tierra, subas de nivel, un rival entre en tus rutas o tus finanzas necesiten atención, con ACARS abierto en segundo plano o instalado como app.",
+      "description": "Recibe una notificación del sistema cuando un avión quede en tierra, subas de nivel, un rival entre en tus rutas, tus finanzas necesiten atención o empiece un evento en un aeropuerto al que vuelas, con ACARS abierto en segundo plano o instalado como app.",
       "turnOn": "Activar alertas",
       "turnOff": "Desactivar alertas",
       "blocked": "Las notificaciones de ACARS están bloqueadas en la configuración del navegador. Permítelas allí para recibir alertas.",
@@ -1061,7 +1067,9 @@
         "rivals": "Rivales",
         "rivalsDesc": "Un rival empieza una de tus rutas o abre un hub en uno tuyo.",
         "finance": "Finanzas",
-        "financeDesc": "Avisos de caja y bancarrota."
+        "financeDesc": "Avisos de caja y bancarrota.",
+        "worldEvents": "Eventos mundiales",
+        "worldEventsDesc": "Empieza un festival, una huelga u otro evento en un aeropuerto al que vuelas."
       }
     }
   },
@@ -1154,5 +1162,10 @@
       "inAir": "En el aire"
     },
     "fps": "{{fps}} fps"
+  },
+  "timeLapse": {
+    "speed": "×{{speed}}",
+    "landed": "{{landed}} de {{total}} vuelos aterrizados",
+    "close": "Parar la repetición"
   }
 }

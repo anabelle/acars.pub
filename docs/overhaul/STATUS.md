@@ -114,6 +114,7 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 29  | S45     | P3       | 4     | 3D globe-first prototype (decision D4).                                                 |
 | 30  | S52     | P3       | 3     | Android release kit (needs D7).                                                         |
 | 31  | S53     | P3       | 2     | Tycoon-mode design doc (needs D5).                                                      |
+| 32  | S55     | P1       | 4     | Eventful 1:1 world: short first hops, event objectives, time-lapse, alerts (D5 = C).    |
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 
