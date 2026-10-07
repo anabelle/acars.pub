@@ -1,7 +1,7 @@
 # S51 — Share loop + milestone posts
 
-> **Status:** ☑ ready for review
-> **Next step:** — (awaiting merge of #185)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #185)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #185
 >
