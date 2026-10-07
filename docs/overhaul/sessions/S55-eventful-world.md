@@ -1,7 +1,7 @@
 # S55 — An eventful real-time world (D5 = option C)
 
-> **Status:** ◐ in progress
-> **Next step:** S55.4
+> **Status:** ☑ ready for review
+> **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #190
 >
@@ -47,7 +47,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S55.1** Short first hops: rank starter suggestions so a new airline's top picks fly about 1–2 h; checklist copy says when the first landing will come. _Done when:_ unit tests + e2e (a new airline's first suggestion lands within 2 h).
 - [x] **S55.2** Event-themed objectives ("fly into the festival at BCN"), deterministic from `getEventsForDay`, claimable like other objectives (replay-verified, D6). _Done when:_ core tests (determinism, verification) + component test.
 - [x] **S55.3** Time-lapse replay: "Watch what happened" on the away report animates the missed flights on the map at 60×, from the timeline (no simulation). _Done when:_ component tests + e2e + screenshot.
-- [ ] **S55.4** Local notification when an event starts on one of your routes (respecting notification settings). _Done when:_ unit tests + e2e with a pinned clock.
+- [x] **S55.4** Local notification when an event starts on one of your routes (respecting notification settings). _Done when:_ unit tests + e2e with a pinned clock.
 
 ## Acceptance criteria
 
@@ -79,7 +79,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **UI:** "Festival at BCN: open a route there" (en/es), reusing the world-event kind names.
 - **Tests:** core (pinned 2026-10-07 → festival at BCN, null on 2026-01-03, either-end evaluation, claim accepted/incomplete) and the card (title, completes on a route to BCN, Spanish).
 
-2026-10-07 · S55.3 · (this commit) · **Time-lapse of the absence.**
+2026-10-07 · S55.3 · 5fd26b8 · **Time-lapse of the absence.**
 
 - **Away report:** a "Watch what happened (N flights)" button, shown when at least one landing in the window can be replayed. It closes the report and plays the replay on the main map.
 - **From the timeline, no simulation:** each landing event carries its flight duration, so a leg is (landing tick − duration → landing tick). `buildTimeLapse` spans the first departure (or the start of the absence) to the last landing. Cosmetic only: game time and state are untouched (Rule 2).
@@ -88,10 +88,27 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Replay bar** (portaled above the app chrome): replayed local time, speed, "N of M flights landed", progress, Stop. en/es.
 - **Tests:** `timeLapse` utils (legs, window, speed, clock, planes in the air, stand-ins), the playback hook (fake rAF: planes per leg, auto-stop), the bar (progress, stop, Spanish) and the away report button. The e2e (`away-report.spec.ts`) plays the replay after 12 h away, sees flights land and the map handed back. Screenshot: [`media/s55/time-lapse.png`](../media/s55/time-lapse.png).
 
+2026-10-07 · S55.4 · (this commit) · **Alert when an event starts on your routes.**
+
+- **Rule** (`worldEventAlerts.ts`, pure): events from the deterministic schedule that start between two engine ticks at an airport on one of the player's active routes. It looks back at most an hour, so a catch-up after an absence doesn't announce stale "just started" events (the away report covers those).
+- **Bridge:** `NotificationBridge` follows the engine tick. With alerts on, the browser's permission granted and ACARS out of view, it shows "Event on your routes: Festival at BCN has just started. Your routes: MAD–BCN.", once per event per visit (tag `acars-worldEvents-<id>`).
+- **Settings:** a fifth category, "World events", on by default like the others; the settings card picks it up. en/es.
+- **Tests:** the rule (the pinned 2026-10-06 09:00 UTC festival at BCN, other airports, suspended routes, the one-hour look-back) and the bridge (once, jitter, in view, category off). The e2e (`world-event-alert.spec.ts`) pins the clock at 08:45 UTC, flies MAD → BCN, puts the page in the background and gets the notification at 09:00. Strikes and congestion notify too: they are just as much "act now".
+
 ## Follow-ups
 
 _None yet._
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped:** all four steps of option C.
+  - Real first suggestions ranked for a 1–2 h first landing (S55.1).
+  - A fourth, event-themed daily objective (S55.2).
+  - "Watch what happened": a time-lapse of the absence on the map (S55.3).
+  - System alerts when an event starts on your routes (S55.4).
+- **Acceptance criteria:** the code paths are in place for all three. Whether new airlines actually land in their first session needs the funnel report (time to first landing), which is also D5's bar for building a fast mode (`tycoon-mode.md`).
+- **Didn't:** alerts while the app is closed. That is the Nostr DM bot (D3, later).
+- **Gotchas:**
+  - The daily objective list is now 3 or 4 long. Anything that assumed exactly `DAILY_OBJECTIVE_COUNT` items per day should use the list's length.
+  - The time-lapse speed is "at least 60×, at most 30 s", not a flat 60×: see the S55.3 log line.
+  - Web tests import `@acars/core` from `dist`: rebuild core (`pnpm --filter @acars/core build`) after changing it.

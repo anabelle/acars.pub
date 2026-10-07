@@ -1048,10 +1048,12 @@
     "tierUpTitle": "Tier up!",
     "rivalsTitle": "Rival move",
     "financeTitle": "Finance alert",
+    "worldEventsTitle": "Event on your routes",
+    "worldEventBody": "{{kind}} at {{airport}} has just started. Your routes: {{routes}}.",
     "settings": {
       "kicker": "This device",
       "title": "Alerts on this device",
-      "description": "Get a system notification when an aircraft is grounded, you move up a tier, a rival moves onto your routes or your finances need attention, while ACARS is open in the background or installed as an app.",
+      "description": "Get a system notification when an aircraft is grounded, you move up a tier, a rival moves onto your routes, your finances need attention or an event starts at an airport you fly to, while ACARS is open in the background or installed as an app.",
       "turnOn": "Turn on alerts",
       "turnOff": "Turn off alerts",
       "blocked": "Notifications are blocked for ACARS in your browser settings. Allow them there to get alerts.",
@@ -1065,7 +1067,9 @@
         "rivals": "Rivals",
         "rivalsDesc": "A rival starts one of your routes or opens a hub at yours.",
         "finance": "Finance",
-        "financeDesc": "Cash warnings and bankruptcy."
+        "financeDesc": "Cash warnings and bankruptcy.",
+        "worldEvents": "World events",
+        "worldEventsDesc": "A festival, strike or other event starts at an airport you fly to."
       }
     }
   },

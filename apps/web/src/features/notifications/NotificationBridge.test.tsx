@@ -1,11 +1,11 @@
-import { TICKS_PER_HOUR, type TimelineEvent } from "@acars/core";
+import { GENESIS_TIME, TICK_DURATION, TICKS_PER_HOUR, type TimelineEvent } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NotificationBridge } from "./NotificationBridge";
-import type { Notifier } from "./notifier";
 import { DEFAULT_NOTIFICATION_SETTINGS } from "./notificationRules";
 import { resetNotificationSettingsCache, setNotificationSettings } from "./notificationSettings";
+import type { Notifier } from "./notifier";
 
 const initialAirline = useAirlineStore.getState();
 const initialEngine = useEngineStore.getState();
@@ -103,5 +103,66 @@ describe("NotificationBridge", () => {
     addEvent(grounding);
     await vi.waitFor(() => expect(warn).toHaveBeenCalled());
     warn.mockRestore();
+  });
+
+  describe("world events on the player's routes (S55.4)", () => {
+    // The schedule starts a festival in Barcelona at 2026-10-06 09:00 UTC.
+    const start = (Date.parse("2026-10-06T09:00:00Z") - GENESIS_TIME) / TICK_DURATION;
+    const setTick = (tick: number) =>
+      act(() => {
+        useEngineStore.setState({ tick } as never);
+      });
+    const flyTo = (destinationIata: string) =>
+      useAirlineStore.setState({
+        routes: [{ id: "r1", originIata: "MAD", destinationIata, status: "active" }],
+      } as never);
+
+    it("notifies once when an event starts at an airport the player flies to", () => {
+      flyTo("BCN");
+      setTick(start - 2);
+      const notifier = fakeNotifier();
+      render(<NotificationBridge notifier={notifier} />);
+      setTick(start - 1);
+      expect(notifier.show).not.toHaveBeenCalled();
+      setTick(start);
+      expect(notifier.show).toHaveBeenCalledWith("Event on your routes", {
+        body: "Festival at BCN has just started. Your routes: MAD–BCN.",
+        tag: expect.stringMatching(/^acars-worldEvents-/),
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+      });
+      // Clock jitter back and forth doesn't repeat it.
+      setTick(start - 1);
+      setTick(start + 1);
+      expect(notifier.show).toHaveBeenCalledTimes(1);
+    });
+
+    it("stays quiet for other airports, in view, or with the category off", () => {
+      flyTo("JFK");
+      setTick(start - 1);
+      const elsewhere = fakeNotifier();
+      const { unmount } = render(<NotificationBridge notifier={elsewhere} />);
+      setTick(start);
+      expect(elsewhere.show).not.toHaveBeenCalled();
+      unmount();
+
+      flyTo("BCN");
+      setTick(start - 1);
+      const inView = fakeNotifier({ hidden: () => false });
+      const second = render(<NotificationBridge notifier={inView} />);
+      setTick(start);
+      expect(inView.show).not.toHaveBeenCalled();
+      second.unmount();
+
+      setNotificationSettings((s) => ({
+        ...s,
+        categories: { ...s.categories, worldEvents: false },
+      }));
+      setTick(start - 1);
+      const off = fakeNotifier();
+      render(<NotificationBridge notifier={off} />);
+      setTick(start);
+      expect(off.show).not.toHaveBeenCalled();
+    });
   });
 });
