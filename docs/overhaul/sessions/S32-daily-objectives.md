@@ -1,8 +1,8 @@
 # S32 — Deterministic daily objectives
 
-> **Status:** ☐ not started
-> **Next step:** S32.1
-> **Branch:** —
+> **Status:** ◐ in progress
+> **Next step:** S32.2
+> **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
 > **Track:** Loop · **Size:** L (4 steps) · **Depends on:** decision D6 (S12 recommended) · **Unblocks:** S51 (rewards) · **Gated by D6**
@@ -37,7 +37,7 @@ Give every check-in a short-horizon goal that's the same for all players and ver
 
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
-- [ ] **S32.1** Objective templates + `getDailyObjectives(date)` + determinism tests. _Done when:_ same objectives across clients.
+- [x] **S32.1** Objective templates + `getDailyObjectives(date)` + determinism tests. _Done when:_ same objectives across clients.
 - [ ] **S32.2** Progress evaluator over action log + engine results. _Done when:_ tests green.
 - [ ] **S32.3** `CLAIM_OBJECTIVE` action + reducer verification + replay tests. _Done when:_ invalid claims rejected on replay.
 - [ ] **S32.4** Cockpit objectives widget (en + es). _Done when:_ screenshots.
@@ -55,11 +55,17 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-_No entries yet._
+2026-10-07 · S32.1 · (this commit) · **Objectives for the day.** D6 decided: replay-verified claims. New `packages/core/src/objectives.ts`:
+
+- **Action-based on purpose.** Landings and passengers reach a replay only through replaceable `TICK_UPDATE` payloads (relays keep the latest), so a claim on them could verify on one client and fail on another. Objectives are about durable player actions instead: open a route (any / ≥1,000 km / ≥3,000 km), open a route to a beach, ski or business airport, acquire an aircraft, assign aircraft (1 or 2), tune fares, adjust a schedule, service aircraft (1 or 2). Engine-result objectives are a follow-up.
+- **`getDailyObjectives(date)`.** Seeds mulberry32 with the UTC day number (salted), Fisher–Yates over the 7 templates, takes 3 distinct kinds and one variant each. IDs are `${date}:${kind}`. Invalid or impossible dates throw.
+- **Window.** `objectiveDayWindow(date)` gives the day's exact `[startTick, endTick)` (1 day = 28,800 ticks); `utcDateForTick(tick)` maps back.
+- **Rewards.** Fixed-point, $25k to $200k: a nudge, not income; actions that cost money pay more.
+- **Tests.** Same output for the same date, pinned for 2026-10-07 (catches a generator change that would desync clients); 400 days of distinct kinds with valid variants; variety over 120 days uses every kind; window covers exactly one UTC day and days chain.
 
 ## Follow-ups
 
-_None yet._
+- Engine-result objectives (carry N pax, hit a load-factor band) need durable daily summaries in the replay first.
 
 ## Handoff notes
 

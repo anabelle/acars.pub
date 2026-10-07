@@ -133,7 +133,7 @@ Update when the owner decides. Full context is in [`README.md` §2](README.md#2-
 | D3  | Notification architecture         | ✅ decided | 2026-10-06 | Local first: system notifications from the app/PWA; Nostr DM bot later.    |
 | D4  | Globe-first 3D shell go/no-go     | ⏳ open    |            |                                                                            |
 | D5  | Fast Tycoon sandbox               | ⏳ open    |            |                                                                            |
-| D6  | Reward validation model           | ⏳ open    |            |                                                                            |
+| D6  | Reward validation model           | ✅ decided | 2026-10-07 | Replay-verified claims: rewards are pure functions of the action log.      |
 | D7  | Store/domain/social account owner | ⏳ open    |            |                                                                            |
 | D8  | Flights follow route frequency    | ✅ decided | 2026-10-05 | Yes: respect the weekly frequency (S14), capped by physics.                |
 

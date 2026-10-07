@@ -7,6 +7,7 @@ export * from "./brand.js";
 
 // Milestones (S12)
 export * from "./milestones.js";
+export * from "./objectives.js";
 
 // Checkpoints
 export {
