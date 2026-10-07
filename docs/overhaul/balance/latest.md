@@ -100,3 +100,18 @@ _Oversupply is applied once (S11): LF = min(88%, demand ÷ seats). Past 16 aircr
 | **Greedy (gouging)**: 2 ATR 72s, 2× fares | 23% | -1.00 | 33.8 | -$1,368 | 0.50 | 0.32 | 0.22 | 0.17 | 0.13 |
 
 _Brand v2 (S11): each landing is graded on fare vs the market reference (fair up to 1.2×), aircraft condition (≥ 0.6) and load factor (+1 only in 60–90%, penalised below 50%). The brand closes 1/400 of the gap to the grade's target (0.1–0.9) per landing._
+
+## 8. World events (atr72-600 on DEN–SLC, 1 aircraft, suggested fares)
+
+| Event | LF | Profit/leg | vs calm |
+| --- | --: | --: | --: |
+| calm (no events) | 73% | $2,373 | — |
+| festival | 79% | $2,918 | +23% |
+| sportsFinal | 80% | $3,054 | +29% |
+| strike | 67% | $1,576 | -34% |
+| hubCongestion | 73% | $1,847 | -22% |
+| fuelSpike | 73% | $2,121 | -11% |
+| strike at both ends | 66% | $1,168 | -51% |
+| festival + strike at DEN, final + congestion at SLC | 81% | $2,296 | -3% |
+
+_Each event pinned at SLC (fuel spike: global) against the same calm leg. Combined effects are clamped (S33): demand ×0.6–1.6, fees ≤ ×1.5, fuel ≤ ×1.2._

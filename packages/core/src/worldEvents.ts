@@ -13,8 +13,10 @@
  * own caps.
  */
 
+import { fpScale } from "./fixed-point.js";
+import { getFuelPriceAtTick } from "./fuel.js";
 import { createPRNG } from "./prng.js";
-import { TICK_DURATION, TICKS_PER_DAY, TICKS_PER_HOUR } from "./types.js";
+import { type FixedPoint, TICK_DURATION, TICKS_PER_DAY, TICKS_PER_HOUR } from "./types.js";
 
 export type WorldEventKind = "festival" | "sportsFinal" | "strike" | "hubCongestion" | "fuelSpike";
 
@@ -50,7 +52,9 @@ interface EventTemplate {
 
 /**
  * The catalog. Magnitudes are deliberately moderate: worth reacting to,
- * never enough to make or break an airline on their own.
+ * never enough to make or break an airline on their own. Routes run on thin
+ * margins, so cost-side effects (fees) stay small: the balance report's
+ * section 8 shows each one's effect on a real leg.
  */
 export const WORLD_EVENT_TEMPLATES: readonly EventTemplate[] = [
   {
@@ -75,8 +79,8 @@ export const WORLD_EVENT_TEMPLATES: readonly EventTemplate[] = [
     kind: "strike",
     weight: 2,
     hours: [12, 48],
-    demandMultiplier: 0.7,
-    feesMultiplier: 1.25,
+    demandMultiplier: 0.8,
+    feesMultiplier: 1.1,
     fuelMultiplier: 1,
     airports: ["CDG", "FRA", "LHR", "MAD", "FCO", "BRU", "LIS", "ATH", "AMS", "MXP"],
   },
@@ -85,7 +89,7 @@ export const WORLD_EVENT_TEMPLATES: readonly EventTemplate[] = [
     weight: 2,
     hours: [6, 24],
     demandMultiplier: 1,
-    feesMultiplier: 1.4,
+    feesMultiplier: 1.2,
     fuelMultiplier: 1,
     airports: [
       "ATL",
@@ -188,11 +192,28 @@ function pickTemplate(roll: number): EventTemplate {
   return WORLD_EVENT_TEMPLATES[WORLD_EVENT_TEMPLATES.length - 1];
 }
 
+let lastActiveTick: number | null = null;
+let lastActive: WorldEvent[] = [];
+let activeOverride: readonly WorldEvent[] | null = null;
+
+/**
+ * Pins the active events for tools and tests (the balance harness measures
+ * each kind against a calm world at the same tick). Pass null to restore
+ * the real schedule. Never set by the app: clients must agree on events.
+ */
+export function setActiveEventsOverride(events: readonly WorldEvent[] | null): void {
+  activeOverride = events;
+  lastActiveTick = null;
+}
+
 /**
  * Events active at `tick`. Looks back only as far as the longest event, so
- * the cost is constant whatever the tick.
+ * the cost is constant whatever the tick; the last answer is memoized, since
+ * every landing in a tick asks for the same one.
  */
 export function getActiveEvents(tick: number): WorldEvent[] {
+  if (activeOverride) return [...activeOverride];
+  if (tick === lastActiveTick) return lastActive;
   const day = Math.floor(tick / TICKS_PER_DAY);
   const active: WorldEvent[] = [];
   for (let d = day - MAX_EVENT_DAYS; d <= day; d++) {
@@ -200,6 +221,8 @@ export function getActiveEvents(tick: number): WorldEvent[] {
       if (tick >= event.startTick && tick < event.endTick) active.push(event);
     }
   }
+  lastActiveTick = tick;
+  lastActive = active;
   return active;
 }
 
@@ -260,3 +283,26 @@ export function eventFuelMultiplier(events: readonly WorldEvent[]): number {
 /** Milliseconds from `tick` until the event ends (for countdowns). */
 export const eventRemainingMs = (event: WorldEvent, tick: number): number =>
   Math.max(0, event.endTick - tick) * TICK_DURATION;
+
+// --- Engine entry points (S33.2): one call per effect, by tick ---
+
+/** Demand multiplier for a route at `tick` (1 when no event touches it). */
+export const worldEventDemandMultiplier = (
+  tick: number,
+  originIata: string,
+  destinationIata: string,
+): number => eventDemandMultiplier(getActiveEvents(tick), originIata, destinationIata);
+
+/** Airport-fees multiplier for a leg at `tick`. */
+export const worldEventFeesMultiplier = (
+  tick: number,
+  originIata: string,
+  destinationIata: string,
+): number => eventFeesMultiplier(getActiveEvents(tick), originIata, destinationIata);
+
+/** The fuel price the engine charges at `tick`: the market price times any fuel spike. */
+export function getEventFuelPriceAtTick(tick: number): FixedPoint {
+  const price = getFuelPriceAtTick(tick);
+  const multiplier = eventFuelMultiplier(getActiveEvents(tick));
+  return multiplier === 1 ? price : fpScale(price, multiplier);
+}

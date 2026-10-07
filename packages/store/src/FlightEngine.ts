@@ -31,11 +31,13 @@ import {
   fpFormat,
   fpSub,
   fpToNumber,
+  worldEventDemandMultiplier,
+  worldEventFeesMultiplier,
   GENESIS_TIME,
   getCyclePhase,
   GROUNDED_MAX_HOURS_SINCE_CHECK,
   GROUNDED_MIN_CONDITION,
-  getFuelPriceAtTick,
+  getEventFuelPriceAtTick,
   getHubCongestionModifier,
   getHubDemandModifier,
   getIncumbentOffer,
@@ -191,15 +193,18 @@ export function buildNetworkContext(
 
 /**
  * Airport-fee multiplier for one leg, exactly as the engine charges it at
- * landing. Exported for route projections.
+ * landing (including world events active at `tick`). Exported for route
+ * projections.
  */
 export function getLegAirportFeesMultiplier(
   originIata: string,
   destinationIata: string,
-  airportTraffic?: ReadonlyMap<string, number>,
+  airportTraffic: ReadonlyMap<string, number> | undefined,
+  tick: number,
 ): number {
-  return getAirportFeesMultiplier(
-    getRouteEndpointContext(originIata, destinationIata, airportTraffic),
+  return (
+    getAirportFeesMultiplier(getRouteEndpointContext(originIata, destinationIata, airportTraffic)) *
+    worldEventFeesMultiplier(tick, originIata, destinationIata)
   );
 }
 
@@ -314,12 +319,15 @@ export function computeFlightPassengers({
     const destCongestion = getHubCongestionModifier(destCapacity, destTraffic);
     const congestionModifier = (originCongestion + destCongestion) / 2;
     const weeklyDemand = calculateDemand(origin, destination, season, prosperity, hubModifier);
+    // World events (S33): festivals and finals lift demand, strikes cut it.
+    const demandModifier =
+      congestionModifier * worldEventDemandMultiplier(tick, origin.iata, destination.iata);
     weeklyDemandResult = {
       origin: originIata ?? "",
       destination: destinationIata ?? "",
-      economy: Math.round(weeklyDemand.economy * congestionModifier),
-      business: Math.round(weeklyDemand.business * congestionModifier),
-      first: Math.round(weeklyDemand.first * congestionModifier),
+      economy: Math.round(weeklyDemand.economy * demandModifier),
+      business: Math.round(weeklyDemand.business * demandModifier),
+      first: Math.round(weeklyDemand.first * demandModifier),
     };
   }
 
@@ -845,10 +853,13 @@ export function processFlightEngine(
           destinationIata,
           airportTraffic,
         );
-        const airportFeesMultiplier = getAirportFeesMultiplier(endpointContext);
+        // Strikes and congested hubs (S33) raise fees at the affected airport.
+        const airportFeesMultiplier =
+          getAirportFeesMultiplier(endpointContext) *
+          worldEventFeesMultiplier(tick, originIata ?? "", destinationIata ?? "");
 
         const distanceKm = route ? route.distanceKm : (ac.flight?.distanceKm ?? 0);
-        const fuelPricePerKg = getFuelPriceAtTick(tick);
+        const fuelPricePerKg = getEventFuelPriceAtTick(tick);
         const cost = calculateFlightCost({
           distanceKm,
           aircraft: model,
@@ -1338,7 +1349,9 @@ export function estimateLandingFinancials(
   const originIata = ac.flight?.originIata ?? route.originIata;
   const destinationIata = ac.flight?.destinationIata ?? route.destinationIata;
   const endpointContext = getRouteEndpointContext(originIata, destinationIata);
-  const airportFeesMultiplier = getAirportFeesMultiplier(endpointContext);
+  const airportFeesMultiplier =
+    getAirportFeesMultiplier(endpointContext) *
+    worldEventFeesMultiplier(tick, originIata, destinationIata);
 
   const cost = calculateFlightCost({
     distanceKm: route.distanceKm,
@@ -1346,7 +1359,7 @@ export function estimateLandingFinancials(
     actualPassengers: revenue.actualPassengers,
     blockHours: hoursPerLeg,
     airportFeesMultiplier,
-    fuelPricePerKg: getFuelPriceAtTick(tick),
+    fuelPricePerKg: getEventFuelPriceAtTick(tick),
   });
 
   const profit = fpSub(revenue.revenueTotal, cost.costTotal);

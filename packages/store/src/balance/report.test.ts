@@ -1,6 +1,7 @@
+import { setActiveEventsOverride, WORLD_EVENT_TEMPLATES, type WorldEvent } from "@acars/core";
 import { setAirportsCatalog } from "@acars/data";
 import { airports } from "@acars/data/airports";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { BRAND_STRATEGIES, brandTrajectory, overAssignmentCurve } from "./brand.js";
 import { runLegScenario } from "./legScenario.js";
 import { generateBalanceReport } from "./report.js";
@@ -34,6 +35,7 @@ describe("balance harness", () => {
       "Day-one strategies",
       "Over-assignment curve",
       "Brand trajectories",
+      "World events",
     ]) {
       expect(report).toContain(heading);
     }
@@ -76,5 +78,59 @@ describe("balance harness", () => {
     expect((greedy.daysToTier[3] ?? 0) * 2).toBeGreaterThanOrEqual(t3 ?? 0);
     // Cautious still gets there, just later.
     expect(cautious.daysToTier[2]).toBeGreaterThan(t2 ?? 0);
+  });
+});
+
+describe("world events in the engine (S33)", () => {
+  afterEach(() => setActiveEventsOverride(null));
+
+  const pinned = (kind: WorldEvent["kind"], airportIata: string | null) => {
+    const template = WORLD_EVENT_TEMPLATES.find((t) => t.kind === kind)!;
+    setActiveEventsOverride([
+      {
+        id: kind,
+        kind,
+        airportIata,
+        startTick: 0,
+        endTick: Number.MAX_SAFE_INTEGER,
+        demandMultiplier: template.demandMultiplier,
+        feesMultiplier: template.feesMultiplier,
+        fuelMultiplier: template.fuelMultiplier,
+      },
+    ]);
+  };
+  const leg = () =>
+    runLegScenario({
+      originIata: "DEN",
+      destinationIata: "SLC",
+      modelId: "atr72-600",
+      fareMultiplier: 1,
+      aircraftCount: 1,
+    });
+  const calm = () => {
+    setActiveEventsOverride([]);
+    return leg();
+  };
+
+  it("a festival at either end fills more seats", () => {
+    const base = calm();
+    pinned("festival", "SLC");
+    expect(leg().passengers).toBeGreaterThan(base.passengers);
+    pinned("festival", "DEN");
+    expect(leg().passengers).toBeGreaterThan(base.passengers);
+  });
+
+  it("strikes, congestion and fuel spikes cost money; unrelated airports don't", () => {
+    const base = calm();
+    for (const [kind, airport] of [
+      ["strike", "SLC"],
+      ["hubCongestion", "DEN"],
+      ["fuelSpike", null],
+    ] as const) {
+      pinned(kind, airport);
+      expect(leg().profitPerLeg).toBeLessThan(base.profitPerLeg);
+    }
+    pinned("hubCongestion", "JFK");
+    expect(leg().profitPerLeg).toBe(base.profitPerLeg);
   });
 });

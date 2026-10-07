@@ -6,7 +6,7 @@ import {
   fpAdd,
   fpScale,
   fpSub,
-  getFuelPriceAtTick,
+  getEventFuelPriceAtTick,
   getSuggestedFares,
   TICKS_PER_HOUR,
 } from "@acars/core";
@@ -168,8 +168,9 @@ function projectLeg(
       originIata,
       destinationIata,
       input.network.airportTraffic,
+      tick,
     ),
-    fuelPricePerKg: getFuelPriceAtTick(tick),
+    fuelPricePerKg: getEventFuelPriceAtTick(tick),
   });
 
   return {

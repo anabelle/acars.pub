@@ -1,9 +1,9 @@
 # S33 — Deterministic world events
 
 > **Status:** ◐ in progress
-> **Next step:** S33.2
+> **Next step:** S33.3
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #184
 >
 > **Track:** Loop · **Size:** L (3 steps) · **Depends on:** — (run after S32 or in a separate window — shared engine files) · **Unblocks:** S43 (event pins)
 >
@@ -37,7 +37,7 @@ The world does things: demand surges, fuel shocks and congestion days that creat
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S33.1** Event catalog + `getActiveEvents(tick)` + tests. _Done when:_ deterministic schedule.
-- [ ] **S33.2** Engine modifiers (constants in core) + S02 impact report. _Done when:_ bounded impact.
+- [x] **S33.2** Engine modifiers (constants in core) + S02 impact report. _Done when:_ bounded impact.
 - [ ] **S33.3** Ticker/cockpit card + map pin data. _Done when:_ screenshots.
 
 ## Details & guidance
@@ -47,7 +47,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] The S02 harness shows bounded impact; the same events appear on all clients for the same tick.
+- [ ] The S02 harness shows bounded impact; the same events appear on all clients for the same tick. _(Impact: done, report section 8; UI in S33.3.)_
 
 ## Progress log
 
@@ -78,6 +78,43 @@ Effects apply to routes touching the airport at either end.
   - at most 6 events active at once over a year;
   - upcoming window;
   - either-end matching, clamping of stacked effects, fuel global-only.
+
+2026-10-07 · S33.2 · (this commit) · **Engine modifiers + impact report.**
+
+- **Engine.**
+  - **Demand:** `computeFlightPassengers` multiplies a route's weekly demand by `worldEventDemandMultiplier(tick, origin, destination)`.
+  - **Fees:** both landing paths multiply the airport-fees multiplier by `worldEventFeesMultiplier`.
+  - **Fuel:** both use `getEventFuelPriceAtTick` (the market price × any fuel spike, via `fpScale`).
+
+  `getActiveEvents` is memoized per tick, so every landing in a tick shares one lookup.
+
+- **Estimates match the engine.** These paths use the same helpers:
+  - the route projection (`getLegAirportFeesMultiplier` now takes the tick);
+  - the web route-demand snapshot and the route-economics fuel price;
+  - the corporate page's fuel price.
+- **Calibration.** The first impact report showed the cost side too strong on thin margins, so I softened it:
+  - hub congestion: fees ×1.4 → ×1.2;
+  - strike: demand ×0.7 → ×0.8 and fees ×1.25 → ×1.1.
+- **Impact report.** `setActiveEventsOverride` (tools and tests only) lets the balance report pin events. The report now runs its existing sections in a calm world, which leaves them byte-identical. New **section 8** measures each kind on DEN–SLC (ATR 72, suggested fares) against the same calm leg:
+
+| event               |  LF | profit/leg | vs calm |
+| ------------------- | --: | ---------: | ------: |
+| calm                | 73% |     $2,373 |       — |
+| festival            | 79% |     $2,918 |    +23% |
+| sports final        | 80% |     $3,054 |    +29% |
+| strike              | 67% |     $1,576 |    −34% |
+| hub congestion      | 73% |     $1,847 |    −22% |
+| fuel spike          | 73% |     $2,121 |    −11% |
+| strike at both ends | 66% |     $1,168 |    −51% |
+
+Events last at most 1–3 days, so even the worst stack costs about half a day's profit on one route, and clamps bound any overlap.
+
+- **Tests.** Engine-level (the real `processFlightEngine` via the harness):
+  - a festival at either end adds passengers;
+  - a strike, congestion or fuel spike lowers profit;
+  - an event at an unrelated airport changes nothing.
+
+  Core: entry points, memoization, the override.
 
 ## Follow-ups
 

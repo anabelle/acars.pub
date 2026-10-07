@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { fpScale } from "./fixed-point.js";
+import { getFuelPriceAtTick } from "./fuel.js";
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from "./types.js";
 import {
   eventDemandMultiplier,
@@ -6,14 +8,18 @@ import {
   eventFuelMultiplier,
   eventRemainingMs,
   getActiveEvents,
+  getEventFuelPriceAtTick,
   getEventsForDay,
   getUpcomingEvents,
+  setActiveEventsOverride,
   MAX_EVENT_DEMAND,
   MAX_EVENT_FEES,
   MAX_EVENT_FUEL,
   MIN_EVENT_DEMAND,
   WORLD_EVENT_TEMPLATES,
   type WorldEvent,
+  worldEventDemandMultiplier,
+  worldEventFeesMultiplier,
 } from "./worldEvents.js";
 
 const DAYS = Array.from({ length: 365 }, (_, i) => 600 + i);
@@ -128,8 +134,8 @@ describe("event effects", () => {
     expect(eventDemandMultiplier(stacked, "MAD", "BCN")).toBe(MAX_EVENT_DEMAND);
     expect(eventFeesMultiplier(stacked, "MAD", "BCN")).toBe(MAX_EVENT_FEES);
     const strikes = [
-      event({ demandMultiplier: 0.7 }),
-      event({ airportIata: "MAD", demandMultiplier: 0.7 }),
+      event({ demandMultiplier: 0.6 }),
+      event({ airportIata: "MAD", demandMultiplier: 0.6 }),
     ];
     expect(eventDemandMultiplier(strikes, "MAD", "BCN")).toBe(MIN_EVENT_DEMAND);
   });
@@ -156,5 +162,52 @@ describe("event effects", () => {
   it("reports time remaining", () => {
     expect(eventRemainingMs(event({ endTick: 100 }), 40)).toBe(60 * 3000);
     expect(eventRemainingMs(event({ endTick: 100 }), 200)).toBe(0);
+  });
+});
+
+describe("engine entry points", () => {
+  // Early days: the fuel price is a random walk from genesis, so late ticks are slow to price.
+  const findTick = (predicate: (events: WorldEvent[]) => boolean) => {
+    for (let tick = TICKS_PER_DAY; tick < 365 * TICKS_PER_DAY; tick += TICKS_PER_HOUR) {
+      if (predicate(getActiveEvents(tick))) return tick;
+    }
+    throw new Error("no such tick in the sampled year");
+  };
+
+  it("applies a festival's demand to routes touching its airport", () => {
+    const tick = findTick((events) => events.some((e) => e.kind === "festival"));
+    const festival = getActiveEvents(tick).find((e) => e.kind === "festival")!;
+    expect(worldEventDemandMultiplier(tick, "ZZZ", festival.airportIata!)).toBeGreaterThan(1);
+    expect(worldEventDemandMultiplier(tick, "ZZZ", "YYY")).toBe(1);
+  });
+
+  it("applies congestion fees to legs touching the hub", () => {
+    const tick = findTick((events) => events.some((e) => e.kind === "hubCongestion"));
+    const jam = getActiveEvents(tick).find((e) => e.kind === "hubCongestion")!;
+    expect(worldEventFeesMultiplier(tick, jam.airportIata!, "ZZZ")).toBeGreaterThan(1);
+    expect(worldEventFeesMultiplier(tick, "ZZZ", "YYY")).toBe(1);
+  });
+
+  it("raises the fuel price only during a spike", () => {
+    const spike = findTick((events) => events.some((e) => e.kind === "fuelSpike"));
+    expect(getEventFuelPriceAtTick(spike)).toBe(fpScale(getFuelPriceAtTick(spike), 1.15));
+    const calm = findTick((events) => !events.some((e) => e.kind === "fuelSpike"));
+    expect(getEventFuelPriceAtTick(calm)).toBe(getFuelPriceAtTick(calm));
+  });
+
+  it("memoizes the active list per tick", () => {
+    expect(getActiveEvents(700 * TICKS_PER_DAY)).toBe(getActiveEvents(700 * TICKS_PER_DAY));
+  });
+});
+
+describe("setActiveEventsOverride()", () => {
+  it("pins the active events until cleared", () => {
+    const tick = 700 * TICKS_PER_DAY;
+    const real = getActiveEvents(tick);
+    setActiveEventsOverride([]);
+    expect(getActiveEvents(tick)).toEqual([]);
+    expect(worldEventDemandMultiplier(tick, "BCN", "MAD")).toBe(1);
+    setActiveEventsOverride(null);
+    expect(getActiveEvents(tick)).toEqual(real);
   });
 });

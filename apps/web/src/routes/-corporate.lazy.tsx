@@ -10,7 +10,7 @@ import {
   fpSub,
   fpSum,
   fpToNumber,
-  getFuelPriceAtTick,
+  getEventFuelPriceAtTick,
   getFuelPriceHistory,
   TICK_DURATION,
   TICKS_PER_HOUR,
@@ -96,7 +96,8 @@ function FinancialPulse({
   const billingCyclePercent = Math.min(99, Math.floor(billingCycle.progress * 100));
 
   const lowConfidence = pulse.flightCount > 0 && pulse.financialFlightCount < 5;
-  const fuelPrice = getFuelPriceAtTick(tick);
+  // What airlines pay now, fuel spikes (S33) included.
+  const fuelPrice = getEventFuelPriceAtTick(tick);
   const fuelHistory = useMemo(() => {
     const fuelTrendWindowHours = 4;
     const fuelTrendSampleCount = 25;
