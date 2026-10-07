@@ -1064,5 +1064,31 @@
         "financeDesc": "Avisos de caja y bancarrota."
       }
     }
+  },
+  "worldEvents": {
+    "kicker": "Eventos mundiales",
+    "title": "Qué está pasando",
+    "empty": "Un día tranquilo: ningún evento ahora mismo.",
+    "active": "Ahora",
+    "upcoming": "Próximamente",
+    "endsIn": "Quedan {{time}}",
+    "startsIn": "Empieza en {{time}}",
+    "global": "Mundial",
+    "yourRoutes": "Tus rutas: {{routes}}",
+    "noRoutes": "Ninguna de tus rutas",
+    "effects": {
+      "demand": "Demanda {{value}}",
+      "fees": "Tasas aeroportuarias {{value}}",
+      "fuel": "Combustible {{value}}"
+    },
+    "kinds": {
+      "festival": "Festival",
+      "sportsFinal": "Final deportiva",
+      "strike": "Huelga",
+      "hubCongestion": "Hub congestionado",
+      "fuelSpike": "Subida del combustible"
+    },
+    "ticker": "Evento",
+    "tickerValue": "{{kind}} · {{place}} · {{time}}"
   }
 }

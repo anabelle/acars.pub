@@ -1064,5 +1064,31 @@
         "financeDesc": "Cash warnings and bankruptcy."
       }
     }
+  },
+  "worldEvents": {
+    "kicker": "World events",
+    "title": "What's happening",
+    "empty": "A quiet day: no events right now.",
+    "active": "Now",
+    "upcoming": "Coming up",
+    "endsIn": "{{time}} left",
+    "startsIn": "Starts in {{time}}",
+    "global": "Worldwide",
+    "yourRoutes": "Your routes: {{routes}}",
+    "noRoutes": "None of your routes",
+    "effects": {
+      "demand": "Demand {{value}}",
+      "fees": "Airport fees {{value}}",
+      "fuel": "Fuel {{value}}"
+    },
+    "kinds": {
+      "festival": "Festival",
+      "sportsFinal": "Sports final",
+      "strike": "Strike",
+      "hubCongestion": "Congested hub",
+      "fuelSpike": "Fuel price spike"
+    },
+    "ticker": "Event",
+    "tickerValue": "{{kind}} · {{place}} · {{time}}"
   }
 }

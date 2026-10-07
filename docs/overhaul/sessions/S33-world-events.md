@@ -1,7 +1,7 @@
 # S33 — Deterministic world events
 
-> **Status:** ◐ in progress
-> **Next step:** S33.3
+> **Status:** ☑ ready for review
+> **Next step:** — (awaiting merge of #184)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #184
 >
@@ -38,7 +38,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S33.1** Event catalog + `getActiveEvents(tick)` + tests. _Done when:_ deterministic schedule.
 - [x] **S33.2** Engine modifiers (constants in core) + S02 impact report. _Done when:_ bounded impact.
-- [ ] **S33.3** Ticker/cockpit card + map pin data. _Done when:_ screenshots.
+- [x] **S33.3** Ticker/cockpit card + map pin data. _Done when:_ screenshots.
 
 ## Details & guidance
 
@@ -47,7 +47,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] The S02 harness shows bounded impact; the same events appear on all clients for the same tick. _(Impact: done, report section 8; UI in S33.3.)_
+- [x] The S02 harness shows bounded impact; the same events appear on all clients for the same tick.
 
 ## Progress log
 
@@ -116,10 +116,33 @@ Events last at most 1–3 days, so even the worst stack costs about half a day's
 
   Core: entry points, memoization, the override.
 
+2026-10-07 · S33.3 · (this commit) · **Cockpit card, ticker, pin data.**
+
+- **View-model.** `apps/web/src/features/events/worldEventsView.ts` (pure):
+  - `worldEventsBoard(tick, routes)`: active events and those starting within 24 h, each with the player's routes it touches and its effects as percentages. Events touching the player sort first, then the soonest.
+  - `worldEventPins(events, lookup)`: map pin data for airport events, ready for a map layer.
+- **Cockpit.** `WorldEventsCard` sits under the daily objectives. Each event shows its icon, kind, city and code, effects ("Demand +30%", "Airport fees +10%", "Fuel +15%"), "Your routes: MAD–BCN" in amber (or "None of your routes"), and time left or time to start. It recomputes once per game minute (`useWorldEventsBoard`).
+- **Status bar.** A "Event: Festival · BCN · 5h" entry shows the most relevant active event, in amber when it touches the player.
+- **Strings:** en/es.
+- **Tests:**
+  - board ordering, route matching and percentages; pins; countdown format;
+  - the card: effects, your routes, Spanish;
+  - e2e `world-events.spec.ts`, clock pinned to 2026-10-08 06:00 UTC (a scheduled festival in Barcelona): the card lists it, it flips to "Your routes: MAD–BCN" after launching the route, the status bar headlines it, and the Spanish version renders.
+
 ## Follow-ups
 
-_None yet._
+- Event pins on the map: a layer over `worldEventPins` (the S43 event-pins follow-up).
+- Localized city names in the card (the catalog's names are English).
+- Event-themed daily objectives (S32): e.g. "fly into the festival".
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped:**
+  - a deterministic event schedule in core: five kinds, 1–2 a day, fixed airport list, constant-cost lookup, clamped effects;
+  - engine effects on demand, fees and fuel, with every estimate (projection, route demand, economics, corporate fuel) using the same helpers;
+  - balance report section 8, with calibrated magnitudes;
+  - a cockpit card, a status-bar entry, and map pin data.
+- **Gotchas:**
+  - `setActiveEventsOverride` exists for tools and tests only. The balance report pins a calm world so its tables stay comparable; never call it in the app.
+  - Changing `WORLD_EVENT_TEMPLATES` or the generator changes every client's schedule; the pinned snapshot in `worldEvents.test.ts` flags it.
+  - Tests that price fuel at late ticks are slow: the fuel random walk starts at genesis. Search early days.

@@ -1,8 +1,10 @@
-import type { AircraftInstance } from "@acars/core";
+import type { AircraftInstance, Route } from "@acars/core";
 import { fpFormat, getProsperityIndex } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useWorldEventsBoard } from "@/features/events/useWorldEvents";
+import { formatEventHours } from "@/features/events/worldEventsView";
 import { useRelayHealth, type RelayStatus } from "@/shared/hooks/useRelayHealth";
 import {
   cashResultSince,
@@ -13,6 +15,7 @@ import {
 } from "../utils/tickerFacts";
 
 const NO_FLEET: readonly AircraftInstance[] = [];
+const NO_ROUTES: readonly Route[] = [];
 
 const LIVE_STYLES: Record<RelayStatus, { text: string; dot: string; ping: boolean }> = {
   ready: { text: "text-primary", dot: "bg-primary", ping: true },
@@ -62,6 +65,9 @@ export function Ticker() {
   const dayStart = utcDayStartTick(tick);
   const cashToday = useAirlineStore((s) => cashResultSince(s.timeline, dayStart));
   const nextLanding = useMemo(() => findNextLanding(fleet, tick), [fleet, tick]);
+  // The most relevant world event (S33): one touching the player first.
+  const routes = useAirlineStore((s) => s.routes ?? NO_ROUTES);
+  const topEvent = useWorldEventsBoard(routes).active[0];
 
   const { status: relayStatus } = useRelayHealth();
   const live = LIVE_STYLES[relayStatus];
@@ -122,6 +128,24 @@ export function Ticker() {
           <span className={`font-semibold ${cashToday < 0 ? "text-red-400" : "text-green-500"}`}>
             {cashToday > 0 ? "+" : ""}
             {fpFormat(cashToday, 0)}
+          </span>
+        </div>
+      )}
+
+      {topEvent && (
+        <div
+          className="flex items-center space-x-2 border-r border-border pr-6 shrink-0"
+          data-testid="ticker-world-event"
+        >
+          <span>{t("worldEvents.ticker")}</span>
+          <span
+            className={`font-semibold ${topEvent.yourRoutes.length > 0 ? "text-amber-400" : "text-foreground"}`}
+          >
+            {t("worldEvents.tickerValue", {
+              kind: t(`worldEvents.kinds.${topEvent.event.kind}`),
+              place: topEvent.event.airportIata ?? t("worldEvents.global"),
+              time: formatEventHours(topEvent.ticksLeft),
+            })}
           </span>
         </div>
       )}
