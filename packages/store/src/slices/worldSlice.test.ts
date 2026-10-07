@@ -25,11 +25,12 @@ vi.mock("@acars/nostr", async (importOriginal) => {
   };
 });
 
+const engine = vi.hoisted(() => ({ tick: 100 }));
 vi.mock("../engine", () => ({
   useEngineStore: {
     setState: vi.fn(),
     getState: () => ({
-      tick: 100,
+      tick: engine.tick,
     }),
   },
 }));
@@ -252,6 +253,7 @@ describe("projectCompetitorFleet", () => {
 
 describe("syncWorld", () => {
   beforeEach(async () => {
+    engine.tick = 100;
     _resetWorldFlags();
     const nostr = await import("@acars/nostr");
     vi.mocked(nostr.loadAllSnapshots).mockClear();
@@ -277,6 +279,58 @@ describe("syncWorld", () => {
 
     expect(state.competitors.has("comp-new")).toBe(true);
     expect([...state.fleetByOwner.values()].flat().map((a) => a.id)).toContain("ac-new");
+  });
+
+  it("hides abandoned airlines: no active route and idle for a week (S26)", async () => {
+    const idle = "comp-idle";
+    const flying = "comp-flying";
+    const idlePayload = await makeSnapshotPayload({
+      tick: 120,
+      airline: makeAirline(idle, 120),
+      fleet: [],
+      routes: [],
+    });
+    const flyingPayload = await makeSnapshotPayload({
+      tick: 120,
+      airline: makeAirline(flying, 120),
+      fleet: [makeAircraft("ac-flying", flying)],
+      routes: [
+        {
+          id: "r1",
+          originIata: "MAD",
+          destinationIata: "BCN",
+          airlinePubkey: flying,
+          distanceKm: 483,
+          assignedAircraftIds: ["ac-flying"],
+          fareEconomy: fp(100),
+          fareBusiness: fp(300),
+          fareFirst: fp(600),
+          status: "active",
+        },
+      ],
+    });
+    engine.tick = 120 + 8 * 28_800;
+
+    const { loadAllSnapshots } = await import("@acars/nostr");
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(
+      new Map([
+        [idle, idlePayload],
+        [flying, flyingPayload],
+      ]),
+    );
+    // An airline already in the world goes away once it's abandoned.
+    const { state } = createSliceState({
+      competitors: new Map([[idle, makeAirline(idle, 120)]]),
+      fleetByOwner: new Map([[idle, []]]),
+      routesByOwner: new Map([[idle, []]]),
+    });
+
+    await state.syncWorld();
+
+    expect(state.competitors.has(idle)).toBe(false);
+    expect(state.fleetByOwner.has(idle)).toBe(false);
+    expect(state.routesByOwner.has(idle)).toBe(false);
+    expect(state.competitors.has(flying)).toBe(true);
   });
 
   it("ignores bankrupt states", async () => {

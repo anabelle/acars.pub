@@ -1,9 +1,9 @@
 # S26 — Guest sandbox airline
 
 > **Status:** ◐ in progress
-> **Next step:** owner decision on the design below (option A or B), then S26.2
+> **Next step:** S26.3
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #186
 >
 > **Track:** UX · **Size:** L (4 steps) · **Depends on:** S21, S23 · **Unblocks:** —
 >
@@ -37,9 +37,10 @@ Guests play immediately on a local-only airline; "Save your airline" creates the
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S26.1** Write the sandbox time-mapping design in this brief (Follow-ups → Decisions). _Done when:_ owner can review.
-- [ ] **S26.2** Sandbox store mode: local action log through the same reducer. _Done when:_ unit tests.
-- [ ] **S26.3** Guest UI enters sandbox automatically. _Done when:_ guest can launch a route.
-- [ ] **S26.4** Save flow: create key, publish in order, recover from failures + tests. _Done when:_ replayed network identical.
+- [x] **S26.2** _(option B)_ Hide abandoned airlines from the world, rival lists and leaderboard. _Done when:_ unit + world-sync tests.
+- [ ] **S26.3** _(option B)_ Backup prompt at the right moments (after the first landing, on the first return visit), en/es. _Done when:_ component tests + e2e.
+
+_The original S26.2–S26.4 (full sandbox) were replaced by the owner's choice of option B on 2026-10-07; option A stays documented under Decisions._
 
 ## Details & guidance
 
@@ -48,13 +49,23 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] A guest can open a route and see a plane take off with no identity; save produces an identical network on relays.
+- [ ] _(option B)_ Guests keep instant play; abandoned airlines no longer clutter the world; guests are prompted to keep their key when it matters.
 
 ## Progress log
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
 2026-10-07 · S26.1 · (this commit) · **Design written for review** (see Decisions below). Recommends option B (the lighter path) because S20/S21 already removed most of the friction this session was written for; option A, the full sandbox, is designed in detail in case the owner prefers it. Waiting on the owner's choice before S26.2.
+
+2026-10-07 · decision · — · **Owner chose option B** (lighter path). Steps rewritten accordingly.
+
+2026-10-07 · S26.2 · (this commit) · **Abandoned airlines leave the world.**
+
+- **Helper.** `packages/store/src/abandonedAirlines.ts`: `isAbandonedAirline(routes, lastActiveTick, currentTick)` is true for an airline with no active route and no activity for more than 7 days. Unknown activity never counts as abandoned.
+- **World sync.** It checks each verified snapshot, with last activity = max(the airline's `lastTick`, the snapshot's tick). Abandoned airlines are removed from `competitors`, `fleetByOwner` and `routesByOwner`, so the map, rival lists and leaderboard (all fed by those) skip them.
+- **No market effect.** They have no routes, so they were never in the market.
+- **They come back.** They stay on relays, and the next sync after they act brings them back. Opening their public page by URL still works (a separate per-airline sync).
+- **Tests:** the helper's edges; world sync drops a routeless airline idle 8 days (even one already listed) and keeps a rival flying a route.
 
 ## Follow-ups
 
@@ -96,6 +107,10 @@ Keep today's one-click guest key, and target the two remaining problems directly
 
 - **Cost:** small, about two steps, no new identity path.
 - **Trade-off:** guests still publish from their first action. That's fine for a decentralised world, and abandoned airlines no longer clutter it.
+
+### Owner's decision (2026-10-07)
+
+Option B.
 
 ### Recommendation
 
