@@ -1,4 +1,5 @@
 import { fpFormat, getMaxHubs, getMaxRouteDistanceKm, getTierProgress } from "@acars/core";
+import { getAircraftById } from "@acars/data";
 import { type AirlineState, useAirlineStore, useEngineStore } from "@acars/store";
 import { PartyPopper, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -8,6 +9,8 @@ import {
   type ChecklistStepId,
   deriveFirstHourChecklist,
 } from "@/features/cockpit/utils/firstHourChecklist";
+import { MilestonePostDialog } from "@/features/share/MilestonePostDialog";
+import { firstJetAdded, type PostableMilestone } from "@/features/share/milestonePosts";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 import i18n from "@/i18n";
 import { isCatchupBatch } from "@/shared/lib/catchupBatch";
@@ -34,6 +37,8 @@ const doneSteps = (state: Snapshot): Set<ChecklistStepId> => {
  */
 export function MilestoneCelebrations() {
   const [celebratedTier, setCelebratedTier] = useState<number | null>(null);
+  // An opt-in post the player asked to compose (S51.2).
+  const [post, setPost] = useState<PostableMilestone | null>(null);
   const baseline = useRef<{ airlineId: string | null; tier: number; done: Set<ChecklistStepId> }>({
     airlineId: null,
     tier: 0,
@@ -77,16 +82,48 @@ export function MilestoneCelebrations() {
           });
         }
         if (airline.tier > baseline.current.tier) setCelebratedTier(airline.tier);
+        // First jet (S51.2): offer, never post, a milestone note.
+        const jet =
+          state.fleet !== prev.fleet
+            ? firstJetAdded(prev.fleet, state.fleet, getAircraftById)
+            : null;
+        if (jet) {
+          toast.success(i18n.t("milestonePost.firstJetToast", { ns: "game", model: jet }), {
+            duration: 10_000,
+            action: {
+              label: i18n.t("milestonePost.firstJetAction", { ns: "game" }),
+              onClick: () => setPost({ kind: "firstJet", model: jet }),
+            },
+          });
+        }
       }
       baseline.current = { airlineId: airline.id, tier: airline.tier, done };
     });
   }, []);
 
+  if (post) return <MilestonePostDialog milestone={post} onClose={() => setPost(null)} />;
   if (celebratedTier === null) return null;
-  return <TierUpDialog tier={celebratedTier} onClose={() => setCelebratedTier(null)} />;
+  return (
+    <TierUpDialog
+      tier={celebratedTier}
+      onClose={() => setCelebratedTier(null)}
+      onShare={() => {
+        setCelebratedTier(null);
+        setPost({ kind: "tierUp", tier: celebratedTier });
+      }}
+    />
+  );
 }
 
-function TierUpDialog({ tier, onClose }: { tier: number; onClose: () => void }) {
+function TierUpDialog({
+  tier,
+  onClose,
+  onShare,
+}: {
+  tier: number;
+  onClose: () => void;
+  onShare: () => void;
+}) {
   const { t } = useTranslation("game");
   const closeRef = useRef<HTMLButtonElement>(null);
   const cumulativeRevenue = useAirlineStore((s) => s.airline?.cumulativeRevenue ?? 0);
@@ -170,6 +207,14 @@ function TierUpDialog({ tier, onClose }: { tier: number; onClose: () => void }) 
             className="mt-5 w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90"
           >
             {t("milestones.tierUp.continue")}
+          </button>
+          <button
+            type="button"
+            onClick={onShare}
+            data-testid="tier-up-share"
+            className="mt-2 w-full rounded-xl border border-border/60 px-4 py-2 text-sm font-bold hover:bg-accent"
+          >
+            {t("milestonePost.button")}
           </button>
         </div>
       </div>

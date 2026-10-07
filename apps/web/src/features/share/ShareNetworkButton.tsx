@@ -1,5 +1,4 @@
 import type { AircraftInstance, AirlineEntity, Route } from "@acars/core";
-import { getAirports, isDataCatalogReady } from "@acars/data";
 import { Share2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,20 +7,13 @@ import { airlinePath } from "@/features/airline/utils/airlineKey";
 import { cn } from "@/shared/lib/utils";
 import {
   browserShareApi,
+  catalogAirportByIata,
   downloadBlob,
   type ShareApi,
   shareFileName,
   shareNetwork,
   summaryFromState,
 } from "./shareNetwork";
-
-let airportIndex: Map<string, { iata: string; latitude: number; longitude: number }> | null = null;
-const airportByIata = (iata: string) => {
-  if (!airportIndex && isDataCatalogReady()) {
-    airportIndex = new Map(getAirports().map((airport) => [airport.iata, airport]));
-  }
-  return airportIndex?.get(iata);
-};
 
 /**
  * "Share my network" (S51.1): the airline's network card plus its public
@@ -56,7 +48,7 @@ export function ShareNetworkButton({
         url: `${window.location.origin}${airlinePath(pubkey)}`,
         title: t("share.title", { name: airline.name }),
         text: t("share.text", { routes: summary.routes, aircraft: summary.aircraft }),
-        airportByIata,
+        airportByIata: catalogAirportByIata,
         api: api(),
         fileName,
       });

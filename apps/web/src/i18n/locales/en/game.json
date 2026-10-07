@@ -1099,5 +1099,24 @@
     "copied": "Link copied",
     "download": "Download image",
     "failed": "Couldn't share"
+  },
+  "milestonePost": {
+    "button": "Share this milestone",
+    "title": "Post to Nostr",
+    "intro": "This posts a public note from your Nostr key. Nothing is posted until you press Post.",
+    "textLabel": "Your post",
+    "includeImage": "Include the network image",
+    "imageAlt": "Your network",
+    "post": "Post to Nostr",
+    "posting": "Posting…",
+    "cancel": "Not now",
+    "posted": "Posted to Nostr",
+    "failed": "Couldn't post",
+    "firstJetToast": "Your first jet: {{model}}",
+    "firstJetAction": "Post it",
+    "text": {
+      "tierUp": "{{airline}} just reached tier {{tier}} on ACARS ✈️",
+      "firstJet": "{{airline}} took delivery of its first jet, a {{model}} ✈️"
+    }
   }
 }

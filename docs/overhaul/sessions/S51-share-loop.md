@@ -1,9 +1,9 @@
 # S51 — Share loop + milestone posts
 
 > **Status:** ◐ in progress
-> **Next step:** S51.2
+> **Next step:** S51.3
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #185
 >
 > **Track:** Growth · **Size:** M (3 steps) · **Depends on:** S44, S50, decision D6 for referral rewards · **Unblocks:** — · **Gated by D6 (referral reward only)**
 >
@@ -38,7 +38,7 @@ Players naturally share their network, liveries and milestones, and shares bring
 Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committed + pushed on its own. Tick the box in the same commit.
 
 - [x] **S51.1** "Share my network" via Web Share + copy fallback. _Done when:_ works on mobile + desktop.
-- [ ] **S51.2** Opt-in milestone kind-1 posts with preview. _Done when:_ post appears on relays.
+- [x] **S51.2** Opt-in milestone kind-1 posts with preview. _Done when:_ post appears on relays.
 - [ ] **S51.3** Referral `?ref=` attribution (reward only if D6 decided). _Done when:_ attribution in S04 report.
 
 ## Details & guidance
@@ -72,9 +72,26 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - e2e `mobile-share-network.spec.ts` (mobile project): the share sheet receives the PNG (> 1 KB) and the `/airline/npub…` link.
 - **Note.** D6 (replay-verified claims) is decided, so the S51.3 referral reward is no longer gated.
 
+2026-10-07 · S51.2 · (this commit) · **Opt-in milestone posts.**
+
+- **Nostr.** `packages/nostr/src/notes.ts`:
+  - `buildMilestoneNote` (pure): the content holds the text, the image URL (so every client shows it), the airline page link and `#acars #aviation`; the tags are `t` hashtags, an `r` link and a NIP-92 `imeta` for the image.
+  - `publishNote` signs and publishes a kind-1 note, with the usual publish retry.
+- **Composer.** `MilestonePostDialog` previews an editable text (en/es default per milestone) and the network card image, with an "Include the network image" checkbox. Nothing is published until the player presses "Post to Nostr". It then uploads the image to Blossom (the existing uploader), builds the note and publishes it. The Nostr code loads only on post (`notePoster.ts`).
+- **Entry points:**
+  - the tier-up celebration gains "Share this milestone";
+  - the first jet joining the fleet (any non-turboprop: A220, E-Jets and up) shows a toast with a "Post it" action (`firstJetAdded`, pure);
+  - neither posts by itself.
+- **Tests:**
+  - note content and tags, kind-1 publish, signer required;
+  - first-jet detection;
+  - the dialog: preview, edit, post with image, post without image, failure toast, Spanish;
+  - celebrations: the tier-up share opens the composer, and the first jet toasts once, with its action.
+- **No e2e.** The full flow isn't covered end to end. Tier 1 can only buy turboprops, so the first jet comes with tier 2, which needs about $5M in revenue: out of reach for an e2e run. The fake relay and the sandbox's lack of network also rule out a real relay check here.
+
 ## Follow-ups
 
-_None yet._
+- An e2e for milestone posts once there is a test hook to seed an airline at a higher tier (or a debug "simulate tier-up").
 
 ## Handoff notes
 

@@ -1,6 +1,7 @@
 export type { NDKFilter } from "@nostr-dev-kit/ndk";
 export { NDKEvent } from "@nostr-dev-kit/ndk";
 export { uploadToBlossom } from "./blossom.js";
+export { buildMilestoneNote, NOTE_HASHTAGS, type NoteDraft, publishNote } from "./notes.js";
 export {
   attachSigner,
   clearEphemeralKey,

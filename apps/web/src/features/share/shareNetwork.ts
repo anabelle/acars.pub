@@ -1,4 +1,5 @@
 import type { AircraftInstance, AirlineEntity, Route } from "@acars/core";
+import { getAirports, isDataCatalogReady } from "@acars/data";
 import { renderAirlineCardPng } from "@/features/airline/utils/ogImage";
 import type { AirlineSummary } from "@/features/airline/utils/ogMeta";
 import type { MapAirport } from "@/features/airline/utils/routeMap";
@@ -112,4 +113,13 @@ export function downloadBlob(blob: Blob, fileName: string): void {
   link.download = fileName;
   link.click();
   setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
+let airportIndex: Map<string, MapAirport> | null = null;
+/** Airport coordinates for the share card, once the catalog has loaded. */
+export function catalogAirportByIata(iata: string): MapAirport | undefined {
+  if (!airportIndex && isDataCatalogReady()) {
+    airportIndex = new Map(getAirports().map((airport) => [airport.iata, airport]));
+  }
+  return airportIndex?.get(iata);
 }

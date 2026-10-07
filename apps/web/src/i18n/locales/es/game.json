@@ -1099,5 +1099,24 @@
     "copied": "Enlace copiado",
     "download": "Descargar imagen",
     "failed": "No se pudo compartir"
+  },
+  "milestonePost": {
+    "button": "Compartir este hito",
+    "title": "Publicar en Nostr",
+    "intro": "Esto publica una nota pública con tu clave de Nostr. No se publica nada hasta que pulses Publicar.",
+    "textLabel": "Tu publicación",
+    "includeImage": "Incluir la imagen de la red",
+    "imageAlt": "Tu red",
+    "post": "Publicar en Nostr",
+    "posting": "Publicando…",
+    "cancel": "Ahora no",
+    "posted": "Publicado en Nostr",
+    "failed": "No se pudo publicar",
+    "firstJetToast": "Tu primer jet: {{model}}",
+    "firstJetAction": "Publicarlo",
+    "text": {
+      "tierUp": "{{airline}} acaba de alcanzar el nivel {{tier}} en ACARS ✈️",
+      "firstJet": "{{airline}} ha recibido su primer jet, un {{model}} ✈️"
+    }
   }
 }
