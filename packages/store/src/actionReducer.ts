@@ -3,6 +3,8 @@ import type {
   AirlineEntity,
   Checkpoint,
   FixedPoint,
+  ObjectiveActivity,
+  ObjectiveLedger,
   Route,
   TimelineEvent,
   TimelineEventType,
@@ -22,6 +24,7 @@ import {
   leaseDeposit,
   MAX_ROUTE_FREQUENCY_PER_WEEK,
   MIN_ROUTE_FREQUENCY_PER_WEEK,
+  pruneObjectiveLedger,
   REPLACEABLE_ACTION_TYPES,
   ROUTE_SLOT_FEE,
   sanitizeMaintenancePolicy,
@@ -47,6 +50,8 @@ export interface ActionReplayResult {
   actionChainHash: string;
   /** True when the action log ends with AIRLINE_DISSOLVE — the airline was intentionally removed. */
   dissolved: boolean;
+  /** Daily-objective activity and claims (S32), pruned to the last two UTC days. */
+  objectives: ObjectiveLedger;
 }
 
 const MAX_TIMELINE_EVENTS = 1000;
@@ -223,6 +228,16 @@ export async function replayActionLog(params: {
   const timelineEventIds = new Set(timeline.map((event) => event.id));
   let allowActionTimeline = timeline.length === 0;
   let actionChainHash = checkpoint?.actionChainHash ?? "";
+  const objectiveActivity: ObjectiveActivity[] = [...(checkpoint?.objectives?.activity ?? [])];
+  const objectiveClaims = new Set<string>(checkpoint?.objectives?.claimed ?? []);
+  /** Records an accepted action for daily objectives (only state-changing ones). */
+  const recordActivity = (activity: ObjectiveActivity) => {
+    objectiveActivity.push(activity);
+  };
+  const resetObjectives = () => {
+    objectiveActivity.length = 0;
+    objectiveClaims.clear();
+  };
 
   // Track the most recent authoritative fleet/route IDs from TICK_UPDATE.
   // These override locally-derived IDs at the end of replay, fixing
@@ -567,6 +582,7 @@ export async function replayActionLog(params: {
       timeline.splice(0, timeline.length);
       timelineEventIds.clear();
       allowActionTimeline = true;
+      resetObjectives();
 
       const name = clampString(payload.name, MAX_NAME_LENGTH) ?? "New Airline";
       const icaoCode = clampString(payload.icaoCode, MAX_CODE_LENGTH) ?? "";
@@ -624,6 +640,7 @@ export async function replayActionLog(params: {
       timeline.splice(0, timeline.length);
       timelineEventIds.clear();
       allowActionTimeline = true;
+      resetObjectives();
       continue;
     }
 
@@ -874,6 +891,13 @@ export async function replayActionLog(params: {
 
         applyBalanceDelta(fpSub(fpZero, routeCost ?? ROUTE_SLOT_FEE));
         updateLastTick(actionTick);
+        recordActivity({
+          type: "routeOpened",
+          tick: actionTick,
+          routeId,
+          originIata,
+          destinationIata,
+        });
         pushTimelineEvent({
           id: `evt-action-${record.eventId}`,
           tick: actionTick,
@@ -986,6 +1010,9 @@ export async function replayActionLog(params: {
           indexAircraftOnRoute(aircraftId, routeId);
         }
         updateLastTick(actionTick);
+        if (previousRouteId !== routeId) {
+          recordActivity({ type: "aircraftAssigned", tick: actionTick, aircraftId, routeId });
+        }
         pushTimelineEvent({
           id: `evt-action-${record.eventId}`,
           tick: actionTick,
@@ -1043,7 +1070,7 @@ export async function replayActionLog(params: {
         const route = routesById.get(routeId);
         if (!route || !faresPayload) break;
         const caps = fareCaps(route.distanceKm);
-        routesById.set(routeId, {
+        const nextRoute = {
           ...route,
           fareEconomy:
             faresPayload.economy != null
@@ -1058,8 +1085,16 @@ export async function replayActionLog(params: {
             faresPayload.first != null
               ? (clampFixedPoint(faresPayload.first, fpZero, caps.first) ?? route.fareFirst)
               : route.fareFirst,
-        });
+        };
+        routesById.set(routeId, nextRoute);
         updateLastTick(actionTick);
+        if (
+          nextRoute.fareEconomy !== route.fareEconomy ||
+          nextRoute.fareBusiness !== route.fareBusiness ||
+          nextRoute.fareFirst !== route.fareFirst
+        ) {
+          recordActivity({ type: "faresUpdated", tick: actionTick, routeId });
+        }
         pushTimelineEvent({
           id: `evt-action-${record.eventId}`,
           tick: actionTick,
@@ -1084,6 +1119,9 @@ export async function replayActionLog(params: {
         if (!route || frequencyPerWeek === null) break;
         routesById.set(routeId, { ...route, frequencyPerWeek });
         updateLastTick(actionTick);
+        if (frequencyPerWeek !== route.frequencyPerWeek) {
+          recordActivity({ type: "frequencyUpdated", tick: actionTick, routeId });
+        }
         pushTimelineEvent({
           id: `evt-action-${record.eventId}`,
           tick: actionTick,
@@ -1141,6 +1179,7 @@ export async function replayActionLog(params: {
         fleetById.set(instanceId, newAircraft);
         applyBalanceDelta(fpSub(fpZero, price));
         updateLastTick(actionTick);
+        recordActivity({ type: "aircraftAcquired", tick: actionTick, aircraftId: instanceId });
         pushTimelineEvent({
           id: `evt-action-${record.eventId}`,
           tick: actionTick,
@@ -1328,6 +1367,7 @@ export async function replayActionLog(params: {
 
         applyBalanceDelta(fpSub(fpZero, price));
         updateLastTick(actionTick);
+        recordActivity({ type: "aircraftAcquired", tick: actionTick, aircraftId: instanceId });
         pushTimelineEvent({
           id: `evt-action-${record.eventId}`,
           tick: actionTick,
@@ -1358,6 +1398,7 @@ export async function replayActionLog(params: {
         aircraft.turnaroundEndTick = actionTick + getMaintenanceDowntimeTicks(model);
         applyBalanceDelta(fpSub(fpZero, cost));
         updateLastTick(actionTick);
+        recordActivity({ type: "aircraftServiced", tick: actionTick, aircraftId: instanceId });
         pushTimelineEvent({
           id: `evt-action-${record.eventId}`,
           tick: actionTick,
@@ -1465,5 +1506,17 @@ export async function replayActionLog(params: {
     };
   }
 
-  return { airline, fleet, routes, timeline, actionChainHash, dissolved };
+  // Keep the ledger to the last two UTC days before the newest activity.
+  // Pruning against the newest tick in the ledger itself (not the clock)
+  // keeps the result a pure function of the log.
+  const ledgerTick = objectiveActivity.reduce(
+    (latest, entry) => Math.max(latest, entry.tick),
+    airline?.lastTick ?? 0,
+  );
+  const objectives = pruneObjectiveLedger(
+    { activity: objectiveActivity, claimed: [...objectiveClaims] },
+    ledgerTick,
+  );
+
+  return { airline, fleet, routes, timeline, actionChainHash, dissolved, objectives };
 }

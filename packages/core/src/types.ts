@@ -405,6 +405,8 @@ export interface Checkpoint {
   fleet: AircraftInstance[];
   routes: Route[];
   timeline: TimelineEvent[];
+  /** Daily-objective ledger (S32). Optional: older checkpoints don't carry it. */
+  objectives?: import("./objectives.js").ObjectiveLedger;
 }
 
 // --- Maintenance policy (S13) ---

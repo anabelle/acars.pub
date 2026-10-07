@@ -11,8 +11,15 @@
  */
 
 import { fp } from "./fixed-point.js";
+import { haversineDistance } from "./geo.js";
 import { createPRNG } from "./prng.js";
-import { GENESIS_TIME, TICK_DURATION, type AirportTag, type FixedPoint } from "./types.js";
+import {
+  type Airport,
+  type AirportTag,
+  type FixedPoint,
+  GENESIS_TIME,
+  TICK_DURATION,
+} from "./types.js";
 
 export type ObjectiveKind =
   | "openRoute"
@@ -150,4 +157,152 @@ export function getDailyObjectives(date: string): DailyObjective[] {
     const variant = template.variants[Math.floor(random() * template.variants.length)];
     return { id: `${date}:${template.kind}`, date, kind: template.kind, ...variant };
   });
+}
+
+// --- Progress ---
+
+/**
+ * A player action the replay accepted, reduced to what objectives need.
+ * The action reducer records these only when the action actually changed
+ * state (a route really opened, a fare really moved), so a rejected or
+ * no-op event never counts.
+ */
+export type ObjectiveActivity =
+  | {
+      type: "routeOpened";
+      tick: number;
+      routeId: string;
+      originIata: string;
+      destinationIata: string;
+    }
+  | { type: "aircraftAcquired"; tick: number; aircraftId: string }
+  | { type: "aircraftAssigned"; tick: number; aircraftId: string; routeId: string }
+  | { type: "faresUpdated"; tick: number; routeId: string }
+  | { type: "frequencyUpdated"; tick: number; routeId: string }
+  | { type: "aircraftServiced"; tick: number; aircraftId: string };
+
+/** Catalog access for route objectives (distance and destination tags). */
+export type ObjectiveAirportLookup = (
+  iata: string,
+) => Pick<Airport, "latitude" | "longitude" | "tags"> | undefined;
+
+export interface ObjectiveProgress {
+  objective: DailyObjective;
+  /** Qualifying actions so far, capped at the target. */
+  progress: number;
+  complete: boolean;
+}
+
+/**
+ * Whether a route opening qualifies. Distance comes from the catalog, never
+ * from the event's declared distance, so a padded payload can't pass a
+ * long-haul objective; airports missing from the catalog never qualify.
+ */
+function routeQualifies(
+  objective: DailyObjective,
+  activity: Extract<ObjectiveActivity, { type: "routeOpened" }>,
+  lookup: ObjectiveAirportLookup,
+): boolean {
+  const origin = lookup(activity.originIata);
+  const destination = lookup(activity.destinationIata);
+  if (!origin || !destination) return false;
+  if (objective.kind === "openRouteToTag") {
+    return objective.tag !== undefined && destination.tags.includes(objective.tag);
+  }
+  const minKm = objective.minDistanceKm ?? 0;
+  if (minKm <= 0) return true;
+  return (
+    haversineDistance(
+      origin.latitude,
+      origin.longitude,
+      destination.latitude,
+      destination.longitude,
+    ) >= minKm
+  );
+}
+
+/**
+ * Progress on one objective from the activities inside its UTC day. Counts
+ * distinct subjects (routes or aircraft), so repeating the same action on
+ * the same aircraft doesn't fill a "2 aircraft" objective. Linear in the
+ * activities given; the reducer keeps only the last two days of them.
+ */
+export function evaluateObjective(
+  objective: DailyObjective,
+  activities: readonly ObjectiveActivity[],
+  lookup: ObjectiveAirportLookup,
+): ObjectiveProgress {
+  const { startTick, endTick } = objectiveDayWindow(objective.date);
+  const subjects = new Set<string>();
+  for (const activity of activities) {
+    if (activity.tick < startTick || activity.tick >= endTick) continue;
+    switch (objective.kind) {
+      case "openRoute":
+      case "openRouteToTag":
+        if (activity.type === "routeOpened" && routeQualifies(objective, activity, lookup)) {
+          subjects.add(activity.routeId);
+        }
+        break;
+      case "acquireAircraft":
+        if (activity.type === "aircraftAcquired") subjects.add(activity.aircraftId);
+        break;
+      case "assignAircraft":
+        if (activity.type === "aircraftAssigned") subjects.add(activity.aircraftId);
+        break;
+      case "tuneFares":
+        if (activity.type === "faresUpdated") subjects.add(activity.routeId);
+        break;
+      case "adjustSchedule":
+        if (activity.type === "frequencyUpdated") subjects.add(activity.routeId);
+        break;
+      case "serviceAircraft":
+        if (activity.type === "aircraftServiced") subjects.add(activity.aircraftId);
+        break;
+    }
+  }
+  const progress = Math.min(subjects.size, objective.target);
+  return { objective, progress, complete: progress >= objective.target };
+}
+
+/** Progress on all of `date`'s objectives. */
+export function evaluateDailyObjectives(
+  date: string,
+  activities: readonly ObjectiveActivity[],
+  lookup: ObjectiveAirportLookup,
+): ObjectiveProgress[] {
+  return getDailyObjectives(date).map((objective) =>
+    evaluateObjective(objective, activities, lookup),
+  );
+}
+
+// --- Ledger (carried through replays and checkpoints) ---
+
+/**
+ * What a replay remembers for objectives: recent qualifying activity and
+ * the objective ids already claimed. Bounded: only the current and the
+ * previous UTC day are kept (a claim for yesterday stays possible just
+ * after midnight), so it never grows with the length of the log.
+ */
+export interface ObjectiveLedger {
+  activity: ObjectiveActivity[];
+  /** Claimed objective ids (`${date}:${kind}`). */
+  claimed: string[];
+}
+
+export const emptyObjectiveLedger = (): ObjectiveLedger => ({ activity: [], claimed: [] });
+
+/** First tick worth keeping when the newest action is at `tick`: yesterday's UTC midnight. */
+export function objectiveRetentionStart(tick: number): number {
+  return objectiveDayWindow(utcDateForTick(tick)).startTick - DAY_MS / TICK_DURATION;
+}
+
+/** Drops ledger entries older than the retention window ending at `tick`. */
+export function pruneObjectiveLedger(ledger: ObjectiveLedger, tick: number): ObjectiveLedger {
+  const keepFrom = objectiveRetentionStart(tick);
+  const keepFromDate = utcDateForTick(keepFrom);
+  return {
+    activity: ledger.activity.filter((entry) => entry.tick >= keepFrom),
+    // ISO dates compare correctly as strings.
+    claimed: ledger.claimed.filter((id) => id.slice(0, 10) >= keepFromDate),
+  };
 }
