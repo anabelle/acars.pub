@@ -83,7 +83,8 @@
       "bankruptcy": "QUIEBRA DECLARADA",
       "financialWarning": "Aviso financiero",
       "operationsUpdate": "Actualización operativa",
-      "competitorRoute": "Rival en tu ruta"
+      "competitorRoute": "Rival en tu ruta",
+      "objectiveReward": "Objetivo diario completado"
     }
   },
   "fleet": {
@@ -425,6 +426,37 @@
           "hint": "Más rutas son más vuelos y más ingresos.",
           "action": "Buscar rutas"
         }
+      }
+    },
+    "objectives": {
+      "kicker": "Objetivos diarios",
+      "title": "Metas de hoy",
+      "resetsIn": "Se renuevan en {{hours}} h {{minutes}} min",
+      "progress": "{{done}}/{{target}}",
+      "reward": "+{{amount}}",
+      "claim": "Reclamar",
+      "claiming": "Reclamando…",
+      "claimed": "Reclamado",
+      "claimFailed": "No se pudo reclamar la recompensa",
+      "claimSuccess": "Recompensa reclamada",
+      "carryover": "Aún reclamables de ayer",
+      "loading": "Cargando aeropuertos…",
+      "tags": {
+        "beach": "playa",
+        "ski": "esquí",
+        "business": "negocios"
+      },
+      "kinds": {
+        "openRoute": "Abre una ruta nueva",
+        "openRouteMin": "Abre una ruta de al menos {{km}} km",
+        "openRouteToTag": "Abre una ruta a un destino de {{tag}}",
+        "acquireAircraft": "Compra o arrienda un avión",
+        "assignAircraft_one": "Asigna un avión a una ruta",
+        "assignAircraft_other": "Asigna {{count}} aviones a rutas",
+        "tuneFares": "Ajusta las tarifas de una ruta",
+        "adjustSchedule": "Cambia la frecuencia semanal de una ruta",
+        "serviceAircraft_one": "Haz el mantenimiento de un avión",
+        "serviceAircraft_other": "Haz el mantenimiento de {{count}} aviones"
       }
     }
   },

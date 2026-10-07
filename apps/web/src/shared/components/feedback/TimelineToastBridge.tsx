@@ -26,6 +26,7 @@ const EVENT_TITLE_KEYS: Record<TimelineEventType, string> = {
   tier_upgrade: "timeline.events.tierUpgrade",
   bankruptcy: "timeline.events.bankruptcy",
   financial_warning: "timeline.events.financialWarning",
+  objective_reward: "timeline.events.objectiveReward",
 };
 
 const resolveEventTitle = (type: TimelineEventType): string =>
@@ -48,6 +49,7 @@ const EVENT_TOAST_KIND: Record<TimelineEventType, "success" | "info" | "warning"
   tier_upgrade: "success",
   bankruptcy: "warning",
   financial_warning: "warning",
+  objective_reward: "success",
 };
 
 const showTimelineToast = (event: TimelineEvent) => {

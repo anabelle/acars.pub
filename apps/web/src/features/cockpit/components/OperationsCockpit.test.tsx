@@ -51,6 +51,8 @@ vi.mock("@/features/corporate/hooks/useFinancialPulse", () => ({
 vi.mock("@/features/corporate/hooks/useRoutePerformance", () => ({
   useRoutePerformance: () => [],
 }));
+// Covered by its own tests (DailyObjectivesCard.test.tsx).
+vi.mock("./DailyObjectivesCard", () => ({ DailyObjectivesCard: () => null }));
 vi.mock("@/shared/components/layout/PanelLayout", () => ({
   PanelLayout: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));

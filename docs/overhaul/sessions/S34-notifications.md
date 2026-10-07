@@ -1,7 +1,7 @@
 # S34 — PWA + notifications
 
-> **Status:** ☑ ready for review
-> **Next step:** — (awaiting merge of #181)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #181)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #181
 >

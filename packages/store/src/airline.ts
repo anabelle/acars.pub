@@ -6,6 +6,7 @@ import { createEngineSlice } from "./slices/engineSlice.js";
 import { createFleetSlice } from "./slices/fleetSlice.js";
 import { createIdentitySlice } from "./slices/identitySlice.js";
 import { createNetworkSlice } from "./slices/networkSlice.js";
+import { createObjectivesSlice } from "./slices/objectivesSlice.js";
 import { createWorldSlice } from "./slices/worldSlice.js";
 import type { AirlineState } from "./types.js";
 
@@ -78,6 +79,7 @@ export const useAirlineStore = create<AirlineState>()((rawSet, get, api) => {
     ...createIdentitySlice(set, get, api),
     ...createFleetSlice(set, get, api),
     ...createNetworkSlice(set, get, api),
+    ...createObjectivesSlice(set, get, api),
     ...createEngineSlice(set, get, api),
     ...createWorldSlice(set, get, api),
     viewedPubkey: null,

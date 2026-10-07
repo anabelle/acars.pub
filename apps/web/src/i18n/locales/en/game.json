@@ -83,7 +83,8 @@
       "bankruptcy": "BANKRUPTCY FILED",
       "financialWarning": "Financial Warning",
       "operationsUpdate": "Operations Update",
-      "competitorRoute": "Rival on your route"
+      "competitorRoute": "Rival on your route",
+      "objectiveReward": "Daily objective complete"
     }
   },
   "fleet": {
@@ -425,6 +426,37 @@
           "hint": "More routes mean more flights and more income.",
           "action": "Find routes"
         }
+      }
+    },
+    "objectives": {
+      "kicker": "Daily objectives",
+      "title": "Today's goals",
+      "resetsIn": "Resets in {{hours}}h {{minutes}}m",
+      "progress": "{{done}}/{{target}}",
+      "reward": "+{{amount}}",
+      "claim": "Claim",
+      "claiming": "Claiming…",
+      "claimed": "Claimed",
+      "claimFailed": "Couldn't claim the reward",
+      "claimSuccess": "Reward claimed",
+      "carryover": "Still claimable from yesterday",
+      "loading": "Loading airports…",
+      "tags": {
+        "beach": "beach",
+        "ski": "ski",
+        "business": "business"
+      },
+      "kinds": {
+        "openRoute": "Open a new route",
+        "openRouteMin": "Open a route of at least {{km}} km",
+        "openRouteToTag": "Open a route to a {{tag}} destination",
+        "acquireAircraft": "Buy or lease an aircraft",
+        "assignAircraft_one": "Assign an aircraft to a route",
+        "assignAircraft_other": "Assign {{count}} aircraft to routes",
+        "tuneFares": "Adjust the fares on a route",
+        "adjustSchedule": "Change a route's weekly frequency",
+        "serviceAircraft_one": "Service an aircraft",
+        "serviceAircraft_other": "Service {{count}} aircraft"
       }
     }
   },

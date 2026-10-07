@@ -75,6 +75,8 @@ export interface AirlineState {
   ) => Promise<void>;
   updateRouteFrequency: (routeId: string, frequencyPerWeek: number) => Promise<void>;
   updateHub: (newHubIata: string) => Promise<void>;
+  /** S32: claim a completed daily objective (verified by the replay). */
+  claimObjective: (objectiveId: string) => Promise<void>;
   processTick: (tick: number) => Promise<void>;
   // World / Multi-player
   competitors: Map<string, AirlineEntity>;
