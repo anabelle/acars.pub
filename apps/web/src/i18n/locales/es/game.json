@@ -1152,6 +1152,7 @@
       "cash": "Caja",
       "routes": "Rutas",
       "inAir": "En el aire"
-    }
+    },
+    "fps": "{{fps}} fps"
   }
 }

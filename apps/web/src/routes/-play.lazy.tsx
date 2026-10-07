@@ -1,7 +1,7 @@
 import { useAirlineStore } from "@acars/store";
 import { Link } from "@tanstack/react-router";
 import { FlaskConical } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BriefingDrawer } from "@/features/play/BriefingDrawer";
 import { PlayContextCard } from "@/features/play/PlayContextCard";
@@ -85,6 +85,7 @@ function PlayShell() {
           <p data-testid="play-plane-summary" className="text-xs text-white/70">
             {t("play.planeSummary", { count: planes.length })}
           </p>
+          {(load > 0 || orbit) && <FpsReadout />}
           {/* Load generator (S45.2): synthetic traffic for the perf report. */}
           <nav aria-label={t("play.loadLabel")} className="mt-1 flex gap-1">
             {PLAY_LOADS.map((value) => (
@@ -122,5 +123,28 @@ function PlayShell() {
         <BriefingDrawer open onToggle={() => setBriefingOpen(false)} planesInAir={planes.length} />
       )}
     </div>
+  );
+}
+
+/**
+ * Frames per second, measured from the globe's frame counter once a second:
+ * how the owner reads performance on a real device (`/play?load=10000&orbit=1`).
+ */
+function FpsReadout() {
+  const { t } = useTranslation("game");
+  const [fps, setFps] = useState<number | null>(null);
+  useEffect(() => {
+    let last = window.__acarsPlayStats?.rafFrames ?? 0;
+    const timer = window.setInterval(() => {
+      const frames = window.__acarsPlayStats?.rafFrames ?? 0;
+      setFps(frames - last);
+      last = frames;
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return (
+    <p data-testid="play-fps" className="font-mono text-xs text-primary">
+      {fps === null ? "…" : t("play.fps", { fps })}
+    </p>
   );
 }

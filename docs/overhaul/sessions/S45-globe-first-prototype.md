@@ -1,9 +1,9 @@
 # S45 — Globe-first 3D shell prototype (deck.gl)
 
-> **Status:** ◐ in progress
-> **Next step:** S45.4
+> **Status:** ☑ ready for review
+> **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #187
 >
 > **Track:** Graphics · **Size:** L (4 steps) · **Depends on:** S01 · **Unblocks:** Decision D4
 >
@@ -39,7 +39,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S45.1** Flagged `/play` route: deck.gl on globe with 3D arcs. _Done when:_ renders with real routes.
 - [x] **S45.2** Aircraft layer + synthetic load generator (1k/10k/50k). _Done when:_ fps recorded.
 - [x] **S45.3** Briefing drawer + contextual airport/route/plane cards. _Done when:_ screen recording.
-- [ ] **S45.4** `docs/overhaul/prototype-report.md` with perf + parity checklist. _Done when:_ owner can decide D4.
+- [x] **S45.4** `docs/overhaul/prototype-report.md` with perf + parity checklist. _Done when:_ owner can decide D4.
 
 ## Details & guidance
 
@@ -49,7 +49,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 ## Acceptance criteria
 
-- [ ] The report and recording are in `docs/overhaul/prototype-report.md`; the owner records decision D4.
+- [x] The report and recording are in `docs/overhaul/prototype-report.md`; the owner records decision D4 (open: needs the owner's real-device fps, see the report).
 
 ## Progress log
 
@@ -106,10 +106,31 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Media** (`docs/overhaul/media/s45/`): `play-walkthrough.webm`, a 30 s recording of the e2e run (`S45_VIDEO=1`), plus screenshots of the route card, airport card, briefing and 10k aircraft.
 - **Gotcha:** a test that clicks an arc must account for its altitude. The projection hook (`window.__acarsPlayProject`) maps surface points, so the click goes near a route's end, where the arc is still low.
 
+2026-10-07 · S45.4 · (this commit) · **Report for D4: `docs/overhaul/prototype-report.md`.**
+
+- **Contents:** what was built, the recording and screenshots, the measured numbers (software WebGL, worst case), bundle cost, the deck.gl / MapLibre v6 findings, the parity checklist against the classic shell, and options A/B/C with a recommendation.
+- **Recommendation:** A, a globe-first shell on the existing MapLibre globe, with no deck.gl for now.
+- **Real devices.** GPU desktop and mid-range Android numbers can't be taken from CI. `/play` now shows an **fps readout** whenever a load or orbit is on (`/play?prototype=on&load=10000&orbit=1`), and the report gives the owner a 2-minute recipe with a bar (≥ 30 fps at 10k on Android means viable). The perf probe checks the readout.
+
 ## Follow-ups
 
-_None yet._
+- **Owner:** measure `/play` on a GPU desktop and a mid-range Android (recipe in the report), then record D4.
+- **If D4 = A (MapLibre):** port the briefing drawer and contextual cards into the main shell (a new session); reuse `cardModels.ts`, `selection.ts`, and the schedule → typed-array plane pipeline from `aircraft.ts`.
+- **If D4 = B (deck.gl):** wait for deck.gl's MapLibre v6 support, then drop `mapCompat.ts`, retry `ArcLayer`/`IconLayer`, and cap arc altitude for long-haul (about 700 km peaks look odd).
+- **Either way:** remove `/play` and the deck.gl dependency once D4 is recorded and its outcome is built.
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped:** a flagged `/play` prototype with a globe, 3D route arcs, aircraft with a 1k/10k/50k load generator, clickable cards, a briefing drawer and an fps readout. Also the report, recording and screenshots, and two e2e specs (behaviour and perf).
+- **Didn't ship:**
+  - Real-device numbers: CI has no GPU or phone, so they are the owner's to take.
+  - Plane icons and headings: deck.gl's `IconLayer` didn't render on MapLibre v6.
+  - deck.gl's own `ArcLayer`: replaced with `PathLayer` arcs.
+- **Gotchas:**
+  - deck.gl 9.4 needs `shimMapTransform` on MapLibre v6.
+  - The CSP blocks `data:` fetches, so atlases must be same-origin files.
+  - MapLibre's container class overrides `absolute`, so the map needs a wrapper.
+  - Dark liveries vanish on the night globe (`readableOnDark`).
+  - Clicking arcs in e2e must account for altitude.
+  - Installing deck.gl re-resolved `@types/node` for the root tooling, so a targeted `pnpm` override keeps the lockfile clean.
+- **Footprint:** new files under `features/play/`, `routes/play.tsx` and `-play.lazy.tsx`. The only existing file touched is `__root.tsx` (`/play` is standalone and skips the background globe), plus en/es strings, the deps and the override.

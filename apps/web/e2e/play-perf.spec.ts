@@ -44,6 +44,8 @@ for (const load of [0, 1000, 10000, 50000]) {
         })
         .toBeGreaterThanOrEqual(load);
     }
+    // The on-screen readout the owner uses on real devices.
+    await expect(page.getByTestId("play-fps")).toContainText("fps", { timeout: 10_000 });
     await page.waitForTimeout(WARMUP_MS);
 
     const before: Stats = await read(page);
