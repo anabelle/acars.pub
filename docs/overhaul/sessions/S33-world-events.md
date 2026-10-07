@@ -1,7 +1,7 @@
 # S33 — Deterministic world events
 
-> **Status:** ☑ ready for review
-> **Next step:** — (awaiting merge of #184)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #184)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #184
 >

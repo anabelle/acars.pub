@@ -6,6 +6,7 @@ import { CheckCircle2, PlaneTakeoff, ShieldAlert } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { readReferral, safeLocalStorage } from "@/features/share/referral";
 import { RelayStatusBadge } from "@/shared/components/RelayStatusBadge";
 import { HubPicker } from "../../network/components/HubPicker";
 import { findAirlineConflicts } from "../utils/airlineConflicts";
@@ -14,7 +15,8 @@ import { StarterHubChoices } from "./StarterHubChoices";
 
 export function AirlineCreator() {
   const { t } = useTranslation(["identity", "common"]);
-  const { createAirline, identityStatus, isLoading, error, competitors } = useAirlineStore();
+  const { createAirline, identityStatus, isLoading, error, competitors, pubkey } =
+    useAirlineStore();
   const homeAirport = useEngineStore((s) => s.homeAirport);
   const setHub = useEngineStore((s) => s.setHub);
 
@@ -74,6 +76,7 @@ export function AirlineCreator() {
           secondary,
           accent: "#ffffff",
         },
+        referrer: readReferral(safeLocalStorage(), pubkey),
       });
     } catch (err) {
       const message =

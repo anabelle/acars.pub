@@ -12,6 +12,7 @@ import { NotificationBridge } from "@/features/notifications/NotificationBridge"
 import { OfflineBanner } from "@/shared/components/feedback/OfflineBanner";
 import { TimelineToastBridge } from "@/shared/components/feedback/TimelineToastBridge";
 import { ToastHost } from "@/shared/components/feedback/ToastHost";
+import { captureReferral, safeLocalStorage } from "@/features/share/referral";
 import { registerServiceWorker } from "@/shared/lib/serviceWorker";
 import { ConfirmProvider } from "@/shared/lib/useConfirm";
 
@@ -38,6 +39,9 @@ await initI18n();
 
 // Installable app shell that works offline (S34; production builds only).
 registerServiceWorker();
+
+// Remember who referred this player (S51), for their AIRLINE_CREATE.
+captureReferral(window.location.search, safeLocalStorage());
 
 // Render the app
 const rootElement = document.getElementById("root")!;

@@ -10,6 +10,7 @@ vi.mock("@acars/store", () => ({
     selector({ ...state, syncCompetitor }),
 }));
 vi.mock("@acars/data", () => ({
+  isDataCatalogReady: () => true,
   getAircraftById: () => ({ name: "ATR 72-600", familyId: "atr" }),
   getAirports: () => [
     { iata: "MAD", latitude: 40.47, longitude: -3.56 },
@@ -19,7 +20,7 @@ vi.mock("@acars/data", () => ({
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
-const toast = vi.hoisted(() => ({ success: vi.fn() }));
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 
 import { PublicAirlinePage } from "./PublicAirlinePage";
@@ -61,6 +62,7 @@ afterEach(() => {
   syncCompetitor.mockReset();
   syncCompetitor.mockResolvedValue(undefined);
   toast.success.mockClear();
+  toast.error.mockClear();
 });
 
 describe("PublicAirlinePage", () => {
@@ -112,26 +114,43 @@ describe("PublicAirlinePage", () => {
     );
   });
 
-  it("shares with the share sheet, or copies the link", async () => {
+  it("shares your own network: share sheet, or copied link with the image", async () => {
     setState({ pubkey: ME, airline: airline("My Air") });
     const share = vi.fn(async () => {});
-    Object.assign(navigator, { share });
+    Object.assign(navigator, { share, canShare: undefined });
     const { unmount } = render(<PublicAirlinePage pubkey={ME} />);
-    fireEvent.click(screen.getByRole("button", { name: "Share" }));
-    await waitFor(() =>
-      expect(share).toHaveBeenCalledWith(expect.objectContaining({ title: "My Air" })),
+    fireEvent.click(screen.getByRole("button", { name: "Share my network" }));
+    await waitFor(
+      () =>
+        expect(share).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: "My Air on ACARS",
+            url: expect.stringContaining("/airline/"),
+          }),
+        ),
+      { timeout: 10_000 },
     );
     unmount();
 
     Object.assign(navigator, { share: undefined, clipboard: { writeText: vi.fn(async () => {}) } });
     render(<PublicAirlinePage pubkey={ME} />);
-    fireEvent.click(screen.getByRole("button", { name: "Share" }));
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Link copied"));
+    fireEvent.click(screen.getByRole("button", { name: "Share my network" }));
+    await waitFor(
+      () =>
+        expect(toast.success).toHaveBeenCalledWith(
+          "Link copied",
+          expect.objectContaining({ action: expect.objectContaining({ label: "Download image" }) }),
+        ),
+      { timeout: 10_000 },
+    );
 
     Object.assign(navigator, {
       clipboard: { writeText: vi.fn(async () => Promise.reject(new Error("denied"))) },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Share" }));
-    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Share my network" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't share"), {
+      timeout: 10_000,
+    });
+    expect(toast.success).toHaveBeenCalledTimes(1);
   });
 });

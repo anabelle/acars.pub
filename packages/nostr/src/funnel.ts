@@ -25,6 +25,8 @@ export interface FunnelEvent {
   routeId?: string;
   /** ROUTE_OPEN: great-circle distance, for the first-landing estimate. */
   distanceKm?: number;
+  /** AIRLINE_CREATE: the referring player's pubkey from a `?ref=` link (S51). */
+  referrer?: string;
 }
 
 export const FUNNEL_ACTION_KIND = 30078;
@@ -66,8 +68,20 @@ export function parseFunnelEvent(event: RawNostrEvent, worldId: string): FunnelE
   if (typeof action !== "string" || !action) return null;
   const parsed: FunnelEvent = { pubkey: event.pubkey, createdAt: event.created_at, type: action };
   if (typeof payload === "object" && payload !== null) {
-    const { routeId, distanceKm } = payload as { routeId?: unknown; distanceKm?: unknown };
+    const { routeId, distanceKm, referrer } = payload as {
+      routeId?: unknown;
+      distanceKm?: unknown;
+      referrer?: unknown;
+    };
     if (typeof routeId === "string" && routeId) parsed.routeId = routeId;
+    if (
+      action === "AIRLINE_CREATE" &&
+      typeof referrer === "string" &&
+      /^[0-9a-f]{64}$/.test(referrer) &&
+      referrer !== event.pubkey
+    ) {
+      parsed.referrer = referrer;
+    }
     if (typeof distanceKm === "number" && Number.isFinite(distanceKm) && distanceKm > 0) {
       parsed.distanceKm = distanceKm;
     }
@@ -168,6 +182,8 @@ export interface AirlineJourney {
   firstLandingAt: number | null;
   /** Latest signed action or saved state. */
   lastSeenAt: number;
+  /** Referring player (S51), held in memory only: reports show counts, never pubkeys. */
+  referrer: string | null;
 }
 
 /**
@@ -211,6 +227,7 @@ export function buildJourneys(events: readonly FunnelEvent[]): AirlineJourney[] 
       firstAssignAt: firstAssign?.createdAt ?? null,
       firstLandingAt,
       lastSeenAt: after[after.length - 1].createdAt,
+      referrer: create.referrer ?? null,
     });
   }
   return journeys.sort((a, b) => a.createdAt - b.createdAt);
@@ -323,6 +340,27 @@ const mdHeader = (cells: string[]) =>
   [mdRow(cells), mdRow(cells.map((_, i) => (i === 0 ? "---" : "--:")))].join("\n");
 const minutesOf = (sec: number | null) => (sec === null ? "—" : `${Math.round(sec / 60)} min`);
 
+/** Referred signups (S51): how many, from how many players, and how far they got. */
+function referralLines(journeys: readonly AirlineJourney[], nowSec: number): string[] {
+  const referred = journeys.filter((journey) => journey.referrer !== null);
+  if (referred.length === 0) return ["No referred airlines yet (`?ref=` links)."];
+  const referrers = new Set(referred.map((journey) => journey.referrer)).size;
+  const summary = summarizeFunnel(referred, nowSec);
+  return [
+    `Referred airlines: ${referred.length} of ${journeys.length} created (${pctOf(referred.length, journeys.length)}), from ${referrers} referring ${referrers === 1 ? "player" : "players"}.`,
+    "",
+    mdHeader(["Referred", "Created", "Route", "Assigned", "D1", "D7"]),
+    mdRow([
+      "all",
+      summary.created,
+      pctOf(summary.openedRoute, summary.created),
+      pctOf(summary.assigned, summary.created),
+      pctOf(summary.retention[1].retained, summary.retention[1].eligible),
+      pctOf(summary.retention[7].retained, summary.retention[7].eligible),
+    ]),
+  ];
+}
+
 /** The committed metrics report: counts only, never pubkeys. */
 export function formatFunnelReport(input: FunnelReportInput): string {
   const { worldId, sinceSec, untilSec, relays, events } = input;
@@ -361,6 +399,10 @@ export function formatFunnelReport(input: FunnelReportInput): string {
     }),
     "",
     `Time to first assignment (n=${ttfa.count}): median ${minutesOf(ttfa.median)}, p75 ${minutesOf(ttfa.p75)}.`,
+    "",
+    "## Referrals",
+    "",
+    ...referralLines(journeys, untilSec),
     "",
     "## Weekly cohorts",
     "",

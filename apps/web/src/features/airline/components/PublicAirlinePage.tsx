@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { airlinePath } from "@/features/airline/utils/airlineKey";
 import { projectRouteMap } from "@/features/airline/utils/routeMap";
+import { ShareNetworkButton } from "@/features/share/ShareNetworkButton";
 import { LiveryThumb } from "@/shared/components/LiveryThumb";
 
 const MAP = { width: 560, height: 260, padding: 24 };
@@ -165,14 +166,19 @@ export function PublicAirlinePage({ pubkey }: { pubkey: string }) {
       </section>
 
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={share}
-          className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-4 py-2 text-sm font-bold hover:bg-accent"
-        >
-          <Share2 className="h-4 w-4" aria-hidden="true" />
-          {t("publicAirline.share")}
-        </button>
+        {isMine ? (
+          // Your own page: share the network card too (S51).
+          <ShareNetworkButton pubkey={pubkey} airline={airline} fleet={fleet} routes={routes} />
+        ) : (
+          <button
+            type="button"
+            onClick={share}
+            className="inline-flex items-center gap-2 rounded-xl border border-border/60 px-4 py-2 text-sm font-bold hover:bg-accent"
+          >
+            <Share2 className="h-4 w-4" aria-hidden="true" />
+            {t("publicAirline.share")}
+          </button>
+        )}
         {lookup === "own" ? null : (
           <Link
             to="/join"

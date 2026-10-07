@@ -36,7 +36,10 @@ export interface IdentitySlice {
 export type CreateAirlineParams = Pick<
   AirlineEntity,
   "name" | "icaoCode" | "callsign" | "hubs" | "livery"
->;
+> & {
+  /** Hex pubkey of the player whose `?ref=` link brought this one (S51). Attribution only. */
+  referrer?: string | null;
+};
 
 export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySlice> = (
   set,
@@ -272,6 +275,9 @@ export const createIdentitySlice: StateCreator<AirlineState, [], [], IdentitySli
           livery: params.livery,
           corporateBalance: postHubBalance,
           tick: currentTick,
+          ...(params.referrer && params.referrer !== get().pubkey
+            ? { referrer: params.referrer }
+            : {}),
         },
       };
       const event = await publishAction(action);
