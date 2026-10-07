@@ -1,7 +1,7 @@
 # S32 — Deterministic daily objectives
 
-> **Status:** ☑ ready for review
-> **Next step:** — (awaiting merge of #182)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #182)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #182
 >

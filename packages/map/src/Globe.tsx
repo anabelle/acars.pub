@@ -35,6 +35,7 @@ import {
 import { addOpportunityLayers, OPPORTUNITY_SOURCE } from "./layers/opportunities.js";
 import { addDataSources } from "./layers/sources.js";
 import { buildOpportunityFeatures, type MapOpportunity } from "./opportunities.js";
+import { mapRenderStats, trackMapRenders } from "./renderStats.js";
 import { DEFAULT_MAP_THEME, getMapPalette, getMapStyleUrl, type MapTheme } from "./theme.js";
 
 // Public API kept on this module (re-exported from the package index).
@@ -351,6 +352,7 @@ export function Globe({
     });
 
     map.doubleClickZoom.disable();
+    trackMapRenders(map);
 
     // Persist view changes
     const saveView = () => {
@@ -839,6 +841,7 @@ export function Globe({
             now,
           );
 
+      mapRenderStats().requests++;
       (map.getSource("flights") as maplibregl.GeoJSONSource)?.setData({
         type: "FeatureCollection",
         features: flightFeatures,
@@ -889,6 +892,7 @@ export function Globe({
     const id = setInterval(() => {
       if (document.hidden || latestPlayerRouteCount.current === 0) return;
       if (!map.getLayer("arcs-flow-layer")) return;
+      mapRenderStats().requests++;
       map.setPaintProperty("arcs-flow-layer", "line-dasharray", routeFlowDash(performance.now()));
     }, ROUTE_FLOW_STEP_MS);
     return () => clearInterval(id);
