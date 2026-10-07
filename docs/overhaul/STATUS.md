@@ -107,12 +107,13 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 22  | S43     | P2       | 3     | Money and opportunity on the map.                                                       |
 | 23  | S34     | P2       | 4     | Installable app + notifications (needs D3).                                             |
 | 24  | S32     | P2       | 4     | Daily objectives (needs D6).                                                            |
-| 25  | S33     | P2       | 3     | World events.                                                                           |
-| 26  | S51     | P2       | 3     | Share loop.                                                                             |
-| 27  | S26     | P3       | 4     | Guest sandbox.                                                                          |
-| 28  | S45     | P3       | 4     | 3D globe-first prototype (decision D4).                                                 |
-| 29  | S52     | P3       | 3     | Android release kit (needs D7).                                                         |
-| 30  | S53     | P3       | 2     | Tycoon-mode design doc (needs D5).                                                      |
+| 25  | S54     | P0       | 4     | Owner: "ultra sluggish all the time". Stop the constant full-globe redraws.             |
+| 26  | S33     | P2       | 3     | World events.                                                                           |
+| 27  | S51     | P2       | 3     | Share loop.                                                                             |
+| 28  | S26     | P3       | 4     | Guest sandbox.                                                                          |
+| 29  | S45     | P3       | 4     | 3D globe-first prototype (decision D4).                                                 |
+| 30  | S52     | P3       | 3     | Android release kit (needs D7).                                                         |
+| 31  | S53     | P3       | 2     | Tycoon-mode design doc (needs D5).                                                      |
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 

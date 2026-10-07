@@ -28,13 +28,21 @@ import {
   addRouteLayers,
   arcCacheKey,
   getSegmentCount,
-  ROUTE_FLOW_STEP_MS,
   routeFlowDash,
   WORLD_LAYER_IDS,
 } from "./layers/routes.js";
 import { addOpportunityLayers, OPPORTUNITY_SOURCE } from "./layers/opportunities.js";
 import { addDataSources } from "./layers/sources.js";
 import { buildOpportunityFeatures, type MapOpportunity } from "./opportunities.js";
+import { mapRenderStats, trackMapRenders } from "./renderStats.js";
+import { initialMapClockState, MAP_CLOCK_MS, planMapClockTick, planWrites } from "./mapClock.js";
+import {
+  FrameCostGovernor,
+  isSoftwareRenderer,
+  LOW_POWER_CLOCK_MS,
+  readRenderModeOverride,
+  webglRenderer,
+} from "./renderMode.js";
 import { DEFAULT_MAP_THEME, getMapPalette, getMapStyleUrl, type MapTheme } from "./theme.js";
 
 // Public API kept on this module (re-exported from the package index).
@@ -348,9 +356,14 @@ export function Globe({
       zoom: initialZoom,
       pitch: 0,
       clickTolerance: 10,
+      // No symbol cross-fade (S54): every flight-position upload re-places
+      // the aircraft icons, and a 300 ms fade turns each upload into several
+      // extra frames. Icons simply move instead.
+      fadeDuration: 0,
     });
 
     map.doubleClickZoom.disable();
+    trackMapRenders(map);
 
     // Persist view changes
     const saveView = () => {
@@ -795,19 +808,69 @@ export function Globe({
     };
 
     let isAnimating = true;
+    // Route flow (dashes travelling origin → destination): off for reduced motion.
+    const flowMotion = !(
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+    let clock = initialMapClockState();
+
+    // Low-power rendering (S54.3): on from the start with a software WebGL
+    // renderer; otherwise switched by measured frame cost. A stored override
+    // ("low" / "full") fixes the mode instead.
+    const stats = mapRenderStats();
+    const canvas = map.getCanvas();
+    const renderer = webglRenderer(
+      (canvas.getContext("webgl2") as WebGL2RenderingContext | null) ??
+        (canvas.getContext("webgl") as WebGLRenderingContext | null),
+    );
+    const override = readRenderModeOverride(
+      typeof localStorage === "undefined" ? null : localStorage,
+    );
+    const governor = new FrameCostGovernor({
+      lowPower: override ? override === "low" : isSoftwareRenderer(renderer),
+    });
+    const applyPowerMode = (lowPower: boolean) => {
+      stats.lowPower = lowPower;
+      // Fewer pixels per frame: the biggest saving when the GPU is emulated.
+      const ratio = lowPower ? 1 : window.devicePixelRatio || 1;
+      if (map.getPixelRatio() !== ratio) map.setPixelRatio(ratio);
+    };
+    applyPowerMode(governor.lowPower);
+
+    // No ticks while the map is off screen (e.g. a full-screen panel on mobile).
+    let mapVisible = true;
+    const visibility =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver((entries) => {
+            mapVisible = entries.some((entry) => entry.isIntersecting);
+          })
+        : null;
+    visibility?.observe(canvas);
 
     let lastFrame = 0;
+    let lastRafAt: number | null = null;
+    let rendersAtLastRaf = stats.renders;
     const animate = (now: number) => {
       if (!isAnimating || !mapRef.current) return;
-      if (document.hidden) {
+      // Frame cost: the gap between two animation frames with a map redraw
+      // in between. It doesn't depend on how often we draw.
+      if (!override && lastRafAt !== null && stats.renders !== rendersAtLastRaf) {
+        const wasLowPower = governor.lowPower;
+        if (governor.sample(now - lastRafAt) !== wasLowPower) applyPowerMode(governor.lowPower);
+      }
+      lastRafAt = now;
+      rendersAtLastRaf = stats.renders;
+      if (document.hidden || !mapVisible) {
         rafId.current = requestAnimationFrame(animate);
         return;
       }
-      // Throttled to ~5fps: full-fleet interpolation + a setData re-upload of
-      // both GeoJSON sources is far too expensive to run at display rate
-      // (structured clone + worker re-tiling + GPU re-upload). 5 updates per
-      // second still reads as smooth motion for aircraft at map scale.
-      if (now - lastFrame < 200) {
+      // One map clock (S54): flight positions and the route-flow step are
+      // written together every MAP_CLOCK_MS, so MapLibre redraws once per
+      // tick, and not at all when nothing changed. A setData re-upload is a
+      // structured clone + worker re-tiling + GPU re-upload: far too costly
+      // at display rate, and 5 a second still reads as smooth motion.
+      if (now - lastFrame < (governor.lowPower ? LOW_POWER_CLOCK_MS : MAP_CLOCK_MS)) {
         rafId.current = requestAnimationFrame(animate);
         return;
       }
@@ -839,14 +902,34 @@ export function Globe({
             now,
           );
 
-      (map.getSource("flights") as maplibregl.GeoJSONSource)?.setData({
-        type: "FeatureCollection",
-        features: flightFeatures,
+      // The route flow is decoration: off in low-power mode.
+      const flowOn =
+        flowMotion &&
+        !governor.lowPower &&
+        latestPlayerRouteCount.current > 0 &&
+        Boolean(map.getLayer("arcs-flow-layer"));
+      const plan = planMapClockTick(clock, {
+        flights: flightFeatures.length,
+        globalFlights: globalFlightFeatures.length,
+        flowDash: flowOn ? routeFlowDash(now) : null,
       });
-      (map.getSource("global-flights") as maplibregl.GeoJSONSource)?.setData({
-        type: "FeatureCollection",
-        features: globalFlightFeatures,
-      });
+      clock = plan.next;
+      if (planWrites(plan)) stats.requests++;
+      if (plan.uploadFlights) {
+        (map.getSource("flights") as maplibregl.GeoJSONSource)?.setData({
+          type: "FeatureCollection",
+          features: flightFeatures,
+        });
+      }
+      if (plan.uploadGlobalFlights) {
+        (map.getSource("global-flights") as maplibregl.GeoJSONSource)?.setData({
+          type: "FeatureCollection",
+          features: globalFlightFeatures,
+        });
+      }
+      if (plan.flowDash) {
+        map.setPaintProperty("arcs-flow-layer", "line-dasharray", [...plan.flowDash]);
+      }
 
       rafId.current = requestAnimationFrame(animate);
     };
@@ -855,6 +938,7 @@ export function Globe({
 
     return () => {
       isAnimating = false;
+      visibility?.disconnect();
       if (nightOverlayTimer.current) {
         clearInterval(nightOverlayTimer.current);
         nightOverlayTimer.current = null;
@@ -873,26 +957,6 @@ export function Globe({
       if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", showWorld ? "visible" : "none");
     }
   }, [showWorld, mapLoaded]);
-
-  // =========================================================================
-  // Route flow: dashes travel along the player's routes, origin → destination.
-  // A paint-property step ~10×/s; skipped for reduced motion, hidden tabs and
-  // airlines without routes.
-  // =========================================================================
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!mapLoaded || !map) return;
-    const reduceMotion =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion) return;
-    const id = setInterval(() => {
-      if (document.hidden || latestPlayerRouteCount.current === 0) return;
-      if (!map.getLayer("arcs-flow-layer")) return;
-      map.setPaintProperty("arcs-flow-layer", "line-dasharray", routeFlowDash(performance.now()));
-    }, ROUTE_FLOW_STEP_MS);
-    return () => clearInterval(id);
-  }, [mapLoaded]);
 
   // =========================================================================
   // Initial fly-to on first airport selection or focus change
