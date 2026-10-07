@@ -59,7 +59,13 @@ Reading it:
 | MapLibre and `@acars/map` (`Globe-*.js`)     |     299 kB | both shells                  |
 | deck.gl and the prototype (`PlayGlobe-*.js`) | **223 kB** | `/play` only (lazy, flag on) |
 
-### Measure on your devices (needed for D4)
+### Owner's measurements (2026-10-07)
+
+- **Desktop:** 89 fps at 50k aircraft once loaded, but the first load took nearly a minute.
+- **Mobile:** never finished loading after 10 minutes.
+- **Cause found:** the first fuel price of a session walked every tick since genesis (17M+ steps), freezing the main thread, and again in each worker. On a 6×-throttled CPU the first route card took 30.8 s; with the precomputed day-start table it takes 1.0 s. Re-test mobile once the fix is deployed.
+
+## Measure on your devices (needed for D4)
 
 On a **GPU desktop** and a **mid-range Android** (Chrome):
 

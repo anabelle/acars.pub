@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fp, fpSub, fpToNumber } from "./fixed-point.js";
-import type { FixedPoint } from "./types.js";
 import {
+  FUEL_PRICE_EPOCH_TICKS,
   FUEL_PRICE_MAX_PER_KG,
   FUEL_PRICE_MEAN_PER_KG,
   FUEL_PRICE_MIN_PER_KG,
@@ -9,6 +9,8 @@ import {
   getFuelPriceHistory,
   stepFuelPrice,
 } from "./fuel.js";
+import { FUEL_EPOCH_START_PRICES } from "./fuelEpochs.js";
+import { type FixedPoint, GENESIS_TIME, TICK_DURATION } from "./types.js";
 
 describe("fuel market", () => {
   it("returns the same price for the same tick", () => {
@@ -159,5 +161,62 @@ describe("getFuelPriceAtTick past the Map size limit", () => {
     expect(fresh.stepFuelPrice(fresh.getFuelPriceAtTick(tick - 1), tick - 1)).toBe(
       fresh.getFuelPriceAtTick(tick),
     );
+  });
+});
+
+describe("precomputed day-start prices (fuelEpochs.ts)", () => {
+  /** Walks one engine day from its start price, exactly like the game. */
+  const walkDay = (startPrice: number, epoch: number) => {
+    let price = startPrice as FixedPoint;
+    for (let t = epoch * FUEL_PRICE_EPOCH_TICKS; t < (epoch + 1) * FUEL_PRICE_EPOCH_TICKS; t++) {
+      price = stepFuelPrice(price, t);
+    }
+    return price;
+  };
+
+  it("starts at the mean and chains day to day like the walk", () => {
+    expect(FUEL_EPOCH_START_PRICES[0]).toBe(FUEL_PRICE_MEAN_PER_KG);
+    const last = FUEL_EPOCH_START_PRICES.length - 2;
+    // Every entry is checked by scripts/generate-fuel-epochs.ts --check; here,
+    // a spread of days including the first and the last.
+    for (const epoch of [0, 1, 2, 100, 333, 591, 600, 900, last]) {
+      expect(walkDay(FUEL_EPOCH_START_PRICES[epoch], epoch)).toBe(
+        FUEL_EPOCH_START_PRICES[epoch + 1],
+      );
+    }
+  });
+
+  it("covers the game clock through 2028", () => {
+    const days = FUEL_EPOCH_START_PRICES.length;
+    expect(GENESIS_TIME + days * FUEL_PRICE_EPOCH_TICKS * TICK_DURATION).toBeGreaterThan(
+      Date.parse("2028-12-30T00:00:00Z"),
+    );
+  });
+
+  it("walks on from the last precomputed day for dates past the table", async () => {
+    vi.resetModules();
+    const fresh = await import("./fuel.js");
+    const lastDay = FUEL_EPOCH_START_PRICES.length - 1;
+    // Two days past the table, a few ticks in.
+    const tick = (lastDay + 2) * FUEL_PRICE_EPOCH_TICKS + 5;
+    let expected = FUEL_EPOCH_START_PRICES[lastDay] as FixedPoint;
+    for (let t = lastDay * FUEL_PRICE_EPOCH_TICKS; t < tick; t++)
+      expected = stepFuelPrice(expected, t);
+    expect(fresh.getFuelPriceAtTick(tick)).toBe(expected);
+  });
+
+  it("answers a cold lookup in late 2026 without walking from genesis", async () => {
+    vi.resetModules();
+    const fresh = await import("./fuel.js");
+    const tick = Math.floor((Date.parse("2026-10-07T12:00:00Z") - GENESIS_TIME) / TICK_DURATION);
+    const started = performance.now();
+    const price = fresh.getFuelPriceAtTick(tick);
+    // At most one day's walk (28,800 steps), not ~17M.
+    expect(performance.now() - started).toBeLessThan(1_000);
+    const epoch = Math.floor(tick / FUEL_PRICE_EPOCH_TICKS);
+    let expected = FUEL_EPOCH_START_PRICES[epoch] as FixedPoint;
+    for (let t = epoch * FUEL_PRICE_EPOCH_TICKS; t < tick; t++)
+      expected = stepFuelPrice(expected, t);
+    expect(price).toBe(expected);
   });
 });

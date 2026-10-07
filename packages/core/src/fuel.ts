@@ -1,5 +1,6 @@
-import { fp, fpAdd, fpScale, fpSub } from "./fixed-point.js";
 import { detCos, detLog } from "./det-math.js";
+import { fp, fpAdd, fpScale, fpSub } from "./fixed-point.js";
+import { FUEL_EPOCH_START_PRICES } from "./fuelEpochs.js";
 import { createTickPRNG } from "./prng.js";
 import type { FixedPoint } from "./types.js";
 import { TICKS_PER_DAY } from "./types.js";
@@ -12,7 +13,13 @@ export const FUEL_PRICE_EPOCH_TICKS = TICKS_PER_DAY;
 const FUEL_THETA = 0.00018;
 const FUEL_SIGMA = 0.0035;
 
-const epochCache = new Map<number, FixedPoint>([[0, FUEL_PRICE_MEAN_PER_KG]]);
+// Day-start prices, precomputed by scripts/generate-fuel-epochs.ts with this
+// same walk: without them the first price of a session walked every tick
+// since genesis (17M+ steps by late 2026; seconds on a phone, in every
+// worker). Days past the table are walked and cached as before.
+const epochCache = new Map<number, FixedPoint>(
+  FUEL_EPOCH_START_PRICES.map((price, epoch) => [epoch, price as FixedPoint]),
+);
 
 function clampFuelPrice(price: FixedPoint): FixedPoint {
   if (price < FUEL_PRICE_MIN_PER_KG) return FUEL_PRICE_MIN_PER_KG;
