@@ -99,7 +99,9 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Tests:** the generator (loads, leg lengths, determinism, in the air now). The `?boot=1` trace test moved to `smoke.spec.ts`. `perf-probe.spec.ts` gained a 10k run on the main globe: about one map update a second in low-power mode (0.9/s, the same cadence as idle), logged next to the S54 numbers.
 - **Report:** `prototype-report.md` notes the outcome and where the knobs went.
 
-2026-10-09 · fix · (this commit) · **The map crashed the app when it beat the airport catalog.** S56.4's load generator read `getAirports().length` during `WorldMap`'s render, and `getAirports` throws until the catalog has loaded. On a slower boot (CI runs two browsers at once) the map rendered first and the router showed "Something went wrong!": 13 e2e and 12 screenshot failures, all waiting for `appReady`. I reproduced it locally with two workers (7 of 12 smoke boots failed; 94aa936 passed all), and the code now checks `isDataCatalogReady()` first. Smoke (two workers) and the screenshot project pass again.
+2026-10-09 · fix · f436366 · **The map crashed the app when it beat the airport catalog.** S56.4's load generator read `getAirports().length` during `WorldMap`'s render, and `getAirports` throws until the catalog has loaded. On a slower boot (CI runs two browsers at once) the map rendered first and the router showed "Something went wrong!": 13 e2e and 12 screenshot failures, all waiting for `appReady`. I reproduced it locally with two workers (7 of 12 smoke boots failed; 94aa936 passed all), and the code now checks `isDataCatalogReady()` first. Smoke (two workers) and the screenshot project pass again.
+
+2026-10-09 · fix · (this commit) · **Perf probe: wait for a flight that will still be flying.** With the crash fixed, CI's low-power perf probe once sampled zero map activity: it started sampling on any rise of the map's upload counter. That counter also rises once after a landing (to clear the last position), so the sample could begin just as the map went idle. It now steps game time until the briefing shows a landing at least 10 minutes away.
 
 ## Follow-ups
 
