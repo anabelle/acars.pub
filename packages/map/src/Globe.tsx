@@ -14,7 +14,7 @@ import {
 import { BurstPool, createMarkerSlot, type MapBurst, prefersReducedMotion } from "./bursts.js";
 import { planCameraFlight } from "./camera.js";
 import { buildRouteFeatures, type MapRoute, routeStyleSignature } from "./routeFeatures.js";
-import { resolveMapSelection } from "./interactions.js";
+import { type RouteSelection, resolveMapSelection } from "./interactions.js";
 import {
   type AirportClass,
   addAirportLayers,
@@ -34,7 +34,7 @@ import {
 import { addOpportunityLayers, OPPORTUNITY_SOURCE } from "./layers/opportunities.js";
 import { addDataSources } from "./layers/sources.js";
 import { buildOpportunityFeatures, type MapOpportunity } from "./opportunities.js";
-import { mapRenderStats, trackMapRenders } from "./renderStats.js";
+import { exposeMapTestHandle, mapRenderStats, trackMapRenders } from "./renderStats.js";
 import { initialMapClockState, MAP_CLOCK_MS, planMapClockTick, planWrites } from "./mapClock.js";
 import {
   FrameCostGovernor,
@@ -56,6 +56,7 @@ export {
   getMapStyleUrl,
   type MapTheme,
 } from "./theme.js";
+export type { RouteSelection } from "./interactions.js";
 export { isMajorAirport } from "./layers/airports.js";
 export { arcCacheKey, getSegmentCount, ROUTE_PROFIT_COLORS } from "./layers/routes.js";
 
@@ -73,6 +74,8 @@ export interface GlobeProps {
   selectedAirport: Airport | null;
   onAirportSelect: (airport: Airport | null) => void;
   onAircraftSelect?: (aircraftId: string) => void;
+  /** A click on a route arc (S56.2), after airports and aircraft. */
+  onRouteSelect?: (route: RouteSelection) => void;
   onMapClick?: () => void;
   groundPresence?: Record<string, { color: string; count: number; isPlayer?: boolean }[]>;
   fleet?: AircraftInstance[];
@@ -122,6 +125,7 @@ export function Globe({
   selectedAirport,
   onAirportSelect,
   onAircraftSelect,
+  onRouteSelect,
   groundPresence,
   fleet = [],
   competitorFleet = [],
@@ -193,6 +197,7 @@ export function Globe({
   const competitorMapRoutes = useMemo<MapRoute[]>(
     () =>
       competitorRoutes.map((route) => ({
+        routeId: route.id,
         originIata: route.originIata,
         destinationIata: route.destinationIata,
         ownerPubkey: route.airlinePubkey,
@@ -250,6 +255,7 @@ export function Globe({
   const latestGroundPresence = useRef(groundPresence);
   const latestOnAirportSelect = useRef(onAirportSelect);
   const latestOnAircraftSelect = useRef(onAircraftSelect);
+  const latestOnRouteSelect = useRef(onRouteSelect);
   const latestOnMapClick = useRef(onMapClick);
   const latestShowWorld = useRef(showWorld);
   const latestPlayerRouteCount = useRef(playerRoutes.length);
@@ -259,6 +265,7 @@ export function Globe({
   useEffect(() => {
     latestOnAirportSelect.current = onAirportSelect;
     latestOnAircraftSelect.current = onAircraftSelect;
+    latestOnRouteSelect.current = onRouteSelect;
     latestOnMapClick.current = onMapClick;
     latestShowWorld.current = showWorld;
     latestPlayerRouteCount.current = playerRoutes.length;
@@ -275,6 +282,7 @@ export function Globe({
   }, [
     onAirportSelect,
     onAircraftSelect,
+    onRouteSelect,
     onMapClick,
     showWorld,
     playerRoutes.length,
@@ -423,6 +431,17 @@ export function Globe({
           return;
         }
 
+        if (selection?.type === "route" && latestOnRouteSelect.current) {
+          latestOnRouteSelect.current({
+            routeId: selection.routeId,
+            originIata: selection.originIata,
+            destinationIata: selection.destinationIata,
+            ownerPubkey: selection.ownerPubkey,
+            isPlayer: selection.isPlayer,
+          });
+          return;
+        }
+
         latestOnMapClick.current?.();
       });
 
@@ -443,7 +462,9 @@ export function Globe({
     });
 
     mapRef.current = map;
+    const removeTestHandle = exposeMapTestHandle(map);
     return () => {
+      removeTestHandle();
       if (cursorFrame !== null) {
         cancelAnimationFrame(cursorFrame);
       }

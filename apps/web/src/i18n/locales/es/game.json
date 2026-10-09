@@ -482,6 +482,19 @@
     "collapse": "Ocultar el resumen",
     "expand": "Mostrar el resumen"
   },
+  "routeMapCard": {
+    "kicker": "Ruta",
+    "yours": "Tu ruta",
+    "rival": "Una aerolínea rival",
+    "frequency": "Vuelos a la semana",
+    "distance": "Distancia",
+    "profit": "Beneficio / hora de vuelo",
+    "loadFactor": "Ocupación",
+    "noLandings": "Aún sin aterrizajes: las cifras aparecen tras el primero.",
+    "manage": "Tarifas y frecuencia",
+    "openAirport": "Abrir {{iata}}",
+    "close": "Cerrar la ficha de la ruta"
+  },
   "corporate": {
     "title": "Corporativo",
     "financialPulse": "Pulso Financiero",

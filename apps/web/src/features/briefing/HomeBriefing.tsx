@@ -117,7 +117,8 @@ export function HomeBriefing({ startCollapsed = false }: { startCollapsed?: bool
         aria-labelledby="home-briefing-title"
         className={cn(
           "pointer-events-auto flex w-full flex-col overflow-hidden rounded-[24px] border border-border/70 bg-background/80 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:max-w-sm",
-          open ? "max-h-[60dvh] sm:max-h-full" : "",
+          // Folded, it shrinks to its summary instead of stretching down the side.
+          open ? "max-h-[60dvh] sm:max-h-full" : "sm:self-start",
         )}
       >
         <header className="flex items-center gap-3 px-4 pt-4 pb-3">

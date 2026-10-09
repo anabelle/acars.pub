@@ -21,9 +21,23 @@ export interface ScreenPoint {
   y: number;
 }
 
+/** Route arcs a click can pick, the player's first (drawn on top). */
+export const ROUTE_INTERACTION_LAYERS = ["arcs-layer", "global-arcs-layer"];
+/** Arcs are thin: a little slack makes them tappable without stealing other clicks. */
+export const ROUTE_INTERACTION_RADIUS_PX = 6;
+
+export interface RouteSelection {
+  routeId: string;
+  originIata: string;
+  destinationIata: string;
+  ownerPubkey: string;
+  isPlayer: boolean;
+}
+
 export type MapSelection =
   | { type: "airport"; airport: Airport }
   | { type: "aircraft"; aircraftId: string }
+  | ({ type: "route" } & RouteSelection)
   | null;
 
 type FeatureQuery = (
@@ -83,6 +97,24 @@ export function resolveMapSelection(
     layers: FLIGHT_INTERACTION_LAYERS,
   })[0];
   const aircraftId = flightFeature?.properties?.id;
+  if (aircraftId) return { type: "aircraft", aircraftId: String(aircraftId) };
 
-  return aircraftId ? { type: "aircraft", aircraftId: String(aircraftId) } : null;
+  // Lowest priority: a route arc (the most specific thing under the cursor wins).
+  const routeFeatures = queryRenderedFeatures(buildHitbox(point, ROUTE_INTERACTION_RADIUS_PX), {
+    layers: ROUTE_INTERACTION_LAYERS,
+  });
+  const routeFeature =
+    routeFeatures.find((feature) => feature.layer?.id === "arcs-layer") ?? routeFeatures[0];
+  const route = routeFeature?.properties;
+  if (route && typeof route.originIata === "string" && typeof route.destinationIata === "string") {
+    return {
+      type: "route",
+      routeId: typeof route.routeId === "string" ? route.routeId : "",
+      originIata: route.originIata,
+      destinationIata: route.destinationIata,
+      ownerPubkey: typeof route.owner === "string" ? route.owner : "",
+      isPlayer: route.isPlayer === true || route.isPlayer === "true",
+    };
+  }
+  return null;
 }

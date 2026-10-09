@@ -3,6 +3,8 @@ import {
   AIRPORT_INTERACTION_RADIUS_PX,
   buildHitbox,
   FLIGHT_INTERACTION_LAYERS,
+  ROUTE_INTERACTION_LAYERS,
+  ROUTE_INTERACTION_RADIUS_PX,
   resolveMapSelection,
 } from "./interactions.js";
 
@@ -68,7 +70,71 @@ describe("map interactions", () => {
     const queryRenderedFeatures = vi.fn().mockReturnValue([]);
 
     expect(resolveMapSelection({ x: 0, y: 0 }, queryRenderedFeatures)).toBeNull();
-    expect(queryRenderedFeatures).toHaveBeenCalledTimes(2);
+    // Airports, aircraft, then route arcs.
+    expect(queryRenderedFeatures).toHaveBeenCalledTimes(3);
+  });
+
+  it("falls back to a route arc, preferring the player's over a rival's", () => {
+    const arc = (layer: string, owner: string, isPlayer: boolean | string) => ({
+      layer: { id: layer },
+      properties: {
+        routeId: `r-${owner}`,
+        originIata: "MAD",
+        destinationIata: "BCN",
+        owner,
+        isPlayer,
+      },
+    });
+    const queryRenderedFeatures = vi
+      .fn()
+      .mockReturnValueOnce([])
+      .mockReturnValueOnce([])
+      .mockReturnValueOnce([
+        arc("global-arcs-layer", "rival", false),
+        arc("arcs-layer", "me", "true"),
+      ]);
+
+    expect(resolveMapSelection({ x: 30, y: 40 }, queryRenderedFeatures)).toEqual({
+      type: "route",
+      routeId: "r-me",
+      originIata: "MAD",
+      destinationIata: "BCN",
+      ownerPubkey: "me",
+      isPlayer: true,
+    });
+    expect(queryRenderedFeatures).toHaveBeenNthCalledWith(
+      3,
+      buildHitbox({ x: 30, y: 40 }, ROUTE_INTERACTION_RADIUS_PX),
+      { layers: ROUTE_INTERACTION_LAYERS },
+    );
+  });
+
+  it("selects a rival's arc and ignores arc features without endpoints", () => {
+    const rival = vi
+      .fn()
+      .mockReturnValueOnce([])
+      .mockReturnValueOnce([])
+      .mockReturnValueOnce([
+        {
+          layer: { id: "global-arcs-layer" },
+          properties: { originIata: "LIS", destinationIata: "BCN", owner: "rival" },
+        },
+      ]);
+    expect(resolveMapSelection({ x: 1, y: 1 }, rival)).toEqual({
+      type: "route",
+      routeId: "",
+      originIata: "LIS",
+      destinationIata: "BCN",
+      ownerPubkey: "rival",
+      isPlayer: false,
+    });
+
+    const junk = vi
+      .fn()
+      .mockReturnValueOnce([])
+      .mockReturnValueOnce([])
+      .mockReturnValueOnce([{ layer: { id: "arcs-layer" }, properties: { owner: "me" } }]);
+    expect(resolveMapSelection({ x: 1, y: 1 }, junk)).toBeNull();
   });
 
   it("ignores malformed airport properties and falls back to aircraft selection", () => {

@@ -30,3 +30,33 @@ export function trackMapRenders(map: Pick<maplibregl.Map, "on">): void {
     stats.renders++;
   });
 }
+
+/**
+ * A test handle for the e2e specs (S56.2): screen pixels of a surface point,
+ * and an instant camera move, so a spec can click a route arc at a known
+ * place. Read-only towards the game; one small object on `window`.
+ */
+export interface MapTestHandle {
+  project: (lng: number, lat: number) => [number, number];
+  jumpTo: (center: [number, number], zoom: number) => void;
+}
+
+type HandleGlobal = { __acarsMapTest?: MapTestHandle };
+
+export function exposeMapTestHandle(
+  map: Pick<maplibregl.Map, "project" | "jumpTo" | "getContainer">,
+): () => void {
+  const g = globalThis as HandleGlobal;
+  const handle: MapTestHandle = {
+    project: (lng, lat) => {
+      const point = map.project([lng, lat]);
+      const box = map.getContainer().getBoundingClientRect();
+      return [box.left + point.x, box.top + point.y];
+    },
+    jumpTo: (center, zoom) => map.jumpTo({ center, zoom, pitch: 0, bearing: 0 }),
+  };
+  g.__acarsMapTest = handle;
+  return () => {
+    if (g.__acarsMapTest === handle) delete g.__acarsMapTest;
+  };
+}

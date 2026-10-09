@@ -4,6 +4,8 @@ import { makeArcFeature } from "./geo.js";
 
 /** A route as the map draws it: who flies it, how often, and how it earns. */
 export interface MapRoute {
+  /** The route's id, so a click on its arc can name it (S56.2). */
+  routeId?: string;
   originIata: string;
   destinationIata: string;
   ownerPubkey: string;
@@ -17,6 +19,10 @@ export interface MapRoute {
 }
 
 export interface RouteFeatureProperties {
+  /** Empty when the caller gave no id. */
+  routeId: string;
+  originIata: string;
+  destinationIata: string;
   owner: string;
   isPlayer: boolean;
   frequencyPerWeek: number;
@@ -49,6 +55,9 @@ export function routeFeatureProperties(route: MapRoute, scale: number): RouteFea
   const profit = route.profitPerHour ?? null;
   const score = profit === null ? null : scale > 0 ? Math.max(-1, Math.min(1, profit / scale)) : 0;
   return {
+    routeId: route.routeId ?? "",
+    originIata: route.originIata,
+    destinationIata: route.destinationIata,
     owner: route.ownerPubkey,
     isPlayer: route.isPlayer,
     frequencyPerWeek: Math.max(1, route.frequencyPerWeek ?? DEFAULT_FREQUENCY),

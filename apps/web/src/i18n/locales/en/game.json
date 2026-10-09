@@ -482,6 +482,19 @@
     "collapse": "Hide the briefing",
     "expand": "Show the briefing"
   },
+  "routeMapCard": {
+    "kicker": "Route",
+    "yours": "Your route",
+    "rival": "A rival airline",
+    "frequency": "Flights a week",
+    "distance": "Distance",
+    "profit": "Profit / flight hour",
+    "loadFactor": "Load factor",
+    "noLandings": "No landings yet: the figures appear after the first one.",
+    "manage": "Fares & frequency",
+    "openAirport": "Open {{iata}}",
+    "close": "Close the route card"
+  },
   "corporate": {
     "title": "Corporate",
     "financialPulse": "Financial Pulse",
