@@ -81,17 +81,17 @@ export function resolveMapSelection(
   point: ScreenPoint,
   queryRenderedFeatures: FeatureQuery,
 ): MapSelection {
-  const airportFeature = queryRenderedFeatures(buildHitbox(point, AIRPORT_INTERACTION_RADIUS_PX), {
+  // Several airports can share the hitbox (BCN and Sabadell): the busiest
+  // one is almost always the one meant (S56.3).
+  let airport: Airport | null = null;
+  for (const feature of queryRenderedFeatures(buildHitbox(point, AIRPORT_INTERACTION_RADIUS_PX), {
     layers: ["airports-layer"],
-  })[0];
-  const airportProperties = airportFeature?.properties;
-
-  if (isAirportProperties(airportProperties)) {
-    return {
-      type: "airport",
-      airport: airportProperties,
-    };
+  })) {
+    const properties = feature.properties;
+    if (!isAirportProperties(properties)) continue;
+    if (!airport || properties.population > airport.population) airport = properties;
   }
+  if (airport) return { type: "airport", airport };
 
   const flightFeature = queryRenderedFeatures([point.x, point.y], {
     layers: FLIGHT_INTERACTION_LAYERS,

@@ -495,6 +495,30 @@
     "openAirport": "Open {{iata}}",
     "close": "Close the route card"
   },
+  "airportMapCard": {
+    "kicker": "Airport",
+    "yourRoutes": "Your routes here",
+    "yourAircraft": "Your aircraft here",
+    "yourHub": "Your hub",
+    "rivalHubs_one": "A rival's hub",
+    "rivalHubs_other": "Hub for {{count}} rivals",
+    "noHub": "Nobody's hub yet",
+    "event": "{{kind}} on now",
+    "openDetails": "Open details",
+    "close": "Close the airport card"
+  },
+  "aircraftMapCard": {
+    "kicker": "Aircraft",
+    "yours": "Your aircraft",
+    "rival": "A rival airline",
+    "status": "Status",
+    "route": "Route",
+    "base": "Based at",
+    "progress": "Flown",
+    "landsIn": "Lands in",
+    "openDetails": "Open details",
+    "close": "Close the aircraft card"
+  },
   "corporate": {
     "title": "Corporate",
     "financialPulse": "Financial Pulse",

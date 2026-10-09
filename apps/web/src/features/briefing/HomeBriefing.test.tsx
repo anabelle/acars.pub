@@ -103,8 +103,14 @@ describe("HomeBriefing", () => {
     expect(screen.getByTestId("daily-objectives")).toBeInTheDocument();
   });
 
-  it("starts folded on the map-only view", () => {
-    render(<HomeBriefing startCollapsed />);
+  it("starts folded on the map-only view, and folds when switched to it", () => {
+    const { unmount } = render(<HomeBriefing startCollapsed />);
+    expect(screen.getByTestId("home-briefing")).toHaveAttribute("data-open", "false");
+    unmount();
+
+    const { rerender } = render(<HomeBriefing />);
+    expect(screen.getByTestId("home-briefing")).toHaveAttribute("data-open", "true");
+    rerender(<HomeBriefing startCollapsed />);
     expect(screen.getByTestId("home-briefing")).toHaveAttribute("data-open", "false");
   });
 

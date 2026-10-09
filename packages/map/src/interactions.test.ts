@@ -74,6 +74,37 @@ describe("map interactions", () => {
     expect(queryRenderedFeatures).toHaveBeenCalledTimes(3);
   });
 
+  it("picks the busiest airport when several share the hitbox", () => {
+    const airport = (iata: string, population: number) => ({
+      properties: {
+        iata,
+        icao: `L${iata}`,
+        name: iata,
+        city: iata,
+        country: "ES",
+        latitude: 41,
+        longitude: 2,
+        population,
+        gdpPerCapita: 1,
+        altitude: 1,
+        timezone: "Europe/Madrid",
+        tags: [],
+        id: iata,
+      },
+    });
+    const queryRenderedFeatures = vi
+      .fn()
+      .mockReturnValueOnce([
+        airport("QSA", 200_000),
+        { properties: { iata: "bad" } },
+        airport("BCN", 5_500_000),
+      ]);
+    expect(resolveMapSelection({ x: 5, y: 5 }, queryRenderedFeatures)).toEqual({
+      type: "airport",
+      airport: expect.objectContaining({ iata: "BCN" }),
+    });
+  });
+
   it("falls back to a route arc, preferring the player's over a rival's", () => {
     const arc = (layer: string, owner: string, isPlayer: boolean | string) => ({
       layer: { id: layer },

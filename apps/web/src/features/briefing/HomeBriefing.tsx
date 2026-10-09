@@ -74,6 +74,13 @@ export function HomeBriefing({ startCollapsed = false }: { startCollapsed?: bool
   const { t } = useTranslation(["game"]);
   const { airline, fleet, routes, timeline, isViewingOther } = useActiveAirline();
   const [open, setOpen] = useState(() => !startCollapsed && savedOpen());
+  // Entering the map-only view folds it, even when it was already on screen
+  // (React's "adjust state when a prop changes" pattern).
+  const [wasCollapsedView, setWasCollapsedView] = useState(startCollapsed);
+  if (wasCollapsedView !== startCollapsed) {
+    setWasCollapsedView(startCollapsed);
+    if (startCollapsed) setOpen(false);
+  }
   const toggle = () =>
     setOpen((current) => {
       saveOpen(!current);

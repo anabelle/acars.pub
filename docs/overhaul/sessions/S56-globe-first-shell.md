@@ -1,7 +1,7 @@
 # S56 — Globe-first shell on MapLibre (D4 = A)
 
 > **Status:** ◐ in progress
-> **Next step:** S56.3
+> **Next step:** S56.4
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #191
 >
@@ -47,7 +47,7 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 
 - [x] **S56.1** Briefing drawer on the home map. It shows cash, routes and planes in the air, the next landing, world events, daily objectives and (for new airlines) the first-hour checklist. It is collapsible and remembered per device. Desktop: a side drawer. Phone: a bottom sheet. _Done when:_ component tests + e2e (en/es) + desktop and phone screenshots.
 - [x] **S56.2** Route cards on the main globe. Clicking a route arc opens a card: owner, frequency, distance, profit per day and load factor for your own routes, with doors to fares and frequency. `@acars/map` gains `onRouteSelect`. Hit priority: airport, then aircraft, then route. _Done when:_ map unit tests + component tests + e2e click on an arc.
-- [ ] **S56.3** One card style. Airport and aircraft inspection become the same compact card over the map (a summary plus "Open details" into the existing panels), and a bottom sheet on phones. _Done when:_ component tests + e2e + phone screenshot.
+- [x] **S56.3** One card style. Airport and aircraft inspection become the same compact card over the map (a summary plus "Open details" into the existing panels), and a bottom sheet on phones. _Done when:_ component tests + e2e + phone screenshot.
 - [ ] **S56.4** Retire the prototype. Remove `/play`, deck.gl and its shim. Port the `?load=N` synthetic-aircraft generator to the main globe, so the perf probe keeps a 10k/50k benchmark; it only rebuilds what changed (see the report's follow-up). _Done when:_ the bundle loses the deck.gl chunk, the perf probe runs on the main globe, and e2e is green.
 
 ## Acceptance criteria
@@ -69,7 +69,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **One copy of each card:** the home route unmounts the briefing while the cockpit is open, so the cockpit's cards are never on screen twice and e2e selectors stay unambiguous. The next-landing countdown has its own tick subscription, so the drawer doesn't re-render every tick. The perf probe stays within the S54 budgets.
 - **Tests:** component (summary, cards, fold and memory, folded start, another airline's view, Spanish), home route (when the briefing mounts), e2e desktop (cards, cockpit hand-off, fold across reload, Spanish) and phone (bottom-sheet geometry, fold). Screenshots: [desktop](../media/s56/home-briefing-desktop.png), [phone](../media/s56/home-briefing-phone.png), [phone folded](../media/s56/home-briefing-phone-folded.png).
 
-2026-10-09 · S56.2 · (this commit) · **Route cards on the main globe.**
+2026-10-09 · S56.2 · 227c38d · **Route cards on the main globe.**
 
 - **Map (`@acars/map`):**
   - Route features carry their id and endpoints.
@@ -79,6 +79,16 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Card (`RouteMapCard`):** clicking an arc opens a card in place: the route, who flies it, flights a week and distance. Your own routes also show profit per flight hour and load factor from the landings so far, the same measure the arc colours use. I didn't invent a per-day figure. Doors lead to the route list (fares and frequency) and to either airport. A bottom sheet on phones. Escape, the X or a click on empty map closes it.
 - **Layout fixes found on the way:** the route key hides while the card holds that corner, and the folded briefing shrinks to its summary on desktop instead of stretching down the side.
 - **Tests:** map interactions (route fallback, player-first, malformed features), route features (id and endpoints), the test handle, the card (yours, before and after landings; a rival's; an unknown rival; closing; Spanish), and the e2e (`route-card.spec.ts`: launch MAD → BCN, click the arc's midpoint, check the card, follow "Fares & frequency"). Screenshot: [route card](../media/s56/route-card.png).
+
+2026-10-09 · S56.3 · (this commit) · **One card style: airports and aircraft answer in place.**
+
+- **Shell:** `MapCard` is the shared card: kicker, title, subtitle, a 2×2 grid of figures and doors. Bottom right on desktop; a solid bottom sheet on phones. It is portaled above the app chrome, so on a phone it covers the folded briefing rather than hiding under it. The route card (S56.2) now uses it too.
+- **Airport card:** your routes and aircraft there, whose hub it is (yours, a rival's or nobody's), any world event on now, and "Open details". **Aircraft card:** model and owner, status, route or base, and for a flight how far along it is and when it lands (its own tick subscription), plus "Open details".
+- **Behaviour change:** a click on an airport or aircraft no longer jumps to its full panel and URL. It opens the card; "Open details" opens the panel at `/airport/…` or `/aircraft/…`. URLs and the links elsewhere in the app still open the full panels directly. Opening a card closes any full panel (and leaves its URL); one card at a time.
+- **Found on the way:**
+  - Clicking near Barcelona picked Sabadell: several airports share the 24 px hitbox and the resolver took the first. It now takes the busiest.
+  - The briefing only folded on `?panel=map` when it first mounted. It now folds whenever you switch to the map-only view.
+- **Tests:** map interactions (busiest airport wins), the airport card (counts, hub lines, event on now, doors, Spanish), the aircraft card (flight progress and landing time, parked rival), `WorldMap` (card first, panel and URL from its door), the briefing (folds on switching view). e2e: `route-card.spec.ts` now also clicks BCN for its card and follows "Open details" to `/airport/BCN`, and `mobile-map-cards.spec.ts` taps Lisbon on a phone for the bottom sheet. Screenshot: [phone airport card](../media/s56/airport-card-phone.png).
 
 ## Follow-ups
 

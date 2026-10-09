@@ -495,6 +495,30 @@
     "openAirport": "Abrir {{iata}}",
     "close": "Cerrar la ficha de la ruta"
   },
+  "airportMapCard": {
+    "kicker": "Aeropuerto",
+    "yourRoutes": "Tus rutas aquí",
+    "yourAircraft": "Tus aviones aquí",
+    "yourHub": "Tu hub",
+    "rivalHubs_one": "Hub de un rival",
+    "rivalHubs_other": "Hub de {{count}} rivales",
+    "noHub": "Aún no es hub de nadie",
+    "event": "{{kind}} en curso",
+    "openDetails": "Ver detalles",
+    "close": "Cerrar la ficha del aeropuerto"
+  },
+  "aircraftMapCard": {
+    "kicker": "Avión",
+    "yours": "Tu avión",
+    "rival": "Una aerolínea rival",
+    "status": "Estado",
+    "route": "Ruta",
+    "base": "Base",
+    "progress": "Recorrido",
+    "landsIn": "Aterriza en",
+    "openDetails": "Ver detalles",
+    "close": "Cerrar la ficha del avión"
+  },
   "corporate": {
     "title": "Corporativo",
     "financialPulse": "Pulso Financiero",
