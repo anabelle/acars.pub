@@ -19,7 +19,7 @@ describe("BootTraceOverlay", () => {
   });
 
   it("lists the stages as they happen", () => {
-    window.history.replaceState({}, "", "/play?boot=1");
+    window.history.replaceState({}, "", "/?boot=1");
     bootMark("identity: start");
     render(<BootTraceOverlay />);
     const panel = screen.getByTestId("boot-trace");

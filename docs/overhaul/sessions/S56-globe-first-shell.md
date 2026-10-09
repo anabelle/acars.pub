@@ -1,7 +1,7 @@
 # S56 — Globe-first shell on MapLibre (D4 = A)
 
-> **Status:** ◐ in progress
-> **Next step:** S56.4
+> **Status:** ☑ ready for review
+> **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #191
 >
@@ -48,13 +48,13 @@ Each step leaves `pnpm lint && pnpm typecheck && pnpm test` green and is committ
 - [x] **S56.1** Briefing drawer on the home map. It shows cash, routes and planes in the air, the next landing, world events, daily objectives and (for new airlines) the first-hour checklist. It is collapsible and remembered per device. Desktop: a side drawer. Phone: a bottom sheet. _Done when:_ component tests + e2e (en/es) + desktop and phone screenshots.
 - [x] **S56.2** Route cards on the main globe. Clicking a route arc opens a card: owner, frequency, distance, profit per day and load factor for your own routes, with doors to fares and frequency. `@acars/map` gains `onRouteSelect`. Hit priority: airport, then aircraft, then route. _Done when:_ map unit tests + component tests + e2e click on an arc.
 - [x] **S56.3** One card style. Airport and aircraft inspection become the same compact card over the map (a summary plus "Open details" into the existing panels), and a bottom sheet on phones. _Done when:_ component tests + e2e + phone screenshot.
-- [ ] **S56.4** Retire the prototype. Remove `/play`, deck.gl and its shim. Port the `?load=N` synthetic-aircraft generator to the main globe, so the perf probe keeps a 10k/50k benchmark; it only rebuilds what changed (see the report's follow-up). _Done when:_ the bundle loses the deck.gl chunk, the perf probe runs on the main globe, and e2e is green.
+- [x] **S56.4** Retire the prototype. Remove `/play`, deck.gl and its shim. Port the `?load=N` synthetic-aircraft generator to the main globe, so the perf probe keeps a 10k/50k benchmark; it only rebuilds what changed (see the report's follow-up). _Done when:_ the bundle loses the deck.gl chunk, the perf probe runs on the main globe, and e2e is green.
 
 ## Acceptance criteria
 
-- [ ] Opening the app shows the world with a briefing, not a panel.
-- [ ] Tapping anything on the globe explains it in place, with a way to act or dig deeper.
-- [ ] No deck.gl in the bundle, and the main globe holds the S54 performance budgets.
+- [x] Opening the app shows the world with a briefing, not a panel.
+- [x] Tapping anything on the globe explains it in place, with a way to act or dig deeper.
+- [x] No deck.gl in the bundle, and the main globe holds the S54 performance budgets.
 
 ## Progress log
 
@@ -90,7 +90,14 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - The briefing only folded on `?panel=map` when it first mounted. It now folds whenever you switch to the map-only view.
 - **Tests:** map interactions (busiest airport wins), the airport card (counts, hub lines, event on now, doors, Spanish), the aircraft card (flight progress and landing time, parked rival), `WorldMap` (card first, panel and URL from its door), the briefing (folds on switching view). e2e: `route-card.spec.ts` now also clicks BCN for its card and follows "Open details" to `/airport/BCN`, and `mobile-map-cards.spec.ts` taps Lisbon on a phone for the bottom sheet. Screenshot: [phone airport card](../media/s56/airport-card-phone.png).
 
-2026-10-09 · fix · (this commit) · **The key-backup prompt no longer vanishes on a revenue dip.** `key-backup-prompt.spec.ts` failed twice in CI (#190 and here): the prompt never appeared after the first landing. I couldn't reproduce it locally, even with 4× CPU throttling, and the CI trace isn't reachable from the session. The cause I found by reading: `KeyBackupPrompt` re-decided whenever `cumulativeRevenue` crossed zero. A sync replaying the airline's own older snapshot can set it back to 0. Showing the prompt marks it as seen, so on the way back up the decision came out "nothing due" and the prompt was gone for good. Now a decision holds for the account until the player closes it or backs the key up. There is a unit test for the dip. If the spec still fails in CI, this wasn't the cause and it needs the CI trace.
+2026-10-09 · fix · 94aa936 · **The key-backup prompt no longer vanishes on a revenue dip.** `key-backup-prompt.spec.ts` failed twice in CI (#190 and here): the prompt never appeared after the first landing. I couldn't reproduce it locally, even with 4× CPU throttling, and the CI trace isn't reachable from the session. The cause I found by reading: `KeyBackupPrompt` re-decided whenever `cumulativeRevenue` crossed zero. A sync replaying the airline's own older snapshot can set it back to 0. Showing the prompt marks it as seen, so on the way back up the decision came out "nothing due" and the prompt was gone for good. Now a decision holds for the account until the player closes it or backs the key up. There is a unit test for the dip. If the spec still fails in CI, this wasn't the cause and it needs the CI trace.
+
+2026-10-09 · S56.4 · (this commit) · **Prototype retired.**
+
+- **Removed:** `/play` (route, `features/play/`), its two e2e specs, the deck.gl packages and the `apache-arrow>@types/node` override they needed, the root layout's `/play` special cases and the `play.*` strings. The lockfile loses 394 lines; the build has no deck.gl or prototype chunk.
+- **Ported:** `?load=1000|10000|50000` adds synthetic rival traffic to the main globe (`syntheticLoad.ts`). It is built once per load, and only the live rivals are re-joined when they change, which is the report's follow-up about not rebuilding everything every tick. It is a benchmark aid: nothing is simulated and nothing reaches state or relays. `Globe` gains `onReady`, so `?boot=1` now shows "map: globe loaded" for the main shell.
+- **Tests:** the generator (loads, leg lengths, determinism, in the air now). The `?boot=1` trace test moved to `smoke.spec.ts`. `perf-probe.spec.ts` gained a 10k run on the main globe: about one map update a second in low-power mode (0.9/s, the same cadence as idle), logged next to the S54 numbers.
+- **Report:** `prototype-report.md` notes the outcome and where the knobs went.
 
 ## Follow-ups
 
@@ -98,4 +105,15 @@ _None yet._
 
 ## Handoff notes
 
-_Filled in when the session completes: what shipped, what didn't, gotchas._
+- **Shipped (D4 = A):**
+  - A briefing drawer on the home map (S56.1).
+  - Route cards from the arcs (S56.2).
+  - One card style for routes, airports and aircraft, with doors into the full panels (S56.3).
+  - The prototype and deck.gl retired, with the load generator and boot trace ported to the main map (S56.4).
+  - Also a fix for the key-backup prompt vanishing on a revenue dip.
+- **Behaviour change to know:** a click on an airport or aircraft opens its card, not its full panel. The URL changes only through "Open details" (or links and permalinks, which still open the panels directly).
+- **Didn't:** a redesign of the full panels themselves (cockpit, fleet, routes, finance); they are reached from cards and the nav as before.
+- **Gotchas:**
+  - Map cards are portaled above the app chrome, because the map layer sits under the HUD. Anything new on the map that must cover the briefing needs the same treatment.
+  - `window.__acarsMapTest` (project and jumpTo) is how e2e clicks a known place on the globe.
+  - `routeTree.gen.ts` regenerates on build in the generator's formatting. Run `biome format` on it before committing a route change.

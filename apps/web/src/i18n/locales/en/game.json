@@ -1172,42 +1172,6 @@
       "firstJet": "{{airline}} took delivery of its first jet, a {{model}} ✈️"
     }
   },
-  "play": {
-    "badge": "Globe prototype",
-    "routeSummary": "{{yours}} of your routes · {{world}} in the world",
-    "classic": "Classic view",
-    "disabledTitle": "Globe prototype is off",
-    "disabledBody": "This is an experimental, globe-first interface. Turn it on for this browser to try it.",
-    "enable": "Turn it on",
-    "back": "Back to the game",
-    "planeSummary_one": "{{count}} aircraft in the air",
-    "planeSummary_other": "{{count}} aircraft in the air",
-    "loadLabel": "Synthetic traffic",
-    "loadNone": "real",
-    "card": {
-      "close": "Close",
-      "yourRoute": "Your route",
-      "rivalRoute": "Rival route",
-      "routeLine": "{{owner}} · {{frequency}} flights a week · {{distance}} km",
-      "openClassic": "Open in the classic view",
-      "airport": "Airport",
-      "airportLine": "{{yours}} of your routes · {{world}} in the world",
-      "yourPlane": "Your aircraft",
-      "rivalPlane": "Rival aircraft",
-      "syntheticPlane": "Synthetic traffic",
-      "syntheticLine": "A load-test plane from the traffic generator, not a real flight.",
-      "planeLine": "{{progress}}% of the way · lands in {{minutes}} min"
-    },
-    "briefing": {
-      "open": "Briefing",
-      "title": "Today's briefing",
-      "close": "Close the briefing",
-      "cash": "Cash",
-      "routes": "Routes",
-      "inAir": "In the air"
-    },
-    "fps": "{{fps}} fps"
-  },
   "timeLapse": {
     "speed": "×{{speed}}",
     "landed": "{{landed}} of {{total}} flights landed",

@@ -8,7 +8,7 @@ import {
   type MapTheme,
   type RouteSelection,
 } from "@acars/map";
-import { useAirlineStore, useEngineStore } from "@acars/store";
+import { bootMark, useAirlineStore, useEngineStore } from "@acars/store";
 import { config as maplibreConfig } from "maplibre-gl";
 import { stopTimeLapse, useTimeLapse } from "@/features/airline/lib/timeLapseState";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
@@ -19,6 +19,7 @@ import { useLandingBursts } from "@/features/network/hooks/useLandingBursts";
 import { useTimeLapsePlayback } from "@/features/network/hooks/useTimeLapsePlayback";
 import type { HubOpportunity } from "@/features/network/utils/hubOpportunities";
 import { toMapRoutes } from "@/features/network/utils/mapRoutes";
+import { parseMapLoad, syntheticFleet } from "@/features/network/utils/syntheticLoad";
 
 // maplibre v6 resolves its worker at runtime from import.meta.url
 // (`/assets/maplibre-gl-worker.mjs`), a file Vite never emits — the module
@@ -70,6 +71,7 @@ type MapCardTarget =
   | { kind: "airport"; airport: Airport }
   | { kind: "aircraft"; aircraftId: string };
 const NO_BURSTS: ReturnType<typeof useLandingBursts> = [];
+const markGlobeReady = () => bootMark("map: globe loaded");
 
 /** Per-viewer preference; off by default (it runs projections in a worker). */
 function getSavedShowOpportunities(): boolean {
@@ -382,6 +384,25 @@ export function WorldMap() {
     navigateToPath(getDetailReturnTo(), { replace: true });
   };
 
+  // `?load=N` (S56.4): synthetic rival traffic for perf checks, built once per
+  // load; only the live rivals are re-joined when they change.
+  const [syntheticLoad] = useState(() =>
+    typeof window === "undefined" ? 0 : parseMapLoad(window.location.search),
+  );
+  // The catalog loads after first paint: rebuild once it is there.
+  const airportCount = getAirports().length;
+  const synthetic = useMemo(
+    () =>
+      syntheticLoad > 0 && airportCount > 0
+        ? syntheticFleet(syntheticLoad, getAirports(), useEngineStore.getState().tick)
+        : NO_FLEET,
+    [syntheticLoad, airportCount],
+  );
+  const worldFleet = useMemo(
+    () => (synthetic.length > 0 ? competitorFleet.concat(synthetic) : competitorFleet),
+    [competitorFleet, synthetic],
+  );
+
   const { presence: groundPresence } = useMemo(
     () => buildGroundPresenceByAirport(fleet, competitorFleet, airline ?? null, competitors),
     [fleet, competitorFleet, airline, competitors],
@@ -448,9 +469,10 @@ export function WorldMap() {
         onAircraftSelect={handleAircraftSelect}
         onRouteSelect={handleRouteSelect}
         onMapClick={handleMapClick}
+        onReady={markGlobeReady}
         groundPresence={groundPresence}
         fleet={replay ? replay.fleet : fleet}
-        competitorFleet={replay ? NO_FLEET : competitorFleet}
+        competitorFleet={replay ? NO_FLEET : worldFleet}
         competitorRoutes={competitorRoutes}
         playerRoutes={playerRoutes}
         showWorld={showWorld}

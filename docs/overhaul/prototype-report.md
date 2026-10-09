@@ -1,6 +1,8 @@
 # Globe-first 3D prototype: report for decision D4
 
 > **Session:** [S45](sessions/S45-globe-first-prototype.md) · **Date:** 2026-10-07 · **Decision:** D4 (go/no-go on a globe-first 3D shell). The owner decides.
+>
+> **Outcome (2026-10-09):** D4 = A. The drawer-and-cards model was rebuilt on the MapLibre globe in [S56](sessions/S56-globe-first-shell.md), and the `/play` prototype and deck.gl were removed. `?load=N` now works on the main map (`/?panel=map&load=10000`), and `?boot=1` traces the main shell. The prototype's code is in git history (S45, #187).
 
 ## TL;DR
 

@@ -77,6 +77,8 @@ export interface GlobeProps {
   /** A click on a route arc (S56.2), after airports and aircraft. */
   onRouteSelect?: (route: RouteSelection) => void;
   onMapClick?: () => void;
+  /** Called once the map has loaded (for the `?boot=1` trace). */
+  onReady?: () => void;
   groundPresence?: Record<string, { color: string; count: number; isPlayer?: boolean }[]>;
   fleet?: AircraftInstance[];
   /** Competitor fleet — aircraft NOT owned by the current player */
@@ -126,6 +128,7 @@ export function Globe({
   onAirportSelect,
   onAircraftSelect,
   onRouteSelect,
+  onReady,
   groundPresence,
   fleet = [],
   competitorFleet = [],
@@ -150,6 +153,11 @@ export function Globe({
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const latestOnReady = useRef(onReady);
+  latestOnReady.current = onReady;
+  useEffect(() => {
+    if (mapLoaded) latestOnReady.current?.();
+  }, [mapLoaded]);
   const hasInitialFlied = useRef(false);
   const burstPool = useRef<BurstPool | null>(null);
 
