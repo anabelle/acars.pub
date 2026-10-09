@@ -1,6 +1,6 @@
 import type { AircraftInstance, Airport, Route } from "@acars/core";
 import { TICK_DURATION } from "@acars/core";
-import { getAirports } from "@acars/data";
+import { getAirports, isDataCatalogReady } from "@acars/data";
 import {
   Globe as CoreGlobe,
   DEFAULT_MAP_THEME,
@@ -389,8 +389,9 @@ export function WorldMap() {
   const [syntheticLoad] = useState(() =>
     typeof window === "undefined" ? 0 : parseMapLoad(window.location.search),
   );
-  // The catalog loads after first paint: rebuild once it is there.
-  const airportCount = getAirports().length;
+  // The catalog loads after first paint (and `getAirports` throws until it
+  // has): rebuild once it is there.
+  const airportCount = isDataCatalogReady() ? getAirports().length : 0;
   const synthetic = useMemo(
     () =>
       syntheticLoad > 0 && airportCount > 0

@@ -92,12 +92,14 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 2026-10-09 · fix · 94aa936 · **The key-backup prompt no longer vanishes on a revenue dip.** `key-backup-prompt.spec.ts` failed twice in CI (#190 and here): the prompt never appeared after the first landing. I couldn't reproduce it locally, even with 4× CPU throttling, and the CI trace isn't reachable from the session. The cause I found by reading: `KeyBackupPrompt` re-decided whenever `cumulativeRevenue` crossed zero. A sync replaying the airline's own older snapshot can set it back to 0. Showing the prompt marks it as seen, so on the way back up the decision came out "nothing due" and the prompt was gone for good. Now a decision holds for the account until the player closes it or backs the key up. There is a unit test for the dip. If the spec still fails in CI, this wasn't the cause and it needs the CI trace.
 
-2026-10-09 · S56.4 · (this commit) · **Prototype retired.**
+2026-10-09 · S56.4 · bbc6d3a · **Prototype retired.**
 
 - **Removed:** `/play` (route, `features/play/`), its two e2e specs, the deck.gl packages and the `apache-arrow>@types/node` override they needed, the root layout's `/play` special cases and the `play.*` strings. The lockfile loses 394 lines; the build has no deck.gl or prototype chunk.
 - **Ported:** `?load=1000|10000|50000` adds synthetic rival traffic to the main globe (`syntheticLoad.ts`). It is built once per load, and only the live rivals are re-joined when they change, which is the report's follow-up about not rebuilding everything every tick. It is a benchmark aid: nothing is simulated and nothing reaches state or relays. `Globe` gains `onReady`, so `?boot=1` now shows "map: globe loaded" for the main shell.
 - **Tests:** the generator (loads, leg lengths, determinism, in the air now). The `?boot=1` trace test moved to `smoke.spec.ts`. `perf-probe.spec.ts` gained a 10k run on the main globe: about one map update a second in low-power mode (0.9/s, the same cadence as idle), logged next to the S54 numbers.
 - **Report:** `prototype-report.md` notes the outcome and where the knobs went.
+
+2026-10-09 · fix · (this commit) · **The map crashed the app when it beat the airport catalog.** S56.4's load generator read `getAirports().length` during `WorldMap`'s render, and `getAirports` throws until the catalog has loaded. On a slower boot (CI runs two browsers at once) the map rendered first and the router showed "Something went wrong!": 13 e2e and 12 screenshot failures, all waiting for `appReady`. I reproduced it locally with two workers (7 of 12 smoke boots failed; 94aa936 passed all), and the code now checks `isDataCatalogReady()` first. Smoke (two workers) and the screenshot project pass again.
 
 ## Follow-ups
 
