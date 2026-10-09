@@ -27,6 +27,7 @@ describe("toMapRoutes", () => {
       ),
     ).toEqual([
       {
+        routeId: "BCN",
         originIata: "MAD",
         destinationIata: "BCN",
         ownerPubkey: "me",
@@ -35,6 +36,7 @@ describe("toMapRoutes", () => {
         profitPerHour: 1250,
       },
       {
+        routeId: "LIS",
         originIata: "MAD",
         destinationIata: "LIS",
         ownerPubkey: "me",

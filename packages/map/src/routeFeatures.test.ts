@@ -55,6 +55,9 @@ describe("routeFeatureProperties", () => {
 
   it("keeps unknown profit unknown and defaults the frequency", () => {
     expect(routeFeatureProperties(mine("BCN", null), 900)).toEqual({
+      routeId: "",
+      originIata: "MAD",
+      destinationIata: "BCN",
       owner: "me",
       isPlayer: true,
       frequencyPerWeek: 7,
@@ -63,6 +66,10 @@ describe("routeFeatureProperties", () => {
       color: null,
     });
     expect(routeFeatureProperties(mine("BCN", 1, 0), 1).frequencyPerWeek).toBe(1);
+  });
+
+  it("names the route, so a click on its arc can open it (S56.2)", () => {
+    expect(routeFeatureProperties({ ...mine("BCN", null), routeId: "r-1" }, 1).routeId).toBe("r-1");
   });
 
   it("carries a rival's owner and livery colour", () => {

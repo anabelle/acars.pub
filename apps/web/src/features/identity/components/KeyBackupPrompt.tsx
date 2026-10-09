@@ -27,20 +27,21 @@ export function KeyBackupPrompt() {
   const hasLanded = useAirlineStore((state) => Number(state.airline?.cumulativeRevenue ?? 0) > 0);
   // Decided once per account after it has flown (React's "adjust state when
   // inputs change" pattern), so the prompt never jumps to another account's.
-  const subject = pubkey && hasLanded ? pubkey : null;
+  // A decision outlives a brief dip of the revenue figure (a sync replaying an
+  // older snapshot): showing marks the prompt as seen, so re-deciding on the
+  // way back up would hide it for good.
   const [decision, setDecision] = useState<{
     subject: string | null;
     moment: BackupPromptMoment | null;
   }>({ subject: null, moment: null });
-  if (decision.subject !== subject) {
+  if (pubkey && hasLanded && decision.subject !== pubkey) {
     const storage = browserBackupPromptStorage();
-    const moment =
-      subject && storage
-        ? dueBackupPrompt(subject, { hasLanded, secured: isEphemeralKeySecured(subject) }, storage)
-        : null;
-    setDecision({ subject, moment });
+    const moment = storage
+      ? dueBackupPrompt(pubkey, { hasLanded, secured: isEphemeralKeySecured(pubkey) }, storage)
+      : null;
+    setDecision({ subject: pubkey, moment });
   }
-  const moment = decision.subject === subject ? decision.moment : null;
+  const moment = pubkey && decision.subject === pubkey ? decision.moment : null;
   const close = () => setDecision((current) => ({ ...current, moment: null }));
 
   // Recorded once it's on screen (idempotent, so a double effect run is harmless).

@@ -21,26 +21,20 @@ const WorldMap = lazy(() =>
 // Routes that render as a standalone entry page: no HUD chrome (top bar,
 // context bar, sidebar, nav, ticker) competing with the page's own single
 // call to action. The live map stays in the background.
-const ENTRY_ROUTES = new Set(["/join", "/play"]);
-// Routes that draw their own world (the S45 globe prototype): the background
-// globe stays off so two WebGL maps never compete for the GPU.
-const OWN_WORLD_ROUTES = new Set(["/play"]);
+const ENTRY_ROUTES = new Set(["/join"]);
 
 function RootLayout() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const isEntry = ENTRY_ROUTES.has(pathname);
-  const ownWorld = OWN_WORLD_ROUTES.has(pathname);
 
   return (
     <AppInitializer>
       <div className="relative flex h-[100dvh] w-screen overflow-hidden bg-background text-foreground">
         {/* Layer 0: The WebGL Map (Always rendering in background; chunk
             loads lazily after first paint) */}
-        {!ownWorld && (
-          <Suspense fallback={null}>
-            <WorldMap />
-          </Suspense>
-        )}
+        <Suspense fallback={null}>
+          <WorldMap />
+        </Suspense>
 
         {/* Layer 1: the Tycoon HUD Shell (Overlaying the Map) */}
         <div className="absolute inset-0 z-20 flex flex-col pointer-events-none">

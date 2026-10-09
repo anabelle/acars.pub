@@ -474,6 +474,51 @@
     "guestDescription": "Haz clic en cualquier aeropuerto para ver quién vuela allí. Cuando quieras, crea tu propia aerolínea: gratis, en un minuto y sin registro.",
     "guestCta": "Crea tu aerolínea"
   },
+  "briefing": {
+    "kicker": "Resumen",
+    "cash": "Caja",
+    "routes": "Rutas",
+    "inAir": "En el aire",
+    "collapse": "Ocultar el resumen",
+    "expand": "Mostrar el resumen"
+  },
+  "routeMapCard": {
+    "kicker": "Ruta",
+    "yours": "Tu ruta",
+    "rival": "Una aerolínea rival",
+    "frequency": "Vuelos a la semana",
+    "distance": "Distancia",
+    "profit": "Beneficio / hora de vuelo",
+    "loadFactor": "Ocupación",
+    "noLandings": "Aún sin aterrizajes: las cifras aparecen tras el primero.",
+    "manage": "Tarifas y frecuencia",
+    "openAirport": "Abrir {{iata}}",
+    "close": "Cerrar la ficha de la ruta"
+  },
+  "airportMapCard": {
+    "kicker": "Aeropuerto",
+    "yourRoutes": "Tus rutas aquí",
+    "yourAircraft": "Tus aviones aquí",
+    "yourHub": "Tu hub",
+    "rivalHubs_one": "Hub de un rival",
+    "rivalHubs_other": "Hub de {{count}} rivales",
+    "noHub": "Aún no es hub de nadie",
+    "event": "{{kind}} en curso",
+    "openDetails": "Ver detalles",
+    "close": "Cerrar la ficha del aeropuerto"
+  },
+  "aircraftMapCard": {
+    "kicker": "Avión",
+    "yours": "Tu avión",
+    "rival": "Una aerolínea rival",
+    "status": "Estado",
+    "route": "Ruta",
+    "base": "Base",
+    "progress": "Recorrido",
+    "landsIn": "Aterriza en",
+    "openDetails": "Ver detalles",
+    "close": "Cerrar la ficha del avión"
+  },
   "corporate": {
     "title": "Corporativo",
     "financialPulse": "Pulso Financiero",
@@ -1126,42 +1171,6 @@
       "tierUp": "{{airline}} acaba de alcanzar el nivel {{tier}} en ACARS ✈️",
       "firstJet": "{{airline}} ha recibido su primer jet, un {{model}} ✈️"
     }
-  },
-  "play": {
-    "badge": "Prototipo de globo",
-    "routeSummary": "{{yours}} rutas tuyas · {{world}} en el mundo",
-    "classic": "Vista clásica",
-    "disabledTitle": "El prototipo de globo está desactivado",
-    "disabledBody": "Es una interfaz experimental centrada en el globo. Actívala en este navegador para probarla.",
-    "enable": "Activarlo",
-    "back": "Volver al juego",
-    "planeSummary_one": "{{count}} avión en el aire",
-    "planeSummary_other": "{{count}} aviones en el aire",
-    "loadLabel": "Tráfico sintético",
-    "loadNone": "real",
-    "card": {
-      "close": "Cerrar",
-      "yourRoute": "Tu ruta",
-      "rivalRoute": "Ruta rival",
-      "routeLine": "{{owner}} · {{frequency}} vuelos a la semana · {{distance}} km",
-      "openClassic": "Abrir en la vista clásica",
-      "airport": "Aeropuerto",
-      "airportLine": "{{yours}} rutas tuyas · {{world}} en el mundo",
-      "yourPlane": "Tu avión",
-      "rivalPlane": "Avión rival",
-      "syntheticPlane": "Tráfico sintético",
-      "syntheticLine": "Un avión de prueba de carga del generador de tráfico, no un vuelo real.",
-      "planeLine": "{{progress}} % del trayecto · aterriza en {{minutes}} min"
-    },
-    "briefing": {
-      "open": "Informe",
-      "title": "Informe del día",
-      "close": "Cerrar el informe",
-      "cash": "Caja",
-      "routes": "Rutas",
-      "inAir": "En el aire"
-    },
-    "fps": "{{fps}} fps"
   },
   "timeLapse": {
     "speed": "×{{speed}}",

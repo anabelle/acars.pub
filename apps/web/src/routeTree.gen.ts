@@ -18,7 +18,6 @@ import { Route as InfoRouteImport } from "./routes/info";
 import { Route as JoinRouteImport } from "./routes/join";
 import { Route as LeaderboardRouteImport } from "./routes/leaderboard";
 import { Route as NetworkRouteImport } from "./routes/network";
-import { Route as PlayRouteImport } from "./routes/play";
 import { Route as RivalsRouteImport } from "./routes/rivals";
 import { Route as RoutesRouteImport } from "./routes/routes";
 import { Route as AircraftIdRouteImport } from "./routes/aircraft.$id";
@@ -70,11 +69,6 @@ const NetworkRoute = NetworkRouteImport.update({
   path: "/network",
   getParentRoute: () => rootRouteImport,
 } as any);
-const PlayRoute = PlayRouteImport.update({
-  id: "/play",
-  path: "/play",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const RivalsRoute = RivalsRouteImport.update({
   id: "/rivals",
   path: "/rivals",
@@ -111,7 +105,6 @@ export interface FileRoutesByFullPath {
   "/join": typeof JoinRoute;
   "/leaderboard": typeof LeaderboardRoute;
   "/network": typeof NetworkRoute;
-  "/play": typeof PlayRoute;
   "/rivals": typeof RivalsRoute;
   "/routes": typeof RoutesRoute;
   "/aircraft/$id": typeof AircraftIdRoute;
@@ -128,7 +121,6 @@ export interface FileRoutesByTo {
   "/join": typeof JoinRoute;
   "/leaderboard": typeof LeaderboardRoute;
   "/network": typeof NetworkRoute;
-  "/play": typeof PlayRoute;
   "/rivals": typeof RivalsRoute;
   "/routes": typeof RoutesRoute;
   "/aircraft/$id": typeof AircraftIdRoute;
@@ -146,7 +138,6 @@ export interface FileRoutesById {
   "/join": typeof JoinRoute;
   "/leaderboard": typeof LeaderboardRoute;
   "/network": typeof NetworkRoute;
-  "/play": typeof PlayRoute;
   "/rivals": typeof RivalsRoute;
   "/routes": typeof RoutesRoute;
   "/aircraft/$id": typeof AircraftIdRoute;
@@ -165,7 +156,6 @@ export interface FileRouteTypes {
     | "/join"
     | "/leaderboard"
     | "/network"
-    | "/play"
     | "/rivals"
     | "/routes"
     | "/aircraft/$id"
@@ -182,7 +172,6 @@ export interface FileRouteTypes {
     | "/join"
     | "/leaderboard"
     | "/network"
-    | "/play"
     | "/rivals"
     | "/routes"
     | "/aircraft/$id"
@@ -199,7 +188,6 @@ export interface FileRouteTypes {
     | "/join"
     | "/leaderboard"
     | "/network"
-    | "/play"
     | "/rivals"
     | "/routes"
     | "/aircraft/$id"
@@ -217,7 +205,6 @@ export interface RootRouteChildren {
   JoinRoute: typeof JoinRoute;
   LeaderboardRoute: typeof LeaderboardRoute;
   NetworkRoute: typeof NetworkRoute;
-  PlayRoute: typeof PlayRoute;
   RivalsRoute: typeof RivalsRoute;
   RoutesRoute: typeof RoutesRoute;
   AircraftIdRoute: typeof AircraftIdRoute;
@@ -290,13 +277,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof NetworkRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/play": {
-      id: "/play";
-      path: "/play";
-      fullPath: "/play";
-      preLoaderRoute: typeof PlayRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/rivals": {
       id: "/rivals";
       path: "/rivals";
@@ -345,7 +325,6 @@ const rootRouteChildren: RootRouteChildren = {
   JoinRoute: JoinRoute,
   LeaderboardRoute: LeaderboardRoute,
   NetworkRoute: NetworkRoute,
-  PlayRoute: PlayRoute,
   RivalsRoute: RivalsRoute,
   RoutesRoute: RoutesRoute,
   AircraftIdRoute: AircraftIdRoute,

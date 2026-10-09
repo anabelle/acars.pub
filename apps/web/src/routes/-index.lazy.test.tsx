@@ -48,6 +48,12 @@ vi.mock("@tanstack/react-router", () => ({
   },
 }));
 
+vi.mock("@/features/briefing/HomeBriefing", () => ({
+  HomeBriefing: ({ startCollapsed }: { startCollapsed?: boolean }) => (
+    <div data-testid="home-briefing" data-start-collapsed={String(Boolean(startCollapsed))} />
+  ),
+}));
+
 vi.mock("@/features/cockpit/components/OperationsCockpit", () => ({
   OperationsCockpit: () => <div>Operations Cockpit</div>,
 }));
@@ -101,18 +107,23 @@ describe("MapView", () => {
     expect(screen.queryByText("Watch the world fly")).not.toBeInTheDocument();
   });
 
-  it("renders the airline map card when an airline is active", () => {
-    mockUseActiveAirline.mockReturnValue({
-      airline: {
-        name: "Avianca",
-        icaoCode: "AVA",
-        callsign: "AVIANCA",
-      },
-    });
+  it("shows the briefing for an airline, folded on the map-only view, never over the cockpit", () => {
+    mockUseActiveAirline.mockReturnValue({ airline: { name: "Avianca" } });
     mockUseSearch.mockReturnValue({ panel: undefined });
+    const { unmount } = render(<MapView />);
+    expect(screen.getByTestId("home-briefing")).toHaveAttribute("data-start-collapsed", "false");
+    expect(screen.queryByText("Watch the world fly")).not.toBeInTheDocument();
+    unmount();
+
+    mockUseSearch.mockReturnValue({ panel: "map" });
+    const map = render(<MapView />);
+    expect(screen.getByTestId("home-briefing")).toHaveAttribute("data-start-collapsed", "true");
+    map.unmount();
+
+    // The cockpit carries the same cards: the briefing steps aside.
+    mockUseSearch.mockReturnValue({ panel: "cockpit" });
     render(<MapView />);
-    expect(screen.getByText("Avianca")).toBeInTheDocument();
-    expect(screen.getByText("AVA / AVIANCA")).toBeInTheDocument();
+    expect(screen.queryByTestId("home-briefing")).not.toBeInTheDocument();
   });
 
   it("persists dismissal for 15 days and hides the intro after closing it", () => {

@@ -1,13 +1,14 @@
 import type { AircraftInstance, Airport, Route } from "@acars/core";
 import { TICK_DURATION } from "@acars/core";
-import { getAirports } from "@acars/data";
+import { getAirports, isDataCatalogReady } from "@acars/data";
 import {
   Globe as CoreGlobe,
   DEFAULT_MAP_THEME,
   getGreatCircleInterpolation,
   type MapTheme,
+  type RouteSelection,
 } from "@acars/map";
-import { useAirlineStore, useEngineStore } from "@acars/store";
+import { bootMark, useAirlineStore, useEngineStore } from "@acars/store";
 import { config as maplibreConfig } from "maplibre-gl";
 import { stopTimeLapse, useTimeLapse } from "@/features/airline/lib/timeLapseState";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
@@ -18,6 +19,7 @@ import { useLandingBursts } from "@/features/network/hooks/useLandingBursts";
 import { useTimeLapsePlayback } from "@/features/network/hooks/useTimeLapsePlayback";
 import type { HubOpportunity } from "@/features/network/utils/hubOpportunities";
 import { toMapRoutes } from "@/features/network/utils/mapRoutes";
+import { parseMapLoad, syntheticFleet } from "@/features/network/utils/syntheticLoad";
 
 // maplibre v6 resolves its worker at runtime from import.meta.url
 // (`/assets/maplibre-gl-worker.mjs`), a file Vite never emits — the module
@@ -33,7 +35,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { hasLeaderboardActivity } from "@/features/competition/leaderboardMetrics";
 import { AircraftInfoPanel } from "@/features/network/components/AircraftInfoPanel";
+import { AircraftMapCard } from "@/features/network/components/AircraftMapCard";
 import { AirportInfoPanel } from "@/features/network/components/AirportInfoPanel";
+import { AirportMapCard } from "@/features/network/components/AirportMapCard";
+import { RouteMapCard } from "@/features/network/components/RouteMapCard";
 import { buildGroundPresenceByAirport } from "@/features/network/utils/groundTraffic";
 import { MOBILE_BOTTOM_NAV_BOTTOM_CLASS } from "@/shared/components/layout/mobileLayout";
 import {
@@ -60,7 +65,13 @@ const SHOW_WORLD_STORAGE_KEY = "acars_map_show_world";
 const SHOW_OPPORTUNITIES_STORAGE_KEY = "acars_map_show_opportunities";
 const NO_OPPORTUNITIES: HubOpportunity[] = [];
 const NO_FLEET: AircraftInstance[] = [];
+
+type MapCardTarget =
+  | { kind: "route"; selection: RouteSelection }
+  | { kind: "airport"; airport: Airport }
+  | { kind: "aircraft"; aircraftId: string };
 const NO_BURSTS: ReturnType<typeof useLandingBursts> = [];
+const markGlobeReady = () => bootMark("map: globe loaded");
 
 /** Per-viewer preference; off by default (it runs projections in a worker). */
 function getSavedShowOpportunities(): boolean {
@@ -155,6 +166,9 @@ export function WorldMap() {
   const pubkey = useAirlineStore((s) => s.pubkey);
   const [inspectedAirport, setInspectedAirport] = useState<Airport | null>(null);
   const [inspectedAircraft, setInspectedAircraft] = useState<AircraftInstance | null>(null);
+  // What a click on the globe opened (S56.2/S56.3): a compact card in place.
+  // The full airport and aircraft panels open from the card, or from a URL.
+  const [mapCard, setMapCard] = useState<MapCardTarget | null>(null);
   const [focusedAirport, setFocusedAirport] = useState<Airport | null>(null);
   const [mapTheme, setMapTheme] = useState<MapTheme>(() => getSavedMapTheme());
   const [showWorld, setShowWorld] = useState<boolean>(() => getSavedShowWorld());
@@ -249,8 +263,27 @@ export function WorldMap() {
     return destinations;
   }, [playerHubs, routes]);
 
+  /** Closes the full panels (and leaves their URL) before a card takes over. */
+  const closeDetailPanels = useCallback(() => {
+    setInspectedAirport(null);
+    setInspectedAircraft(null);
+    if (
+      window.location.pathname.startsWith("/airport/") ||
+      window.location.pathname.startsWith("/aircraft/")
+    ) {
+      navigateToPath(getDetailReturnTo(), { replace: true });
+    }
+  }, []);
+
   const handleAirportSelect = (airport: Airport | null) => {
     if (!airport) return;
+    closeDetailPanels();
+    setFocusedAirport(airport);
+    setMapCard({ kind: "airport", airport });
+  };
+
+  const openAirportDetails = (airport: Airport) => {
+    setMapCard(null);
     setInspectedAirport(airport);
     setFocusedAirport(airport);
     setInspectedAircraft(null);
@@ -324,13 +357,26 @@ export function WorldMap() {
       // Read the clock imperatively: subscribing to tick/tickProgress made
       // this callback (and with it the whole map) churn every second.
       const { tick: t, tickProgress: tp } = useEngineStore.getState();
-      setInspectedAircraft(ac);
-      setInspectedAirport(null);
+      closeDetailPanels();
       setFocusedAirport(getAircraftFocusPoint(ac, t, tp));
-      navigateToAircraft(aircraftId);
+      setMapCard({ kind: "aircraft", aircraftId });
     },
-    [fleet, competitorFleet],
+    [fleet, competitorFleet, closeDetailPanels],
   );
+
+  const openAircraftDetails = (aircraftId: string) => {
+    const ac =
+      fleet.find((a) => a.id === aircraftId) ??
+      competitorFleet.find((a) => a.id === aircraftId) ??
+      null;
+    if (!ac) return;
+    const { tick: t, tickProgress: tp } = useEngineStore.getState();
+    setMapCard(null);
+    setInspectedAircraft(ac);
+    setInspectedAirport(null);
+    setFocusedAirport(getAircraftFocusPoint(ac, t, tp));
+    navigateToAircraft(aircraftId);
+  };
 
   const clearAircraftFocus = () => {
     setInspectedAircraft(null);
@@ -338,12 +384,43 @@ export function WorldMap() {
     navigateToPath(getDetailReturnTo(), { replace: true });
   };
 
+  // `?load=N` (S56.4): synthetic rival traffic for perf checks, built once per
+  // load; only the live rivals are re-joined when they change.
+  const [syntheticLoad] = useState(() =>
+    typeof window === "undefined" ? 0 : parseMapLoad(window.location.search),
+  );
+  // The catalog loads after first paint (and `getAirports` throws until it
+  // has): rebuild once it is there.
+  const airportCount = isDataCatalogReady() ? getAirports().length : 0;
+  const synthetic = useMemo(
+    () =>
+      syntheticLoad > 0 && airportCount > 0
+        ? syntheticFleet(syntheticLoad, getAirports(), useEngineStore.getState().tick)
+        : NO_FLEET,
+    [syntheticLoad, airportCount],
+  );
+  const worldFleet = useMemo(
+    () => (synthetic.length > 0 ? competitorFleet.concat(synthetic) : competitorFleet),
+    [competitorFleet, synthetic],
+  );
+
   const { presence: groundPresence } = useMemo(
     () => buildGroundPresenceByAirport(fleet, competitorFleet, airline ?? null, competitors),
     [fleet, competitorFleet, airline, competitors],
   );
 
+  // A route arc opens its card in place (S56.2); the URL stays on the map.
+  const handleRouteSelect = useCallback(
+    (route: RouteSelection) => {
+      closeDetailPanels();
+      setMapCard({ kind: "route", selection: route });
+    },
+    [closeDetailPanels],
+  );
+  const closeMapCard = useCallback(() => setMapCard(null), []);
+
   const handleMapClick = useCallback(() => {
+    setMapCard(null);
     setInspectedAirport(null);
     setInspectedAircraft(null);
     setFocusedAirport(null);
@@ -356,6 +433,15 @@ export function WorldMap() {
       navigateToPath(getDetailReturnTo(), { replace: true });
     }
   }, [permalinkAirportIata, permalinkAircraftId]);
+
+  // The card follows the live aircraft (its flight changes as it flies).
+  const cardAircraft = (() => {
+    if (mapCard?.kind !== "aircraft") return null;
+    const own = fleet.find((a) => a.id === mapCard.aircraftId);
+    if (own) return { aircraft: own, isPlayer: true };
+    const rival = competitorFleet.find((a) => a.id === mapCard.aircraftId);
+    return rival ? { aircraft: rival, isPlayer: false } : null;
+  })();
 
   if (!homeAirport) return null;
 
@@ -382,10 +468,12 @@ export function WorldMap() {
         selectedAirport={selectedAirport}
         onAirportSelect={handleAirportSelect}
         onAircraftSelect={handleAircraftSelect}
+        onRouteSelect={handleRouteSelect}
         onMapClick={handleMapClick}
+        onReady={markGlobeReady}
         groundPresence={groundPresence}
         fleet={replay ? replay.fleet : fleet}
-        competitorFleet={replay ? NO_FLEET : competitorFleet}
+        competitorFleet={replay ? NO_FLEET : worldFleet}
         competitorRoutes={competitorRoutes}
         playerRoutes={playerRoutes}
         showWorld={showWorld}
@@ -402,11 +490,30 @@ export function WorldMap() {
       {replay && timeLapse ? (
         <TimeLapseBar lapse={timeLapse} elapsed={replay.elapsed} onClose={stopTimeLapse} />
       ) : null}
-      {playerRoutes.length > 0 ? (
+      {/* The route key steps aside while a route card holds that corner. */}
+      {playerRoutes.length > 0 && !mapCard ? (
         <RouteLegend showWorld={showWorld} onShowWorldChange={setShowWorld} />
       ) : null}
       {inspectedAirport ? (
         <AirportInfoPanel airport={inspectedAirport} onClose={clearAirportFocus} />
+      ) : null}
+      {mapCard?.kind === "route" ? (
+        <RouteMapCard selection={mapCard.selection} onClose={closeMapCard} />
+      ) : null}
+      {mapCard?.kind === "airport" ? (
+        <AirportMapCard
+          airport={mapCard.airport}
+          onOpenDetails={() => openAirportDetails(mapCard.airport)}
+          onClose={closeMapCard}
+        />
+      ) : null}
+      {cardAircraft && mapCard?.kind === "aircraft" ? (
+        <AircraftMapCard
+          aircraft={cardAircraft.aircraft}
+          isPlayer={cardAircraft.isPlayer}
+          onOpenDetails={() => openAircraftDetails(mapCard.aircraftId)}
+          onClose={closeMapCard}
+        />
       ) : null}
       {inspectedAircraft ? (
         <AircraftInfoPanel aircraft={inspectedAircraft} onClose={clearAircraftFocus} />

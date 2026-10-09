@@ -45,3 +45,13 @@ test("/join only mentions planned features inside the roadmap", async ({ page })
   });
   expect(outsideRoadmap).not.toMatch(/\bIPO|takeover|Bitcoin|sats\b|zaps?\b/i);
 });
+
+// S45/S56.4: `?boot=1` shows the startup trace over the main shell, down to the globe.
+test("?boot=1 shows the startup trace", async ({ page, problems }) => {
+  await gotoReady(page, "/?boot=1");
+  const trace = page.getByTestId("boot-trace");
+  await expect(trace).toContainText("app: script started");
+  await expect(trace).toContainText("map: globe loaded", { timeout: 60_000 });
+  await expect(trace).toContainText("long tasks:");
+  expect(problems.pageErrors).toEqual([]);
+});

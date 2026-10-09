@@ -113,6 +113,23 @@ vi.mock("@/features/network/components/AirportInfoPanel", () => {
   };
 });
 
+vi.mock("@/features/network/components/AirportMapCard", () => ({
+  AirportMapCard: ({
+    airport,
+    onOpenDetails,
+  }: {
+    airport: { iata: string };
+    onOpenDetails: () => void;
+  }) => (
+    <div>
+      Airport Card {airport.iata}
+      <button type="button" onClick={onOpenDetails}>
+        Open details
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("@/features/network/utils/groundTraffic", () => {
   return {
     buildGroundPresenceByAirport: () => ({ totals: {}, presence: {} }),
@@ -227,7 +244,7 @@ describe("WorldMap", () => {
     expect(lastCall.competitorHubColors).toEqual(new Map([["LAX", "#00ffff"]]));
   });
 
-  it("renders focus label after selecting airport", () => {
+  it("renders focus label and the airport card after selecting an airport, the panel from its door", () => {
     const homeAirport = AIRPORTS[0];
     mockUseEngineStore.mockReturnValue(buildEngineState({ homeAirport }));
     mockUseAirlineStore.mockReturnValue({
@@ -245,8 +262,16 @@ describe("WorldMap", () => {
     });
 
     render(<WorldMap />);
+    const before = window.location.pathname;
     fireEvent.click(screen.getByText("Select Airport"));
     expect(screen.getByText(`Focus: ${homeAirport.iata}`)).toBeInTheDocument();
+    // A map click answers with the compact card in place (S56.3)...
+    expect(screen.getByText(`Airport Card ${homeAirport.iata}`)).toBeInTheDocument();
+    expect(screen.queryByText(`Airport Panel ${homeAirport.iata}`)).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe(before);
+    // ...and its door opens the full panel at the airport's URL.
+    fireEvent.click(screen.getByRole("button", { name: "Open details" }));
+    expect(screen.queryByText(`Airport Card ${homeAirport.iata}`)).not.toBeInTheDocument();
     expect(screen.getByText(`Airport Panel ${homeAirport.iata}`)).toBeInTheDocument();
     expect(window.location.pathname).toBe(`/airport/${homeAirport.iata}`);
   });

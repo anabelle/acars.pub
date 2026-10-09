@@ -17,6 +17,7 @@ export function toMapRoutes(
     if (route.status !== "active") continue;
     const profit = profitById.get(route.id);
     mapRoutes.push({
+      routeId: route.id,
       originIata: route.originIata,
       destinationIata: route.destinationIata,
       ownerPubkey: route.airlinePubkey,

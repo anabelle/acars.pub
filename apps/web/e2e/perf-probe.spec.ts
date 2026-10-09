@@ -104,19 +104,22 @@ async function measure(page: import("@playwright/test").Page, mode: Mode) {
   await expect(page.getByTestId("route-frequency").first()).toBeVisible({ timeout: 60_000 });
   await navigateInApp(page, "/");
 
-  // Step game time until the aircraft is airborne (the clock uploads positions).
-  const requests = () =>
-    page.evaluate(
-      () =>
-        (window as unknown as { __acarsMapStats?: { requests: number } }).__acarsMapStats
-          ?.requests ?? 0,
-    );
+  // Step game time until the aircraft is in the air with time to spare, so it
+  // is still flying for the whole sample. Read from the briefing's next
+  // landing ("BCN in 1h 05m"), not from map uploads: one more upload also
+  // follows a landing (to clear the last position), which once let the
+  // sample start just as the map went idle.
+  const nextLanding = page.getByTestId("briefing-next-landing");
+  const minutesLeft = async () => {
+    const text = (await nextLanding.textContent({ timeout: 5_000 }).catch(() => "")) ?? "";
+    const match = /in (?:(\d+)h )?(\d+)m/.exec(text);
+    return match ? Number(match[1] ?? 0) * 60 + Number(match[2]) : 0;
+  };
   let airborne = false;
   for (let step = 0; step < 60 && !airborne; step++) {
-    const start = await requests();
     await page.clock.fastForward("00:05:00");
     await page.waitForTimeout(1_500);
-    airborne = (await requests()) > start;
+    airborne = (await minutesLeft()) >= 10;
   }
   expect(airborne).toBe(true);
   await page.waitForTimeout(2_000);
@@ -167,6 +170,46 @@ test("perf budget: full mode redraws once per map-clock tick", async ({ page, pr
   const result = await measure(page, "full");
   expect(result.lowPower).toBe(false);
   // At most one redraw-forcing write per 200 ms tick (flights and flow together).
+  expect(result.requestsPerSecond).toBeGreaterThan(0);
+  expect(result.requestsPerSecond).toBeLessThanOrEqual(5.5);
+  expect(problems.pageErrors).toEqual([]);
+});
+
+// S56.4: the main globe under a synthetic load (`?load=10000`, ported from the
+// S45 prototype). The map clock must hold its cadence whatever the traffic;
+// the JS cost is logged for comparison with the prototype's numbers.
+test("perf: the main globe keeps its clock with 10k synthetic aircraft", async ({
+  page,
+  problems,
+}) => {
+  test.setTimeout(240_000);
+  await page.addInitScript(PROBES);
+  await createAirline(page);
+  await navigateInApp(page, "/?panel=map&load=10000");
+  // `?load` is read when the map mounts: reload so it is part of the first render.
+  await page.reload();
+  await page.waitForFunction(
+    () =>
+      ((window as unknown as { __acarsMapStats?: { requests: number } }).__acarsMapStats
+        ?.requests ?? 0) > 0,
+    undefined,
+    { timeout: 60_000 },
+  );
+  await page.waitForTimeout(2_000);
+  const before = await snapshot(page);
+  await page.waitForTimeout(SAMPLE_MS);
+  const after = await snapshot(page);
+  const seconds = SAMPLE_MS / 1000;
+  const rate = (key: keyof Snapshot) =>
+    Math.round(((after[key] - before[key]) / seconds) * 10) / 10;
+  const result = {
+    load: 10_000,
+    requestsPerSecond: rate("requests"),
+    rendersPerSecond: rate("renders"),
+    longTaskMsPerSecond: rate("longTaskMs"),
+  };
+  console.log("S56 load probe", JSON.stringify(result));
+  // Software WebGL runs low-power: about one clock tick a second, never more than full mode's five.
   expect(result.requestsPerSecond).toBeGreaterThan(0);
   expect(result.requestsPerSecond).toBeLessThanOrEqual(5.5);
   expect(problems.pageErrors).toEqual([]);
