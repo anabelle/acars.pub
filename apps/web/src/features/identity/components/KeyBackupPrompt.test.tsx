@@ -59,6 +59,27 @@ describe("KeyBackupPrompt", () => {
     expect(prompt).toHaveTextContent(/first flight landed/i);
   });
 
+  it("stays up through a brief dip of the revenue figure (a sync replaying an older snapshot)", () => {
+    const { rerender } = render(<KeyBackupPrompt />);
+    expect(screen.getByTestId("key-backup-prompt")).toBeInTheDocument();
+
+    storeState = landed(0);
+    rerender(<KeyBackupPrompt />);
+    expect(screen.getByTestId("key-backup-prompt")).toHaveAttribute("data-moment", "landing");
+
+    storeState = landed(2_000);
+    rerender(<KeyBackupPrompt />);
+    expect(screen.getByTestId("key-backup-prompt")).toHaveAttribute("data-moment", "landing");
+
+    // Another account never inherits it.
+    storeState = { ...landed(2_000), pubkey: "pubkey-2" };
+    rerender(<KeyBackupPrompt />);
+    expect(screen.getByTestId("key-backup-prompt")).toHaveAttribute("data-moment", "landing");
+    storeState = { ...landed(0), pubkey: "pubkey-3" };
+    rerender(<KeyBackupPrompt />);
+    expect(screen.queryByTestId("key-backup-prompt")).not.toBeInTheDocument();
+  });
+
   it("shows once per visit and welcomes the player back on the next one", () => {
     render(<KeyBackupPrompt />);
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));

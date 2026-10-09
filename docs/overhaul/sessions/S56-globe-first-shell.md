@@ -80,7 +80,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Layout fixes found on the way:** the route key hides while the card holds that corner, and the folded briefing shrinks to its summary on desktop instead of stretching down the side.
 - **Tests:** map interactions (route fallback, player-first, malformed features), route features (id and endpoints), the test handle, the card (yours, before and after landings; a rival's; an unknown rival; closing; Spanish), and the e2e (`route-card.spec.ts`: launch MAD → BCN, click the arc's midpoint, check the card, follow "Fares & frequency"). Screenshot: [route card](../media/s56/route-card.png).
 
-2026-10-09 · S56.3 · (this commit) · **One card style: airports and aircraft answer in place.**
+2026-10-09 · S56.3 · c3235db · **One card style: airports and aircraft answer in place.**
 
 - **Shell:** `MapCard` is the shared card: kicker, title, subtitle, a 2×2 grid of figures and doors. Bottom right on desktop; a solid bottom sheet on phones. It is portaled above the app chrome, so on a phone it covers the folded briefing rather than hiding under it. The route card (S56.2) now uses it too.
 - **Airport card:** your routes and aircraft there, whose hub it is (yours, a rival's or nobody's), any world event on now, and "Open details". **Aircraft card:** model and owner, status, route or base, and for a flight how far along it is and when it lands (its own tick subscription), plus "Open details".
@@ -89,6 +89,8 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
   - Clicking near Barcelona picked Sabadell: several airports share the 24 px hitbox and the resolver took the first. It now takes the busiest.
   - The briefing only folded on `?panel=map` when it first mounted. It now folds whenever you switch to the map-only view.
 - **Tests:** map interactions (busiest airport wins), the airport card (counts, hub lines, event on now, doors, Spanish), the aircraft card (flight progress and landing time, parked rival), `WorldMap` (card first, panel and URL from its door), the briefing (folds on switching view). e2e: `route-card.spec.ts` now also clicks BCN for its card and follows "Open details" to `/airport/BCN`, and `mobile-map-cards.spec.ts` taps Lisbon on a phone for the bottom sheet. Screenshot: [phone airport card](../media/s56/airport-card-phone.png).
+
+2026-10-09 · fix · (this commit) · **The key-backup prompt no longer vanishes on a revenue dip.** `key-backup-prompt.spec.ts` failed twice in CI (#190 and here): the prompt never appeared after the first landing. I couldn't reproduce it locally, even with 4× CPU throttling, and the CI trace isn't reachable from the session. The cause I found by reading: `KeyBackupPrompt` re-decided whenever `cumulativeRevenue` crossed zero. A sync replaying the airline's own older snapshot can set it back to 0. Showing the prompt marks it as seen, so on the way back up the decision came out "nothing due" and the prompt was gone for good. Now a decision holds for the account until the player closes it or backs the key up. There is a unit test for the dip. If the spec still fails in CI, this wasn't the cause and it needs the CI trace.
 
 ## Follow-ups
 
