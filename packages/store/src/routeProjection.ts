@@ -8,6 +8,8 @@ import {
   fpSub,
   getEventFuelPriceAtTick,
   getSuggestedFares,
+  legTicksFor,
+  maxWeeklyFrequency,
   TICKS_PER_HOUR,
 } from "@acars/core";
 import {
@@ -269,4 +271,86 @@ export function projectRouteEconomics(input: RouteProjectionInput): RouteProject
         }
       : null,
   };
+}
+
+/**
+ * Hours a day an aircraft's cycles may span when we suggest a frequency (S58):
+ * airlines don't fly round the clock (curfews, crews, overnight checks). On a
+ * one-hour sector this is about 12–13 block hours a day, the real short-haul
+ * norm. The engine itself still accepts any frequency up to the physical cycle.
+ */
+export const OPERATING_HOURS_PER_DAY = 18;
+
+/** Weekly frequencies tried before refining around the best (S58). */
+const FREQUENCY_LADDER = [
+  1, 2, 3, 4, 5, 7, 10, 14, 18, 21, 28, 35, 42, 49, 56, 70, 84, 112, 140, 168,
+];
+
+export interface FrequencySuggestion {
+  /** The round trips a week that earn the most operating profit per day. */
+  frequencyPerWeek: number;
+  /** Most round trips a week the aircraft fly within an operating day ({@link OPERATING_HOURS_PER_DAY}). */
+  maxFrequencyPerWeek: number;
+  projection: RouteProjection;
+}
+
+/**
+ * The weekly frequency that earns the route the most operating profit per day
+ * for `aircraftCount` aircraft, within an operating day (S58). More flights
+ * win market share but fly emptier, so the best is usually well above the 7 a
+ * week a route opens with, and lower on thin markets. Tries a fixed ladder of frequencies, then the whole
+ * numbers around the best; ties go to the fewer flights. Pure: about 25
+ * projections per call, whatever the fleet size.
+ */
+export function bestWeeklyFrequency(input: RouteProjectionInput): FrequencySuggestion {
+  const aircraftCount = Math.max(1, input.aircraftCount ?? 1);
+  const legs = legTicksFor(
+    input.distanceKm,
+    input.model.speedKmh,
+    input.model.turnaroundTimeMinutes,
+  );
+  const physicalMax = maxWeeklyFrequency(legs.durationTicks, legs.turnaroundTicks, aircraftCount);
+  const roundTrip = 2 * (legs.durationTicks + legs.turnaroundTicks);
+  const operatingMax = Math.floor(
+    (OPERATING_HOURS_PER_DAY * 7 * TICKS_PER_HOUR * aircraftCount) / roundTrip,
+  );
+  const maxFrequencyPerWeek = Math.max(1, Math.min(physicalMax, operatingMax));
+  const project = (frequencyPerWeek: number) =>
+    projectRouteEconomics({
+      ...input,
+      aircraftCount,
+      frequencyPerWeek,
+      networkRoutes: input.networkRoutes?.map((route) =>
+        route.originIata === input.originIata && route.destinationIata === input.destinationIata
+          ? { ...route, frequencyPerWeek }
+          : route,
+      ),
+    });
+
+  const tried = new Map<number, RouteProjection>();
+  let best = { frequencyPerWeek: 1, projection: project(1) };
+  tried.set(1, best.projection);
+  const consider = (frequencyPerWeek: number) => {
+    if (frequencyPerWeek < 1 || frequencyPerWeek > maxFrequencyPerWeek) return;
+    if (tried.has(frequencyPerWeek)) return;
+    const projection = project(frequencyPerWeek);
+    tried.set(frequencyPerWeek, projection);
+    if (
+      projection.profitPerDay > best.projection.profitPerDay ||
+      (projection.profitPerDay === best.projection.profitPerDay &&
+        frequencyPerWeek < best.frequencyPerWeek)
+    ) {
+      best = { frequencyPerWeek, projection };
+    }
+  };
+  for (const step of FREQUENCY_LADDER) consider(step);
+  consider(maxFrequencyPerWeek);
+  // Refine between the ladder's neighbours of the best.
+  const lower = [...tried.keys()].filter((f) => f < best.frequencyPerWeek).sort((a, b) => b - a)[0];
+  const upper = [...tried.keys()].filter((f) => f > best.frequencyPerWeek).sort((a, b) => a - b)[0];
+  const from = lower ?? best.frequencyPerWeek;
+  const to = upper ?? best.frequencyPerWeek;
+  const stride = Math.max(1, Math.ceil((to - from) / 8));
+  for (let f = from + 1; f < to; f += stride) consider(f);
+  return { ...best, maxFrequencyPerWeek };
 }

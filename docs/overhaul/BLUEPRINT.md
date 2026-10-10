@@ -192,6 +192,8 @@ because both exist to carry exactly this kind of information.
 
 ## 10. Roadmap
 
+How to build it (order, guard rails, token budget, PR hygiene): [`IMPLEMENTATION.md`](IMPLEMENTATION.md).
+
 Session numbers are reserved; each gets a brief when it starts.
 
 **Wave A — no economy change (can start now)**
@@ -225,15 +227,16 @@ Session numbers are reserved; each gets a brief when it starts.
 
 ## 11. Decisions for the owner
 
-| ID  | Decision                                                                    | Recommendation                                    |
-| --- | --------------------------------------------------------------------------- | ------------------------------------------------- |
-| D9  | Lines of flying replace one-route-per-plane                                 | Yes — the core puzzle and the fix for idle planes |
-| D10 | Hub banks and connecting passengers                                         | Yes, after D9                                     |
-| D11 | Real weather oracle (who runs it; single key first)                         | Yes, one ACARS key first, 2-of-3 later            |
-| D12 | Published timetables (changes take effect next day)                         | Yes — fair across time zones                      |
-| D13 | Fares while filling affect revenue                                          | Visual first, decide after S63                    |
-| D14 | Passenger groups in the demand model                                        | Yes, light: three groups                          |
-| D15 | Ranked entry cost (proof-of-work or sats)                                   | PoW first, sats for prize leagues                 |
-| D16 | Alliances and codeshares                                                    | Later, after D10                                  |
-| D17 | Art direction                                                               | Decided: Cockpit + Ramp (§8)                      |
-| D18 | Opt-in social posts to public relays (picture notes, badges, rivalry notes) | Yes, opt-in, rate-limited                         |
+| ID  | Decision                                                                    | Recommendation                                                                                    |
+| --- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| D9  | Lines of flying replace one-route-per-plane                                 | Yes — the core puzzle and the fix for idle planes                                                 |
+| D10 | Hub banks and connecting passengers                                         | Yes, after D9                                                                                     |
+| D11 | Real weather oracle (who runs it; single key first)                         | Yes, one ACARS key first, 2-of-3 later                                                            |
+| D12 | Published timetables (changes take effect next day)                         | Yes — fair across time zones                                                                      |
+| D13 | Fares while filling affect revenue                                          | Visual first, decide after S63                                                                    |
+| D14 | Passenger groups in the demand model                                        | Yes, light: three groups                                                                          |
+| D15 | Ranked entry cost (proof-of-work or sats)                                   | PoW first, sats for prize leagues                                                                 |
+| D16 | Alliances and codeshares                                                    | Later, after D10                                                                                  |
+| D17 | Art direction                                                               | Decided: Cockpit + Ramp (§8)                                                                      |
+| D18 | Opt-in social posts to public relays (picture notes, badges, rivalry notes) | Yes, opt-in, rate-limited                                                                         |
+| D19 | Economy calibration for real utilization (from S58.1)                       | Recalibrate per-flight margins so a plane at 10–13 block h/day earns ~10–20% over lease and costs |
