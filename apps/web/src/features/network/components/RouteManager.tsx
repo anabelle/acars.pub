@@ -862,14 +862,15 @@ export function RouteManager() {
                                   ) : null}
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                {/* Three equal buttons on one line on phones, instead of wrapped labels. */}
+                                <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
                                   {!isViewingOther && (
                                     <>
                                       <button
                                         type="button"
                                         data-testid="route-add-aircraft"
                                         onClick={() => setAssignRouteId(route.id)}
-                                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                                        className={`min-h-10 whitespace-nowrap rounded-xl px-2 py-2 text-xs font-bold transition-all sm:px-4 sm:text-sm ${
                                           assignedCount === 0
                                             ? "bg-primary text-primary-foreground hover:bg-primary/90"
                                             : "bg-white/5 text-white/60 border border-white/5 hover:bg-white/10"
@@ -887,7 +888,7 @@ export function RouteManager() {
                                             distanceKm: route.distanceKm,
                                           });
                                         }}
-                                        className="px-4 py-2 bg-white/5 text-white/60 border border-white/5 rounded-xl text-sm font-bold hover:bg-white/10 transition-all"
+                                        className="min-h-10 whitespace-nowrap rounded-xl border border-white/5 bg-white/5 px-2 py-2 text-xs font-bold text-white/60 transition-all hover:bg-white/10 sm:px-4 sm:text-sm"
                                       >
                                         {t("routeManager.editFares", {
                                           ns: "game",
@@ -929,7 +930,7 @@ export function RouteManager() {
                                             );
                                           }
                                         }}
-                                        className="px-3 py-2 rounded-xl border border-red-500/30 text-red-200/80 text-sm font-bold hover:bg-red-500/15 transition-all"
+                                        className="min-h-10 whitespace-nowrap rounded-xl border border-red-500/30 px-2 py-2 text-xs font-bold text-red-200/80 transition-all hover:bg-red-500/15 sm:px-3 sm:text-sm"
                                       >
                                         {t("routeManager.closeRoute", {
                                           ns: "game",

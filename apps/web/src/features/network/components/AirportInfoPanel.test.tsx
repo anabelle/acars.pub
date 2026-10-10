@@ -258,7 +258,7 @@ describe("AirportInfoPanel", () => {
     );
 
     expect(screen.getByLabelText("Close airport panel").closest("aside")).toHaveClass(
-      "bg-background/96",
+      "sm:bg-background/96",
     );
   });
 });

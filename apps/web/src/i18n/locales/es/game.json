@@ -902,6 +902,7 @@
     "outOfRange": "Ninguno de tus aviones desbloqueados puede volar {{distance}} km todavía. Haz crecer tu aerolínea para desbloquear aviones de mayor alcance.",
     "estimateNote": "Estimación de la simulación en vivo para la temporada y el precio del combustible de hoy. Los rivales, las tarifas y las estaciones la cambiarán.",
     "launch": "Lanzar ruta con un {{model}}",
+    "launchReuse": "Lanzar ruta con tu {{aircraft}}",
     "finishSetup": "Completar: asignarle un avión",
     "launching": "Lanzando…",
     "launchConfirmTitle": "¿Lanzar {{origin}} → {{destination}}?",

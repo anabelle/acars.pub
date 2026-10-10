@@ -73,7 +73,7 @@ export function FirstHourChecklist({
               data-testid={`checklist-${step.id}`}
               data-done={step.done}
               className={cn(
-                "flex items-center gap-3 rounded-2xl border px-3 py-2.5",
+                "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border px-3 py-2.5",
                 isNext ? "border-primary/40 bg-background/80" : "border-transparent",
               )}
             >
@@ -88,7 +88,8 @@ export function FirstHourChecklist({
                   aria-hidden="true"
                 />
               )}
-              <div className="min-w-0 flex-1">
+              {/* Wraps the action under the text when the card is narrow. */}
+              <div className="min-w-[10rem] flex-1">
                 <p
                   className={cn(
                     "text-sm font-semibold",
@@ -111,7 +112,7 @@ export function FirstHourChecklist({
                 <Link
                   to={step.to}
                   search={step.search}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+                  className="ml-auto inline-flex min-h-9 shrink-0 items-center gap-1 rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90"
                 >
                   {t(`cockpit.checklist.steps.${step.id}.action`)}
                   <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />

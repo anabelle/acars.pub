@@ -10,9 +10,13 @@ const toastMock = vi.hoisted(() => ({
   warning: vi.fn(),
   error: vi.fn(),
 }));
-vi.mock("sonner", () => ({ toast: toastMock }));
+// Every toast shown, by the bridge or by a screen (sonner's history).
+const history = vi.hoisted(() => ({ ids: [] as number[] }));
+vi.mock("sonner", () => ({
+  toast: { ...toastMock, getHistory: () => history.ids.map((id) => ({ id })) },
+}));
 
-import { TimelineToastBridge } from "./TimelineToastBridge";
+import { OWN_ACTION_ECHO_MS, TimelineToastBridge } from "./TimelineToastBridge";
 
 const landing = (id: string, tick: number): TimelineEvent => ({
   id,
@@ -34,6 +38,14 @@ const toastCount = () =>
   Object.values(toastMock).reduce((sum, fn) => sum + fn.mock.calls.length, 0);
 
 beforeEach(() => {
+  history.ids = [];
+  for (const fn of Object.values(toastMock)) {
+    fn.mockImplementation(() => {
+      const id = history.ids.length + 1;
+      history.ids.push(id);
+      return id;
+    });
+  }
   useAirlineStore.setState({ airline: { lastTick: 1000 } as AirlineEntity, timeline: [] });
 });
 
@@ -64,5 +76,28 @@ describe("TimelineToastBridge", () => {
     // Live toasts resume right after.
     setTick(1002 + TICKS_PER_HOUR, [landing("c", 1002 + TICKS_PER_HOUR), ...burst]);
     expect(toastCount()).toBe(2);
+  });
+
+  it("drops the echo of the player's own action when the screen already toasted it", () => {
+    vi.useFakeTimers();
+    try {
+      render(<TimelineToastBridge />);
+      const purchase = (id: string, tick: number): TimelineEvent => ({
+        ...landing(id, tick),
+        type: "purchase",
+      });
+      // The dealer says "ordered" right after the purchase lands in the timeline.
+      setTick(1001, [purchase("p1", 1001)]);
+      history.ids.push(99);
+      vi.advanceTimersByTime(OWN_ACTION_ECHO_MS);
+      expect(toastCount()).toBe(0);
+
+      // Without a screen toast (a sale from elsewhere), the timeline still speaks.
+      setTick(1002, [purchase("p2", 1002), purchase("p1", 1001)]);
+      vi.advanceTimersByTime(OWN_ACTION_ECHO_MS);
+      expect(toastMock.success).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

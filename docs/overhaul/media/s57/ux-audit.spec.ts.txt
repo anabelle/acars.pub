@@ -1,0 +1,121 @@
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
+import { createAirline, MADRID_PLAYER, navigateInApp } from "./signup";
+
+test.use(MADRID_PLAYER);
+const OUT = process.env.AUDIT_OUT ?? "test-results/audit";
+
+/** Every visible control clipped by an overflow:hidden/clip ancestor or the viewport. */
+async function clipped(page: Page) {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    const els = document.querySelectorAll<HTMLElement>("button, a[href], [role=button], input, select");
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === "hidden") continue;
+      let p = el.parentElement;
+      let reason = "";
+      while (p && p !== document.body) {
+        const s = getComputedStyle(p);
+        const ox = s.overflowX, oy = s.overflowY;
+        if (["auto","scroll"].includes(ox) || ["auto","scroll"].includes(oy)) break;
+        if (ox !== "visible" || oy !== "visible") {
+          const pr = p.getBoundingClientRect();
+          const clipY = (oy === "hidden" || oy === "clip");
+          const clipX = (ox === "hidden" || ox === "clip");
+          if (clipY && (r.bottom > pr.bottom + 1 || r.top < pr.top - 1)) { reason = `clippedY by ${p.tagName}.${(p.className||"").toString().slice(0,60)}`; break; }
+          if (clipX && (r.right > pr.right + 1 || r.left < pr.left - 1)) { reason = `clippedX by ${p.tagName}.${(p.className||"").toString().slice(0,60)}`; break; }
+        }
+        p = p.parentElement;
+      }
+      if (!reason && (r.left < -1 || r.right > innerWidth + 1)) reason = "outside viewport X";
+      if (reason) out.push(`${(el.textContent || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 40)} :: ${reason}`);
+    }
+    return [...new Set(out)];
+  });
+}
+
+async function snap(page: Page, name: string, report: Record<string, string[]>) {
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${OUT}/${test.info().project.name}-${name}.png` });
+  report[name] = await clipped(page);
+}
+
+test("new player audit", async ({ page }) => {
+  test.setTimeout(300_000);
+  const report: Record<string, string[]> = {};
+  await page.goto("/");
+  await page.waitForTimeout(4000);
+  await snap(page, "00-guest-home", report);
+  await createAirline(page);
+  await snap(page, "01-home", report);
+  await navigateInApp(page, "/fleet");
+  await snap(page, "02-fleet", report);
+  for (const [path, name] of [
+    ["/?panel=cockpit", "03-cockpit"],
+    ["/network?tab=opportunities", "04-opportunities"],
+    ["/network", "05-network"],
+    ["/airport/BCN", "06-airport"],
+    ["/finance", "07-finance"],
+    ["/corporate", "08-corporate"],
+    ["/leaderboard", "09-leaderboard"],
+  ] as const) {
+    await navigateInApp(page, path);
+    await snap(page, name, report);
+  }
+  await navigateInApp(page, "/fleet");
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: /purchase aircraft/i }).first().click();
+  await snap(page, "11-dealer", report);
+  // Real catalog photos (Nostr/Blossom) are not reachable here: put a photo-sized image in each splash.
+  const injectPhotos = () => page.evaluate(() => {
+    const c = document.createElement("canvas"); c.width = 1200; c.height = 800;
+    const g = c.getContext("2d"); if (g) { g.fillStyle = "#335"; g.fillRect(0, 0, 1200, 800); }
+    const url = c.toDataURL();
+    document.querySelectorAll("img[alt*='catalog'], span").forEach(() => {});
+    for (const splash of document.querySelectorAll<HTMLElement>("div.border-b.bg-gradient-to-br")) {
+      const host = splash.querySelector(":scope > div:last-child, :scope > svg");
+      const img = document.createElement("img"); img.src = url; img.className = "h-full w-full object-cover object-center";
+      if (host) host.replaceWith(img);
+    }
+  });
+  await injectPhotos();
+  await page.waitForTimeout(500);
+  report.cardOverflow = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("div.group.relative.flex.min-w-0.flex-col.overflow-hidden")].map((c) => `${c.querySelector("h3")?.textContent} client=${c.clientHeight} scroll=${c.scrollHeight}`));
+  const cta = page.getByRole("button", { name: /configure & buy|configure and buy/i }).first();
+  await cta.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+  await snap(page, "12-dealer-card", report);
+  report.ctaHit = [await cta.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return `${JSON.stringify(r)} hit=${hit === el || el.contains(hit)} ${hit?.tagName}.${hit?.className?.toString().slice(0,50)}`;
+  }).catch((e) => String(e))];
+  await cta.click({ timeout: 5000 }).catch((e) => { report.ctaClick = [String(e).slice(0, 300)]; });
+  await snap(page, "13-purchase-modal", report);
+  const dlg = page.getByRole("dialog", { name: /ATR/ });
+  report.dialogButtons = await dlg.getByRole("button").allTextContents().catch(() => []);
+  const confirm = dlg.getByRole("button", { name: /confirm order/i });
+  await snap(page, "14-modal-bottom", report);
+  await confirm.click({ timeout: 5000 }).catch((e) => { report.confirmClick = [String(e).slice(0, 300)]; });
+  await snap(page, "15-after-buy", report);
+  await navigateInApp(page, "/fleet");
+  await snap(page, "16-fleet-owned", report);
+  await navigateInApp(page, "/?panel=cockpit");
+  await snap(page, "17-cockpit-after-buy", report);
+  await navigateInApp(page, "/airport/BCN");
+  await snap(page, "18-airport-with-plane", report);
+  const card = page.getByTestId("route-decision-card");
+  report.decision = [await card.innerText().catch(() => "no card")];
+  await card.getByRole("button").first().click({ timeout: 5000 }).catch((e) => { report.launchClick = [String(e).slice(0, 200)]; });
+  await snap(page, "19-launch-confirm", report);
+  await page.getByRole("alertdialog").getByRole("button", { name: /^launch$/i }).click({ timeout: 5000 }).catch((e) => { report.launchConfirm = [String(e).slice(0, 200)]; });
+  await snap(page, "20-route-live", report);
+  await navigateInApp(page, "/network");
+  await snap(page, "21-network-active", report);
+  await navigateInApp(page, "/");
+  await snap(page, "22-home-after", report);
+  console.log(JSON.stringify(report, null, 2));
+  expect(true).toBe(true);
+});
