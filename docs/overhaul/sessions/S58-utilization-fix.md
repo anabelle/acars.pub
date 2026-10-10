@@ -91,3 +91,5 @@ Per-flight margins were calibrated (S10) while planes flew 7 a week. Letting pla
 | Thin (DEN–SLC, LIH–KOA) | —                          | losses (−22% to −77%)         | < 0    |
 
 Day-one strategies at real utilization: Balanced reaches Tier 2 on day 4 and Tier 3 on day 31; Greedy 3 and 24; Cautious about break-even. **Note:** the A320 on dense short-haul is still rich (24–38%); log for fine-tuning. **Coupling:** at the opening 7/week every strategy now loses money, so S58.3 (apply the suggestion) must ship in this PR before merge.
+
+2026-10-10 · S58.3 WIP · (this commit) · Store half done: `suggestRouteFrequency`, `blockHoursPerAircraftPerDay`, `IDLE_BLOCK_HOURS_PER_DAY` (`packages/store/src/routeSuggestion.ts`) and the slice action `applySuggestedFrequency` (raise only); `assignAircraftToRoute` applies it after a successful assignment, so launch and "add a plane" fly a full schedule. Tests: 4 slice + 2 helper. **Remains:** route/plane/cockpit block hours, idle warning and "fly more" button, en/es, component tests, e2e, screenshots.
