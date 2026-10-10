@@ -6,7 +6,7 @@
 > starts.
 >
 > Mockups (private canvas, owner's account): https://claude.ai/artifact/E1Bdn2wDABhPRFpmGSgGC1.
-> Rows v1–v3 are explorations; **v4–v6 are the direction**, and v6 shows the new art direction.
+> Rows v1–v3 and v6 are explorations; **v4–v5 set the structure, v7–v8 the art direction** (Cockpit + Ramp).
 
 ## 1. North star
 
@@ -126,48 +126,62 @@ Legend: **now** = no economy change, can start; **D#** = needs that owner decisi
 | Early movers                          | Locked leaderboard                | Seasons, tier leagues, per-plane metrics                        |
 | Zero-sum                              | Lonely                            | Alliances, codeshares, hub banks                                |
 
-## 8. Art direction: "Chart & Ink"
+## 8. Art direction: "Cockpit + Ramp" (D17, decided 2026-10-10)
 
-The old look (dark glass, neon cyan/emerald, glows, blur, gradients) goes. The new look borrows from
-real aviation print: aeronautical charts, airline timetables, boarding passes, airport signage and
-mid-century airline posters. The UI is quiet paper and ink so **each airline's livery colours are the
-only loud colour on screen**.
+Explored and rejected: the old dark-glass neon dashboard (generic) and "Chart & Ink" (cream paper and
+serif: too close to an editorial website). Chosen: **two real aviation languages, each where it belongs**,
+because both exist to carry exactly this kind of information.
 
-**Principles**
+| Mode        | Where                                                                                   | Language                                                                              |
+| ----------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **Cockpit** | In the air: the live map, a flight, ACARS, weather, ATC, alerts                         | Avionics displays (navigation display, flight-instrument tapes, airliner alert lists) |
+| **Ramp**    | On the ground: navigation, hangar, airports and passengers, ceremonies, the Today story | Airport signage, apron markings, wayfinding pictograms                                |
 
-1. Paper and ink, not glass and glow: flat surfaces, hairline rules, no blur, no glows, no gradients.
-2. Brand colour belongs to airlines: chrome is neutral; routes, planes and accents use the airline's livery colours.
-3. Colour means something: amber = needs attention, red = trouble, green = good. Nothing else is coloured.
-4. Real photography-like art is the hero: livery images are framed like prints, with generous margins.
-5. Charts, not dashboards: airports drawn like chart symbols, routes as fine ink lines, numbers set like a timetable.
-6. Day and night follow the sun: a light chart by day and an ink-blue night chart, switched by the player's local daylight (or a setting).
+**Cockpit rules**
+
+- Every colour has one job, as in real avionics: **magenta** = active leg, **cyan** = the player's input or selection, **green** = normal, **amber** = caution, **red** = warning, **white** = data. Nothing else is coloured, except airlines' own livery colours on their planes and routes.
+- Near-black, flat, hairline lines. No glows, no blur, no gradients.
+- The map is a navigation display: compass rose and range rings around the selected plane, magenta active leg, other traffic as collision-avoidance-style diamonds with altitude tags, airports as ICAO/IATA labelled circles.
+- Readouts in boxed figures (speed, altitude, heading); alerts as a short airliner-style message list.
+- Font: **B612 / B612 Mono** (open fonts Airbus designed for cockpit displays).
+
+**Ramp rules (softened after review: "love the semantics, a bit too rough")**
+
+- Signs carry navigation and status: yellow-on-black = where you are, black-on-yellow with an arrow = where you can go, red-and-white = must stop (maintenance, bankruptcy, hold). Used sparingly, as accents, never as large fills.
+- Surfaces: warm asphalt with a fine grain texture (a subtle noise tile, ~3% contrast), concrete-grey slabs for cards with 3 px corners, painted apron lines at reduced opacity. Generous spacing; one sign per card.
+- Readability first: body text in B612 on calm surfaces; Overpass condensed caps only for signs, names and headlines; 4.5:1 contrast minimum.
+- Passengers drawn as airport wayfinding pictograms (one figure = 10 passengers): queues at gates, crowds turned away (amber), connections walking between banks.
+- Hazard stripes only on irreversible or urgent actions.
+
+**Rhythm, minimalism and story**
+
+- Rhythm: the hub's pulse is visible — banks of arrivals then departures, a countdown to the next bank, the day as a strip of legs.
+- Minimalism: one primary action per card; numbers only where they change a decision.
+- Story: the Today tab reads like a short logbook entry — chapters for the morning bank, a storm, a delivery — each closed with the result of the player's choice.
 
 **Tokens (v1)**
 
-| Token               | Day       | Night     |
-| ------------------- | --------- | --------- |
-| `paper` (ground)    | `#F3EFE6` | `#141A22` |
-| `paper-2` (raised)  | `#FBF9F4` | `#1C232D` |
-| `ink` (text)        | `#1C2530` | `#ECE6D9` |
-| `ink-2` (secondary) | `#5A6472` | `#A7ADB5` |
-| `rule` (hairlines)  | `#D9D2C3` | `#2C3542` |
-| `water`             | `#DDE6EB` | `#16202A` |
-| `land`              | `#F3EFE6` | `#1F2732` |
-| `coast`             | `#9EB0BD` | `#3A4A5A` |
-| `attention`         | `#B86A12` | `#E0A050` |
-| `trouble`           | `#B23A2E` | `#E27A6E` |
-| `good`              | `#2E7A55` | `#7CC49B` |
+| Token           | Value             | Use                                      |
+| --------------- | ----------------- | ---------------------------------------- |
+| `cockpit-bg`    | `#06080B`         | map and flight surfaces                  |
+| `cockpit-panel` | `#0B0E12`         | panels, hairline `#2A323C`               |
+| `magenta`       | `#E040FB`         | active leg                               |
+| `cyan`          | `#3CD2F0`         | input, selection, airports, weather text |
+| `green`         | `#3EDC81`         | normal                                   |
+| `amber`         | `#FFB000`         | caution                                  |
+| `red`           | `#FF3B30`         | warning                                  |
+| `white`         | `#F2F4F5`         | data                                     |
+| `asphalt`       | `#2B2D30` + grain | ramp ground                              |
+| `slab`          | `#383B3F`         | ramp cards                               |
+| `paint`         | `#ECE8DF`         | ramp text, apron lines                   |
+| `sign-yellow`   | `#F2C230`         | signs                                    |
+| `sign-black`    | `#141414`         | signs                                    |
+| `sign-red`      | `#C8102E`         | mandatory signs                          |
+| `hi-vis`        | `#FF7A1A`         | idle, urgent                             |
 
-Airline colours (`livery.primary/secondary`) are used as-is for that airline's planes, routes and highlights.
+**Type**: B612 (text, data), B612 Mono (figures, codes, UTC), Overpass 800/900 caps (signs, plane names, headlines).
 
-**Type**: display **Instrument Serif** (poster headlines, plane names); text **Public Sans** (signage-like
-legibility); numbers and codes **IBM Plex Mono** (timetable figures, IATA codes, UTC).
-
-**Components**: departure-board rows (mono, ruled), chart-symbol airports (circle with tick marks; hubs
-double ring), boarding-pass cards for flights, print-framed livery cards, gauge = thin arc on paper with
-a target band, buttons as solid ink or outlined, 44 px targets.
-
-**Motion**: slow and physical — planes glide, flights fill, the water salute arcs. No pulsing glows.
+**Motion**: slow and physical — planes glide, queues shuffle forward, the water salute arcs, signs flip like a departure board. No pulsing glows.
 
 ## 9. Architecture rules (unchanged, restated)
 
@@ -182,16 +196,16 @@ Session numbers are reserved; each gets a brief when it starts.
 
 **Wave A — no economy change (can start now)**
 
-| Session | Scope                                                                                     | Needs |
-| ------- | ----------------------------------------------------------------------------------------- | ----- |
-| S58     | Utilization fix: starting frequency, frequency scales with assigned planes, idle warnings | —     |
-| S59     | Art direction foundation: tokens, fonts, day/night themes, retire neon/glass              | D17   |
-| S60     | Livery-first plane panel (Flightradar24 layout) and hangar collection                     | S59   |
-| S61     | Delivery day (water salute, naming), logbook, spotter's book                              | S60   |
-| S62     | Instruments and the check-in story (Today tab)                                            | S59   |
-| S63     | Passengers visible: cabin strip, turned away, receipts, booking bars                      | S60   |
-| S64     | What-if curves for frequency and fares                                                    | S58   |
-| S65     | ACARS feed from engine events                                                             | S60   |
+| Session | Scope                                                                                                | Needs  |
+| ------- | ---------------------------------------------------------------------------------------------------- | ------ |
+| S58     | Utilization fix: starting frequency, frequency scales with assigned planes, idle warnings            | —      |
+| S59     | Art direction foundation: Cockpit + Ramp tokens, fonts, grain texture, pictograms; retire neon/glass | D17 ✅ |
+| S60     | Livery-first plane panel (Flightradar24 layout) and hangar collection                                | S59    |
+| S61     | Delivery day (water salute, naming), logbook, spotter's book                                         | S60    |
+| S62     | Instruments and the check-in story (Today tab)                                                       | S59    |
+| S63     | Passengers visible: cabin strip, turned away, receipts, booking bars                                 | S60    |
+| S64     | What-if curves for frequency and fares                                                               | S58    |
+| S65     | ACARS feed from engine events                                                                        | S60    |
 
 **Wave B — economy and social decisions**
 
@@ -221,5 +235,5 @@ Session numbers are reserved; each gets a brief when it starts.
 | D14 | Passenger groups in the demand model                                        | Yes, light: three groups                          |
 | D15 | Ranked entry cost (proof-of-work or sats)                                   | PoW first, sats for prize leagues                 |
 | D16 | Alliances and codeshares                                                    | Later, after D10                                  |
-| D17 | Art direction "Chart & Ink"                                                 | Yes                                               |
+| D17 | Art direction                                                               | Decided: Cockpit + Ramp (§8)                      |
 | D18 | Opt-in social posts to public relays (picture notes, badges, rivalry notes) | Yes, opt-in, rate-limited                         |

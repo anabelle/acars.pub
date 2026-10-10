@@ -119,7 +119,7 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 34  | S57     | P0       | 2     | Owner: "impossible to buy a plane" as a new player. Audit and fix the main flows.       |
 | 35  | S58     | P0       | 3     | Owner: "all my planes grounded most of the time". Planes fly their day (Blueprint v2).  |
 
-**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Chart & Ink" art direction, sessions S58–S76 and decisions D9–D18. Briefs are written as each session starts; S58 is ready now.
+**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. Briefs are written as each session starts; S58 is ready now.
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 
@@ -151,7 +151,7 @@ Update when the owner decides. Full context is in [`README.md` §2](README.md#2-
 | D14 | Passenger groups in demand           | ❓ open    | 2026-10-10 | Blueprint §6 People; S71.                                                                                        |
 | D15 | Ranked entry cost (PoW or sats)      | ❓ open    | 2026-10-10 | Blueprint §6 Fair play; S72.                                                                                     |
 | D16 | Alliances and codeshares             | ❓ open    | 2026-10-10 | Blueprint §6 Social; S73.                                                                                        |
-| D17 | Art direction "Chart & Ink"          | ❓ open    | 2026-10-10 | Blueprint §8; S59 waits on it.                                                                                   |
+| D17 | Art direction                        | ✅ decided | 2026-10-10 | Cockpit + Ramp: avionics in the air, airport signage on the ground, softened ramp (Blueprint §8).                |
 | D18 | Opt-in social posts on public relays | ❓ open    | 2026-10-10 | Blueprint §6 Social; S74.                                                                                        |
 
 ## 5. Budget notes
