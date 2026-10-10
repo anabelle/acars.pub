@@ -122,10 +122,11 @@ describe("calculateFlightCost()", () => {
       actualPassengers: 150,
       blockHours: 5, // ~4000km / 830kmh + pad
       airportFeesMultiplier: 1,
+      revenue: fp(60000),
     });
 
-    // Fuel: 4000 * 2.5 * 1.20 = 12000
-    expect(fpToNumber(result.costFuel)).toBe(12000);
+    // Fuel: (4000 * 2.5 + 2075 * 0.3 cycle) * 1.20 = (10000 + 622.5) * 1.2 = 12747
+    expect(fpToNumber(result.costFuel)).toBe(12747);
 
     // Crew: 5 * 150 * 6 = 4500
     expect(fpToNumber(result.costCrew)).toBe(4500);
@@ -143,11 +144,17 @@ describe("calculateFlightCost()", () => {
     // Lease: Leases are now handled via monthly lump-sum deductions, so per-flight cost is 0
     expect(fpToNumber(result.costLeasing)).toBeCloseTo(0, 2);
 
-    // Total base: 12000 + 4500 + 4250 + 5996 + 2000 + 0 = 28746
-    const totalBase = 12000 + 4500 + 4250 + 5996 + 2000 + 0;
+    // Handling: 150 + 6 * 180 seats + (4 + 1.5 * 5 h) * 150 pax = 1230 + 1725 = 2955 (S58.2)
+    expect(fpToNumber(result.costHandling)).toBe(2955);
 
-    // Overhead: 5% of total base
-    const overhead = totalBase * 0.05;
+    // Distribution: 6% of the leg's revenue = 3600 (S58.2)
+    expect(fpToNumber(result.costDistribution)).toBe(3600);
+
+    // Total base: 12747 + 4500 + 4250 + 5996 + 2000 + 0 + 2955 + 3600
+    const totalBase = 12747 + 4500 + 4250 + 5996 + 2000 + 0 + 2955 + 3600;
+
+    // Overhead: 8% of total base
+    const overhead = totalBase * 0.08;
     expect(fpToNumber(result.costOverhead)).toBeCloseTo(overhead, 2);
 
     // Total: base + overhead
@@ -188,8 +195,10 @@ describe("calculateFlightCost()", () => {
       blockHours: 5,
       fuelPricePerKg: fp(2.0),
     });
-    // Fuel: 4000 * 2.5 * 2.0 = 20000
-    expect(fpToNumber(result.costFuel)).toBe(20000);
+    // Fuel: (4000 * 2.5 + 2075 * 0.3) * 2.0 = 21245
+    expect(fpToNumber(result.costFuel)).toBe(21245);
+    // No revenue given: no distribution cost.
+    expect(fpToNumber(result.costDistribution)).toBe(0);
     // Airport uses the default multiplier (1) → same 5996 as the baseline test.
     expect(fpToNumber(result.costAirport)).toBe(5996);
   });
@@ -335,8 +344,9 @@ describe("getSuggestedFares", () => {
 
   it("returns valid fares for 1000km route", () => {
     const fares = getSuggestedFares(1000);
-    expect(fpToNumber(fares.economy)).toBe(200);
-    expect(fpToNumber(fares.business)).toBe(550);
+    // Tapered with distance (S58.2): 40 + 2.2 × 1000^0.6, 100 + 2.5 × 1000^0.75.
+    expect(fpToNumber(fares.economy)).toBe(179);
+    expect(fpToNumber(fares.business)).toBe(545);
     expect(fpToNumber(fares.first)).toBe(1200);
   });
 

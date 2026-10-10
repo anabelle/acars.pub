@@ -4,7 +4,7 @@ import { getAircraftById, setAirportsCatalog } from "@acars/data";
 import { airports } from "@acars/data/airports";
 import { beforeAll, describe, expect, it } from "vitest";
 import { processFlightEngine } from "./FlightEngine.js";
-import { projectRouteEconomics } from "./routeProjection.js";
+import { bestWeeklyFrequency, projectRouteEconomics } from "./routeProjection.js";
 
 const PLAYER = "player-pubkey";
 
@@ -204,5 +204,46 @@ describe("projectRouteEconomics", () => {
     });
     expect(thin.incumbent).toBeNull();
     expect(thin.marketShare).toBe(1);
+  });
+});
+
+describe("bestWeeklyFrequency (S58)", () => {
+  const base = (modelId: string, aircraftCount = 1) => {
+    const model = getAircraftById(modelId);
+    if (!model) throw new Error(modelId);
+    return {
+      originIata: "MAD",
+      destinationIata: "BCN",
+      distanceKm: 483,
+      model,
+      aircraftCount,
+      tick: 1000,
+      playerPubkey: PLAYER,
+    };
+  };
+
+  it("finds the most profitable frequency within what the fleet can fly", () => {
+    const best = bestWeeklyFrequency(base("atr72-600"));
+    expect(best.frequencyPerWeek).toBeGreaterThan(7);
+    expect(best.frequencyPerWeek).toBeLessThanOrEqual(best.maxFrequencyPerWeek);
+    for (const frequencyPerWeek of [1, 7, best.maxFrequencyPerWeek]) {
+      const other = projectRouteEconomics({ ...base("atr72-600"), frequencyPerWeek });
+      expect(best.projection.profitPerDay).toBeGreaterThanOrEqual(other.profitPerDay);
+    }
+    expect(best.projection.frequencyPerWeek).toBe(best.frequencyPerWeek);
+  });
+
+  it("lets a second aircraft fly more, never less", () => {
+    const one = bestWeeklyFrequency(base("atr72-600", 1));
+    const two = bestWeeklyFrequency(base("atr72-600", 2));
+    expect(two.maxFrequencyPerWeek).toBeGreaterThan(one.maxFrequencyPerWeek);
+    expect(two.frequencyPerWeek).toBeGreaterThanOrEqual(one.frequencyPerWeek);
+  });
+
+  it("is deterministic and projects the candidate route at each frequency", () => {
+    const route = { originIata: "MAD", destinationIata: "BCN", frequencyPerWeek: 7 };
+    const input = { ...base("a320neo"), networkRoutes: [route] };
+    expect(bestWeeklyFrequency(input)).toEqual(bestWeeklyFrequency(input));
+    expect(route.frequencyPerWeek).toBe(7);
   });
 });

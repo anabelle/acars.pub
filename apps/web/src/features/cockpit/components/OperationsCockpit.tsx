@@ -1,5 +1,11 @@
 import { fpFormat } from "@acars/core";
-import { useActiveAirline, useAirlineStore } from "@acars/store";
+import { getAircraftById } from "@acars/data";
+import {
+  blockHoursPerAircraftPerDay,
+  IDLE_BLOCK_HOURS_PER_DAY,
+  useActiveAirline,
+  useAirlineStore,
+} from "@acars/store";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Activity,
@@ -20,14 +26,14 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
-import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 import { WorldEventsCard } from "@/features/events/WorldEventsCard";
-import { ShareNetworkButton } from "@/features/share/ShareNetworkButton";
 import { NotificationSettingsCard } from "@/features/notifications/NotificationSettingsCard";
-import { DailyObjectivesCard } from "./DailyObjectivesCard";
-import { FirstHourChecklist } from "./FirstHourChecklist";
+import { ShareNetworkButton } from "@/features/share/ShareNetworkButton";
+import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
 import { cn } from "@/shared/lib/utils";
+import { DailyObjectivesCard } from "./DailyObjectivesCard";
+import { FirstHourChecklist } from "./FirstHourChecklist";
 
 const numberFormatter = new Intl.NumberFormat();
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
@@ -150,6 +156,7 @@ export function OperationsCockpit() {
   const identityStatus = useAirlineStore((state) => state.identityStatus);
   const competitors = useAirlineStore((state) => state.competitors);
   const viewAs = useAirlineStore((state) => state.viewAs);
+  const applySuggestedFrequency = useAirlineStore((state) => state.applySuggestedFrequency);
   // Only a real outage (not the first seconds of connecting) earns cockpit space.
   const relaysDown = useRelayHealth().status === "offline";
   const pulse = useFinancialPulse(timeline);
@@ -169,6 +176,23 @@ export function OperationsCockpit() {
     () => activeRoutes.filter((route) => route.assignedAircraftIds.length === 0),
     [activeRoutes],
   );
+  // Routes whose planes fly under an idle threshold of block hours (S58).
+  const underusedRouteIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const route of activeRoutes) {
+      const assigned = fleet.filter((aircraft) => aircraft.assignedRouteId === route.id);
+      const model = assigned[0] ? getAircraftById(assigned[0].modelId) : undefined;
+      if (!model) continue;
+      const hours = blockHoursPerAircraftPerDay(
+        route.distanceKm,
+        model,
+        route.frequencyPerWeek ?? 7,
+        assigned.length,
+      );
+      if (hours < IDLE_BLOCK_HOURS_PER_DAY) ids.push(route.id);
+    }
+    return ids;
+  }, [activeRoutes, fleet]);
   const sortedRoutes = useMemo(
     () => [...routePerformance].sort((a, b) => b.profitPerHour - a.profitPerHour),
     [routePerformance],
@@ -408,6 +432,22 @@ export function OperationsCockpit() {
         tone: "warn",
       });
     }
+    if (underusedRouteIds.length > 0) {
+      items.push({
+        title: t("cockpit.actions.flyMore", { ns: "game" }),
+        description: t("cockpit.actions.flyMoreDesc", {
+          ns: "game",
+          count: underusedRouteIds.length,
+        }),
+        action: () => {
+          void (async () => {
+            for (const routeId of underusedRouteIds) await applySuggestedFrequency(routeId);
+          })();
+        },
+        icon: Plane,
+        tone: "warn",
+      });
+    }
     items.push(
       {
         title: t("cockpit.actions.tuneNetwork", { ns: "game" }),
@@ -436,10 +476,12 @@ export function OperationsCockpit() {
   }, [
     activeAirline,
     activeRoutes.length,
+    applySuggestedFrequency,
     idleAircraft.length,
     isViewingOther,
     t,
     unassignedRoutes.length,
+    underusedRouteIds,
     viewAs,
   ]);
 

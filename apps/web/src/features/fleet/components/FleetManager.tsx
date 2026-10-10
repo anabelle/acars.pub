@@ -32,25 +32,26 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
+import { useShallow } from "zustand/react/shallow";
+import { RouteUtilization } from "@/features/network/components/RouteUtilization";
 import {
   DEMAND_SNAPSHOT_BUCKET_TICKS,
   getRouteDemandSnapshotCached,
 } from "@/features/network/hooks/useRouteDemand";
+import { FamilySilhouette } from "@/shared/components/FamilySilhouette";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { ModalPortal } from "@/shared/components/ModalPortal";
-import { FamilySilhouette } from "@/shared/components/FamilySilhouette";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { useConfirm } from "@/shared/lib/useConfirm";
 import { cn } from "@/shared/lib/utils";
 import { getAircraftBaseHub } from "../utils/aircraftBaseHub";
 import { getAircraftTimer } from "../utils/aircraftTimers";
+import { AircraftDealer } from "./AircraftDealer";
+import { AircraftLiveryImage } from "./AircraftLiveryImage";
 import { AircraftMaintenanceRow } from "./AircraftMaintenanceRow";
 import { FleetPosterDialog } from "./FleetPosterDialog";
 import { HangarGallery } from "./HangarGallery";
-import { AircraftDealer } from "./AircraftDealer";
-import { AircraftLiveryImage } from "./AircraftLiveryImage";
 import { MaintenancePolicyControl } from "./MaintenancePolicyControl";
 
 const timerStyleMap = {
@@ -1017,6 +1018,11 @@ export function FleetManager() {
                                       </button>
                                     )}
                                   </div>
+                                  {ac.assignedRouteId ? (
+                                    <RouteUtilization
+                                      route={routes.find((r) => r.id === ac.assignedRouteId)}
+                                    />
+                                  ) : null}
                                 </div>
                               )}
 

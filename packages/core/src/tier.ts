@@ -7,21 +7,21 @@ export interface TierThreshold {
 }
 
 /**
- * Tuned with the S02 strategy sims (S12): a balanced day-one airline (10 ATR
- * 72s at fair fares, ~$370k revenue/day) reaches Tier 2 in ~3 days and Tier 3
- * in ~4 weeks; a greedy one (max lease) is only ~1.3× faster.
+ * Tuned with the S02 strategy sims (S12), then tripled in S58.2 when planes
+ * started flying a real day (~3× the revenue): a balanced day-one airline
+ * still reaches Tier 2 in a few days and Tier 3 in about a month.
  */
 export const TIER_THRESHOLDS: Record<number, TierThreshold> = {
   2: {
-    minCumulativeRevenue: fp(1_000_000),
+    minCumulativeRevenue: fp(3_000_000),
     minActiveRoutes: 3,
   },
   3: {
-    minCumulativeRevenue: fp(10_000_000),
+    minCumulativeRevenue: fp(30_000_000),
     minActiveRoutes: 10,
   },
   4: {
-    minCumulativeRevenue: fp(60_000_000),
+    minCumulativeRevenue: fp(180_000_000),
     minActiveRoutes: 25,
   },
 };

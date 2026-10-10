@@ -42,6 +42,21 @@ const TERMINAL_BASE_FEE = fp(250); // $250 base
 const PAX_FACILITY_CHARGE = fp(12); // $12 per passenger
 
 const ANCILLARY_PER_PAX = fp(20);
+
+// Real-world cost lines added in S58.2 (D19): the model used to miss whole
+// categories airlines pay, so margins looked fine only while planes flew 7 a week.
+/** Taxi, take-off and climb burn more than cruise: this many cruise hours of fuel per leg. */
+const CYCLE_FUEL_HOURS = 0.3;
+/** Ground handling per departure (ramp, baggage, cleaning, pushback). */
+const GROUND_HANDLING_BASE = fp(150);
+const GROUND_HANDLING_PER_SEAT = fp(6);
+/** Passenger service per passenger: catering, insurance, irregular-ops care. */
+const PAX_SERVICE_PER_PAX = fp(4);
+const PAX_SERVICE_PER_PAX_HOUR = fp(1.5);
+/** Distribution and sales (booking systems, card fees, commissions), share of revenue. */
+const DISTRIBUTION_SHARE = 0.06;
+/** Administration, IT, insurance and other overhead, share of operating costs. */
+const OVERHEAD_SHARE = 0.08;
 export const ROUTE_SLOT_FEE = fp(100000);
 const MAX_HUB_LANDING_FEE_MULTIPLIER = 10;
 const HUB_CONGESTION_THRESHOLD = 0.8;
@@ -63,6 +78,8 @@ export interface FlightCostParams {
   blockHours: number;
   airportFeesMultiplier?: number;
   fuelPricePerKg?: FixedPoint;
+  /** The leg's revenue, for distribution costs (booking and card fees). Omitted: none. */
+  revenue?: FixedPoint;
 }
 
 export function calculateHubLandingFee(
@@ -161,11 +178,15 @@ export function calculateFlightCost(params: FlightCostParams): {
   costAirport: FixedPoint;
   costNavigation: FixedPoint;
   costLeasing: FixedPoint;
+  costHandling: FixedPoint;
+  costDistribution: FixedPoint;
   costOverhead: FixedPoint;
   costTotal: FixedPoint;
 } {
-  // Fuel: distance_km * fuel_per_km * fuel_price
-  const fuelKg = params.distanceKm * params.aircraft.fuelBurnKgPerKm;
+  // Fuel: cruise burn over the distance, plus taxi, take-off and climb.
+  const fuelKg =
+    params.distanceKm * params.aircraft.fuelBurnKgPerKm +
+    params.aircraft.fuelBurnKgPerHour * CYCLE_FUEL_HOURS;
   const fuelPricePerKg = params.fuelPricePerKg ?? FUEL_PRICE_MEAN_PER_KG;
   const costFuel = fpScale(fuelPricePerKg, fuelKg);
 
@@ -200,6 +221,22 @@ export function calculateFlightCost(params: FlightCostParams): {
   // amortization here would double-charge lease costs.
   const costLeasing = FP_ZERO;
 
+  // Ground handling per departure and passenger service per passenger.
+  const seats =
+    params.aircraft.capacity.economy +
+    params.aircraft.capacity.business +
+    params.aircraft.capacity.first;
+  const costHandling = fpAdd(
+    fpAdd(GROUND_HANDLING_BASE, fpScale(GROUND_HANDLING_PER_SEAT, seats)),
+    fpScale(
+      fpAdd(PAX_SERVICE_PER_PAX, fpScale(PAX_SERVICE_PER_PAX_HOUR, params.blockHours)),
+      params.actualPassengers,
+    ),
+  );
+
+  // Distribution: a share of what the leg sells.
+  const costDistribution = params.revenue ? fpScale(params.revenue, DISTRIBUTION_SHARE) : FP_ZERO;
+
   // Sum base costs
   const baseTotal = [
     costFuel,
@@ -208,10 +245,12 @@ export function calculateFlightCost(params: FlightCostParams): {
     costAirport,
     costNavigation,
     costLeasing,
+    costHandling,
+    costDistribution,
   ].reduce((acc, val) => fpAdd(acc, val), FP_ZERO);
 
-  // Overhead: 5% of all other costs
-  const costOverhead = fpScale(baseTotal, 0.05);
+  // Overhead: a share of all other costs
+  const costOverhead = fpScale(baseTotal, OVERHEAD_SHARE);
 
   // Total Cost
   const costTotal = fpAdd(baseTotal, costOverhead);
@@ -223,6 +262,8 @@ export function calculateFlightCost(params: FlightCostParams): {
     costAirport,
     costNavigation,
     costLeasing,
+    costHandling,
+    costDistribution,
     costOverhead,
     costTotal,
   };
@@ -254,8 +295,10 @@ export function getSuggestedFares(distanceKm: number): {
   first: FixedPoint;
 } {
   return {
-    economy: fp(Math.round(distanceKm * 0.15 + 50)),
-    business: fp(Math.round(distanceKm * 0.4 + 150)),
+    // Yields fall with distance, as real fares do (S58.2): ~$107 at 300 km,
+    // ~$130 at 500 km, ~$360 at 4,000 km.
+    economy: fp(Math.round(40 + 2.2 * distanceKm ** 0.6)),
+    business: fp(Math.round(100 + 2.5 * distanceKm ** 0.75)),
     first: fp(Math.round(distanceKm * 0.8 + 400)),
   };
 }

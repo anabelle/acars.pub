@@ -679,3 +679,64 @@ describe("openRoute rollback", () => {
     expect(state.routes).toHaveLength(0);
   });
 });
+
+describe("applySuggestedFrequency (S58)", () => {
+  const madBcn = (frequencyPerWeek: number): Route => ({
+    ...makeRoute("rt-1", "MAD", "BCN"),
+    distanceKm: 483,
+    frequencyPerWeek,
+    fareEconomy: fp(150),
+    fareBusiness: fp(450),
+    fareFirst: fp(800),
+  });
+  const atrAtMad = (id: string, routeId: string | null) => ({
+    ...makeAircraft(id, routeId),
+    baseAirportIata: "MAD",
+  });
+
+  it("raises a new route's frequency when its first plane is assigned", async () => {
+    const { state } = createSliceState({
+      airline: makeAirline(["MAD"]),
+      routes: [madBcn(7)],
+      fleet: [atrAtMad("ac-1", null)],
+      timeline: [] as TimelineEvent[],
+    });
+    await state.assignAircraftToRoute("ac-1", "rt-1");
+    expect(state.routes[0].frequencyPerWeek).toBeGreaterThan(7);
+  });
+
+  it("a second plane raises the frequency again", async () => {
+    const { state } = createSliceState({
+      airline: makeAirline(["MAD"]),
+      routes: [madBcn(7)],
+      fleet: [atrAtMad("ac-1", null), atrAtMad("ac-2", null)],
+      timeline: [] as TimelineEvent[],
+    });
+    await state.assignAircraftToRoute("ac-1", "rt-1");
+    const one = state.routes[0].frequencyPerWeek ?? 0;
+    await state.assignAircraftToRoute("ac-2", "rt-1");
+    expect(state.routes[0].frequencyPerWeek ?? 0).toBeGreaterThan(one);
+  });
+
+  it("never lowers a frequency the player set higher", async () => {
+    const { state } = createSliceState({
+      airline: makeAirline(["MAD"]),
+      routes: [madBcn(140)],
+      fleet: [atrAtMad("ac-1", "rt-1")],
+      timeline: [] as TimelineEvent[],
+    });
+    expect(await state.applySuggestedFrequency("rt-1")).toBeNull();
+    expect(state.routes[0].frequencyPerWeek).toBe(140);
+  });
+
+  it("does nothing for a route no plane flies", async () => {
+    const { state } = createSliceState({
+      airline: makeAirline(["MAD"]),
+      routes: [madBcn(7)],
+      fleet: [],
+      timeline: [] as TimelineEvent[],
+    });
+    expect(await state.applySuggestedFrequency("rt-1")).toBeNull();
+    expect(state.routes[0].frequencyPerWeek).toBe(7);
+  });
+});

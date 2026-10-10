@@ -116,7 +116,6 @@ export function computeHubOpportunities(
       brandScore: input.brandScore,
       playerPubkey: input.playerPubkey,
       competitorOffers: input.registry.get(canonicalRouteKey(hub.iata, airport.iata)) ?? [],
-      frequencyPerWeek: NEW_ROUTE_WEEKLY_FREQUENCY,
       networkRoutes: [
         ...input.routes,
         {

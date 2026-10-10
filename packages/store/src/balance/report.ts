@@ -1,10 +1,13 @@
 import {
+  fpToNumber,
   MAX_ROUTE_FREQUENCY_PER_WEEK,
   setActiveEventsOverride,
   TIER_THRESHOLDS,
   WORLD_EVENT_TEMPLATES,
   type WorldEvent,
 } from "@acars/core";
+import { getAircraftById } from "@acars/data";
+import { bestWeeklyFrequency } from "../routeProjection.js";
 import {
   BRAND_MARKET,
   BRAND_STRATEGIES,
@@ -12,7 +15,7 @@ import {
   MAX_CURVE_AIRCRAFT,
   overAssignmentCurve,
 } from "./brand.js";
-import { dollars, type LegMetrics, runLegScenario } from "./legScenario.js";
+import { dollars, type LegMetrics, routeDistanceKm, runLegScenario } from "./legScenario.js";
 import { hubDestinations, STRATEGIES, simulateStrategy } from "./strategy.js";
 
 /** Markets from thick to thin. All solo (no rival airlines). */
@@ -180,7 +183,63 @@ function familyTable(): string {
   return lines.join("\n");
 }
 
-function strategyTable(days: number): string {
+/** Routes measured at real utilization (S58): market sizes and aircraft families. */
+export const UTILIZATION_CASES: Array<{ modelId: string; origin: string; destination: string }> = [
+  ...MARKETS.flatMap((m) => [
+    { modelId: "atr72-600", origin: m.origin, destination: m.destination },
+    { modelId: "a320neo", origin: m.origin, destination: m.destination },
+  ]),
+  { modelId: "dash8-q400", origin: "MAD", destination: "BCN" },
+  { modelId: "a320neo", origin: "JFK", destination: "LAX" },
+  { modelId: "b787-9", origin: "JFK", destination: "LHR" },
+];
+
+function utilizationTable(): string {
+  const lines = [
+    header([
+      "Route",
+      "Model",
+      "km",
+      "Round trips/wk",
+      "Block h/day",
+      "LF",
+      "Revenue/day",
+      "Profit/day after lease",
+      "Margin",
+    ]),
+  ];
+  for (const c of UTILIZATION_CASES) {
+    const model = getAircraftById(c.modelId);
+    if (!model) continue;
+    const distanceKm = routeDistanceKm(c.origin, c.destination);
+    const best = bestWeeklyFrequency({
+      originIata: c.origin,
+      destinationIata: c.destination,
+      distanceKm,
+      model,
+      tick: 1,
+    });
+    const revenue = fpToNumber(best.projection.revenuePerDay);
+    const profit = fpToNumber(best.projection.profitPerDay) - fpToNumber(model.monthlyLease) / 30;
+    const blockHours = ((best.frequencyPerWeek * 2) / 7) * (distanceKm / model.speedKmh);
+    lines.push(
+      row([
+        `${c.origin}–${c.destination}`,
+        c.modelId,
+        distanceKm,
+        best.frequencyPerWeek,
+        blockHours.toFixed(1),
+        pct(best.projection.loadFactor),
+        money(Math.round(revenue)),
+        money(Math.round(profit)),
+        revenue > 0 ? pct(profit / revenue) : "—",
+      ]),
+    );
+  }
+  return lines.join("\n");
+}
+
+function strategyTable(days: number, utilization: "default" | "best" = "default"): string {
   const lines = [
     header([
       "Strategy",
@@ -195,7 +254,7 @@ function strategyTable(days: number): string {
   ];
   const day = (value: number | null) => (value === null ? `> ${days}` : String(value));
   for (const strategy of STRATEGIES) {
-    const result = simulateStrategy(strategy, { days });
+    const result = simulateStrategy(strategy, { days, utilization });
     lines.push(
       row([
         `**${strategy.name}**: ${strategy.description}`,
@@ -439,6 +498,14 @@ function buildReport(extraSections: ReportSection[]): string {
     {
       title: `8. World events (${BASE_MODEL} on ${EVENT_MARKET.origin}–${EVENT_MARKET.destination}, 1 aircraft, suggested fares)`,
       body: `${worldEventsSection()}\n\n_Each event pinned at ${EVENT_MARKET.destination} (fuel spike: global) against the same calm leg. Combined effects are clamped (S33): demand ×0.6–1.6, fees ≤ ×1.5, fuel ≤ ×1.2._`,
+    },
+    {
+      title: "9. Real utilization (S58): one aircraft at the suggested frequency",
+      body: `${utilizationTable()}\n\n_The frequency that earns the most operating profit per day within an 18-hour operating day (\`bestWeeklyFrequency\`). Margin = profit after the aircraft's lease ÷ revenue. Target (D19): 10–20% on good markets, losses on thin ones._`,
+    },
+    {
+      title: "10. Day-one strategies at real utilization (S58)",
+      body: `${strategyTable(365, "best")}\n\n_As section 5, with each route flown at its suggested frequency._`,
     },
     ...extraSections,
   ];

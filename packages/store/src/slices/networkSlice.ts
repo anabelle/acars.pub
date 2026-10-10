@@ -35,6 +35,7 @@ import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { clampFixedPoint } from "../actionReducer";
 import { useEngineStore } from "../engine";
+import { suggestRouteFrequency } from "../routeSuggestion";
 import type { AirlineState } from "../types";
 
 export type HubAction =
@@ -57,6 +58,11 @@ export interface NetworkSlice {
   ) => Promise<void>;
   /** Round trips a week (S14); the engine flies them, capped by what the aircraft can do. */
   updateRouteFrequency: (routeId: string, frequencyPerWeek: number) => Promise<void>;
+  /**
+   * Raises the route's weekly frequency to the suggestion for the planes on it
+   * (S58); never lowers it. Returns the frequency it applied, or null.
+   */
+  applySuggestedFrequency: (routeId: string) => Promise<number | null>;
 }
 
 /**
@@ -917,6 +923,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       timeline: finalTimeline,
     });
 
+    let assignFailed = false;
     try {
       await publishActionWithChain({
         action: {
@@ -932,6 +939,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         set,
       });
     } catch (e) {
+      assignFailed = true;
       set((state) => {
         // Merge-safe rollback: only revert the specific aircraft assignment state
         // and route assignedAircraftIds, preserving concurrent updates.
@@ -971,6 +979,8 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       });
       console.error("Failed to sync assignment to Nostr:", e);
     }
+    // A plane added to a route flies its share of a fuller schedule (S58).
+    if (routeId && !assignFailed) await get().applySuggestedFrequency(routeId);
   },
 
   updateRouteFares: async (
@@ -1094,5 +1104,23 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       }));
       console.error("Failed to sync frequency to Nostr:", e);
     }
+  },
+
+  applySuggestedFrequency: async (routeId: string) => {
+    const { routes, fleet, airline, globalRouteRegistry } = get();
+    if (!airline) return null;
+    const route = routes.find((rt) => rt.id === routeId);
+    if (!route) return null;
+    const suggestion = suggestRouteFrequency({
+      route,
+      fleet,
+      routes,
+      airline,
+      registry: globalRouteRegistry,
+      tick: useEngineStore.getState().tick,
+    });
+    if (!suggestion || suggestion.frequencyPerWeek <= (route.frequencyPerWeek ?? 0)) return null;
+    await get().updateRouteFrequency(routeId, suggestion.frequencyPerWeek);
+    return suggestion.frequencyPerWeek;
   },
 });

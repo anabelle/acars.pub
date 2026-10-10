@@ -5,3 +5,4 @@ export * from "./FlightEngine.js";
 export * from "./hooks.js";
 export * from "./rivalRoutes.js";
 export * from "./routeProjection.js";
+export * from "./routeSuggestion.js";

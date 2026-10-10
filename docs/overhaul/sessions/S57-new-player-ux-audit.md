@@ -1,9 +1,9 @@
 # S57 — New-player UX audit: buy a plane, then the main flows
 
-> **Status:** ☑ ready for review
+> **Status:** ☑ merged
 > **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #194
+> **PR:** — (merged in #194)
 >
 > **Track:** UX · **Size:** M (2 steps) · **Depends on:** S56 · **Unblocks:** — · **Asked by the owner (2026-10-10)**
 >

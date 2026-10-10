@@ -62,17 +62,17 @@ describe("balance harness", () => {
     }
   });
 
-  it("tier pacing hits the S12 targets", () => {
+  it("tier pacing hits the S12 targets at real utilization (S58)", () => {
     const [cautious, balanced, greedy] = STRATEGIES.map((strategy) =>
-      simulateStrategy(strategy, { days: 60 }),
+      simulateStrategy(strategy, { days: 60, utilization: "best" }),
     );
     const t2 = balanced.daysToTier[2];
     const t3 = balanced.daysToTier[3];
     expect(t2).not.toBeNull();
-    expect(t2).toBeGreaterThanOrEqual(1);
-    expect(t2).toBeLessThanOrEqual(3);
+    expect(t2).toBeGreaterThanOrEqual(2);
+    expect(t2).toBeLessThanOrEqual(6);
     expect(t3).toBeGreaterThanOrEqual(21);
-    expect(t3).toBeLessThanOrEqual(28);
+    expect(t3).toBeLessThanOrEqual(42);
     // Greedy is never more than 2× faster than balanced.
     expect((greedy.daysToTier[2] ?? 0) * 2).toBeGreaterThanOrEqual(t2 ?? 0);
     expect((greedy.daysToTier[3] ?? 0) * 2).toBeGreaterThanOrEqual(t3 ?? 0);

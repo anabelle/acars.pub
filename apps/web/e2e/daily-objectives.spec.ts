@@ -50,9 +50,12 @@ test("a player completes and claims a daily objective", async ({ page, problems 
   await navigateInApp(page, "/network?tab=active");
   const control = page.getByTestId("route-frequency").first();
   await expect(control).toBeVisible({ timeout: 30_000 });
-  await control.getByRole("button", { name: /more round trips/i }).click();
+  // Launch already raised it to the suggestion (S58); the player trims it by one.
+  await expect(control).not.toContainText(/^Frequency7\/wk/, { timeout: 15_000 });
+  const launched = Number(/(\d+)\/wk/.exec((await control.textContent()) ?? "")?.[1]);
+  await control.getByRole("button", { name: /fewer round trips/i }).click();
   await control.getByRole("button", { name: "Apply" }).click();
-  await expect(control).toContainText("8/wk");
+  await expect(control).toContainText(`${launched - 1}/wk`);
 
   // Back in the cockpit the objective is complete and claimable.
   await navigateInApp(page, "/?panel=cockpit");

@@ -107,14 +107,14 @@ describe("estimateHistoricRevenue", () => {
 
 describe("getTierProgress", () => {
   it("measures both requirements towards the next tier", () => {
-    expect(getTierProgress(1, fp(250_000), 2)).toEqual({
+    expect(getTierProgress(1, fp(750_000), 2)).toEqual({
       tier: 1,
       nextTier: 2,
       revenuePct: 25,
       routesPct: 66,
       revenueMet: false,
       routesMet: false,
-      revenueTarget: fp(1_000_000),
+      revenueTarget: fp(3_000_000),
       routesTarget: 3,
     });
   });
