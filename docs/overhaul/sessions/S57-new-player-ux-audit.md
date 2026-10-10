@@ -3,7 +3,7 @@
 > **Status:** ☑ ready for review
 > **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #194
 >
 > **Track:** UX · **Size:** M (2 steps) · **Depends on:** S56 · **Unblocks:** — · **Asked by the owner (2026-10-10)**
 >
@@ -60,7 +60,7 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Fix:** rows are measured (`measureElement`) with a 600–640 px estimate; the photo area is `h-40 sm:h-48`, `shrink-0` and clips its image. The purchase modal is `role="dialog"`, named by the aircraft, and Escape closes it. The search icon is centered in its field.
 - **Tests:** `fleet-purchase` (desktop) and `mobile-fleet-purchase` add photo-sized images to the cards, check the buy button sits inside its card and nothing overflows, then buy an ATR 42-600 through the dialog. With the old layout put back, both fail.
 
-2026-10-10 · S57.2 · (this commit) · **The main flows, fixed from the audit.**
+2026-10-10 · S57.2 · d1eb414 · **The main flows, fixed from the audit.**
 
 - **Phone top bar:** the airline name and cash share one line, so the bar ends above the panels' top edge (`mobileLayout.ts`) instead of covering their title and close button.
 - **Phone panels are opaque** (`PanelLayout`, airport and aircraft panels; desktop keeps the glass), so nothing shows through, map buttons included.
