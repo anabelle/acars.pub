@@ -49,9 +49,7 @@ Wave B (S66–S74) only after its decision; Wave C (S75–S76) last.
 ## 4. PR and merge hygiene
 
 - **PR body ≤ 12 lines**: 2–4 summary bullets, a one-line test result, a link to the brief. No step-by-step narration (that's the brief's progress log).
-- **Squash merge message**: GitHub's default squash message lists every commit in the PR. Because the session branch is reset with a `merge -s ours` after each merge, old already-merged commits stay on it and every squash message lists them all (141 commits by S58). Fix, either:
-  - repository setting → _Pull Requests → Allow squash merging → Default commit message: **Pull request title and description**_ (recommended, combined with short PR bodies); or
-  - after each merge, reset the session branch to `main` with a **force-with-lease** push (allowed only when the branch holds nothing but already-merged history), instead of `merge -s ours`.
+- **Squash merge message**: the repository's default squash message is **Pull request title and description** (set 2026-10-10). Old already-merged commits left on the session branch by the `merge -s ours` reset no longer reach the merge message, so the reset stays as it is (no force-push needed). Keep PR bodies short: the body is the merge message.
 
 ## 5. Session checklist (copy into each brief)
 
