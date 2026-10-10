@@ -3,7 +3,7 @@
 > **Status:** ◐ in progress
 > **Next step:** S58.2 (needs D19)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #195
 >
 > **Track:** Economy/UX · **Size:** M (3 steps) · **Depends on:** S14 · **Unblocks:** S64 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) Wave A
 >
@@ -56,9 +56,9 @@ A plane you pay for should fly most of its day. Today it mostly waits on the gro
 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
-2026-10-10 · brief · (this commit) · Written from the 2026-10-10 planning session (Blueprint v2, Wave A).
+2026-10-10 · brief · ba10e67 · Written from the 2026-10-10 planning session (Blueprint v2, Wave A).
 
-2026-10-10 · S58.1 · (this commit) · **`bestWeeklyFrequency`, and a finding that needs a decision.**
+2026-10-10 · S58.1 · d600093 · **`bestWeeklyFrequency`, and a finding that needs a decision.**
 
 - **What:** `packages/store/src/routeProjection.ts` gains `bestWeeklyFrequency` and `OPERATING_HOURS_PER_DAY`; 3 new tests in `routeProjection.test.ts`. Nothing uses it yet.
 - **Design change:** no reducer change. Frequency stays a player action (`ROUTE_UPDATE_FREQUENCY`); the client suggests it. Replays and rivals are untouched.
