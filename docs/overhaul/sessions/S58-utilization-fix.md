@@ -1,7 +1,7 @@
 # S58 — Utilization fix: planes fly their day
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge #195)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #195)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #195
 >
@@ -102,3 +102,5 @@ Day-one strategies at real utilization: Balanced reaches Tier 2 on day 4 and Tie
 - **Launch / add a plane**: already raised by the store (S58.3 wip); MAD–BCN launches at 46/wk, 12.4 block h/day.
 - **Tests**: component tests for route and cockpit; e2e `route-frequency` (launch above 7/wk, cut to 1/wk → idle, "fly more" clears it) and `daily-objectives` updated to the new opening frequency. CI's earlier red was these two specs still expecting 7/wk (plus one intermittent perf-probe timeout at d600093 that passed on the next run).
 - **Screenshots**: [`route-idle-1440.png`](../media/s58/route-idle-1440.png), [`route-idle-390.png`](../media/s58/route-idle-390.png).
+
+2026-10-10 · merged · 14a6c52 · Squash-merged in #195 (first merge with the "PR title and description" squash default: the message is the short PR body).
