@@ -74,6 +74,8 @@ export interface AirlineState {
     fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint },
   ) => Promise<void>;
   updateRouteFrequency: (routeId: string, frequencyPerWeek: number) => Promise<void>;
+  /** Raises the route to its suggested weekly frequency (S58); never lowers it. */
+  applySuggestedFrequency: (routeId: string) => Promise<number | null>;
   updateHub: (newHubIata: string) => Promise<void>;
   /** S32: claim a completed daily objective (verified by the replay). */
   claimObjective: (objectiveId: string) => Promise<void>;

@@ -93,7 +93,7 @@ export function RouteDecisionCard({
       brandScore: airline.brandScore ?? 0.5,
       playerPubkey: pubkey ?? "",
       competitorOffers: registry?.get(canonicalRouteKey(originIata, destinationIata)) ?? [],
-      frequencyPerWeek: existingRoute?.frequencyPerWeek ?? NEW_ROUTE_WEEKLY_FREQUENCY,
+      frequencyPerWeek: existingRoute?.frequencyPerWeek,
       // The airline's network once this route flies (counted once if it already exists).
       networkRoutes: existingRoute
         ? routes

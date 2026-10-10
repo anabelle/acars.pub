@@ -10,6 +10,7 @@ import {
   ROUTE_SLOT_FEE,
 } from "@acars/core";
 import { getAircraftById, getAirports } from "@acars/data";
+import { bestWeeklyFrequency } from "../routeProjection.js";
 import { type LegMetrics, routeDistanceKm, runLegScenario } from "./legScenario.js";
 
 /** Starting cash for a new airline (identity setup). */
@@ -98,7 +99,18 @@ export function hubDestinations(hubIata: string, maxKm: number, count: number): 
  */
 export function simulateStrategy(
   strategy: Strategy,
-  { hubIata = "MAD", days = 365, maxDestinations = 40 } = {},
+  {
+    hubIata = "MAD",
+    days = 365,
+    maxDestinations = 40,
+    utilization = "default",
+  }: {
+    hubIata?: string;
+    days?: number;
+    maxDestinations?: number;
+    /** "default": 7 round trips a week; "best": the S58 suggested frequency. */
+    utilization?: "default" | "best";
+  } = {},
 ): StrategyResult {
   const model = getAircraftById(strategy.modelId);
   if (!model) throw new Error(`Unknown model ${strategy.modelId}`);
@@ -117,6 +129,16 @@ export function simulateStrategy(
       modelId: strategy.modelId,
       fareMultiplier: strategy.fareMultiplier,
       aircraftCount: 1,
+      frequencyPerWeek:
+        utilization === "best"
+          ? bestWeeklyFrequency({
+              originIata: hubIata,
+              destinationIata,
+              distanceKm: routeDistanceKm(hubIata, destinationIata),
+              model,
+              tick: 1,
+            }).frequencyPerWeek
+          : undefined,
     }),
   );
   const leasePerDay = fpScale(model.monthlyLease, aircraft / DAYS_PER_LEASE_MONTH);

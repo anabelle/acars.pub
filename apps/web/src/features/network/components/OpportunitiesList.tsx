@@ -91,7 +91,6 @@ export function OpportunitiesList({
         playerPubkey: pubkey ?? "",
         competitorOffers:
           registry?.get(canonicalRouteKey(market.origin.iata, market.destination.iata)) ?? [],
-        frequencyPerWeek: NEW_ROUTE_WEEKLY_FREQUENCY,
         networkRoutes: [
           ...routes,
           {

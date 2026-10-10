@@ -76,6 +76,14 @@ describe("recommendAircraftForRoute", () => {
     expect(recommendation?.profitAfterLeasePerDay).toBeGreaterThan(0);
   });
 
+  it("projects a new route at its best frequency, not the opening 7 a week (S58)", () => {
+    const best = recommendAircraftForRoute({ ...base, tier: 1 });
+    const fixed = recommendAircraftForRoute({ ...base, tier: 1, frequencyPerWeek: 7 });
+    expect(best?.frequencyPerWeek).toBeGreaterThan(7);
+    expect(fixed?.frequencyPerWeek).toBe(7);
+    expect(best?.projection.profitPerDay ?? 0).toBeGreaterThan(fixed?.projection.profitPerDay ?? 0);
+  });
+
   it("returns null when no unlocked aircraft has the range", () => {
     expect(recommendAircraftForRoute({ ...base, distanceKm: 8000, tier: 1 })).toBeNull();
   });

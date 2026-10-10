@@ -867,6 +867,7 @@ export function processFlightEngine(
           blockHours: (ac.flight.arrivalTick - ac.flight.departureTick) / TICKS_PER_HOUR,
           airportFeesMultiplier,
           fuelPricePerKg,
+          revenue: rev.revenueTotal,
         });
 
         const profit = fpSub(rev.revenueTotal, cost.costTotal);
@@ -933,6 +934,8 @@ export function processFlightEngine(
                   airport: cost.costAirport,
                   navigation: cost.costNavigation,
                   leasing: cost.costLeasing,
+                  handling: cost.costHandling,
+                  distribution: cost.costDistribution,
                   overhead: cost.costOverhead,
                 },
               }
@@ -1293,6 +1296,8 @@ export function estimateLandingFinancials(
         costAirport: fp(0),
         costNavigation: fp(0),
         costLeasing: fp(0),
+        costHandling: fp(0),
+        costDistribution: fp(0),
         costOverhead: fp(0),
       },
       details: {
@@ -1360,6 +1365,7 @@ export function estimateLandingFinancials(
     blockHours: hoursPerLeg,
     airportFeesMultiplier,
     fuelPricePerKg: getEventFuelPriceAtTick(tick),
+    revenue: revenue.revenueTotal,
   });
 
   const profit = fpSub(revenue.revenueTotal, cost.costTotal);
@@ -1394,6 +1400,8 @@ export function estimateLandingFinancials(
       airport: cost.costAirport,
       navigation: cost.costNavigation,
       leasing: cost.costLeasing,
+      handling: cost.costHandling,
+      distribution: cost.costDistribution,
       overhead: cost.costOverhead,
     },
   };

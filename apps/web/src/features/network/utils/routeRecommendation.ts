@@ -1,7 +1,7 @@
 import type { AircraftModel, FixedPoint, FlightOffer, Route } from "@acars/core";
 import { fpScale, fpSub, getMaxRouteDistanceKm } from "@acars/core";
 import { aircraftModels } from "@acars/data";
-import { projectRouteEconomics, type RouteProjection } from "@acars/store";
+import { bestWeeklyFrequency, projectRouteEconomics, type RouteProjection } from "@acars/store";
 
 /** New routes are stored with this weekly frequency (see networkSlice.openRoute). */
 export const NEW_ROUTE_WEEKLY_FREQUENCY = 7;
@@ -10,6 +10,8 @@ export const DAYS_PER_LEASE_MONTH = 30;
 export interface RouteRecommendation {
   model: AircraftModel;
   projection: RouteProjection;
+  /** Round trips a week the projection assumes (the suggestion when none was given). */
+  frequencyPerWeek: number;
   /** Operating profit per day minus the model's lease, for one aircraft. */
   profitAfterLeasePerDay: FixedPoint;
 }
@@ -24,7 +26,10 @@ export interface RouteCandidateInput {
   playerPubkey: string;
   competitorOffers: FlightOffer[];
   networkRoutes: ReadonlyArray<Pick<Route, "originIata" | "destinationIata" | "frequencyPerWeek">>;
-  /** Round trips a week the route flies (S14); a new route gets 7. */
+  /**
+   * Round trips a week the route flies (S14). Omit it for a new route: each
+   * aircraft is then projected at its best frequency (S58), what launch applies.
+   */
   frequencyPerWeek?: number;
   catalog?: readonly AircraftModel[];
 }
@@ -43,7 +48,7 @@ export function recommendAircraftForRoute(input: RouteCandidateInput): RouteReco
   if (candidates.length === 0) return null;
 
   const options = candidates.map((model) => {
-    const projection = projectRouteEconomics({
+    const projectionInput = {
       originIata: input.originIata,
       destinationIata: input.destinationIata,
       distanceKm: input.distanceKm,
@@ -54,12 +59,22 @@ export function recommendAircraftForRoute(input: RouteCandidateInput): RouteReco
       playerBrandScore: input.brandScore,
       distanceLimitKm: getMaxRouteDistanceKm(input.tier),
       networkRoutes: input.networkRoutes,
-      frequencyPerWeek: input.frequencyPerWeek ?? NEW_ROUTE_WEEKLY_FREQUENCY,
-    });
+    };
+    const { frequencyPerWeek, projection } =
+      input.frequencyPerWeek === undefined
+        ? bestWeeklyFrequency(projectionInput)
+        : {
+            frequencyPerWeek: input.frequencyPerWeek,
+            projection: projectRouteEconomics({
+              ...projectionInput,
+              frequencyPerWeek: input.frequencyPerWeek,
+            }),
+          };
     const leasePerDay = fpScale(model.monthlyLease, 1 / DAYS_PER_LEASE_MONTH);
     return {
       model,
       projection,
+      frequencyPerWeek,
       profitAfterLeasePerDay: fpSub(projection.profitPerDay, leasePerDay),
     };
   });
