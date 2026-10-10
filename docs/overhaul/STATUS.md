@@ -117,6 +117,9 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 32  | S55     | P1       | 4     | Eventful 1:1 world: short first hops, event objectives, time-lapse, alerts (D5 = C).    |
 | 33  | S56     | P1       | 4     | Globe-first shell on MapLibre: briefing drawer, route cards, one card style (D4 = A).   |
 | 34  | S57     | P0       | 2     | Owner: "impossible to buy a plane" as a new player. Audit and fix the main flows.       |
+| 35  | S58     | P0       | 3     | Owner: "all my planes grounded most of the time". Planes fly their day (Blueprint v2).  |
+
+**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Chart & Ink" art direction, sessions S58–S76 and decisions D9–D18. Briefs are written as each session starts; S58 is ready now.
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 
@@ -130,16 +133,26 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 
 Update when the owner decides. Full context is in [`README.md` §2](README.md#2-decisions-the-owner-must-make).
 
-| ID  | Decision                          | Status     | Date       | Outcome                                                                                                          |
-| --- | --------------------------------- | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------- |
-| D1  | Flat ~87% LF intentional?         | ✅ decided | 2026-10-05 | No: make it a real market (S10: incumbents + fare cap, gentle Tier 1).                                           |
-| D2  | Activation-tick rulesets          | ✅ decided | 2026-10-05 | No versioning: no real players yet, so rules change in place. S03 skipped.                                       |
-| D3  | Notification architecture         | ✅ decided | 2026-10-06 | Local first: system notifications from the app/PWA; Nostr DM bot later.                                          |
-| D4  | Globe-first 3D shell go/no-go     | ✅ decided | 2026-10-07 | Option A: globe-first shell on the existing MapLibre globe, no deck.gl (S56). Android 30–60 fps, globe in 5.2 s. |
-| D5  | Fast Tycoon sandbox               | ✅ decided | 2026-10-07 | Option C: no second mode; make the 1:1 world more eventful (`tycoon-mode.md`).                                   |
-| D6  | Reward validation model           | ✅ decided | 2026-10-07 | Replay-verified claims: rewards are pure functions of the action log.                                            |
-| D7  | Store/domain/social account owner | ⏸ deferred | 2026-10-07 | Left for later by the owner; S52 waits.                                                                          |
-| D8  | Flights follow route frequency    | ✅ decided | 2026-10-05 | Yes: respect the weekly frequency (S14), capped by physics.                                                      |
+| ID  | Decision                             | Status     | Date       | Outcome                                                                                                          |
+| --- | ------------------------------------ | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| D1  | Flat ~87% LF intentional?            | ✅ decided | 2026-10-05 | No: make it a real market (S10: incumbents + fare cap, gentle Tier 1).                                           |
+| D2  | Activation-tick rulesets             | ✅ decided | 2026-10-05 | No versioning: no real players yet, so rules change in place. S03 skipped.                                       |
+| D3  | Notification architecture            | ✅ decided | 2026-10-06 | Local first: system notifications from the app/PWA; Nostr DM bot later.                                          |
+| D4  | Globe-first 3D shell go/no-go        | ✅ decided | 2026-10-07 | Option A: globe-first shell on the existing MapLibre globe, no deck.gl (S56). Android 30–60 fps, globe in 5.2 s. |
+| D5  | Fast Tycoon sandbox                  | ✅ decided | 2026-10-07 | Option C: no second mode; make the 1:1 world more eventful (`tycoon-mode.md`).                                   |
+| D6  | Reward validation model              | ✅ decided | 2026-10-07 | Replay-verified claims: rewards are pure functions of the action log.                                            |
+| D7  | Store/domain/social account owner    | ⏸ deferred | 2026-10-07 | Left for later by the owner; S52 waits.                                                                          |
+| D8  | Flights follow route frequency       | ✅ decided | 2026-10-05 | Yes: respect the weekly frequency (S14), capped by physics.                                                      |
+| D9  | Lines of flying (multi-route days)   | ❓ open    | 2026-10-10 | Blueprint §6 Decisions; S66.                                                                                     |
+| D10 | Hub banks and connections            | ❓ open    | 2026-10-10 | Blueprint §6; S67, after D9.                                                                                     |
+| D11 | Real weather oracle (METAR/TAF)      | ❓ open    | 2026-10-10 | Blueprint §6 Real; S68.                                                                                          |
+| D12 | Published timetables (next day)      | ❓ open    | 2026-10-10 | Blueprint §6 Decisions; S69.                                                                                     |
+| D13 | Fares while filling (revenue mgmt)   | ❓ open    | 2026-10-10 | Blueprint §6; S70; visual first.                                                                                 |
+| D14 | Passenger groups in demand           | ❓ open    | 2026-10-10 | Blueprint §6 People; S71.                                                                                        |
+| D15 | Ranked entry cost (PoW or sats)      | ❓ open    | 2026-10-10 | Blueprint §6 Fair play; S72.                                                                                     |
+| D16 | Alliances and codeshares             | ❓ open    | 2026-10-10 | Blueprint §6 Social; S73.                                                                                        |
+| D17 | Art direction "Chart & Ink"          | ❓ open    | 2026-10-10 | Blueprint §8; S59 waits on it.                                                                                   |
+| D18 | Opt-in social posts on public relays | ❓ open    | 2026-10-10 | Blueprint §6 Social; S74.                                                                                        |
 
 ## 5. Budget notes
 
