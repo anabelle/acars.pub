@@ -1,7 +1,7 @@
 # S58 — Utilization fix: planes fly their day
 
 > **Status:** ◐ in progress
-> **Next step:** S58.2 (needs D19)
+> **Next step:** S58.3
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #195
 >
@@ -43,7 +43,7 @@ A plane you pay for should fly most of its day. Today it mostly waits on the gro
 ## Steps (checkpoints)
 
 - [x] **S58.1** `bestWeeklyFrequency` in `@acars/store` (pure, ~25 projections, operating-day cap) with tests. _Done when:_ store tests (beats 1/7/max, a second plane never flies less, deterministic, input untouched).
-- [ ] **S58.2** **Needs D19.** Economy calibration for real utilization: per-flight margins so a plane flying 10–13 block hours earns a realistic margin over its lease; S02 harness before/after. _Done when:_ a before/after table here and the owner's sign-off.
+- [x] **S58.2** D19 approved. Economy calibration for real utilization: per-flight margins so a plane flying 10–13 block hours earns a realistic margin over its lease; S02 harness before/after. _Done when:_ a before/after table here and the owner's sign-off.
 - [ ] **S58.3** UI: launch and "add a plane" apply the suggestion; block hours per day on plane, route and cockpit; idle warning and one-tap "fly more"; en/es. _Done when:_ component tests + e2e (launch → frequency set; second plane → frequency rises; idle warning appears and clears) + 1440/390 screenshots.
 
 ## Acceptance criteria
@@ -73,3 +73,21 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 | 737-800 PTY–DFW | $136,229 (62%)          | 12/wk | $195,106 (54%)          | $21,200   |
 
 Per-flight margins were calibrated (S10) while planes flew 7 a week. Letting planes fly a real day multiplies profit 3–8× on busy markets, and some long routes are already very rich at 7/wk. Shipping the utilization fix alone would inflate the economy, so S58.2 waits on **D19**.
+
+2026-10-10 · S58.2 · (this commit) · **Economy recalibrated for real utilization (D19 approved: "recalibrate, realism is important for playability").**
+
+- **Costs** (`packages/core/src/finance.ts`): ground handling per departure ($150 + $6/seat), passenger service ($4/pax + $1.50/pax-hour), distribution 6% of revenue, overhead 5% → 8%, and 0.3 h of fuel per cycle (taxi, climb). Timeline costs gain optional `handling` and `distribution`.
+- **Fares** taper with distance: economy `40 + 2.2·km^0.6` (was linear), business `100 + 2.5·km^0.75`; first unchanged. At 1,000 km: economy $179, business $545.
+- **Tiers** (`tier.ts`): revenue thresholds ×3 (3M / 30M / 180M); route counts unchanged.
+- **Projections**: route recommendations (decision card, opportunities, hub ideas) now project a new route at `bestWeeklyFrequency`, and report that frequency for S58.3 to apply.
+- **Balance** (`docs/overhaul/balance/latest.md` §9–10), one aircraft at its suggested frequency, margin after lease:
+
+| Route                   | Before (S58.1, profit/day) | After: profit/day after lease | Margin |
+| ----------------------- | -------------------------- | ----------------------------- | ------ |
+| ATR 72 MAD–BCN          | $40,274 − $5,200 lease     | $15,928                       | 13%    |
+| Dash 8 MAD–BCN          | —                          | $31,118                       | 19%    |
+| A320neo MAD–BCN         | $227,261 − $22,000 lease   | $151,472                      | 38%    |
+| 787-9 JFK–LHR           | —                          | $52,623                       | 16%    |
+| Thin (DEN–SLC, LIH–KOA) | —                          | losses (−22% to −77%)         | < 0    |
+
+Day-one strategies at real utilization: Balanced reaches Tier 2 on day 4 and Tier 3 on day 31; Greedy 3 and 24; Cautious about break-even. **Note:** the A320 on dense short-haul is still rich (24–38%); log for fine-tuning. **Coupling:** at the opening 7/week every strategy now loses money, so S58.3 (apply the suggestion) must ship in this PR before merge.

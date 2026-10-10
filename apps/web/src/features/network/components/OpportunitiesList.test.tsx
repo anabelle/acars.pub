@@ -96,7 +96,6 @@ describe("OpportunitiesList", () => {
         originIata: "MAD",
         destinationIata: "NEAR",
         distanceKm: 500,
-        frequencyPerWeek: 7,
         networkRoutes: [{ originIata: "MAD", destinationIata: "NEAR", frequencyPerWeek: 7 }],
       }),
     );

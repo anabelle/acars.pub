@@ -397,6 +397,10 @@ export interface TimelineEvent {
       airport: FixedPoint;
       navigation: FixedPoint;
       leasing: FixedPoint;
+      /** Ground handling and passenger service (S58.2; absent on older events). */
+      handling?: FixedPoint;
+      /** Booking and card fees (S58.2; absent on older events). */
+      distribution?: FixedPoint;
       overhead: FixedPoint;
     };
   };

@@ -173,6 +173,7 @@ function projectLeg(
       tick,
     ),
     fuelPricePerKg: getEventFuelPriceAtTick(tick),
+    revenue: revenue.revenueTotal,
   });
 
   return {
