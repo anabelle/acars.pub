@@ -120,7 +120,7 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 34  | S57     | P0       | 2     | Owner: "impossible to buy a plane" as a new player. Audit and fix the main flows.       |
 | 35  | S58     | P0       | 3     | Owner: "all my planes grounded most of the time". Planes fly their day (Blueprint v2).  |
 
-**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is in progress.
+**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is done (awaiting merge), S59 is next.
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 

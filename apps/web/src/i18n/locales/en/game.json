@@ -369,7 +369,10 @@
       "reviewFinance": "Check your finances",
       "reviewFinanceDesc": "See your fixed costs, fuel price and which routes make money before you expand.",
       "scanCompetition": "Check your rivals",
-      "scanCompetitionDesc": "See who's ahead and where they fly before they take your best routes."
+      "scanCompetitionDesc": "See who's ahead and where they fly before they take your best routes.",
+      "flyMore": "Put idle planes to work",
+      "flyMoreDesc_one": "Planes on {{count}} route fly under 6 hours a day. Fly them more.",
+      "flyMoreDesc_other": "Planes on {{count}} routes fly under 6 hours a day. Fly them more."
     },
     "guest": {
       "kicker": "World map",
@@ -697,7 +700,10 @@
       "apply": "Apply",
       "detail": "{{legs}} legs/day · max {{max}}/wk with this fleet",
       "noAircraft": "Assign an aircraft to fly it",
-      "failed": "Couldn’t change the frequency"
+      "failed": "Couldn’t change the frequency",
+      "blockHours": "{{hours}} block h/day per plane",
+      "idle": "idle most of the day",
+      "flyMore": "Fly more · {{count}}/wk"
     },
     "fareEditor": {
       "presets": "Fare presets",

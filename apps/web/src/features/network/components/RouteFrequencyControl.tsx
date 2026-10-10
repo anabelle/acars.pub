@@ -11,15 +11,17 @@ import { Minus, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { RouteUtilization } from "./RouteUtilization";
 
 type Props = {
-  route: Pick<Route, "id" | "distanceKm" | "frequencyPerWeek">;
+  route: Route;
 };
 
 /**
  * Round trips a week on a route (S14): the engine flies exactly this many,
  * capped by what the assigned aircraft can physically fly. Steps locally and
- * publishes one action on "Apply".
+ * publishes one action on "Apply". Shows how long each plane flies a day and
+ * offers the suggested frequency in one tap when planes sit idle (S58).
  */
 export function RouteFrequencyControl({ route }: Props) {
   const { t } = useTranslation(["game"]);
@@ -118,6 +120,7 @@ export function RouteFrequencyControl({ route }: Props) {
               max: physicalMax,
             })}
       </span>
+      <RouteUtilization route={route} hideFlyMore={draft !== null && draft !== current} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 # S58 — Utilization fix: planes fly their day
 
-> **Status:** ◐ in progress
-> **Next step:** S58.3
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge #195)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #195
 >
@@ -44,13 +44,13 @@ A plane you pay for should fly most of its day. Today it mostly waits on the gro
 
 - [x] **S58.1** `bestWeeklyFrequency` in `@acars/store` (pure, ~25 projections, operating-day cap) with tests. _Done when:_ store tests (beats 1/7/max, a second plane never flies less, deterministic, input untouched).
 - [x] **S58.2** D19 approved. Economy calibration for real utilization: per-flight margins so a plane flying 10–13 block hours earns a realistic margin over its lease; S02 harness before/after. _Done when:_ a before/after table here and the owner's sign-off.
-- [ ] **S58.3** UI: launch and "add a plane" apply the suggestion; block hours per day on plane, route and cockpit; idle warning and one-tap "fly more"; en/es. _Done when:_ component tests + e2e (launch → frequency set; second plane → frequency rises; idle warning appears and clears) + 1440/390 screenshots.
+- [x] **S58.3** UI: launch and "add a plane" apply the suggestion; block hours per day on plane, route and cockpit; idle warning and one-tap "fly more"; en/es. _Done when:_ component tests + e2e (launch → frequency set; second plane → frequency rises; idle warning appears and clears) + 1440/390 screenshots.
 
 ## Acceptance criteria
 
-- [ ] A new route's first plane flies ≥ 8 block hours a day where demand allows.
-- [ ] Adding a plane to a route never lowers how much each plane flies (unless the player set the frequency by hand).
-- [ ] Idle planes are visible with a one-tap fix.
+- [x] A new route's first plane flies ≥ 8 block hours a day where demand allows.
+- [x] Adding a plane to a route never lowers how much each plane flies (unless the player set the frequency by hand).
+- [x] Idle planes are visible with a one-tap fix.
 
 ## Progress log
 
@@ -93,3 +93,12 @@ Per-flight margins were calibrated (S10) while planes flew 7 a week. Letting pla
 Day-one strategies at real utilization: Balanced reaches Tier 2 on day 4 and Tier 3 on day 31; Greedy 3 and 24; Cautious about break-even. **Note:** the A320 on dense short-haul is still rich (24–38%); log for fine-tuning. **Coupling:** at the opening 7/week every strategy now loses money, so S58.3 (apply the suggestion) must ship in this PR before merge.
 
 2026-10-10 · S58.3 WIP · (this commit) · Store half done: `suggestRouteFrequency`, `blockHoursPerAircraftPerDay`, `IDLE_BLOCK_HOURS_PER_DAY` (`packages/store/src/routeSuggestion.ts`) and the slice action `applySuggestedFrequency` (raise only); `assignAircraftToRoute` applies it after a successful assignment, so launch and "add a plane" fly a full schedule. Tests: 4 slice + 2 helper. **Remains:** route/plane/cockpit block hours, idle warning and "fly more" button, en/es, component tests, e2e, screenshots.
+
+2026-10-10 · S58.3 · (this commit) · **Planes fly their day, and idle ones show it.**
+
+- **Route** (`RouteFrequencyControl` → new `RouteUtilization` + `useRouteUtilization`): block hours a day per plane, amber "idle most of the day" under 6 h, and one-tap "Fly more · N/wk" (applies `applySuggestedFrequency`).
+- **Plane** (`FleetManager` route assignment): the same line and button for the plane's route.
+- **Cockpit** (`OperationsCockpit`): "Put idle planes to work" when any route flies under 6 h a day; one tap raises each to its suggestion.
+- **Launch / add a plane**: already raised by the store (S58.3 wip); MAD–BCN launches at 46/wk, 12.4 block h/day.
+- **Tests**: component tests for route and cockpit; e2e `route-frequency` (launch above 7/wk, cut to 1/wk → idle, "fly more" clears it) and `daily-objectives` updated to the new opening frequency. CI's earlier red was these two specs still expecting 7/wk (plus one intermittent perf-probe timeout at d600093 that passed on the next run).
+- **Screenshots**: [`route-idle-1440.png`](../media/s58/route-idle-1440.png), [`route-idle-390.png`](../media/s58/route-idle-390.png).

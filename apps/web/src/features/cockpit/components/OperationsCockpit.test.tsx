@@ -1,5 +1,5 @@
 import { fp } from "@acars/core";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@/i18n";
@@ -26,13 +26,30 @@ const airline = {
   status: "private",
 };
 
-vi.mock("@acars/store", () => {
-  const state = { identityStatus: "ready", competitors: new Map(), viewAs: () => {} };
+const network = vi.hoisted(() => ({
+  fleet: [] as Array<{
+    id: string;
+    modelId: string;
+    assignedRouteId: string | null;
+    status: string;
+  }>,
+  routes: [] as Array<Record<string, unknown>>,
+  applySuggestedFrequency: vi.fn(async () => null),
+}));
+
+vi.mock("@acars/store", async (importOriginal) => {
+  const state = {
+    identityStatus: "ready",
+    competitors: new Map(),
+    viewAs: () => {},
+    applySuggestedFrequency: network.applySuggestedFrequency,
+  };
   return {
+    ...(await importOriginal<typeof import("@acars/store")>()),
     useActiveAirline: () => ({
       airline,
-      fleet: [],
-      routes: [],
+      fleet: network.fleet,
+      routes: network.routes,
       timeline: [],
       isViewingOther: false,
     }),
@@ -60,6 +77,9 @@ vi.mock("@/shared/components/layout/PanelLayout", () => ({
 
 afterEach(() => {
   relay.status = "ready";
+  network.fleet = [];
+  network.routes = [];
+  network.applySuggestedFrequency.mockClear();
   cleanup();
 });
 
@@ -105,5 +125,40 @@ describe("cockpit copy", () => {
     ["es", esGame.cockpit],
   ])("%s cockpit strings avoid jargon", (_lang, cockpit) => {
     expect(strings(cockpit).filter((text) => JARGON.test(text))).toEqual([]);
+  });
+});
+
+describe("cockpit idle planes (S58)", () => {
+  const route = (id: string, frequencyPerWeek: number) => ({
+    id,
+    originIata: "MAD",
+    destinationIata: "BCN",
+    distanceKm: 483,
+    frequencyPerWeek,
+    status: "active",
+    assignedAircraftIds: [`ac-${id}`],
+  });
+  const atr = (routeId: string) => ({
+    id: `ac-${routeId}`,
+    modelId: "atr72-600",
+    assignedRouteId: routeId,
+    status: "idle",
+  });
+
+  it("offers to fly more on routes whose planes sit idle", async () => {
+    network.routes = [route("r1", 7), route("r2", 46)];
+    network.fleet = [atr("r1"), atr("r2")];
+    render(<OperationsCockpit />);
+    expect(screen.getByText(/Planes on 1 route fly under 6 hours a day/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Put idle planes to work"));
+    await vi.waitFor(() => expect(network.applySuggestedFrequency).toHaveBeenCalledWith("r1"));
+    expect(network.applySuggestedFrequency).not.toHaveBeenCalledWith("r2");
+  });
+
+  it("stays quiet when every plane flies a full day", () => {
+    network.routes = [route("r2", 46)];
+    network.fleet = [atr("r2")];
+    render(<OperationsCockpit />);
+    expect(screen.queryByText("Put idle planes to work")).not.toBeInTheDocument();
   });
 });

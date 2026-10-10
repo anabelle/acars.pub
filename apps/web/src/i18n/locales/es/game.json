@@ -369,7 +369,10 @@
       "reviewFinance": "Revisar tus finanzas",
       "reviewFinanceDesc": "Mira tus costes fijos, el precio del combustible y qué rutas ganan dinero antes de crecer.",
       "scanCompetition": "Revisar a tus rivales",
-      "scanCompetitionDesc": "Mira quién va por delante y dónde vuela antes de que se queden tus mejores rutas."
+      "scanCompetitionDesc": "Mira quién va por delante y dónde vuela antes de que se queden tus mejores rutas.",
+      "flyMore": "Pon a volar los aviones parados",
+      "flyMoreDesc_one": "Los aviones de {{count}} ruta vuelan menos de 6 horas al día. Vuela más.",
+      "flyMoreDesc_other": "Los aviones de {{count}} rutas vuelan menos de 6 horas al día. Vuela más."
     },
     "guest": {
       "kicker": "Mapa mundial",
@@ -697,7 +700,10 @@
       "apply": "Aplicar",
       "detail": "{{legs}} vuelos/día · máx. {{max}}/sem con esta flota",
       "noAircraft": "Asigna un avión para operarla",
-      "failed": "No se pudo cambiar la frecuencia"
+      "failed": "No se pudo cambiar la frecuencia",
+      "blockHours": "{{hours}} h bloque/día por avión",
+      "idle": "en tierra casi todo el día",
+      "flyMore": "Volar más · {{count}}/sem"
     },
     "fareEditor": {
       "presets": "Tarifas predefinidas",
