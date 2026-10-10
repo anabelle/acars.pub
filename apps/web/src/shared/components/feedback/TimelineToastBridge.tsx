@@ -52,24 +52,50 @@ const EVENT_TOAST_KIND: Record<TimelineEventType, "success" | "info" | "warning"
   objective_reward: "success",
 };
 
+/**
+ * Events the player causes with a button that answers with its own toast
+ * (launch a route, buy a plane...). Their timeline toast waits a moment and is
+ * dropped if the screen already said it, so one click doesn't stack 3 toasts.
+ */
+const OWN_ACTION_TYPES = new Set<TimelineEventType>([
+  "purchase",
+  "sale",
+  "route_change",
+  "hub_change",
+]);
+export const OWN_ACTION_ECHO_MS = 1_500;
+const bridgeToastIds = new Set<string | number>();
+
 const showTimelineToast = (event: TimelineEvent) => {
+  const id = showToast(event);
+  if (id !== undefined) bridgeToastIds.add(id);
+};
+
+const toastIds = () => new Set(toast.getHistory().map((shown) => shown.id));
+
+const showOwnActionToast = (event: TimelineEvent) => {
+  const before = toastIds();
+  setTimeout(() => {
+    const echoed = [...toastIds()].some((id) => !before.has(id) && !bridgeToastIds.has(id));
+    if (!echoed) showTimelineToast(event);
+  }, OWN_ACTION_ECHO_MS);
+};
+
+const showToast = (event: TimelineEvent): string | number | undefined => {
   const title = resolveEventTitle(event.type);
   const description = event.description;
   const kind = EVENT_TOAST_KIND[event.type] ?? "info";
 
   if (event.type === "bankruptcy") {
-    toast.error(`${title} ⚠️`, { description, duration: 15000 });
-    return;
+    return toast.error(`${title} ⚠️`, { description, duration: 15000 });
   }
   if (kind === "success") {
-    toast.success(title, { description, duration: 4000 });
-    return;
+    return toast.success(title, { description, duration: 4000 });
   }
   if (kind === "warning") {
-    toast.warning(title, { description, duration: 6000 });
-    return;
+    return toast.warning(title, { description, duration: 6000 });
   }
-  toast.info(title, { description, duration: 4000 });
+  return toast.info(title, { description, duration: 4000 });
 };
 
 export const TimelineToastBridge = (): null => {
@@ -81,7 +107,10 @@ export const TimelineToastBridge = (): null => {
         { airline: useAirlineStore, engine: useEngineStore },
         MAX_TOASTS_PER_BATCH,
         (events) => {
-          for (const event of [...events].reverse()) showTimelineToast(event);
+          for (const event of [...events].reverse()) {
+            if (OWN_ACTION_TYPES.has(event.type)) showOwnActionToast(event);
+            else showTimelineToast(event);
+          }
         },
       ),
     [],

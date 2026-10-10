@@ -22,6 +22,6 @@ describe("ToastHost", () => {
       mobileOffset?: { top?: number };
     };
     expect(props.position).toBe("top-right");
-    expect(props.mobileOffset?.top).toBe(112);
+    expect(props.mobileOffset?.top).toBe(12);
   });
 });

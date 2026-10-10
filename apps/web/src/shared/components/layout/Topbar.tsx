@@ -477,12 +477,15 @@ export function Topbar() {
     <>
       {renderMobileToggle(
         <>
-          <h1 className="truncate text-sm leading-none font-bold tracking-tight text-foreground">
-            {airlineName}
-          </h1>
-          <p className="mt-1 truncate text-[11px] text-muted-foreground">
-            {airlineCallsign} · <TopbarBalanceTicker />
-          </p>
+          {/* One line, so the toggle stays above the panels' top edge (mobileLayout.ts). */}
+          <div className="mt-1 flex min-w-0 items-baseline gap-2">
+            <h1 className="truncate text-sm leading-none font-bold tracking-tight text-foreground">
+              {airlineName}
+            </h1>
+            <span className="shrink-0 text-[11px] text-muted-foreground">
+              <TopbarBalanceTicker />
+            </span>
+          </div>
         </>,
       )}
 

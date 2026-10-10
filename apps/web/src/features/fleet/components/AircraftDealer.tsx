@@ -195,12 +195,14 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
   // Single virtualized path for every breakpoint: the grid virtualizer
   // supports gridColumns=1 (rowCount = ceil(N/cols)), so <1280px viewports no
   // longer fall back to an unvirtualized .map() over unbounded listings.
+  // Rows are measured once rendered: a card's height depends on its photo,
+  // the width and the language, and a fixed height cut off the buy button.
   const rowCount = Math.ceil(listItems.length / gridColumns);
   const rowHeight =
     displayMode === "factory"
       ? gridColumns === 1
-        ? 430
-        : 400
+        ? 640
+        : 600
       : displayMode === "used-loading"
         ? gridColumns === 1
           ? 300
@@ -212,6 +214,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
     count: rowCount,
     getScrollElement: () => panelScrollRef.current,
     estimateSize: () => rowHeight,
+    measureElement: (element) => element.getBoundingClientRect().height,
     overscan: 2,
     scrollMargin: gridScrollMargin,
   });
@@ -245,7 +248,10 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
       <div className="rounded-2xl border border-border/40 bg-card p-3 shadow-sm backdrop-blur-xl sm:p-4">
         <div className="flex min-w-0 flex-col gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
             <input
               className="h-10 w-full rounded-xl bg-background border border-border/50 pl-10 pr-4 text-sm transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground outline-none"
               placeholder={
@@ -319,13 +325,14 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
               return (
                 <div
                   key={row.key}
-                  className="grid gap-4 sm:gap-6"
+                  data-index={row.index}
+                  ref={virtualizer.measureElement}
+                  className="grid gap-4 pb-4 sm:gap-6 sm:pb-6"
                   style={{
                     position: "absolute",
                     top: 0,
                     left: 0,
                     width: "100%",
-                    height: `${row.size}px`,
                     transform: `translateY(${row.start - virtualizer.options.scrollMargin}px)`,
                     gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
                   }}
@@ -425,13 +432,14 @@ function AircraftCard({
 
   return (
     <div
+      data-testid="dealer-card"
       className={`group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_8px_30px_rgb(0,0,0,0.5)] focus-within:-translate-y-0.5 focus-within:border-primary/45 focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.5)] ${
         isLocked ? "opacity-60" : ""
       }`}
     >
       {/* Top Image Splash */}
       <div
-        className={`relative flex h-48 w-full items-center justify-center border-b border-border/30 bg-gradient-to-br ${bgGradient} sm:h-56 lg:h-64`}
+        className={`relative flex h-40 w-full shrink-0 items-center justify-center overflow-hidden border-b border-border/30 bg-gradient-to-br ${bgGradient} sm:h-48`}
       >
         <div className="absolute left-3 top-3 flex gap-2 sm:left-4 sm:top-4">
           <span className="inline-flex items-center rounded-full bg-background/80 backdrop-blur-md px-2.5 py-0.5 text-xs font-semibold text-foreground border border-border/50">
@@ -441,13 +449,18 @@ function AircraftCard({
             {aircraft.type}
           </span>
         </div>
-        <CatalogImage
-          model={aircraft}
-          className="h-full w-full object-cover object-center"
-          fallback={
-            <Plane className="h-10 w-10 rotate-[-15deg] text-foreground/20 transition-all duration-500 group-hover:scale-110 group-hover:text-foreground/40 sm:h-16 sm:w-16" />
-          }
-        />
+        <div
+          data-testid="dealer-card-photo"
+          className="flex h-full w-full items-center justify-center"
+        >
+          <CatalogImage
+            model={aircraft}
+            className="h-full w-full object-cover object-center"
+            fallback={
+              <Plane className="h-10 w-10 rotate-[-15deg] text-foreground/20 transition-all duration-500 group-hover:scale-110 group-hover:text-foreground/40 sm:h-16 sm:w-16" />
+            }
+          />
+        </div>
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
@@ -542,7 +555,7 @@ function UsedAircraftCard({ listing, airlineTier, onBuy }: UsedListingCardProps)
   return (
     <div className="group relative flex min-w-0 flex-col rounded-2xl bg-card border border-orange-500/20 overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(249,115,22,0.2)] hover:border-orange-500/40">
       <div
-        className={`h-28 w-full bg-gradient-to-br ${bgGradient} relative flex items-center justify-center border-b border-orange-500/10`}
+        className={`h-28 w-full shrink-0 bg-gradient-to-br ${bgGradient} relative flex items-center justify-center border-b border-orange-500/10`}
       >
         <div className="absolute top-3 left-3 flex gap-2">
           <span className="inline-flex items-center rounded-full bg-orange-500/20 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-orange-400 border border-orange-500/20 uppercase">
@@ -658,6 +671,14 @@ function PurchaseModal({
   const firstSliderId = `aircraft-first-${modalKey}`;
   const businessSliderId = `aircraft-business-${modalKey}`;
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isPurchasing) onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose, isPurchasing]);
+
   // Calculate space dynamics based on fleet manager plan
   const baseEconSpace =
     aircraft.capacity.economy + aircraft.capacity.business * 2.5 + aircraft.capacity.first * 4;
@@ -723,7 +744,12 @@ function PurchaseModal({
   return (
     <ModalPortal>
       <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 p-0 backdrop-blur-sm animate-in fade-in duration-200 sm:items-center sm:p-4">
-        <div className="relative flex w-full max-h-[100dvh] min-w-0 flex-col overflow-hidden rounded-t-[24px] border border-border/80 bg-card shadow-2xl sm:max-h-[85vh] sm:max-w-2xl sm:rounded-2xl">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`${modalKey}-title`}
+          className="relative flex w-full max-h-[100dvh] min-w-0 flex-col overflow-hidden rounded-t-[24px] border border-border/80 bg-card shadow-2xl sm:max-h-[85vh] sm:max-w-2xl sm:rounded-2xl"
+        >
           {/* Header Graphic */}
           <div
             className={`relative flex min-h-40 w-full shrink-0 items-center justify-between border-b border-border/30 bg-gradient-to-br ${bgGradient} p-4 sm:min-h-44 sm:p-6`}
@@ -732,7 +758,10 @@ function PurchaseModal({
               <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
                 {aircraft.manufacturer}
               </span>
-              <h2 className="truncate pr-10 text-2xl font-bold text-foreground drop-shadow-sm sm:text-3xl">
+              <h2
+                id={`${modalKey}-title`}
+                className="truncate pr-10 text-2xl font-bold text-foreground drop-shadow-sm sm:text-3xl"
+              >
                 {aircraft.name}
               </h2>
             </div>

@@ -1,14 +1,21 @@
 import { Toaster } from "sonner";
 
+/**
+ * Phones get a collapsed stack over the top bar: expanded toasts under it
+ * covered the open panel's title and close button after every action.
+ */
+const isPhone = () =>
+  typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 639px)").matches;
+
 export function ToastHost() {
   return (
     <Toaster
       position="top-right"
-      expand
+      expand={!isPhone()}
       closeButton
       richColors
       offset={{ top: 16, right: 16, left: 16, bottom: 16 }}
-      mobileOffset={{ top: 112, right: 12, left: 12, bottom: 88 }}
+      mobileOffset={{ top: 12, right: 12, left: 12, bottom: 88 }}
       toastOptions={{
         duration: 4500,
         className:

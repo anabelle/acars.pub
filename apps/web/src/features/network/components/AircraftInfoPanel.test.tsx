@@ -218,7 +218,7 @@ describe("AircraftInfoPanel", () => {
     render(<AircraftInfoPanel aircraft={aircraft} onClose={vi.fn()} />);
 
     expect(screen.getByLabelText("Close aircraft panel").closest("aside")).toHaveClass(
-      "bg-background/96",
+      "sm:bg-background/96",
     );
   });
 });

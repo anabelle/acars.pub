@@ -200,7 +200,7 @@ export function OpportunitiesList({
                         {quickFirstHop && (
                           <span
                             data-testid="first-hop-badge"
-                            className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400"
+                            className="whitespace-nowrap rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400"
                           >
                             {t("routeManager.opportunities.quickFirstHop", {
                               ns: "game",

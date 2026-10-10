@@ -334,6 +334,30 @@ export function WorldMap() {
     // Re-run whenever fleet data updates (aircraft load asynchronously from Nostr)
   }, [permalinkAircraftId, fleet, competitorFleet]);
 
+  // The URL is the truth: leaving /airport/X or /aircraft/X (the nav, a
+  // panel link) closes that panel, instead of leaving it open under the next
+  // one, which stacked two sheets on phones.
+  const hadAirportPermalink = useRef(false);
+  useEffect(() => {
+    if (permalinkAirportIata) {
+      hadAirportPermalink.current = true;
+      return;
+    }
+    if (!hadAirportPermalink.current) return;
+    hadAirportPermalink.current = false;
+    queueMicrotask(() => setInspectedAirport(null));
+  }, [permalinkAirportIata]);
+  const hadAircraftPermalink = useRef(false);
+  useEffect(() => {
+    if (permalinkAircraftId) {
+      hadAircraftPermalink.current = true;
+      return;
+    }
+    if (!hadAircraftPermalink.current) return;
+    hadAircraftPermalink.current = false;
+    queueMicrotask(() => setInspectedAircraft(null));
+  }, [permalinkAircraftId]);
+
   const competitorRoutes = useMemo(() => {
     const playerPubkey = pubkey ?? null;
     const result: Route[] = [];

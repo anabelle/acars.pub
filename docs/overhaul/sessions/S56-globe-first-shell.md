@@ -1,9 +1,9 @@
 # S56 — Globe-first shell on MapLibre (D4 = A)
 
-> **Status:** ☑ ready for review
+> **Status:** ☑ merged
 > **Next step:** —
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #191
+> **PR:** — (merged in #191)
 >
 > **Track:** UX · **Size:** L (4 steps) · **Depends on:** S45, S54 · **Unblocks:** — · **Decided by D4 (2026-10-07)**
 >

@@ -289,10 +289,9 @@ export function RouteDecisionCard({
             ? t("routeCard.launching", { ns: "game" })
             : existingRoute
               ? t("routeCard.finishSetup", { ns: "game" })
-              : t("routeCard.launch", {
-                  ns: "game",
-                  model: reusableAircraft ? reusableAircraft.name : modelLabel,
-                })}
+              : reusableAircraft
+                ? t("routeCard.launchReuse", { ns: "game", aircraft: reusableAircraft.name })
+                : t("routeCard.launch", { ns: "game", model: modelLabel })}
         </button>
       )}
 
