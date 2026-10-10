@@ -116,6 +116,7 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 31  | S53     | P3       | 2     | Tycoon-mode design doc (needs D5).                                                      |
 | 32  | S55     | P1       | 4     | Eventful 1:1 world: short first hops, event objectives, time-lapse, alerts (D5 = C).    |
 | 33  | S56     | P1       | 4     | Globe-first shell on MapLibre: briefing drawer, route cards, one card style (D4 = A).   |
+| 34  | S57     | P0       | 2     | Owner: "impossible to buy a plane" as a new player. Audit and fix the main flows.       |
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 
