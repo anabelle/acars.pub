@@ -1257,5 +1257,30 @@
       "band": "Target 30+ days of cash",
       "fix": "Open finance"
     }
+  },
+  "today": {
+    "title": "Today · {{date}}",
+    "earned": "earned",
+    "flown_one": "{{count}} person flown",
+    "flown_other": "{{count}} people flown",
+    "landings_one": "{{count}} landing",
+    "landings_other": "{{count}} landings",
+    "quiet": "A quiet day so far. Planes in the air will land with stories to tell.",
+    "now": "Now",
+    "delivery": "Delivery",
+    "deliveredAt": "Joined the fleet at {{airport}}.",
+    "bestFlight": "Best flight",
+    "bestFlightText_one": "{{name}} flew {{count}} person {{origin}} → {{destination}} and earned {{profit}}.",
+    "bestFlightText_other": "{{name}} flew {{count}} people {{origin}} → {{destination}} and earned {{profit}}.",
+    "turnedAwayText_one": "{{destination}} sold out: {{count}} person stayed behind.",
+    "turnedAwayText_other": "{{destination}} sold out: {{count}} people stayed behind.",
+    "boarded": "boarded",
+    "stayedBehind": "stayed behind",
+    "addCapacity": "Add seats on this route",
+    "needsYou": "needs you",
+    "parkedText": "{{name}} is parked at {{airport}} with no route.",
+    "parkedMore_one": " One more plane waits too.",
+    "parkedMore_other": " {{count}} more planes wait too.",
+    "putToWork": "Put {{name}} to work"
   }
 }

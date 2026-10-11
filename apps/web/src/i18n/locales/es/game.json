@@ -1257,5 +1257,30 @@
       "band": "Objetivo 30+ días de caja",
       "fix": "Abrir finanzas"
     }
+  },
+  "today": {
+    "title": "Hoy · {{date}}",
+    "earned": "ganados",
+    "flown_one": "{{count}} pasajero",
+    "flown_other": "{{count}} pasajeros",
+    "landings_one": "{{count}} aterrizaje",
+    "landings_other": "{{count}} aterrizajes",
+    "quiet": "Un día tranquilo por ahora. Los aviones en el aire aterrizarán con historias.",
+    "now": "Ahora",
+    "delivery": "Entrega",
+    "deliveredAt": "Se unió a la flota en {{airport}}.",
+    "bestFlight": "Mejor vuelo",
+    "bestFlightText_one": "{{name}} llevó {{count}} pasajero {{origin}} → {{destination}} y ganó {{profit}}.",
+    "bestFlightText_other": "{{name}} llevó {{count}} pasajeros {{origin}} → {{destination}} y ganó {{profit}}.",
+    "turnedAwayText_one": "{{destination}} se agotó: {{count}} persona se quedó en tierra.",
+    "turnedAwayText_other": "{{destination}} se agotó: {{count}} personas se quedaron en tierra.",
+    "boarded": "a bordo",
+    "stayedBehind": "se quedaron en tierra",
+    "addCapacity": "Más asientos en esta ruta",
+    "needsYou": "te necesita",
+    "parkedText": "{{name}} está aparcado en {{airport}} sin ruta.",
+    "parkedMore_one": " Otro avión espera también.",
+    "parkedMore_other": " {{count}} aviones más esperan también.",
+    "putToWork": "Pon a volar a {{name}}"
   }
 }

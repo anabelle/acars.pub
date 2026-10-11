@@ -1,7 +1,7 @@
 # S62 — Instruments and the check-in story (Today)
 
 > **Status:** ◐ in progress
-> **Next step:** S62.2
+> **Next step:** S62.3
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -32,7 +32,7 @@ Each shows the value, the band, a trend against the previous 24 h, and colour by
 ## Steps (checkpoints)
 
 - [x] **S62.1** `computeInstruments` (pure, one pass over the timeline) + `InstrumentPanel` (cockpit gauges with band, trend, fix). _Done when:_ unit tests per instrument (in band, low, high, no data) + component test.
-- [ ] **S62.2** `buildTodayStory` (pure) + `TodayStory` (Ramp): a header (date sign, earned / people flown / landings) and up to five chapters from the last 24 h — deliveries (with the painting), the best flight, people turned away (pictograms, "add a plane"), and "Now · needs you" (idle planes, one tap). _Done when:_ unit tests per chapter + component test.
+- [x] **S62.2** `buildTodayStory` (pure) + `TodayStory` (Ramp): a header (date sign, earned / people flown / landings) and up to five chapters from the last 24 h — deliveries (with the painting), the best flight, people turned away (pictograms, "add a plane"), and "Now · needs you" (idle planes, one tap). _Done when:_ unit tests per chapter + component test.
 - [ ] **S62.3** Cockpit opens on Today + instruments for the player's own airline (guests and other airlines keep the overview); landing toasts read money; toasts dark. e2e with a flying airline; 1440/390 screenshots; PR.
 
 ## Acceptance criteria
@@ -53,3 +53,9 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - `computeInstruments` (`features/cockpit/utils/instruments.ts`): one pass over the timeline for the last 24 h and the 24 h before; utilization = landed block hours ÷ delivered planes, load factor = mean recorded load, margin = profit ÷ revenue, runway = balance ÷ daily loss after fixed costs (hub opex, leases), "growing" when the airline keeps money. States: normal in band, caution out of band, warning when far below (above the band is only ever a caution).
 - `InstrumentPanel`: four cockpit gauges (value in the state's colour, trend ▲▼, the band as a green segment with a needle, the band in words) and a sign-yellow fix button only when out of band; fixes are passed in by the cockpit. en/es.
 - Tests: instruments (in band, low, high, runway, no data), panel (reading, trend, fix only out of band, no data).
+
+2026-10-11 · S62.2 · (this commit) · **The Today story.**
+
+- `buildTodayStory` (pure, one pass): earned, people flown and landings for the last 24 h; chapters in time order — deliveries (own planes only; airport from the plane's base, as the event has none), the best profitable flight, the route that turned most people away (≥ 10, from `spilledPassengers`) — closed by "Now · needs you" for parked planes; at most five.
+- `TodayStory` (Ramp ground): a "Today · <date>" location sign and UTC clock, a summary line (green/red earnings), chapters on a magenta line; deliveries show the painting on a slab; turned-away shows pictograms (boarded vs stayed behind) and "Add seats on this route"; parked shows "Put <name> to work". Quiet days say so. en/es with plurals.
+- Tests: story helper (order, sums, filters), component (summary, each chapter, both actions, quiet day).
