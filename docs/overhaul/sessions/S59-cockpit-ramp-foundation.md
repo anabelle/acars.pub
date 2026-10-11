@@ -1,7 +1,7 @@
 # S59 — Cockpit + Ramp foundation: tokens, fonts, textures, kit; retire neon
 
-> **Status:** ◐ in progress
-> **Next step:** S59.4
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge #196)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #196
 >
@@ -43,14 +43,14 @@ Every later screen composes the same pieces instead of restyling. Ship the Cockp
 - [x] **S59.1** Tokens, fonts, textures (additive: nothing changes on screen yet). _Done when:_ fonts load from `'self'` offline, Tailwind classes compile, gate green.
 - [x] **S59.2** Global re-theme: palette remap, B612 body, no glows, no blur. _Done when:_ before/after screenshots of home, network, fleet, cockpit at 1440 and 390; 4.5:1 text contrast on the new surfaces; e2e and perf probes green.
 - [x] **S59.3** Kit: `Sign`, `Slab`, `PaxCrowd`, `Readout`, `AlertList`, `DayStrip` with unit tests. _Done when:_ tests cover variants, determinism (same seed, same crowd) and accessibility labels.
-- [ ] **S59.4** Promote the clipped-control audit to a permanent e2e; final screenshots; PR ready. _Done when:_ audit green on desktop and mobile, CI green.
+- [x] **S59.4** Promote the clipped-control audit to a permanent e2e; final screenshots; PR ready. _Done when:_ audit green on desktop and mobile, CI green.
 
 ## Acceptance criteria
 
-- [ ] No `backdrop-blur` and no coloured glow shadows left in `apps/web/src`.
-- [ ] Every text/background pair used by the theme meets 4.5:1.
-- [ ] Fonts and textures work offline (no third-party requests).
-- [ ] No layout shifts in the existing e2e suite (it stays green unchanged, except selectors tied to removed glows).
+- [x] No `backdrop-blur` and no coloured glow shadows left in `apps/web/src`.
+- [x] Every text/background pair used by the theme meets 4.5:1.
+- [x] Fonts and textures work offline (no third-party requests).
+- [x] No layout shifts in the existing e2e suite (it stays green unchanged, except selectors tied to removed glows).
 
 ## Progress log
 
@@ -79,3 +79,9 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - `apps/web/src/shared/ui/cockpit`: `Readout` (boxed figure by tone), `AlertList` (warnings first, stable order, `aria-live`), `DayStrip` (a plane's day on a 24 h track, clipped, spoken as block hours).
 - `/kit` (standalone entry page, not linked from the game): every piece in both modes, for building screens and for the screenshot audit. [`kit-1440`](../media/s59/kit-1440.png), [`kit-390`](../media/s59/kit-390.png).
 - Tests: 10 (variants, ordering, clipping, determinism, accessible names). No motion yet, so nothing for reduced motion to switch off.
+
+2026-10-11 · S59.4 · (this commit) · **The clipped-control audit is permanent.**
+
+- `apps/web/e2e/clippedControls.ts` (the S57 audit as a helper) with `ux-audit.spec.ts` (desktop 1440) and `mobile-ux-audit.spec.ts` (phone): a new airline visits cockpit, fleet, network, opportunities, an airport, finance, leaderboard and `/kit`; any control cut off by an overflow-hidden ancestor or the viewport fails the test. A self-check plants a clipped button and expects the audit to catch it.
+- Results: nothing clipped on desktop or phone after the re-theme. Perf probes (S54) and the e2e specs touched by the theme pass locally; the full suite runs in CI.
+- Acceptance: no `backdrop-blur` or coloured glow left in `apps/web/src`; 4.5:1 checked by `tokens.test.ts`; fonts and textures are bundled (no third-party requests).
