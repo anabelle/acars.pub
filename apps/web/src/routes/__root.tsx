@@ -21,7 +21,7 @@ const WorldMap = lazy(() =>
 // Routes that render as a standalone entry page: no HUD chrome (top bar,
 // context bar, sidebar, nav, ticker) competing with the page's own single
 // call to action. The live map stays in the background.
-const ENTRY_ROUTES = new Set(["/join"]);
+const ENTRY_ROUTES = new Set(["/join", "/kit"]);
 
 function RootLayout() {
   const pathname = useLocation({ select: (location) => location.pathname });

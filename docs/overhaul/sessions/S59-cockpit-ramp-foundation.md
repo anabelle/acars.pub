@@ -1,7 +1,7 @@
 # S59 — Cockpit + Ramp foundation: tokens, fonts, textures, kit; retire neon
 
 > **Status:** ◐ in progress
-> **Next step:** S59.3
+> **Next step:** S59.4
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #196
 >
@@ -42,7 +42,7 @@ Every later screen composes the same pieces instead of restyling. Ship the Cockp
 
 - [x] **S59.1** Tokens, fonts, textures (additive: nothing changes on screen yet). _Done when:_ fonts load from `'self'` offline, Tailwind classes compile, gate green.
 - [x] **S59.2** Global re-theme: palette remap, B612 body, no glows, no blur. _Done when:_ before/after screenshots of home, network, fleet, cockpit at 1440 and 390; 4.5:1 text contrast on the new surfaces; e2e and perf probes green.
-- [ ] **S59.3** Kit: `Sign`, `Slab`, `PaxCrowd`, `Readout`, `AlertList`, `DayStrip` with unit tests. _Done when:_ tests cover variants, determinism (same seed, same crowd) and accessibility labels.
+- [x] **S59.3** Kit: `Sign`, `Slab`, `PaxCrowd`, `Readout`, `AlertList`, `DayStrip` with unit tests. _Done when:_ tests cover variants, determinism (same seed, same crowd) and accessibility labels.
 - [ ] **S59.4** Promote the clipped-control audit to a permanent e2e; final screenshots; PR ready. _Done when:_ audit green on desktop and mobile, CI green.
 
 ## Acceptance criteria
@@ -72,3 +72,10 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Glass and glows retired**: all 77 `backdrop-blur` uses removed (panels 95% opaque, modal scrims 80%); coloured glow shadows, manufacturer gradients and gradient text removed. The LIVE dot is green (normal) instead of primary.
 - Gate: lint, typecheck, web unit tests 583/583. Full e2e running locally at commit time; CI confirms.
 - Screenshots: [`before-cockpit-1440`](../media/s59/before-cockpit-1440.png) → [`after-cockpit-1440`](../media/s59/after-cockpit-1440.png), [`before-cockpit-390`](../media/s59/before-cockpit-390.png) → [`after-cockpit-390`](../media/s59/after-cockpit-390.png).
+
+2026-10-11 · S59.3 · (this commit) · **The kit, and a page that shows it.**
+
+- `apps/web/src/shared/ui/ramp`: `Sign` (location / direction with arrow / mandatory), `Slab` (grain card with a painted edge: sign, normal, idle), `PaxCrowd` (pictograms, one figure = 10 people, small groups never vanish, capped at 60 figures, pure and deterministic, spoken as groups).
+- `apps/web/src/shared/ui/cockpit`: `Readout` (boxed figure by tone), `AlertList` (warnings first, stable order, `aria-live`), `DayStrip` (a plane's day on a 24 h track, clipped, spoken as block hours).
+- `/kit` (standalone entry page, not linked from the game): every piece in both modes, for building screens and for the screenshot audit. [`kit-1440`](../media/s59/kit-1440.png), [`kit-390`](../media/s59/kit-390.png).
+- Tests: 10 (variants, ordering, clipping, determinism, accessible names). No motion yet, so nothing for reduced motion to switch off.
