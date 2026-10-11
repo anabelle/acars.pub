@@ -1,7 +1,7 @@
 # S61 — Delivery day, names, logbook and the spotter's book
 
 > **Status:** ◐ in progress
-> **Next step:** S61.3
+> **Next step:** S61.4
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -28,7 +28,7 @@ Every plane is someone: it arrives with a name and a ceremony, keeps a logbook, 
 
 - [x] **S61.1** Names: `suggestPlaneName` (curated evocative names, deterministic by seed, never a duplicate in the fleet); route launch leases with a suggested name; the dealer pre-fills it with "another name". _Done when:_ unit tests (deterministic, unique, fallback when the list is exhausted) + dealer/launch tests.
 - [x] **S61.2** Delivery day: a one-time ceremony on a plane's `delivery` event — water salute over the painting (reduced motion: a still frame), the name on a sign, "first of its type" variant, first flight line when assigned. Celebrated ids remembered per airline. _Done when:_ component tests + e2e (launch → ceremony → dismissed, not shown again) + 1440/390 screenshots.
-- [ ] **S61.3** Logbook in the plane panel: lifetime hours; recent landings, passengers, distance (times round the Earth), money, on-time share, airports visited as passport stamps. _Done when:_ unit tests for the summary + panel test + screenshot.
+- [x] **S61.3** Logbook in the plane panel: lifetime hours; recent landings, passengers, distance (times round the Earth), money, on-time share, airports visited as passport stamps. _Done when:_ unit tests for the summary + panel test + screenshot.
 - [ ] **S61.4** Spotter's book in the fleet panel: every catalog type as owned (count, painting) / next (unlocked) / locked (tier), completion "n / N". _Done when:_ component test + e2e + screenshots; PR with screenshots, ready when CI is green.
 
 ## Acceptance criteria
@@ -56,3 +56,9 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - Leftover green glows removed (tier-up dialog, sidebar active item).
 - e2e: `continuePastDelivery` closes the ceremony like a player would; the key-backup specs (which fast-forward past the delivery) use it. The full e2e suite was run locally with the ceremony: only those two specs needed it.
 - Screenshots: [`delivery-1440`](../media/s61/delivery-1440.png), [`delivery-390`](../media/s61/delivery-390.png).
+
+2026-10-11 · S61.3 · (this commit) · **Logbook.**
+
+- `planeLogbook` (one pass over the timeline): landings, passengers, distance (airport great circle, so it does not depend on fields older events lack), money, airports by visits, oldest tick. The timeline keeps the latest 1,000 events, so the panel labels it "Recent log · N landings"; hours are lifetime (`flightHoursTotal`).
+- Plane panel (own planes): readouts for hours, landings, passengers, distance, earned (green/red), "N× round the Earth" once it means something, and the airports as magenta passport stamps.
+- Tests: logbook helper, panel. Screenshot: [`logbook-1440`](../media/s61/logbook-1440.png).

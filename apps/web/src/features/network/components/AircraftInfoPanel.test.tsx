@@ -172,6 +172,19 @@ describe("AircraftInfoPanel", () => {
     expect(screen.getByTestId("today-strip")).toBeInTheDocument();
   });
 
+  it("keeps a logbook with the airports as passport stamps (S61)", () => {
+    render(<AircraftInfoPanel aircraft={aircraft as never} onClose={() => {}} />);
+    const log = screen.getByTestId("logbook");
+    expect(log).toHaveTextContent("Recent log · 1 landing");
+    expect(log).toHaveTextContent("2,150h");
+    expect(log).toHaveTextContent("31");
+    expect(log).toHaveTextContent("$2,501");
+    expect(screen.getAllByTestId("passport-stamp").map((stamp) => stamp.textContent)).toEqual([
+      "JFK",
+      "LAX",
+    ]);
+  });
+
   it("shows the current seat layout on the info tab", () => {
     render(<AircraftInfoPanel aircraft={aircraft} onClose={vi.fn()} />);
 
