@@ -1,9 +1,9 @@
 # S60 — Livery-first plane panel and the hangar as a collection
 
-> **Status:** ◐ in progress
-> **Next step:** S60.3
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge #198)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #198
 >
 > **Track:** Graphics/UX · **Size:** M (3 steps) · **Depends on:** S59 · **Unblocks:** S61, S63, S65 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §4, §6 Pride, §8
 >
@@ -41,15 +41,15 @@ A plane is the thing players love: open it and its painting fills the top, with 
 
 - [x] **S60.1** Plane panel: hero, sign, flight strip, day strip, graceful fallback; en/es. _Done when:_ component tests (hero/fallback/strip) + e2e with the stubbed painting + 1440/390 screenshots.
 - [x] **S60.2** Hangar collection: livery cards, top earner, idle with one-tap fix; virtualized. _Done when:_ component tests (top earner, idle, fix) + e2e + screenshots.
-- [ ] **S60.3** Contrast fixes, audit e2e, PR with before/after screenshots; ready when CI is green.
+- [x] **S60.3** Contrast fixes, audit e2e, PR with before/after screenshots; ready when CI is green.
 
 ## Acceptance criteria
 
-- [ ] Opening a plane shows its painting first, at full panel width, at 1440 and 390.
-- [ ] No raw error text from livery generation reaches the screen.
-- [ ] The flight reads origin → destination with UTC times and progress without opening a tab.
-- [ ] The hangar shows top earner and idle planes at a glance, and idle is one tap from fixed.
-- [ ] Clipped-control audit, perf probes and the full e2e suite stay green.
+- [x] Opening a plane shows its painting first, at full panel width, at 1440 and 390.
+- [x] No raw error text from livery generation reaches the screen.
+- [x] The flight reads origin → destination with UTC times and progress without opening a tab.
+- [x] The hangar shows top earner and idle planes at a glance, and idle is one tap from fixed.
+- [x] Clipped-control audit, perf probes and the full e2e suite stay green.
 
 ## Progress log
 
@@ -73,3 +73,8 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Top earner** (best positive 7-day profit, `topEarnerId`): sign-yellow edge and a "Top earner" sign. **Idle**: hi-vis edge; parked planes get "Put it to work" (opens the plane, where it can be assigned), underused ones get the S58 "Fly more · N/wk" (`useRouteUtilization`, only when the suggestion raises the frequency).
 - Still virtualized by row (1 column on phones, 2 wider); `summarizeFleetDays` is one pass over the timeline per game minute; the per-card suggestion runs only for rendered cards.
 - Tests: hangar (top earner, 24 h strip, parked → put to work, underused → fly more), e2e hangar card with the painting on desktop and phone. Screenshots: [`after-hangar-1440`](../media/s60/after-hangar-1440.png), [`after-hangar-390`](../media/s60/after-hangar-390.png).
+
+2026-10-11 · S60.3 · (this commit) · **Contrast fixes; S60 complete.**
+
+- `text-accent` was used as a highlight colour in five places (fleet count badge, base hub, two opportunity figures, a route figure) but `accent` is a dark surface colour, so they were near-invisible (before S59 too). They now use the cyan highlight (`text-primary`).
+- Checks: web unit 606/606, lint, typecheck; e2e plane panel + hangar (desktop and phone), clipped-control audit (desktop and phone), liveries spec green locally. Full e2e in CI.
