@@ -630,7 +630,7 @@ export function FleetManager() {
                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">
                                   {t("fleet.baseHub", { ns: "game" })}
                                 </p>
-                                <p className="font-mono text-[11px] font-bold text-accent sm:text-xs">
+                                <p className="font-mono text-[11px] font-bold text-primary sm:text-xs">
                                   <button
                                     type="button"
                                     onClick={() => navigateToAirport(baseHub)}

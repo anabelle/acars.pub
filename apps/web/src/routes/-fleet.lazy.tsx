@@ -47,7 +47,7 @@ export default function FleetDashboard() {
       <PanelHeader
         title={t("fleet.pageTitle", { ns: "game" })}
         badge={
-          <span className="rounded-full border border-accent/20 bg-accent/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-accent sm:px-3 sm:text-xs">
+          <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary sm:px-3 sm:text-xs">
             {t("fleet.aircraftCount", { ns: "game", count: fleetSize })}
           </span>
         }

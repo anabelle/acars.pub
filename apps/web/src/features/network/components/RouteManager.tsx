@@ -1309,7 +1309,7 @@ export function RouteManager() {
                                               <span className="text-[9px] text-muted-foreground uppercase font-bold">
                                                 {t("routeManager.card.estShare", { ns: "game" })}
                                               </span>
-                                              <span className="text-xs font-bold text-accent">
+                                              <span className="text-xs font-bold text-primary">
                                                 {compShare.toFixed(1)}%
                                               </span>
                                             </div>

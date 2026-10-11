@@ -195,7 +195,7 @@ export function OpportunitiesList({
                               </span>
                             )}
                         </span>
-                        <TrendingUp className="h-4 w-4 text-accent" />
+                        <TrendingUp className="h-4 w-4 text-primary" />
                         {quickFirstHop && (
                           <span
                             data-testid="first-hop-badge"
@@ -235,7 +235,7 @@ export function OpportunitiesList({
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
                         {t("routeManager.opportunities.distance", { ns: "game" })}
                       </span>
-                      <span className="text-lg font-mono font-bold text-accent">
+                      <span className="text-lg font-mono font-bold text-primary">
                         {Math.round(market.distance).toLocaleString()} km
                       </span>
                     </div>

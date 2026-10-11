@@ -37,7 +37,7 @@ beforeEach(() => {
         restore: () => {},
       }) as never,
   );
-  vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function (cb) {
+  vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((cb) => {
     toBlob(cb as never);
   });
   URL.createObjectURL = vi.fn(() => "blob:poster");

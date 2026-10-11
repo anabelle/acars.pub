@@ -1,5 +1,5 @@
 import type { AircraftInstance, AircraftModel, AirlineEntity } from "@acars/core";
-import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAircraftImage } from "../hooks/useAircraftImage";
 
 interface AircraftLiveryImageProps {
@@ -21,7 +21,7 @@ export function AircraftLiveryImage({
   fallback,
   objectFit = "object-cover",
 }: AircraftLiveryImageProps) {
-  const { imageUrl, isGenerating, error } = useAircraftImage(aircraft, airline, model, isOwner);
+  const { imageUrl, isGenerating } = useAircraftImage(aircraft, airline, model, isOwner);
 
   if (imageUrl) {
     return (
@@ -34,29 +34,24 @@ export function AircraftLiveryImage({
     );
   }
 
-  if (isGenerating) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center bg-zinc-900/60">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            Generating livery…
-          </span>
-        </div>
-      </div>
-    );
-  }
+  // While the painting is made, the fallback stays under a calm caption. A
+  // failed generation is logged by the hook, never printed on screen (S60).
+  return (
+    <>
+      {fallback}
+      {isGenerating ? <PaintingCaption /> : null}
+    </>
+  );
+}
 
-  if (error) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center bg-zinc-900/40">
-        {fallback}
-        <span className="absolute bottom-1 text-[9px] text-red-400/70 px-1 truncate max-w-full">
-          {error}
-        </span>
-      </div>
-    );
-  }
-
-  return <>{fallback}</>;
+function PaintingCaption() {
+  const { t } = useTranslation("game");
+  return (
+    <span
+      data-testid="livery-painting"
+      className="absolute bottom-2 left-2 rounded-[2px] bg-black/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ramp-paint"
+    >
+      {t("aircraftPanel.paintingLivery")}
+    </span>
+  );
 }

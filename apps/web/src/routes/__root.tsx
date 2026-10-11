@@ -1,5 +1,5 @@
 import { createRootRoute, Outlet, useLocation } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { AwayReport } from "@/features/airline/components/AwayReport";
 import { MilestoneCelebrations } from "@/features/airline/components/MilestoneCelebrations";
 import { IdentityGate } from "@/features/identity/components/IdentityGate";
@@ -8,6 +8,7 @@ import { Ticker } from "@/features/network/components/Ticker";
 import { MOBILE_TOPBAR_PANEL_PADDING_CLASS } from "@/shared/components/layout/mobileLayout";
 import { MobileNav, Sidebar } from "@/shared/components/layout/Sidebar";
 import { Topbar } from "@/shared/components/layout/Topbar";
+import { useHudTopVar } from "@/shared/components/layout/useHudTopVar";
 import { WorkspaceContextBar } from "@/shared/components/layout/WorkspaceContextBar";
 import { AppInitializer } from "../app/AppInitializer";
 
@@ -26,6 +27,9 @@ const ENTRY_ROUTES = new Set(["/join", "/kit"]);
 function RootLayout() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const isEntry = ENTRY_ROUTES.has(pathname);
+  // Callback ref: the workspace mounts only once the identity is ready.
+  const [workspace, setWorkspace] = useState<HTMLDivElement | null>(null);
+  useHudTopVar(workspace);
 
   return (
     <AppInitializer>
@@ -52,7 +56,10 @@ function RootLayout() {
                 <Topbar />
                 <WorkspaceContextBar />
 
-                <div className="flex flex-1 min-h-0 overflow-hidden relative pb-0 sm:pb-10">
+                <div
+                  ref={setWorkspace}
+                  className="flex flex-1 min-h-0 overflow-hidden relative pb-0 sm:pb-10"
+                >
                   <Sidebar />
 
                   <main

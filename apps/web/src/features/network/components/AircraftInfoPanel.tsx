@@ -17,9 +17,11 @@ import { Plane, Route as RouteIcon, Users, Wrench, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AircraftLiveryImage } from "@/features/fleet/components/AircraftLiveryImage";
+import { LiveryFallback } from "@/features/fleet/components/LiveryFallback";
 import { getAircraftTimer } from "@/features/fleet/utils/aircraftTimers";
+import { summarizeFleetDays } from "@/features/fleet/utils/planeDay";
 import { AssignRouteDialog } from "@/features/network/components/AssignRouteDialog";
-import { FamilySilhouette } from "@/shared/components/FamilySilhouette";
+import { formatUtcClock } from "@/features/network/utils/tickerFacts";
 import { LiveryThumb } from "@/shared/components/LiveryThumb";
 import {
   MOBILE_BOTTOM_NAV_BOTTOM_CLASS,
@@ -27,6 +29,9 @@ import {
   MOBILE_TOPBAR_TOP_CLASS,
 } from "@/shared/components/layout/mobileLayout";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
+import { legibleLiveryColour, modelLabel } from "@/shared/theme/livery";
+import { clipDay, type DayLeg, DayStrip, Readout } from "@/shared/ui/cockpit";
+import { Sign } from "@/shared/ui/ramp";
 
 type AircraftInfoPanelProps = {
   aircraft: AircraftInstance;
@@ -38,6 +43,7 @@ type AircraftSearchParams = {
 };
 
 const numberFormat = new Intl.NumberFormat("en-US");
+const TICKS_PER_MINUTE = TICKS_PER_HOUR / 60;
 // Built lazily — the airports catalog loads async after first paint.
 let airportIndex: Map<string, Airport> | null = null;
 function getAirportIndex(): Map<string, Airport> {
@@ -69,14 +75,6 @@ const statusConfig = {
     className: "bg-blue-500/20 text-blue-200",
   },
 } as const;
-
-/**
- * Displays a static first-party aircraft silhouette (see FamilySilhouette).
- * Replaces the previous innerHTML + regex-sanitizer approach.
- */
-function AircraftSilhouette({ familyId, className }: { familyId: string; className?: string }) {
-  return <FamilySilhouette familyId={familyId} className={className} />;
-}
 
 function ConditionBar({ condition }: { condition: number }) {
   const pct = Math.round(condition * 100);
@@ -338,67 +336,115 @@ function RecentPerformanceSection({
   );
 }
 
+/** A live flight read like a flight tracker (S60): codes, UTC times, progress. */
 function FlightStrip({
   aircraft,
   timer,
   speedKmh,
+  distanceKm,
 }: {
   aircraft: AircraftInstance;
   timer: ReturnType<typeof getAircraftTimer>;
   speedKmh: number;
+  distanceKm?: number;
 }) {
   const { t } = useTranslation("game");
   const flight = aircraft.flight;
   if (!flight || !timer) return null;
 
   const isFerry = flight.purpose === "ferry";
+  const airports = getAirportIndex();
+  const progress = Math.round(timer.progress * 100);
+  const kmLeft = distanceKm ? Math.round(distanceKm * (1 - timer.progress)) : null;
+  const end = (iata: string, label: string, time: string, align: "left" | "right") => (
+    <div className={`flex min-w-0 flex-col ${align === "right" ? "items-end text-right" : ""}`}>
+      <button
+        type="button"
+        className="font-sign text-3xl font-extrabold leading-none tracking-[0.04em] text-nd-white hover:text-nd-cyan"
+        onClick={() => navigateToAirport(iata)}
+      >
+        {iata}
+      </button>
+      <span className="mt-1 max-w-full truncate text-xs text-muted-foreground">
+        {airports.get(iata)?.city ?? iata}
+      </span>
+      <span className="mt-1 font-mono text-xs text-nd-white">
+        <span className="text-muted-foreground">{label}</span> {time}Z
+      </span>
+    </div>
+  );
 
   return (
-    <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="text-sm font-mono font-bold text-foreground hover:text-primary transition-colors cursor-pointer"
-            onClick={() => navigateToAirport(flight.originIata)}
-          >
-            {flight.originIata}
-          </button>
-          <div className="flex-1 flex items-center gap-1 text-muted-foreground">
-            <div className="h-px flex-1 bg-sky-500/40" />
-            <Plane className="h-3 w-3 text-sky-300" />
-            <div className="h-px flex-1 bg-sky-500/40" />
-          </div>
-          <button
-            type="button"
-            className="text-sm font-mono font-bold text-foreground hover:text-primary transition-colors cursor-pointer"
-            onClick={() => navigateToAirport(flight.destinationIata)}
-          >
-            {flight.destinationIata}
-          </button>
+    <div
+      data-testid="flight-strip"
+      className="space-y-3 rounded-[3px] border border-cockpit-line bg-cockpit-bg p-4"
+    >
+      <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3">
+        {end(
+          flight.originIata,
+          t("aircraftPanel.std"),
+          formatUtcClock(flight.departureTick),
+          "left",
+        )}
+        <div className="flex flex-col items-center pt-2 text-nd-magenta">
+          <Plane className="h-4 w-4" aria-hidden="true" />
+          {isFerry ? (
+            <span className="mt-1 text-[10px] font-bold uppercase tracking-widest text-nd-amber">
+              {t("aircraftPanel.ferry")}
+            </span>
+          ) : null}
         </div>
-        {isFerry ? (
-          <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] uppercase tracking-widest font-semibold text-amber-200">
-            {t("aircraftPanel.ferry", { ns: "game" })}
-          </span>
-        ) : null}
+        {end(
+          flight.destinationIata,
+          t("aircraftPanel.eta"),
+          formatUtcClock(flight.arrivalTick),
+          "right",
+        )}
       </div>
 
-      <div className="h-1.5 rounded-full bg-sky-900/40 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-sky-400 transition-all"
-          style={{ width: `${Math.round(timer.progress * 100)}%` }}
+      <div
+        role="progressbar"
+        aria-valuenow={progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={t("aircraftPanel.flightProgress")}
+        className="h-1.5 overflow-hidden rounded-[2px] bg-cockpit-line"
+      >
+        <div className="h-full bg-nd-magenta" style={{ width: `${progress}%` }} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Readout
+          label={t("aircraftPanel.groundSpeed")}
+          value={numberFormat.format(speedKmh)}
+          unit="km/h"
         />
+        {kmLeft !== null ? (
+          <Readout label={t("aircraftPanel.toGo")} value={numberFormat.format(kmLeft)} unit="km" />
+        ) : null}
+        <Readout label={t("aircraftPanel.timeLeft")} value={timer.time} tone="selected" />
       </div>
+    </div>
+  );
+}
 
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {t("aircraftPanel.eta", { ns: "game" })}{" "}
-          <span className="font-mono font-semibold text-sky-200">{timer.time}</span>
+/** The plane's day so far as a strip of legs in its airline's colour (S60). */
+function TodayStrip({ legs, colour }: { legs: DayLeg[]; colour?: string }) {
+  const { t } = useTranslation("game");
+  const hours = clipDay(legs).blockHours;
+  return (
+    <div data-testid="today-strip" className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+        <span>{t("aircraftPanel.today")}</span>
+        <span className="font-mono normal-case tracking-normal text-nd-white">
+          {t("aircraftPanel.blockHoursToday", { hours: hours.toFixed(1) })}
         </span>
-        <span>{numberFormat.format(speedKmh)} km/h</span>
-        {flight.distanceKm ? <span>{numberFormat.format(flight.distanceKm)} km</span> : null}
       </div>
+      <DayStrip
+        legs={legs}
+        colour={colour}
+        label={t("aircraftPanel.blockHoursToday", { hours: hours.toFixed(1) })}
+      />
     </div>
   );
 }
@@ -506,6 +552,12 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
 
   const status = statusConfig[aircraft.status];
   const familyId = model?.familyId ?? "a320";
+  // The strip moves by minutes; no need to re-scan the timeline every tick.
+  const minuteTick = Math.floor(tick / TICKS_PER_MINUTE) * TICKS_PER_MINUTE;
+  const todayLegs = useMemo(
+    () => summarizeFleetDays([aircraft], timeline, minuteTick).get(aircraft.id)?.legs ?? [],
+    [aircraft, timeline, minuteTick],
+  );
   const lastLanding = useMemo(
     () => findLatestAircraftLanding(timeline, aircraft.id),
     [timeline, aircraft.id],
@@ -513,77 +565,92 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
 
   return (
     <aside
-      className={`pointer-events-auto fixed z-30 flex max-h-none flex-col overflow-hidden rounded-[24px] border border-border/80 bg-background sm:bg-background/96 shadow-[0_26px_80px_rgba(0,0,0,0.68)] left-3 right-3 ${MOBILE_TOPBAR_TOP_CLASS} ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} ${MOBILE_OVERLAY_MAX_HEIGHT_CLASS} sm:left-auto sm:right-4 sm:top-1/2 sm:bottom-auto sm:w-[min(480px,calc(100vw-2rem))] sm:max-h-[80vh] sm:-translate-y-1/2 sm:rounded-[26px]`}
+      className={`pointer-events-auto fixed z-30 flex max-h-none flex-col overflow-hidden rounded-[24px] border border-border/80 bg-background sm:bg-background/96 shadow-[0_26px_80px_rgba(0,0,0,0.68)] left-3 right-3 ${MOBILE_TOPBAR_TOP_CLASS} ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} ${MOBILE_OVERLAY_MAX_HEIGHT_CLASS} sm:left-auto sm:right-4 sm:top-[calc(var(--hud-top,7rem)+0.75rem)] sm:bottom-14 sm:w-[min(480px,calc(100vw-2rem))] sm:max-h-none sm:rounded-[26px]`}
       aria-live="polite"
     >
-      {/* Header */}
-      <div className="flex items-start justify-between border-b border-border/60 bg-background/95 px-4 py-4 sm:px-5">
-        <div className="flex min-w-0 items-start gap-3">
-          <AircraftSilhouette
-            familyId={familyId}
-            className="h-8 w-8 shrink-0 text-muted-foreground"
-          />
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              {t("aircraftPanel.title", { ns: "game" })}
-            </p>
-            <h3 className="text-lg font-bold text-foreground truncate sm:text-[1.35rem]">
-              {aircraft.name}
-            </h3>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              {model ? (
-                <span>
-                  {model.manufacturer} {model.name}
-                </span>
-              ) : (
-                <span className="font-mono">{aircraft.modelId}</span>
-              )}
-              {ownerAirline ? (
-                <span className="flex items-center gap-1.5">
-                  <span
-                    className="h-2 w-2 rounded-full shrink-0"
-                    style={{
-                      backgroundColor: ownerAirline.livery?.primary ?? "#94a3b8",
-                    }}
-                    aria-hidden="true"
-                  />
-                  {ownerAirline.name}
-                  {ownerAirline.icaoCode ? ` (${ownerAirline.icaoCode})` : ""}
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="h-9 w-9 rounded-full bg-background/85 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors touch-manipulation shrink-0"
-          aria-label={t("aircraftPanel.closeAria", { ns: "game" })}
-        >
-          <X className="mx-auto h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Livery hero image */}
-      {model ? (
-        <div className="relative h-32 w-full overflow-hidden border-b border-border/50 bg-zinc-900/30 sm:h-52">
+      {/* Hero (S60): the painting first, the plane's name on a sign over it. */}
+      <div
+        data-testid="aircraft-hero"
+        className="relative aspect-[16/9] max-h-[38vh] w-full shrink-0 overflow-hidden border-b border-border/60 bg-cockpit-panel sm:max-h-none"
+      >
+        {model ? (
           <AircraftLiveryImage
             aircraft={aircraft}
             airline={ownerAirline}
             model={model}
             isOwner={isPlayerAircraft}
-            objectFit="object-contain"
             fallback={
-              <div className="absolute inset-0 flex items-center justify-center text-zinc-800/20 select-none">
-                <AircraftSilhouette familyId={familyId} className="h-32 w-32 rotate-12" />
-              </div>
+              <LiveryFallback
+                familyId={familyId}
+                primary={ownerAirline?.livery?.primary}
+                secondary={ownerAirline?.livery?.secondary}
+              />
             }
           />
+        ) : (
+          <LiveryFallback familyId={familyId} primary={ownerAirline?.livery?.primary} />
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-nd-white transition-colors hover:bg-black/90 touch-manipulation"
+          aria-label={t("aircraftPanel.closeAria", { ns: "game" })}
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="absolute bottom-3 left-3 right-14 flex flex-col items-start gap-1">
+          <h3 className="min-w-0 max-w-full">
+            <Sign variant="location" className="max-w-full text-base sm:text-lg">
+              <span className="block truncate">{aircraft.name}</span>
+            </Sign>
+          </h3>
+          <span className="flex max-w-full items-center gap-1.5 truncate rounded-[2px] bg-black/70 px-2 py-0.5 text-xs text-nd-white">
+            {model ? modelLabel(model.manufacturer, model.name) : aircraft.modelId}
+            {ownerAirline ? (
+              <>
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: ownerAirline.livery?.primary ?? "#94a3b8" }}
+                  aria-hidden="true"
+                />
+                {ownerAirline.name}
+                {ownerAirline.icaoCode ? ` (${ownerAirline.icaoCode})` : ""}
+              </>
+            ) : null}
+          </span>
         </div>
-      ) : null}
+      </div>
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-5 sm:px-5">
+        {/* Live flight strip */}
+        {aircraft.status === "enroute" && model ? (
+          <FlightStrip
+            aircraft={aircraft}
+            timer={timer}
+            speedKmh={model.speedKmh}
+            distanceKm={aircraft.flight?.distanceKm ?? assignedRoute?.distanceKm}
+          />
+        ) : null}
+
+        {/* Timer for non-enroute states */}
+        {timer && aircraft.status !== "enroute" ? (
+          <div className="rounded-xl border border-border/60 bg-background/90 p-3 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">{timer.label}</span>
+            <span className="font-mono text-sm font-semibold text-foreground">{timer.time}</span>
+          </div>
+        ) : null}
+
+        {isPlayerAircraft ? (
+          <TodayStrip
+            legs={todayLegs}
+            colour={legibleLiveryColour(
+              ownerAirline?.livery?.primary,
+              ownerAirline?.livery?.secondary,
+            )}
+          />
+        ) : null}
+
         {/* Status badge */}
         <div className="flex flex-wrap items-center gap-2">
           <span
@@ -631,21 +698,6 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
 
         {activeTab === "info" ? (
           <>
-            {/* Live flight strip */}
-            {aircraft.status === "enroute" && model ? (
-              <FlightStrip aircraft={aircraft} timer={timer} speedKmh={model.speedKmh} />
-            ) : null}
-
-            {/* Timer for non-enroute states */}
-            {timer && aircraft.status !== "enroute" ? (
-              <div className="rounded-xl border border-border/60 bg-background/90 p-3 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{timer.label}</span>
-                <span className="font-mono text-sm font-semibold text-foreground">
-                  {timer.time}
-                </span>
-              </div>
-            ) : null}
-
             {/* Specs grid */}
             {model ? (
               <div className="grid grid-cols-2 gap-3">
