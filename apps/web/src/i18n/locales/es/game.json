@@ -287,7 +287,9 @@
       "failed": "No se pudo crear el póster",
       "closeAria": "Cerrar",
       "formatAria": "Tamaño del póster"
-    }
+    },
+    "planeName": "Nombre",
+    "anotherName": "Otro"
   },
   "network": {
     "title": "Red",

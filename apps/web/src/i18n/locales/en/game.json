@@ -287,7 +287,9 @@
       "failed": "Couldn't create the poster",
       "closeAria": "Close",
       "formatAria": "Poster size"
-    }
+    },
+    "planeName": "Name",
+    "anotherName": "Another"
   },
   "network": {
     "title": "Network",

@@ -1,7 +1,7 @@
 # S61 — Delivery day, names, logbook and the spotter's book
 
 > **Status:** ◐ in progress
-> **Next step:** S61.1
+> **Next step:** S61.2
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -26,7 +26,7 @@ Every plane is someone: it arrives with a name and a ceremony, keeps a logbook, 
 
 ## Steps (checkpoints)
 
-- [ ] **S61.1** Names: `suggestPlaneName` (curated evocative names, deterministic by seed, never a duplicate in the fleet); route launch leases with a suggested name; the dealer pre-fills it with "another name". _Done when:_ unit tests (deterministic, unique, fallback when the list is exhausted) + dealer/launch tests.
+- [x] **S61.1** Names: `suggestPlaneName` (curated evocative names, deterministic by seed, never a duplicate in the fleet); route launch leases with a suggested name; the dealer pre-fills it with "another name". _Done when:_ unit tests (deterministic, unique, fallback when the list is exhausted) + dealer/launch tests.
 - [ ] **S61.2** Delivery day: a one-time ceremony on a plane's `delivery` event — water salute over the painting (reduced motion: a still frame), the name on a sign, "first of its type" variant, first flight line when assigned. Celebrated ids remembered per airline. _Done when:_ component tests + e2e (launch → ceremony → dismissed, not shown again) + 1440/390 screenshots.
 - [ ] **S61.3** Logbook in the plane panel: lifetime hours; recent landings, passengers, distance (times round the Earth), money, on-time share, airports visited as passport stamps. _Done when:_ unit tests for the summary + panel test + screenshot.
 - [ ] **S61.4** Spotter's book in the fleet panel: every catalog type as owned (count, painting) / next (unlocked) / locked (tier), completion "n / N". _Done when:_ component test + e2e + screenshots; PR with screenshots, ready when CI is green.
@@ -43,3 +43,9 @@ Every plane is someone: it arrives with a name and a ceremony, keeps a logbook, 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
 2026-10-11 · brief · (this commit) · Written after checking purchase naming, timeline retention and delivery events.
+
+2026-10-11 · S61.1 · (this commit) · **Planes arrive with names.**
+
+- `suggestPlaneName(seed, taken)` (`features/fleet/utils/planeNames.ts`): 120 curated names (birds, winds, stars, islands, flowers, landmarks; readable in English and Spanish), FNV-hashed by seed so every client agrees, never a name the fleet already uses (case-insensitive), "Quetzal II" once all are taken.
+- Route launch leases with a suggested name (seed = airline + fleet size); the dealer pre-fills the name field ("Name", was "optional") with an "Another" button. Both go through the existing `AIRCRAFT_PURCHASE` `name` field: no rule change.
+- Tests: names (deterministic, unique, numeral fallback, no digits), dealer (pre-filled, another); e2e purchase helpers read and check the chosen name. Web unit and lint/typecheck green.

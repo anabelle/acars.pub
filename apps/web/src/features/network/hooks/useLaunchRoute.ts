@@ -1,5 +1,6 @@
 import { useAirlineStore } from "@acars/store";
 import { useCallback, useState } from "react";
+import { suggestPlaneName } from "@/features/fleet/utils/planeNames";
 import {
   type LaunchPlan,
   type LaunchResult,
@@ -28,8 +29,15 @@ export function useLaunchRoute() {
       const result = await launchRoute(
         {
           openRoute,
-          leaseAircraft: (model, hubIata) =>
-            purchaseAircraft(model, hubIata, undefined, undefined, "lease"),
+          // A real name from the start (S61), never "<model> <n>".
+          leaseAircraft: (model, hubIata) => {
+            const { fleet, pubkey } = useAirlineStore.getState();
+            const name = suggestPlaneName(
+              `${pubkey ?? ""}:${fleet.length}`,
+              fleet.map((aircraft) => aircraft.name),
+            );
+            return purchaseAircraft(model, hubIata, undefined, name, "lease");
+          },
           assignAircraftToRoute,
           getState: () => {
             const { routes, fleet } = useAirlineStore.getState();
