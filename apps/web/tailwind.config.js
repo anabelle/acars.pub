@@ -1,3 +1,79 @@
+// Cockpit + Ramp (S59.2): the stock palette names the components already use
+// keep their meaning, but resolve to the avionics colours (one colour, one job):
+// emerald/green = normal, rose/red = warning, amber/orange/yellow = caution,
+// sky/blue/cyan = selection, violet/purple/fuchsia/indigo = active leg,
+// slate/zinc/gray/neutral = cockpit greys. 500 is the token itself; lighter
+// steps mix toward white, darker steps toward the cockpit background.
+const COCKPIT_BG = "#06080B";
+function mix(a, b, t) {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  return `#${pa
+    .map((c, i) =>
+      Math.round(c + (pb[i] - c) * t)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+function scale(base) {
+  return {
+    50: mix(base, "#FFFFFF", 0.9),
+    100: mix(base, "#FFFFFF", 0.78),
+    200: mix(base, "#FFFFFF", 0.6),
+    300: mix(base, "#FFFFFF", 0.4),
+    400: mix(base, "#FFFFFF", 0.18),
+    500: base,
+    600: mix(base, COCKPIT_BG, 0.2),
+    700: mix(base, COCKPIT_BG, 0.4),
+    800: mix(base, COCKPIT_BG, 0.6),
+    900: mix(base, COCKPIT_BG, 0.75),
+    950: mix(base, COCKPIT_BG, 0.86),
+  };
+}
+const greys = {
+  50: "#F2F4F5",
+  100: "#E1E5E8",
+  200: "#C7CDD3",
+  300: "#A6AFB8",
+  400: "#8A949E",
+  500: "#6B7580",
+  600: "#4A535D",
+  700: "#2A323C",
+  800: "#161B21",
+  900: "#0B0E12",
+  950: "#06080B",
+};
+const ND_GREEN = scale("#3EDC81");
+const ND_RED = scale("#FF3B30");
+const ND_AMBER = scale("#FFB000");
+const ND_CYAN = scale("#3CD2F0");
+const ND_MAGENTA = scale("#E040FB");
+const avionicsPalette = {
+  emerald: ND_GREEN,
+  green: ND_GREEN,
+  teal: ND_GREEN,
+  lime: ND_GREEN,
+  rose: ND_RED,
+  red: ND_RED,
+  pink: ND_RED,
+  amber: ND_AMBER,
+  orange: ND_AMBER,
+  yellow: ND_AMBER,
+  sky: ND_CYAN,
+  blue: ND_CYAN,
+  cyan: ND_CYAN,
+  violet: ND_MAGENTA,
+  purple: ND_MAGENTA,
+  fuchsia: ND_MAGENTA,
+  indigo: ND_MAGENTA,
+  slate: greys,
+  zinc: greys,
+  gray: greys,
+  neutral: greys,
+  stone: greys,
+};
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
@@ -6,11 +82,16 @@ export default {
     extend: {
       fontFamily: {
         // Cockpit + Ramp type (S59): B612 for text and data, Overpass caps for signs.
+        sans: ['"B612"', "ui-sans-serif", "system-ui", "sans-serif"],
+        // Figures read in proportional B612 with tabular digits: B612 Mono gives
+        // punctuation a full cell ("$92, 650. 00"). Codes use font-avionics-mono.
+        mono: ['"B612"', "ui-sans-serif", "system-ui", "sans-serif"],
         avionics: ['"B612"', "ui-sans-serif", "system-ui", "sans-serif"],
         "avionics-mono": ['"B612 Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
         sign: ['"Overpass"', '"B612"', "ui-sans-serif", "sans-serif"],
       },
       colors: {
+        ...avionicsPalette,
         cockpit: {
           bg: "rgb(var(--cockpit-bg) / <alpha-value>)",
           panel: "rgb(var(--cockpit-panel) / <alpha-value>)",

@@ -379,7 +379,7 @@ export function Leaderboard() {
 
   return (
     <div className="flex w-full flex-col gap-3 sm:gap-4">
-      <div className="rounded-2xl border border-border/50 bg-card/90 p-3 shadow-sm backdrop-blur-xl sm:p-4">
+      <div className="rounded-2xl border border-border/50 bg-card/95 p-3 shadow-sm sm:p-4">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-primary/10 p-2">
             <Trophy className="h-5 w-5 text-primary sm:h-6 sm:w-6" aria-hidden="true" />

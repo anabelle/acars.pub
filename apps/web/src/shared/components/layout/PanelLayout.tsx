@@ -10,7 +10,7 @@ export function PanelLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <PanelScrollContext.Provider value={scrollRef}>
-      <div className="pointer-events-auto relative flex h-full w-full min-w-0 max-w-2xl flex-col overflow-hidden rounded-[24px] border border-border/80 bg-background sm:bg-background/85 shadow-[0_0_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl duration-300 animate-in fade-in slide-in-from-left-4 sm:rounded-[28px]">
+      <div className="pointer-events-auto relative flex h-full w-full min-w-0 max-w-2xl flex-col overflow-hidden rounded-[24px] border border-border/80 bg-background sm:bg-background/95 shadow-[0_0_40px_rgba(0,0,0,0.6)] duration-300 animate-in fade-in slide-in-from-left-4 sm:rounded-[28px]">
         <div
           ref={scrollRef}
           className="custom-scrollbar flex h-full w-full min-h-0 flex-col overflow-y-auto"
@@ -42,7 +42,7 @@ export function PanelHeader({
   return (
     <div
       className={cn(
-        "border-b border-border/60 bg-background/88 px-4 py-3 backdrop-blur-xl sm:px-6 sm:py-4",
+        "border-b border-border/60 bg-background/95 px-4 py-3 sm:px-6 sm:py-4",
         className,
       )}
     >

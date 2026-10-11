@@ -94,7 +94,7 @@ export function AssignAircraftDialog({ route, onClose }: { route: Route; onClose
       <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
         <button
           type="button"
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/80"
           onClick={() => !pendingId && onClose()}
           aria-label={t("assign.closeAria")}
         />
@@ -103,7 +103,7 @@ export function AssignAircraftDialog({ route, onClose }: { route: Route; onClose
           aria-modal="true"
           aria-labelledby="assign-aircraft-title"
           data-testid="assign-aircraft-dialog"
-          className="relative z-10 flex w-full max-h-[100dvh] flex-col overflow-hidden rounded-t-[24px] border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:max-h-[85vh] sm:max-w-lg sm:rounded-2xl"
+          className="relative z-10 flex w-full max-h-[100dvh] flex-col overflow-hidden rounded-t-[24px] border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] sm:max-h-[85vh] sm:max-w-lg sm:rounded-2xl"
         >
           <div className="shrink-0 flex items-start justify-between border-b border-border/50 px-4 py-4 sm:px-6">
             <div>

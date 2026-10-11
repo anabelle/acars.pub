@@ -970,7 +970,7 @@ function HubConfirmDialog({
         ns: "game",
         iata: action.iata,
       })}
-      className="fixed inset-0 z-50 m-auto w-full max-w-xl rounded-2xl border border-white/10 bg-gradient-to-br from-[#0b1117] via-[#0d1218] to-[#101722] p-0 shadow-2xl backdrop:bg-black/70 backdrop:backdrop-blur-sm open:animate-in open:fade-in open:zoom-in-95"
+      className="fixed inset-0 z-50 m-auto w-full max-w-xl rounded-2xl border border-white/10 bg-card p-0 shadow-2xl backdrop:bg-black/80 open:animate-in open:fade-in open:zoom-in-95"
       style={{ overscrollBehavior: "contain" }}
     >
       <div className="p-6">

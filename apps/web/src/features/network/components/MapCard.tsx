@@ -48,7 +48,7 @@ export function MapCard({
         data-testid={testId}
         aria-labelledby={titleId}
         {...data}
-        className={`pointer-events-auto fixed inset-x-3 z-[70] rounded-[24px] border border-border/80 bg-background p-4 sm:bg-background/96 shadow-[0_26px_80px_rgba(0,0,0,0.68)] backdrop-blur-2xl ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} sm:inset-x-auto sm:right-20 sm:bottom-14 sm:w-96`}
+        className={`pointer-events-auto fixed inset-x-3 z-[70] rounded-[24px] border border-border/80 bg-background p-4 sm:bg-background/96 shadow-[0_26px_80px_rgba(0,0,0,0.68)] ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} sm:inset-x-auto sm:right-20 sm:bottom-14 sm:w-96`}
       >
         <div className="flex items-start gap-3">
           <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />

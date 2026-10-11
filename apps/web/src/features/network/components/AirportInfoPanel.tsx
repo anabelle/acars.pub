@@ -332,10 +332,10 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
 
   return (
     <aside
-      className={`pointer-events-auto fixed z-30 flex max-h-none flex-col overflow-hidden rounded-[24px] border border-border/80 bg-background sm:bg-background/96 shadow-[0_26px_80px_rgba(0,0,0,0.68)] backdrop-blur-2xl left-3 right-3 ${MOBILE_TOPBAR_TOP_CLASS} ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} ${MOBILE_OVERLAY_MAX_HEIGHT_CLASS} sm:left-auto sm:right-4 sm:top-1/2 sm:bottom-auto sm:w-[min(480px,calc(100vw-2rem))] sm:max-h-[80vh] sm:-translate-y-1/2 sm:rounded-[26px]`}
+      className={`pointer-events-auto fixed z-30 flex max-h-none flex-col overflow-hidden rounded-[24px] border border-border/80 bg-background sm:bg-background/96 shadow-[0_26px_80px_rgba(0,0,0,0.68)] left-3 right-3 ${MOBILE_TOPBAR_TOP_CLASS} ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} ${MOBILE_OVERLAY_MAX_HEIGHT_CLASS} sm:left-auto sm:right-4 sm:top-1/2 sm:bottom-auto sm:w-[min(480px,calc(100vw-2rem))] sm:max-h-[80vh] sm:-translate-y-1/2 sm:rounded-[26px]`}
       aria-live="polite"
     >
-      <div className="flex items-start justify-between border-b border-border/60 bg-background/94 px-4 py-4 backdrop-blur-xl sm:px-5">
+      <div className="flex items-start justify-between border-b border-border/60 bg-background/95 px-4 py-4 sm:px-5">
         <div>
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
             {t("airportPanel.title", { ns: "game" })}

@@ -216,11 +216,11 @@ export function FareEditor({
       <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
         <button
           type="button"
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/80"
           onClick={() => !isSavingFares && onClose()}
           aria-label={t("routeManager.fareEditor.closeAria", { ns: "game" })}
         />
-        <div className="relative z-10 flex w-full max-h-[100dvh] flex-col overflow-hidden rounded-t-[24px] border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:max-h-[85vh] sm:max-w-xl sm:rounded-2xl">
+        <div className="relative z-10 flex w-full max-h-[100dvh] flex-col overflow-hidden rounded-t-[24px] border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] sm:max-h-[85vh] sm:max-w-xl sm:rounded-2xl">
           <div className="shrink-0 flex items-start justify-between border-b border-border/50 px-4 py-4 sm:px-6 sm:py-5">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">

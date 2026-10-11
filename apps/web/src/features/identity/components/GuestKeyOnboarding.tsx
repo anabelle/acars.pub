@@ -53,7 +53,7 @@ export function GuestKeyOnboarding({ onExistingAccount }: { onExistingAccount?: 
         ].map((item) => (
           <div
             key={item.label}
-            className="flex flex-col gap-1 rounded-lg border border-border/50 bg-background/40 p-3 backdrop-blur-sm"
+            className="flex flex-col gap-1 rounded-lg border border-border/50 bg-background/95 p-3"
           >
             <div className="flex items-center gap-1.5">
               <item.icon className="h-3.5 w-3.5 text-primary/70" />

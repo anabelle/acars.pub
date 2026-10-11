@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 224 71.4% 4.1%;
-    --foreground: 210 20% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 20% 98%;
-    --popover: 224 71.4% 4.1%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 142.1 76.2% 36.3%;
-    --radius: 0.5rem;
+    --background: 216 29.4% 3.3%; /* #06080B */
+    --foreground: 200 13% 95.5%; /* #F2F4F5 */
+    --card: 214.3 24.1% 5.7%; /* #0B0E12 */
+    --card-foreground: 200 13% 95.5%; /* #F2F4F5 */
+    --popover: 214.3 24.1% 5.7%; /* #0B0E12 */
+    --popover-foreground: 200 13% 95.5%; /* #F2F4F5 */
+    --primary: 190 85.7% 58.8%; /* #3CD2F0 nd-cyan: the player's input and selection */
+    --primary-foreground: 216 29.4% 3.3%; /* #06080B */
+    --secondary: 212.7 20% 10.8%; /* #161B21 */
+    --secondary-foreground: 200 13% 95.5%; /* #F2F4F5 */
+    --muted: 212.7 20% 10.8%; /* #161B21 */
+    --muted-foreground: 210 11.2% 68.6%; /* #A6AFB8 */
+    --accent: 212.7 20% 10.8%; /* #161B21 */
+    --accent-foreground: 200 13% 95.5%; /* #F2F4F5 */
+    --destructive: 350.2 85.2% 42.4%; /* #C8102E */
+    --destructive-foreground: 200 13% 95.5%; /* #F2F4F5 */
+    --border: 213.3 17.6% 20%; /* #2A323C */
+    --input: 213.3 17.6% 20%; /* #2A323C */
+    --ring: 190 85.7% 58.8%; /* #3CD2F0 */
+    --radius: 0.375rem;
   }
 }
 
@@ -78,5 +78,10 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+  }
+
+  /* Figures line up in columns and do not jitter as they tick (S59). */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
   }
 }

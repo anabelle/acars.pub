@@ -38,16 +38,13 @@ const ConfirmProviderComponent = ({ children }: { children: React.ReactNode }) =
       {children}
       {request ? (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => handleResolve(false)}
-          />
+          <div className="absolute inset-0 bg-black/80" onClick={() => handleResolve(false)} />
           <div
             role="alertdialog"
             aria-modal="true"
             aria-labelledby={titleId}
             aria-describedby={request.description ? descriptionId : undefined}
-            className="relative z-10 w-full max-w-md rounded-xl border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl"
+            className="relative z-10 w-full max-w-md rounded-xl border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)]"
           >
             <div className="px-6 pt-6">
               <h2 id={titleId} className="text-base font-semibold text-foreground">

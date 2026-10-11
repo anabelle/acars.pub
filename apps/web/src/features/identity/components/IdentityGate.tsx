@@ -21,7 +21,7 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
   if (identityStatus === "checking") {
     return (
       <div className="flex h-full w-full items-center justify-center pointer-events-auto">
-        <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-border/50 bg-background/60 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-border/50 bg-background/95 p-8 shadow-2xl">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm font-medium text-muted-foreground animate-pulse">
             {t("gate.connecting")}
@@ -38,7 +38,7 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
   // If we have an identity but no airline entity
   if (identityStatus === "ready" && !airline) {
     return (
-      <div className="flex h-full w-full items-start justify-center overflow-auto px-4 py-24 sm:px-6 sm:py-12 pointer-events-auto backdrop-blur-[2px] bg-background/20">
+      <div className="flex h-full w-full items-start justify-center overflow-auto px-4 py-24 sm:px-6 sm:py-12 pointer-events-auto bg-background/95">
         <AirlineCreator />
       </div>
     );

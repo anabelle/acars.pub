@@ -391,7 +391,7 @@ export function RouteManager() {
       />
 
       <div className="flex flex-1 flex-col px-4 py-3 sm:px-6 sm:py-4">
-        <div className="mb-3 rounded-2xl border border-border/50 bg-card/90 p-3 shadow-sm backdrop-blur-xl sm:p-4">
+        <div className="mb-3 rounded-2xl border border-border/50 bg-card/95 p-3 shadow-sm sm:p-4">
           <div className="flex flex-col gap-3">
             {airline.hubs.length > 1 ? (
               <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-muted/30 px-3 py-2">

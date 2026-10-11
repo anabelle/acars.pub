@@ -245,7 +245,7 @@ export function AircraftDealer({ onPurchaseSuccess }: { onPurchaseSuccess?: () =
       </div>
 
       {/* Header & Filters */}
-      <div className="rounded-2xl border border-border/40 bg-card p-3 shadow-sm backdrop-blur-xl sm:p-4">
+      <div className="rounded-2xl border border-border/40 bg-card p-3 shadow-sm sm:p-4">
         <div className="flex min-w-0 flex-col gap-3">
           <div className="relative flex-1">
             <Search
@@ -417,14 +417,13 @@ function AircraftCard({
 }) {
   const { t } = useTranslation("game");
   const gradientMap: Record<string, string> = {
-    Airbus: "from-blue-500/20 via-blue-900/10 to-transparent",
-    Boeing: "from-indigo-500/20 via-purple-900/10 to-transparent",
-    Embraer: "from-emerald-500/20 via-green-900/10 to-transparent",
-    ATR: "from-orange-500/20 via-red-900/10 to-transparent",
-    "De Havilland": "from-red-500/20 via-rose-900/10 to-transparent",
+    Airbus: "bg-white/[0.03]",
+    Boeing: "bg-white/[0.03]",
+    Embraer: "bg-white/[0.03]",
+    ATR: "bg-white/[0.03]",
+    "De Havilland": "bg-white/[0.03]",
   };
-  const bgGradient =
-    gradientMap[aircraft.manufacturer] || "from-zinc-500/20 via-zinc-900/10 to-transparent";
+  const bgGradient = gradientMap[aircraft.manufacturer] || "bg-white/[0.03]";
   const totalCapacity =
     aircraft.capacity.economy + aircraft.capacity.business + aircraft.capacity.first;
   const isLocked = aircraft.unlockTier > airlineTier;
@@ -439,13 +438,13 @@ function AircraftCard({
     >
       {/* Top Image Splash */}
       <div
-        className={`relative flex h-40 w-full shrink-0 items-center justify-center overflow-hidden border-b border-border/30 bg-gradient-to-br ${bgGradient} sm:h-48`}
+        className={`relative flex h-40 w-full shrink-0 items-center justify-center overflow-hidden border-b border-border/30 ${bgGradient} sm:h-48`}
       >
         <div className="absolute left-3 top-3 flex gap-2 sm:left-4 sm:top-4">
-          <span className="inline-flex items-center rounded-full bg-background/80 backdrop-blur-md px-2.5 py-0.5 text-xs font-semibold text-foreground border border-border/50">
+          <span className="inline-flex items-center rounded-full bg-background/95 px-2.5 py-0.5 text-xs font-semibold text-foreground border border-border/50">
             {t("fleet.tierLabel", { tier: aircraft.unlockTier })}
           </span>
-          <span className="inline-flex items-center rounded-full bg-background/80 backdrop-blur-md px-2.5 py-0.5 text-xs font-semibold uppercase text-muted-foreground border border-border/50">
+          <span className="inline-flex items-center rounded-full bg-background/95 px-2.5 py-0.5 text-xs font-semibold uppercase text-muted-foreground border border-border/50">
             {aircraft.type}
           </span>
         </div>
@@ -507,7 +506,7 @@ function AircraftCard({
             <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1">
               {t("fleet.listPrice")}
             </p>
-            <p className="truncate text-xl font-bold text-primary transition-[color,transform,text-shadow] duration-300 drop-shadow-[0_0_10px_rgba(16,185,129,0.2)] group-hover:-translate-y-0.5 group-hover:text-primary group-hover:drop-shadow-[0_0_14px_rgba(16,185,129,0.32)] group-focus-within:-translate-y-0.5 group-focus-within:text-primary group-focus-within:drop-shadow-[0_0_14px_rgba(16,185,129,0.32)] sm:text-lg">
+            <p className="truncate text-xl font-bold text-primary transition-[color,transform,text-shadow] duration-300 drop- group-hover:-translate-y-0.5 group-hover:text-primary group-hover:drop- group-focus-within:-translate-y-0.5 group-focus-within:text-primary group-focus-within:drop- sm:text-lg">
               {fpFormat(aircraft.price, 0)}
             </p>
           </div>
@@ -519,7 +518,7 @@ function AircraftCard({
             className={`relative w-full shrink-0 overflow-hidden rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background sm:w-auto sm:py-2 ${
               isLocked
                 ? "bg-muted/40 text-muted-foreground cursor-not-allowed"
-                : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] focus:ring-primary"
+                : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground hover: focus:ring-primary"
             }`}
           >
             <span className="relative flex items-center justify-center gap-2 truncate">
@@ -550,18 +549,18 @@ function UsedAircraftCard({ listing, airlineTier, onBuy }: UsedListingCardProps)
   if (!model) return null;
   const isLocked = model.unlockTier > airlineTier;
 
-  const bgGradient = "from-orange-500/10 via-orange-900/5 to-transparent";
+  const bgGradient = "bg-white/[0.03]";
 
   return (
     <div className="group relative flex min-w-0 flex-col rounded-2xl bg-card border border-orange-500/20 overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(249,115,22,0.2)] hover:border-orange-500/40">
       <div
-        className={`h-28 w-full shrink-0 bg-gradient-to-br ${bgGradient} relative flex items-center justify-center border-b border-orange-500/10`}
+        className={`h-28 w-full shrink-0 ${bgGradient} relative flex items-center justify-center border-b border-orange-500/10`}
       >
         <div className="absolute top-3 left-3 flex gap-2">
-          <span className="inline-flex items-center rounded-full bg-orange-500/20 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-orange-400 border border-orange-500/20 uppercase">
+          <span className="inline-flex items-center rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-bold text-orange-400 border border-orange-500/20 uppercase">
             {t("fleet.used")}
           </span>
-          <span className="inline-flex items-center rounded-full bg-background/80 backdrop-blur-md px-2 py-0.5 text-[10px] font-semibold text-muted-foreground border border-border/50">
+          <span className="inline-flex items-center rounded-full bg-background/95 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground border border-border/50">
             {t("fleet.tierLabel", { tier: model.unlockTier })}
           </span>
         </div>
@@ -615,7 +614,7 @@ function UsedAircraftCard({ listing, airlineTier, onBuy }: UsedListingCardProps)
             <p className="text-[10px] uppercase text-muted-foreground font-bold mb-0.5">
               {t("fleet.askingPrice")}
             </p>
-            <p className="truncate text-lg font-bold text-orange-400 drop-shadow-[0_0_10px_rgba(249,115,22,0.2)]">
+            <p className="truncate text-lg font-bold text-orange-400 drop-">
               {fpFormat(listing.marketplacePrice || FP_ZERO, 0)}
             </p>
             <p className="text-[9px] text-muted-foreground mt-0.5 italic truncate">
@@ -630,7 +629,7 @@ function UsedAircraftCard({ listing, airlineTier, onBuy }: UsedListingCardProps)
             className={`shrink-0 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
               isLocked
                 ? "bg-muted/40 text-muted-foreground cursor-not-allowed"
-                : "bg-orange-500 text-white hover:bg-orange-600 hover:shadow-[0_0_15px_rgba(249,115,22,0.4)]"
+                : "bg-orange-500 text-white hover:bg-orange-600 hover:"
             }`}
           >
             {isLocked ? t("fleet.tierLabel", { tier: model.unlockTier }) : t("fleet.purchase")}
@@ -726,14 +725,13 @@ function PurchaseModal({
   };
 
   const gradientMap: Record<string, string> = {
-    Airbus: "from-blue-500/20 via-blue-900/10 to-transparent",
-    Boeing: "from-indigo-500/20 via-purple-900/10 to-transparent",
-    Embraer: "from-emerald-500/20 via-green-900/10 to-transparent",
-    ATR: "from-orange-500/20 via-red-900/10 to-transparent",
-    "De Havilland": "from-red-500/20 via-rose-900/10 to-transparent",
+    Airbus: "bg-white/[0.03]",
+    Boeing: "bg-white/[0.03]",
+    Embraer: "bg-white/[0.03]",
+    ATR: "bg-white/[0.03]",
+    "De Havilland": "bg-white/[0.03]",
   };
-  const bgGradient =
-    gradientMap[aircraft.manufacturer] || "from-zinc-500/20 via-zinc-900/10 to-transparent";
+  const bgGradient = gradientMap[aircraft.manufacturer] || "bg-white/[0.03]";
 
   const upfrontCost = purchaseType === "buy" ? aircraft.price : leaseDeposit(aircraft.price);
   const canAfford = typeof corporateBalance === "number" ? corporateBalance >= upfrontCost : true;
@@ -743,7 +741,7 @@ function PurchaseModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 p-0 backdrop-blur-sm animate-in fade-in duration-200 sm:items-center sm:p-4">
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 p-0 animate-in fade-in duration-200 sm:items-center sm:p-4">
         <div
           role="dialog"
           aria-modal="true"
@@ -752,7 +750,7 @@ function PurchaseModal({
         >
           {/* Header Graphic */}
           <div
-            className={`relative flex min-h-40 w-full shrink-0 items-center justify-between border-b border-border/30 bg-gradient-to-br ${bgGradient} p-4 sm:min-h-44 sm:p-6`}
+            className={`relative flex min-h-40 w-full shrink-0 items-center justify-between border-b border-border/30 ${bgGradient} p-4 sm:min-h-44 sm:p-6`}
           >
             <div className="z-10 min-w-0 flex-1">
               <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
@@ -781,7 +779,7 @@ function PurchaseModal({
             <button
               type="button"
               onClick={onClose}
-              className="absolute right-4 top-4 z-20 rounded-full bg-background/20 p-2 backdrop-blur-md transition-colors hover:bg-background/40"
+              className="absolute right-4 top-4 z-20 rounded-full bg-background/95 p-2 transition-colors hover:bg-background/95"
               aria-label={t("fleet.closePurchaseModal", { ns: "game" })}
             >
               <X className="h-5 w-5" aria-hidden="true" />
@@ -1047,7 +1045,7 @@ function PurchaseModal({
           </div>
 
           {/* Footer Action */}
-          <div className="flex shrink-0 min-w-0 flex-col gap-3 overflow-hidden border-t border-border/50 bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-md sm:flex-row sm:items-center sm:justify-end sm:p-6">
+          <div className="flex shrink-0 min-w-0 flex-col gap-3 overflow-hidden border-t border-border/50 bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end sm:p-6">
             <p className="truncate text-center text-xs text-muted-foreground sm:mr-auto sm:text-left">
               {t("fleet.reviewConfiguration", { ns: "game" })}
             </p>
@@ -1060,7 +1058,7 @@ function PurchaseModal({
                   ? "bg-primary text-primary-foreground opacity-90 scale-95"
                   : !canAfford
                     ? "bg-red-500/10 text-red-500 cursor-not-allowed border border-red-500/20"
-                    : "bg-primary text-primary-foreground hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:opacity-90"
+                    : "bg-primary text-primary-foreground hover: hover:opacity-90"
               }`}
             >
               <span className="relative flex items-center justify-center gap-2 truncate">

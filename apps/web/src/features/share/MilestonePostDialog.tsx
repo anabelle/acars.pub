@@ -90,7 +90,7 @@ export function MilestonePostDialog({
       <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
         <button
           type="button"
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/80"
           onClick={onClose}
           aria-label={t("milestonePost.cancel")}
           tabIndex={-1}

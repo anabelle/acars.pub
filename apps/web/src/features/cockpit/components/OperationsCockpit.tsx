@@ -488,7 +488,7 @@ export function OperationsCockpit() {
   if (!activeAirline) {
     return (
       <PanelLayout>
-        <div className="border-b border-border/60 bg-background/88 px-4 py-4 backdrop-blur-xl sm:px-6 sm:py-5">
+        <div className="border-b border-border/60 bg-background/95 px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">
@@ -595,7 +595,7 @@ export function OperationsCockpit() {
 
   return (
     <PanelLayout>
-      <div className="border-b border-border/60 bg-background/88 px-4 py-4 backdrop-blur-xl sm:px-6 sm:py-5">
+      <div className="border-b border-border/60 bg-background/95 px-4 py-4 sm:px-6 sm:py-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">

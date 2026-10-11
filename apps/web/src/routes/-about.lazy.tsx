@@ -31,7 +31,7 @@ export default function AboutPage() {
           {highlightKeys.map((item) => (
             <div
               key={item.titleKey}
-              className="flex gap-3 rounded-xl border border-border/60 bg-background/60 p-3 backdrop-blur-sm"
+              className="flex gap-3 rounded-xl border border-border/60 bg-background/95 p-3"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <item.icon className="h-4 w-4" />
@@ -47,7 +47,7 @@ export default function AboutPage() {
         </section>
 
         {/* Language Selector */}
-        <section className="flex items-center justify-between rounded-xl border border-border/60 bg-background/60 px-4 py-3 backdrop-blur-sm">
+        <section className="flex items-center justify-between rounded-xl border border-border/60 bg-background/95 px-4 py-3">
           <span className="text-sm font-medium text-foreground">{tc("language.label")}</span>
           <LanguageSelector />
         </section>

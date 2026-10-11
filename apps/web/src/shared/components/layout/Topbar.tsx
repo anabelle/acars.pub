@@ -117,7 +117,7 @@ export function Topbar() {
             panel: mobilePanelLabel,
           })}
           onClick={() => setMobileMenuOpen((open) => !open)}
-          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/88 px-4 py-3 text-left shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-2xl"
+          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-border/80 bg-background/95 px-4 py-3 text-left shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
         >
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
@@ -137,7 +137,7 @@ export function Topbar() {
     return airlineStatus &&
       (airlineStatus === "chapter11" || airlineStatus === "liquidated") &&
       !isViewingOther ? (
-      <div className="pointer-events-auto flex w-full items-center justify-center gap-2 border-b border-rose-500/30 bg-rose-950/80 px-4 py-2 backdrop-blur-xl">
+      <div className="pointer-events-auto flex w-full items-center justify-center gap-2 border-b border-rose-500/30 bg-rose-950/80 px-4 py-2">
         <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
         <span className="text-xs font-semibold text-rose-300">
           {airlineStatus === "chapter11"
@@ -167,7 +167,7 @@ export function Topbar() {
               panel: mobilePanelLabel,
             })}
             onClick={() => setMobileMenuOpen((open) => !open)}
-            className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-left shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-2xl"
+            className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-left shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
           >
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary/70">
@@ -189,7 +189,7 @@ export function Topbar() {
               id="mobile-topbar-panel"
               role="dialog"
               aria-label={mobilePanelTitle}
-              className="rounded-[24px] border border-border/80 bg-background/92 px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
+              className="rounded-[24px] border border-border/80 bg-background/95 px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
             >
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center space-x-3">
@@ -326,7 +326,7 @@ export function Topbar() {
           </div>
         )}
 
-        <div className="pointer-events-auto hidden w-full border-b border-border bg-background/80 px-4 py-2.5 backdrop-blur-xl sm:block sm:px-6">
+        <div className="pointer-events-auto hidden w-full border-b border-border bg-background/95 px-4 py-2.5 sm:block sm:px-6">
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center space-x-3">
               <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/20 text-xs font-bold text-primary">
@@ -491,7 +491,7 @@ export function Topbar() {
 
       {mobileMenuOpen && (
         <div
-          className="pointer-events-auto absolute top-[4.75rem] left-3 right-3 z-30 rounded-[24px] border border-border/80 bg-background/92 px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:hidden"
+          className="pointer-events-auto absolute top-[4.75rem] left-3 right-3 z-30 rounded-[24px] border border-border/80 bg-background/95 px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.55)] sm:hidden"
           id="mobile-topbar-panel"
           role="dialog"
           aria-label={mobilePanelTitle}
@@ -618,7 +618,7 @@ export function Topbar() {
       )}
 
       <div className="hidden sm:block">{renderBankruptcyBanner()}</div>
-      <div className="pointer-events-auto hidden w-full border-b border-border bg-background/80 px-4 py-3 backdrop-blur-xl sm:block sm:px-6 md:py-2">
+      <div className="pointer-events-auto hidden w-full border-b border-border bg-background/95 px-4 py-3 sm:block sm:px-6 md:py-2">
         <div className="flex w-full flex-col gap-3 md:min-h-11 md:justify-between">
           <div className="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">

@@ -56,7 +56,7 @@ export function TimeLapseBar({
         data-testid="time-lapse-bar"
         data-landed={landed}
         data-total={lapse.legs.length}
-        className={`pointer-events-auto fixed left-1/2 z-[80] w-[min(26rem,calc(100%-2rem))] ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} sm:bottom-14 -translate-x-1/2 rounded-2xl border border-primary/40 bg-background/90 px-4 py-3 shadow-[0_14px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl`}
+        className={`pointer-events-auto fixed left-1/2 z-[80] w-[min(26rem,calc(100%-2rem))] ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} sm:bottom-14 -translate-x-1/2 rounded-2xl border border-primary/40 bg-background/95 px-4 py-3 shadow-[0_14px_40px_rgba(0,0,0,0.45)]`}
       >
         <div className="flex items-center gap-3">
           <History className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
