@@ -32,8 +32,9 @@ export async function stubLivery(page: Page): Promise<() => number> {
  */
 export async function continuePastDelivery(page: Page): Promise<void> {
   const ceremony = page.getByTestId("delivery-ceremony");
-  if (await ceremony.isVisible().catch(() => false)) {
+  // Several planes can arrive together: each gets its own ceremony in turn.
+  for (let i = 0; i < 8 && (await ceremony.isVisible().catch(() => false)); i++) {
     await ceremony.getByRole("button", { name: /^(continue|continuar)$/i }).click();
-    await ceremony.waitFor({ state: "detached" });
+    await page.waitForTimeout(300);
   }
 }

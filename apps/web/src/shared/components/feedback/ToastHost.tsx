@@ -11,6 +11,7 @@ export function ToastHost() {
   return (
     <Toaster
       position="top-right"
+      theme="dark"
       expand={!isPhone()}
       closeButton
       richColors
