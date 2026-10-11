@@ -1,7 +1,7 @@
 # S60 — Livery-first plane panel and the hangar as a collection
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge #198)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #198)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #198
 >
@@ -78,3 +78,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 
 - `text-accent` was used as a highlight colour in five places (fleet count badge, base hub, two opportunity figures, a route figure) but `accent` is a dark surface colour, so they were near-invisible (before S59 too). They now use the cyan highlight (`text-primary`).
 - Checks: web unit 606/606, lint, typecheck; e2e plane panel + hangar (desktop and phone), clipped-control audit (desktop and phone), liveries spec green locally. Full e2e in CI.
+
+2026-10-11 · merged · 2d42273 · Squash-merged in #198.
