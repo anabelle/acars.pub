@@ -1,9 +1,9 @@
 # S61 — Delivery day, names, logbook and the spotter's book
 
 > **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge the S61 PR)
+> **Next step:** — (merge #199)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #199
 >
 > **Track:** Pride · **Size:** M (4 steps) · **Depends on:** S60 · **Unblocks:** S62 (Today story uses deliveries) · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 Pride
 >
