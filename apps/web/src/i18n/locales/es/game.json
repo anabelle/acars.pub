@@ -973,7 +973,15 @@
     "noRecentPerformance": "Esta aeronave aún no ha completado vuelos.",
     "fares": "Tarifas",
     "otherAircraftOnRoute": "Otras aeronaves en la ruta",
-    "more": "+{{count}} más"
+    "more": "+{{count}} más",
+    "paintingLivery": "Pintando la librea…",
+    "std": "Salida",
+    "flightProgress": "Progreso del vuelo",
+    "groundSpeed": "Vel.",
+    "toGo": "Faltan",
+    "timeLeft": "Quedan",
+    "today": "Últimas 24 h",
+    "blockHoursToday": "{{hours}} h bloque"
   },
   "airlineFlightBoard": {
     "title": "Vuelos",

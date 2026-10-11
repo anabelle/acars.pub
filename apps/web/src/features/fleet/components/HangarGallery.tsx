@@ -3,8 +3,8 @@ import { getAircraftById } from "@acars/data";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { LiveryThumb } from "@/shared/components/LiveryThumb";
+import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { navigateToAircraft } from "@/shared/lib/permalinkNavigation";
 
 const ROW_HEIGHT = 196;

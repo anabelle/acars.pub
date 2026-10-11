@@ -136,6 +136,42 @@ describe("AircraftInfoPanel", () => {
     await i18n.changeLanguage("en");
   });
 
+  it("opens on the painting with the plane's name on a sign (S60)", () => {
+    render(<AircraftInfoPanel aircraft={aircraft as never} onClose={() => {}} />);
+    const hero = screen.getByTestId("aircraft-hero");
+    expect(hero).toContainElement(screen.getByTestId("aircraft-livery-image"));
+    expect(screen.getByRole("heading", { name: "Aurora 101" })).toBeInTheDocument();
+    expect(hero).toHaveTextContent("Airbus A320neo");
+    expect(screen.getByRole("button", { name: /close/i })).toBeInTheDocument();
+  });
+
+  it("reads a flight like a flight tracker, above the tabs (S60)", () => {
+    const flying = {
+      ...aircraft,
+      status: "enroute" as const,
+      flight: {
+        originIata: "JFK",
+        destinationIata: "LAX",
+        departureTick: 4000,
+        arrivalTick: 6000,
+        direction: "outbound" as const,
+        distanceKm: 3983,
+      },
+    };
+    render(<AircraftInfoPanel aircraft={flying as never} onClose={() => {}} />);
+    const strip = screen.getByTestId("flight-strip");
+    expect(strip).toHaveTextContent("JFK");
+    expect(strip).toHaveTextContent("LAX");
+    expect(strip).toHaveTextContent(/STD \d\d:\d\dZ/);
+    expect(strip).toHaveTextContent(/ETA \d\d:\d\dZ/);
+    const bar = screen.getByRole("progressbar", { name: "Flight progress" });
+    expect(Number(bar.getAttribute("aria-valuenow"))).toBeGreaterThan(40);
+    expect(strip.compareDocumentPosition(screen.getByRole("button", { name: "Info" }))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(screen.getByTestId("today-strip")).toBeInTheDocument();
+  });
+
   it("shows the current seat layout on the info tab", () => {
     render(<AircraftInfoPanel aircraft={aircraft} onClose={vi.fn()} />);
 

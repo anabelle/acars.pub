@@ -973,7 +973,15 @@
     "noRecentPerformance": "No completed flights yet for this aircraft.",
     "fares": "Fares",
     "otherAircraftOnRoute": "Other Aircraft on Route",
-    "more": "+{{count}} more"
+    "more": "+{{count}} more",
+    "paintingLivery": "Painting the livery…",
+    "std": "STD",
+    "flightProgress": "Flight progress",
+    "groundSpeed": "GS",
+    "toGo": "To go",
+    "timeLeft": "Left",
+    "today": "Last 24 h",
+    "blockHoursToday": "{{hours}} block h"
   },
   "airlineFlightBoard": {
     "title": "Flights",

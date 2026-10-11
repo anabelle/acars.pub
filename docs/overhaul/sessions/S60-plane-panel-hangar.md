@@ -1,7 +1,7 @@
 # S60 — Livery-first plane panel and the hangar as a collection
 
 > **Status:** ◐ in progress
-> **Next step:** S60.1
+> **Next step:** S60.2
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -39,7 +39,7 @@ A plane is the thing players love: open it and its painting fills the top, with 
 
 ## Steps (checkpoints)
 
-- [ ] **S60.1** Plane panel: hero, sign, flight strip, day strip, graceful fallback; en/es. _Done when:_ component tests (hero/fallback/strip) + e2e with the stubbed painting + 1440/390 screenshots.
+- [x] **S60.1** Plane panel: hero, sign, flight strip, day strip, graceful fallback; en/es. _Done when:_ component tests (hero/fallback/strip) + e2e with the stubbed painting + 1440/390 screenshots.
 - [ ] **S60.2** Hangar collection: livery cards, top earner, idle with one-tap fix; virtualized. _Done when:_ component tests (top earner, idle, fix) + e2e + screenshots.
 - [ ] **S60.3** Contrast fixes, audit e2e, PR with before/after screenshots; ready when CI is green.
 
@@ -56,3 +56,13 @@ A plane is the thing players love: open it and its painting fills the top, with 
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
 2026-10-11 · brief · (this commit) · Written after a before-capture of the plane panel and fleet (desktop and phone).
+
+2026-10-11 · S60.1 · (this commit) · **A plane opens on its painting and reads its flight like a tracker.**
+
+- **Hero** (`AircraftInfoPanel`): the painting first (16:9, full width), the plane's name on a location sign over it, type and airline under it, close in the corner. Model labels no longer repeat the maker ("ATR 42-600", not "ATR ATR 42-600").
+- **Flight strip** above the tabs: big origin/destination codes with cities, STD and ETA in UTC, a magenta progress bar (`role=progressbar`), and readouts for ground speed, distance to go (from the route when the flight has none) and time left.
+- **Last 24 h** strip (`DayStrip`): legs from the plane's landings plus the one in the air (`summarizeFleetDays`, one pass over the timeline, re-scanned per game minute), in the airline's colour or, when it is too dark to read (dark navy is common), its secondary or magenta (`legibleLiveryColour`). A rolling day, so it never looks empty just after midnight UTC.
+- **No raw errors**: `AircraftLiveryImage` shows `LiveryFallback` (the family silhouette in the airline's colours on a cockpit panel) with a "Painting the livery…" caption while generating; failures stay in the console.
+- **Placement**: floating panels anchor below the real top chrome (`--hud-top`, measured by `useHudTopVar`), so a banner can no longer push the bars over the painting and the close button on desktop. Known: on phones the dismissible key-backup banner still overlays the top of panels (pre-existing).
+- **Tests**: panel (hero, strip above the tabs), livery image (painting, no error text, caption), `planeDay`, `livery` helpers; e2e `plane-panel` on desktop and phone with `stubLivery` (serves the catalog A220 photo for `/api/generate-livery`; the e2e plane is an ATR, so the shot shows a stand-in painting). Web unit 603/603; audit and route-assign e2e green.
+- Screenshots: [`before-plane-1440`](../media/s60/before-plane-1440.png) → [`after-plane-1440`](../media/s60/after-plane-1440.png); [`before-plane-390`](../media/s60/before-plane-390.png) → [`after-plane-390`](../media/s60/after-plane-390.png).
