@@ -1228,5 +1228,34 @@
     "open": "Meet {{name}}",
     "continue": "Continue",
     "close": "Close"
+  },
+  "instruments": {
+    "title": "Instruments",
+    "trend": "Against the previous 24 h",
+    "noData": "No flights in the last 24 h",
+    "growing": "Growing",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "utilization": {
+      "label": "Utilization",
+      "band": "Target 8–13 h a day per plane",
+      "fix": "Fly more"
+    },
+    "loadFactor": {
+      "label": "Load factor",
+      "band": "Target 75–92% of seats",
+      "fixLow": "Review routes",
+      "fixHigh": "Add capacity"
+    },
+    "margin": {
+      "label": "Margin",
+      "band": "Target 10–25% of revenue",
+      "fix": "Review fares"
+    },
+    "runway": {
+      "label": "Cash runway",
+      "band": "Target 30+ days of cash",
+      "fix": "Open finance"
+    }
   }
 }

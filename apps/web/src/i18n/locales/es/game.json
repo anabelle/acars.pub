@@ -1228,5 +1228,34 @@
     "open": "Conoce a {{name}}",
     "continue": "Continuar",
     "close": "Cerrar"
+  },
+  "instruments": {
+    "title": "Instrumentos",
+    "trend": "Frente a las 24 h anteriores",
+    "noData": "Sin vuelos en las últimas 24 h",
+    "growing": "Creciendo",
+    "days_one": "{{count}} día",
+    "days_other": "{{count}} días",
+    "utilization": {
+      "label": "Utilización",
+      "band": "Objetivo 8–13 h al día por avión",
+      "fix": "Volar más"
+    },
+    "loadFactor": {
+      "label": "Ocupación",
+      "band": "Objetivo 75–92% de asientos",
+      "fixLow": "Revisar rutas",
+      "fixHigh": "Más capacidad"
+    },
+    "margin": {
+      "label": "Margen",
+      "band": "Objetivo 10–25% de ingresos",
+      "fix": "Revisar tarifas"
+    },
+    "runway": {
+      "label": "Caja",
+      "band": "Objetivo 30+ días de caja",
+      "fix": "Abrir finanzas"
+    }
   }
 }

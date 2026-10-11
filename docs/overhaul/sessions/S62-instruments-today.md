@@ -1,7 +1,7 @@
 # S62 — Instruments and the check-in story (Today)
 
 > **Status:** ◐ in progress
-> **Next step:** S62.1
+> **Next step:** S62.2
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -31,7 +31,7 @@ Each shows the value, the band, a trend against the previous 24 h, and colour by
 
 ## Steps (checkpoints)
 
-- [ ] **S62.1** `computeInstruments` (pure, one pass over the timeline) + `InstrumentPanel` (cockpit gauges with band, trend, fix). _Done when:_ unit tests per instrument (in band, low, high, no data) + component test.
+- [x] **S62.1** `computeInstruments` (pure, one pass over the timeline) + `InstrumentPanel` (cockpit gauges with band, trend, fix). _Done when:_ unit tests per instrument (in band, low, high, no data) + component test.
 - [ ] **S62.2** `buildTodayStory` (pure) + `TodayStory` (Ramp): a header (date sign, earned / people flown / landings) and up to five chapters from the last 24 h — deliveries (with the painting), the best flight, people turned away (pictograms, "add a plane"), and "Now · needs you" (idle planes, one tap). _Done when:_ unit tests per chapter + component test.
 - [ ] **S62.3** Cockpit opens on Today + instruments for the player's own airline (guests and other airlines keep the overview); landing toasts read money; toasts dark. e2e with a flying airline; 1440/390 screenshots; PR.
 
@@ -47,3 +47,9 @@ Each shows the value, the band, a trend against the previous 24 h, and colour by
 Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
 
 2026-10-11 · brief · (this commit) · Written after a before-capture of the cockpit for a 6-hour-old airline. Also fixes found in that capture: landing toasts printed a raw number ("Net Profit: +8.7863") and toasts were light on the dark theme.
+
+2026-10-11 · S62.1 · (this commit) · **Instruments.**
+
+- `computeInstruments` (`features/cockpit/utils/instruments.ts`): one pass over the timeline for the last 24 h and the 24 h before; utilization = landed block hours ÷ delivered planes, load factor = mean recorded load, margin = profit ÷ revenue, runway = balance ÷ daily loss after fixed costs (hub opex, leases), "growing" when the airline keeps money. States: normal in band, caution out of band, warning when far below (above the band is only ever a caution).
+- `InstrumentPanel`: four cockpit gauges (value in the state's colour, trend ▲▼, the band as a green segment with a needle, the band in words) and a sign-yellow fix button only when out of band; fixes are passed in by the cockpit. en/es.
+- Tests: instruments (in band, low, high, runway, no data), panel (reading, trend, fix only out of band, no data).
