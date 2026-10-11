@@ -4,6 +4,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 // Import the generated route tree
 import { routeTree } from "../routeTree.gen";
+import "@fontsource/b612/latin-400.css";
+import "@fontsource/b612/latin-700.css";
+import "@fontsource/b612-mono/latin-400.css";
+import "@fontsource/b612-mono/latin-700.css";
+import "@fontsource/overpass/latin-700.css";
+import "@fontsource/overpass/latin-800.css";
 import "../index.css";
 import { BankruptcyOverlay } from "@/features/identity/components/BankruptcyOverlay";
 import { NotificationBridge } from "@/features/notifications/NotificationBridge";

@@ -92,11 +92,11 @@ export function BankruptcyOverlay() {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+        className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/80"
       >
         <div
           ref={dialogRef}
-          className="relative mx-4 max-w-md w-full rounded-2xl border border-rose-500/30 bg-background/95 p-6 shadow-2xl backdrop-blur-xl"
+          className="relative mx-4 max-w-md w-full rounded-2xl border border-rose-500/30 bg-background/95 p-6 shadow-2xl"
         >
           <button
             ref={closeButtonRef}

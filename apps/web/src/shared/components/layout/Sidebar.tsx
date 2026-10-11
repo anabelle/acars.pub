@@ -104,7 +104,7 @@ export function Sidebar() {
   usePreloadNavRoutes();
 
   return (
-    <div className="pointer-events-auto hidden h-full w-16 flex-col border-r border-border bg-background/80 py-6 backdrop-blur-xl transition-all sm:flex md:w-52 md:px-2">
+    <div className="pointer-events-auto hidden h-full w-16 flex-col border-r border-border bg-background/95 py-6 transition-all sm:flex md:w-52 md:px-2">
       <div className="flex flex-1 flex-col space-y-2">
         {navItems.map((item) => {
           const isDisabled = item.requiresAirline && !hasAirlineContext;
@@ -168,7 +168,7 @@ export function MobileNav() {
   const { t } = useTranslation("common");
 
   return (
-    <nav className="pointer-events-auto grid shrink-0 grid-cols-6 items-stretch border-t border-border bg-background/90 px-2 py-1.5 backdrop-blur-xl pb-[calc(0.375rem+env(safe-area-inset-bottom))] sm:hidden">
+    <nav className="pointer-events-auto grid shrink-0 grid-cols-6 items-stretch border-t border-border bg-background/95 px-2 py-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] sm:hidden">
       {navItems.map((item) => {
         const isDisabled = item.requiresAirline && !hasAirlineContext;
         const badge = resolveNavBadge(item.to, badges);

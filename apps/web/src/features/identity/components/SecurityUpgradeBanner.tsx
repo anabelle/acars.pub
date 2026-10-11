@@ -54,7 +54,7 @@ export function SecurityUpgradeBanner() {
   return (
     <div
       key={securityRefreshToken}
-      className="pointer-events-auto relative z-10 mt-[4.75rem] w-full border-b border-amber-500/30 bg-amber-950/70 backdrop-blur-xl sm:mt-0"
+      className="pointer-events-auto relative z-10 mt-[4.75rem] w-full border-b border-amber-500/30 bg-amber-950/70 sm:mt-0"
     >
       <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
         <div className="flex min-w-0 flex-1 items-start gap-3">

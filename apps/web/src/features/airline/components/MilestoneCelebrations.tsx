@@ -157,7 +157,7 @@ function TierUpDialog({
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         <button
           type="button"
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/80"
           onClick={onClose}
           aria-label={t("milestones.tierUp.close")}
           tabIndex={-1}

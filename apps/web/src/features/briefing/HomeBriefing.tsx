@@ -123,7 +123,7 @@ export function HomeBriefing({ startCollapsed = false }: { startCollapsed?: bool
         data-open={open}
         aria-labelledby="home-briefing-title"
         className={cn(
-          "pointer-events-auto flex w-full flex-col overflow-hidden rounded-[24px] border border-border/70 bg-background/80 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:max-w-sm",
+          "pointer-events-auto flex w-full flex-col overflow-hidden rounded-[24px] border border-border/70 bg-background/95 shadow-[0_24px_70px_rgba(0,0,0,0.55)] sm:max-w-sm",
           // Folded, it shrinks to its summary instead of stretching down the side.
           open ? "max-h-[60dvh] sm:max-h-full" : "sm:self-start",
         )}

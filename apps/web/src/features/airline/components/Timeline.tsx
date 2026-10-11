@@ -348,9 +348,7 @@ export const AirlineTimeline: React.FC = () => {
 
   return (
     <div className="space-y-4 p-4">
-      <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent mb-6">
-        {t("timeline.operationsLedger")}
-      </h2>
+      <h2 className="text-2xl font-bold text-foreground mb-6">{t("timeline.operationsLedger")}</h2>
 
       <div ref={parentRef} className="relative max-h-[60vh] overflow-y-auto pr-2">
         {/* Vertical Line */}

@@ -104,7 +104,7 @@ export function HubPicker({
             {/* Backdrop */}
             <button
               type="button"
-              className="fixed inset-0 bg-background/80 backdrop-blur-sm"
+              className="fixed inset-0 bg-background/80"
               onClick={() => setOpen(false)}
               aria-label={t("hubPicker.closeSearch", { ns: "game" })}
             />

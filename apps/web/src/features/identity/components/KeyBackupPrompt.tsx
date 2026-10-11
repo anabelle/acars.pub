@@ -69,7 +69,7 @@ export function KeyBackupPrompt() {
       aria-labelledby="key-backup-prompt-title"
       data-testid="key-backup-prompt"
       data-moment={moment}
-      className="pointer-events-auto fixed inset-x-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[60] rounded-2xl border border-amber-500/40 bg-amber-950/95 p-4 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:bottom-12 sm:right-4 sm:w-96"
+      className="pointer-events-auto fixed inset-x-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[60] rounded-2xl border border-amber-500/40 bg-amber-950/95 p-4 shadow-2xl sm:inset-x-auto sm:bottom-12 sm:right-4 sm:w-96"
     >
       <button
         type="button"

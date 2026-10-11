@@ -550,7 +550,7 @@ export function WorldMap() {
       {showOpportunities && opportunityHub ? (
         <div
           // Left of the map buttons; above the route key when that one shows.
-          className={`pointer-events-none absolute right-20 z-20 w-44 rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-[10px] text-muted-foreground shadow-[0_14px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} ${
+          className={`pointer-events-none absolute right-20 z-20 w-44 rounded-xl border border-border/60 bg-background/95 px-3 py-2 text-[10px] text-muted-foreground shadow-[0_14px_40px_rgba(0,0,0,0.45)] ${MOBILE_BOTTOM_NAV_BOTTOM_CLASS} ${
             playerRoutes.length > 0 ? "sm:bottom-[11.25rem]" : "sm:bottom-14"
           }`}
           data-testid="opportunity-legend"
@@ -577,7 +577,7 @@ export function WorldMap() {
             onClick={toggleOpportunities}
             aria-pressed={showOpportunities}
             data-testid="opportunities-toggle"
-            className={`pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border bg-background/80 shadow-[0_14px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+            className={`pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border bg-background/95 shadow-[0_14px_40px_rgba(0,0,0,0.45)] transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
               showOpportunities
                 ? "border-primary/60 text-primary"
                 : "border-border/60 text-foreground"
@@ -601,7 +601,7 @@ export function WorldMap() {
           onClick={() =>
             setMapTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"))
           }
-          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-background/80 text-foreground shadow-[0_14px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-border/60 bg-background/95 text-foreground shadow-[0_14px_40px_rgba(0,0,0,0.45)] transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           title={toggleThemeLabel}
           aria-label={toggleThemeLabel}
         >

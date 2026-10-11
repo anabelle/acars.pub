@@ -29,7 +29,7 @@ export function RouteLegend({ showWorld, onShowWorldChange }: RouteLegendProps) 
   );
   return (
     <div
-      className="pointer-events-auto absolute bottom-14 right-20 z-20 hidden rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-[10px] text-muted-foreground shadow-[0_14px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:block"
+      className="pointer-events-auto absolute bottom-14 right-20 z-20 hidden rounded-xl border border-border/60 bg-background/95 px-3 py-2 text-[10px] text-muted-foreground shadow-[0_14px_40px_rgba(0,0,0,0.45)] sm:block"
       data-testid="route-legend"
     >
       <div

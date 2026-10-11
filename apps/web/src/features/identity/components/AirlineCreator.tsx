@@ -95,7 +95,7 @@ export function AirlineCreator() {
   }
 
   return (
-    <div className="mx-auto my-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-card/84 shadow-2xl backdrop-blur-md">
+    <div className="mx-auto my-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-card/95 shadow-2xl">
       <div className="border-b border-border bg-muted px-4 py-4 sm:px-8 sm:py-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>

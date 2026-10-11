@@ -66,9 +66,9 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="pointer-events-auto relative flex min-h-screen w-full flex-col overflow-auto bg-background/95 backdrop-blur-2xl">
+    <div className="pointer-events-auto relative flex min-h-screen w-full flex-col overflow-auto bg-background/95">
       {/* Header */}
-      <header className="flex items-center gap-3 border-b border-border/60 bg-background/80 px-6 py-4 backdrop-blur-xl">
+      <header className="flex items-center gap-3 border-b border-border/60 bg-background/95 px-6 py-4">
         <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/20 text-xs font-bold text-primary">
           AT
         </div>
@@ -101,7 +101,7 @@ export default function JoinPage() {
           </div>
 
           {/* Onboarding card */}
-          <div className="w-full max-w-sm rounded-2xl border border-border/60 bg-background/60 p-6 shadow-2xl backdrop-blur-xl">
+          <div className="w-full max-w-sm rounded-2xl border border-border/60 bg-background/95 p-6 shadow-2xl">
             <GuestKeyOnboarding onExistingAccount={handleExistingAccount} />
           </div>
         </section>
@@ -111,7 +111,7 @@ export default function JoinPage() {
           {features.map((f) => (
             <div
               key={f.title}
-              className="flex gap-3 rounded-xl border border-border/50 bg-background/50 p-4 backdrop-blur-sm"
+              className="flex gap-3 rounded-xl border border-border/50 bg-background/95 p-4"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <f.icon className="h-4 w-4" />

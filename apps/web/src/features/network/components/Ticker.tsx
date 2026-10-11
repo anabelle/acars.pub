@@ -18,7 +18,7 @@ const NO_FLEET: readonly AircraftInstance[] = [];
 const NO_ROUTES: readonly Route[] = [];
 
 const LIVE_STYLES: Record<RelayStatus, { text: string; dot: string; ping: boolean }> = {
-  ready: { text: "text-primary", dot: "bg-primary", ping: true },
+  ready: { text: "text-emerald-400", dot: "bg-emerald-400", ping: true },
   connecting: { text: "text-amber-400", dot: "bg-amber-400", ping: false },
   offline: { text: "text-amber-400", dot: "bg-amber-400", ping: false },
 };
@@ -77,17 +77,15 @@ export function Ticker() {
   if (!homeAirport) return null;
 
   return (
-    <div className="pointer-events-auto hidden sm:flex items-center space-x-6 whitespace-nowrap overflow-x-auto custom-scrollbar bg-background/95 backdrop-blur-sm border-t border-border px-4 py-1.5 text-xs font-mono text-muted-foreground z-50 fixed bottom-0 left-0 right-0 shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
+    <div className="pointer-events-auto hidden sm:flex items-center space-x-6 whitespace-nowrap overflow-x-auto custom-scrollbar bg-background/95 border-t border-border px-4 py-1.5 text-xs font-mono text-muted-foreground z-50 fixed bottom-0 left-0 right-0 shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
       <div
         className={`flex items-center space-x-2 w-24 shrink-0 ${live.text}`}
         data-testid="ticker-live"
         data-status={relayStatus}
       >
-        <div
-          className={`relative h-1.5 w-1.5 rounded-full shadow-[0_0_5px_currentColor] shrink-0 ${live.dot}`}
-        >
+        <div className={`relative h-1.5 w-1.5 rounded-full shrink-0 ${live.dot}`}>
           {live.ping && (
-            <div className="absolute -inset-1 rounded-full bg-primary/20 animate-ping"></div>
+            <div className="absolute -inset-1 rounded-full bg-emerald-400/20 animate-ping"></div>
           )}
         </div>
         <span className="font-semibold uppercase tracking-wider text-[10px]">

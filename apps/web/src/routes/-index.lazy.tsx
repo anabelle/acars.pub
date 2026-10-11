@@ -56,7 +56,7 @@ export default function HomeRoute() {
         // Guests: a small map-first card with one call to action. The world
         // map behind it is the pitch; the card just says where to start.
         <div className="pointer-events-none flex h-full w-full items-start justify-start px-3 pt-2 pb-24 sm:items-end sm:justify-start sm:px-6 sm:pt-0 sm:pb-6">
-          <div className="pointer-events-auto flex w-full max-w-[22rem] flex-col gap-3 rounded-[24px] border border-border/70 bg-background/74 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:p-5">
+          <div className="pointer-events-auto flex w-full max-w-[22rem] flex-col gap-3 rounded-[24px] border border-border/70 bg-background/95 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.55)] sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">

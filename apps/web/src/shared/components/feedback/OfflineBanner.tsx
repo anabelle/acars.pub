@@ -17,7 +17,7 @@ export function OfflineBanner() {
       data-testid="offline-banner"
       className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+4.25rem)] z-[60] flex justify-center px-3"
     >
-      <div className="flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-950/90 px-4 py-1.5 text-xs font-medium text-amber-100 shadow-lg backdrop-blur">
+      <div className="flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-950/90 px-4 py-1.5 text-xs font-medium text-amber-100 shadow-lg">
         <WifiOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <span>{t("offline.banner")}</span>
       </div>

@@ -57,34 +57,34 @@ import { MaintenancePolicyControl } from "./MaintenancePolicyControl";
 const timerStyleMap = {
   enroute: {
     container:
-      "border-slate-950/70 bg-sky-950/88 text-sky-50 shadow-[0_10px_30px_rgba(2,6,23,0.45)] backdrop-blur-md",
+      "border-slate-950/70 bg-sky-950/88 text-sky-50 shadow-[0_10px_30px_rgba(2,6,23,0.45)]",
     label: "text-sky-100",
     time: "text-white",
-    glow: "shadow-[0_0_22px_rgba(56,189,248,0.42)]",
+    glow: "",
     icon: PlaneTakeoff,
   },
   turnaround: {
     container:
-      "border-slate-950/70 bg-amber-950/88 text-amber-50 shadow-[0_10px_30px_rgba(2,6,23,0.45)] backdrop-blur-md",
+      "border-slate-950/70 bg-amber-950/88 text-amber-50 shadow-[0_10px_30px_rgba(2,6,23,0.45)]",
     label: "text-amber-100",
     time: "text-white",
-    glow: "shadow-[0_0_22px_rgba(251,191,36,0.42)]",
+    glow: "",
     icon: RotateCcw,
   },
   maintenance: {
     container:
-      "border-slate-950/70 bg-rose-950/88 text-rose-50 shadow-[0_10px_30px_rgba(2,6,23,0.45)] backdrop-blur-md",
+      "border-slate-950/70 bg-rose-950/88 text-rose-50 shadow-[0_10px_30px_rgba(2,6,23,0.45)]",
     label: "text-rose-100",
     time: "text-white",
-    glow: "shadow-[0_0_22px_rgba(244,63,94,0.42)]",
+    glow: "",
     icon: Wrench,
   },
   delivery: {
     container:
-      "border-slate-950/70 bg-blue-950/88 text-blue-50 shadow-[0_10px_30px_rgba(2,6,23,0.45)] backdrop-blur-md",
+      "border-slate-950/70 bg-blue-950/88 text-blue-50 shadow-[0_10px_30px_rgba(2,6,23,0.45)]",
     label: "text-blue-100",
     time: "text-white",
-    glow: "shadow-[0_0_22px_rgba(59,130,246,0.42)]",
+    glow: "",
     icon: PlaneLanding,
   },
 } as const;
@@ -308,7 +308,7 @@ export function FleetManager() {
 
   return (
     <div className="flex flex-col gap-3 sm:gap-4">
-      <div className="rounded-2xl border border-border/50 bg-card/90 p-3 shadow-sm backdrop-blur-xl sm:p-4">
+      <div className="rounded-2xl border border-border/50 bg-card/95 p-3 shadow-sm sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex items-center flex-1 sm:max-w-[320px]">
             <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
@@ -1403,11 +1403,11 @@ export function FleetManager() {
           <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
             <button
               type="button"
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/80"
               onClick={() => !isListing && setListingTarget(null)}
               aria-label={t("fleet.closeListingModal", { ns: "game" })}
             />
-            <div className="relative z-10 flex w-full max-h-[100dvh] flex-col overflow-hidden rounded-t-[24px] border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:max-h-[88vh] sm:max-w-lg sm:rounded-2xl">
+            <div className="relative z-10 flex w-full max-h-[100dvh] flex-col overflow-hidden rounded-t-[24px] border border-border bg-background/95 shadow-[0_20px_80px_rgba(0,0,0,0.6)] sm:max-h-[88vh] sm:max-w-lg sm:rounded-2xl">
               <div className="flex items-start justify-between border-b border-border/50 px-4 py-4 sm:px-6 sm:py-5">
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">

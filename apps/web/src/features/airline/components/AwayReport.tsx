@@ -113,7 +113,7 @@ export function AwayReportDialog({
           type="button"
           aria-label={t("awayReport.close", { ns: "game" })}
           tabIndex={-1}
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/80"
           onClick={onClose}
         />
         <div
@@ -121,7 +121,7 @@ export function AwayReportDialog({
           aria-modal="true"
           aria-labelledby={titleId}
           data-testid="away-report"
-          className="relative z-10 max-h-[90dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-t-3xl border border-border bg-background/95 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl sm:rounded-3xl sm:p-6"
+          className="relative z-10 max-h-[90dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-t-3xl border border-border bg-background/95 p-5 shadow-[0_20px_80px_rgba(0,0,0,0.6)] sm:rounded-3xl sm:p-6"
         >
           <div className="flex items-start justify-between gap-3">
             <div>

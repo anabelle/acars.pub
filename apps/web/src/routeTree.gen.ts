@@ -16,6 +16,7 @@ import { Route as FinanceRouteImport } from "./routes/finance";
 import { Route as FleetRouteImport } from "./routes/fleet";
 import { Route as InfoRouteImport } from "./routes/info";
 import { Route as JoinRouteImport } from "./routes/join";
+import { Route as KitRouteImport } from "./routes/kit";
 import { Route as LeaderboardRouteImport } from "./routes/leaderboard";
 import { Route as NetworkRouteImport } from "./routes/network";
 import { Route as RivalsRouteImport } from "./routes/rivals";
@@ -57,6 +58,11 @@ const InfoRoute = InfoRouteImport.update({
 const JoinRoute = JoinRouteImport.update({
   id: "/join",
   path: "/join",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const KitRoute = KitRouteImport.update({
+  id: "/kit",
+  path: "/kit",
   getParentRoute: () => rootRouteImport,
 } as any);
 const LeaderboardRoute = LeaderboardRouteImport.update({
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   "/fleet": typeof FleetRoute;
   "/info": typeof InfoRoute;
   "/join": typeof JoinRoute;
+  "/kit": typeof KitRoute;
   "/leaderboard": typeof LeaderboardRoute;
   "/network": typeof NetworkRoute;
   "/rivals": typeof RivalsRoute;
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   "/fleet": typeof FleetRoute;
   "/info": typeof InfoRoute;
   "/join": typeof JoinRoute;
+  "/kit": typeof KitRoute;
   "/leaderboard": typeof LeaderboardRoute;
   "/network": typeof NetworkRoute;
   "/rivals": typeof RivalsRoute;
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   "/fleet": typeof FleetRoute;
   "/info": typeof InfoRoute;
   "/join": typeof JoinRoute;
+  "/kit": typeof KitRoute;
   "/leaderboard": typeof LeaderboardRoute;
   "/network": typeof NetworkRoute;
   "/rivals": typeof RivalsRoute;
@@ -154,6 +163,7 @@ export interface FileRouteTypes {
     | "/fleet"
     | "/info"
     | "/join"
+    | "/kit"
     | "/leaderboard"
     | "/network"
     | "/rivals"
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | "/fleet"
     | "/info"
     | "/join"
+    | "/kit"
     | "/leaderboard"
     | "/network"
     | "/rivals"
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | "/fleet"
     | "/info"
     | "/join"
+    | "/kit"
     | "/leaderboard"
     | "/network"
     | "/rivals"
@@ -203,6 +215,7 @@ export interface RootRouteChildren {
   FleetRoute: typeof FleetRoute;
   InfoRoute: typeof InfoRoute;
   JoinRoute: typeof JoinRoute;
+  KitRoute: typeof KitRoute;
   LeaderboardRoute: typeof LeaderboardRoute;
   NetworkRoute: typeof NetworkRoute;
   RivalsRoute: typeof RivalsRoute;
@@ -261,6 +274,13 @@ declare module "@tanstack/react-router" {
       path: "/join";
       fullPath: "/join";
       preLoaderRoute: typeof JoinRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/kit": {
+      id: "/kit";
+      path: "/kit";
+      fullPath: "/kit";
+      preLoaderRoute: typeof KitRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/leaderboard": {
@@ -323,6 +343,7 @@ const rootRouteChildren: RootRouteChildren = {
   FleetRoute: FleetRoute,
   InfoRoute: InfoRoute,
   JoinRoute: JoinRoute,
+  KitRoute: KitRoute,
   LeaderboardRoute: LeaderboardRoute,
   NetworkRoute: NetworkRoute,
   RivalsRoute: RivalsRoute,
