@@ -267,7 +267,12 @@
       "list": "List",
       "gallery": "Hangar",
       "viewAria": "Fleet view",
-      "parked": "Parked at {{base}}"
+      "parked": "Parked at {{base}}",
+      "stand": "Stand {{stand}}",
+      "topEarner": "Top earner",
+      "blockHours24": "{{hours}} block h / 24 h",
+      "profit7d": "{{profit}} / 7 d",
+      "putToWork": "Put it to work ▶"
     },
     "poster": {
       "button": "Fleet poster",

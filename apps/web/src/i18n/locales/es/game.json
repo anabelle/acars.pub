@@ -267,7 +267,12 @@
       "list": "Lista",
       "gallery": "Hangar",
       "viewAria": "Vista de la flota",
-      "parked": "Estacionado en {{base}}"
+      "parked": "Estacionado en {{base}}",
+      "stand": "Puesto {{stand}}",
+      "topEarner": "Más rentable",
+      "blockHours24": "{{hours}} h bloque / 24 h",
+      "profit7d": "{{profit}} / 7 d",
+      "putToWork": "Ponlo a volar ▶"
     },
     "poster": {
       "button": "Póster de la flota",

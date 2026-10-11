@@ -1,7 +1,7 @@
 # S60 — Livery-first plane panel and the hangar as a collection
 
 > **Status:** ◐ in progress
-> **Next step:** S60.2
+> **Next step:** S60.3
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -40,7 +40,7 @@ A plane is the thing players love: open it and its painting fills the top, with 
 ## Steps (checkpoints)
 
 - [x] **S60.1** Plane panel: hero, sign, flight strip, day strip, graceful fallback; en/es. _Done when:_ component tests (hero/fallback/strip) + e2e with the stubbed painting + 1440/390 screenshots.
-- [ ] **S60.2** Hangar collection: livery cards, top earner, idle with one-tap fix; virtualized. _Done when:_ component tests (top earner, idle, fix) + e2e + screenshots.
+- [x] **S60.2** Hangar collection: livery cards, top earner, idle with one-tap fix; virtualized. _Done when:_ component tests (top earner, idle, fix) + e2e + screenshots.
 - [ ] **S60.3** Contrast fixes, audit e2e, PR with before/after screenshots; ready when CI is green.
 
 ## Acceptance criteria
@@ -66,3 +66,10 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - **Placement**: floating panels anchor below the real top chrome (`--hud-top`, measured by `useHudTopVar`), so a banner can no longer push the bars over the painting and the close button on desktop. Known: on phones the dismissible key-backup banner still overlays the top of panels (pre-existing).
 - **Tests**: panel (hero, strip above the tabs), livery image (painting, no error text, caption), `planeDay`, `livery` helpers; e2e `plane-panel` on desktop and phone with `stubLivery` (serves the catalog A220 photo for `/api/generate-livery`; the e2e plane is an ATR, so the shot shows a stand-in painting). Web unit 603/603; audit and route-assign e2e green.
 - Screenshots: [`before-plane-1440`](../media/s60/before-plane-1440.png) → [`after-plane-1440`](../media/s60/after-plane-1440.png); [`before-plane-390`](../media/s60/before-plane-390.png) → [`after-plane-390`](../media/s60/after-plane-390.png).
+
+2026-10-11 · S60.2 · (this commit) · **The hangar is a collection.**
+
+- `HangarGallery` tiles become livery cards on slabs: the painting (via `AircraftLiveryImage`, so a freshly painted plane shows before its upload), a stand number, the name in Overpass caps, the type, the last 24 h `DayStrip`, route, block hours and 7-day profit.
+- **Top earner** (best positive 7-day profit, `topEarnerId`): sign-yellow edge and a "Top earner" sign. **Idle**: hi-vis edge; parked planes get "Put it to work" (opens the plane, where it can be assigned), underused ones get the S58 "Fly more · N/wk" (`useRouteUtilization`, only when the suggestion raises the frequency).
+- Still virtualized by row (1 column on phones, 2 wider); `summarizeFleetDays` is one pass over the timeline per game minute; the per-card suggestion runs only for rendered cards.
+- Tests: hangar (top earner, 24 h strip, parked → put to work, underused → fly more), e2e hangar card with the painting on desktop and phone. Screenshots: [`after-hangar-1440`](../media/s60/after-hangar-1440.png), [`after-hangar-390`](../media/s60/after-hangar-390.png).

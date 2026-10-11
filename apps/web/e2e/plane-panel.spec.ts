@@ -57,5 +57,16 @@ test("a plane opens on its painting and reads its flight like a tracker", async 
   await expect(page.getByTestId("today-strip")).toBeVisible();
   await page.waitForTimeout(800);
   await shot(page, "plane-panel");
+
+  // The hangar shows the same painting as a collection card (S60.2).
+  await navigateInApp(page, "/fleet");
+  await page.getByRole("button", { name: /^hangar$/i }).click();
+  const card = page.getByTestId("hangar-tile").first();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card.getByRole("img").first()).toBeVisible({ timeout: 30_000 });
+  await expect(card).toContainText("MAD → BCN");
+  await expect(card).toContainText(/block h \/ 24 h/);
+  await page.waitForTimeout(800);
+  await shot(page, "hangar");
   expect(problems.pageErrors).toEqual([]);
 });
