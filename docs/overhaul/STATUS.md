@@ -121,7 +121,7 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 35  | S58     | P0       | 3     | Owner: "all my planes grounded most of the time". Planes fly their day (Blueprint v2).  |
 | 36  | S59     | P0       | 4     | Cockpit + Ramp foundation: tokens, fonts, textures, kit; retire neon (D17).             |
 
-**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195); S59 is in progress.
+**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196); S60 is next.
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 
