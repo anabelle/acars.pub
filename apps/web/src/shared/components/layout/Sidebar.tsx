@@ -115,8 +115,7 @@ export function Sidebar() {
               to={item.to}
               className={`group relative flex h-12 items-center justify-center rounded-xl transition-all md:justify-start md:gap-3 md:px-3 ${isDisabled ? "pointer-events-none opacity-40" : ""}`}
               activeProps={{
-                className:
-                  "bg-primary/20 text-primary shadow-[inset_0_0_15px_rgba(16,185,129,0.2)]",
+                className: "bg-primary/20 text-primary",
               }}
               inactiveProps={{
                 className: isDisabled
@@ -140,7 +139,7 @@ export function Sidebar() {
           to="/about"
           className="group relative mt-auto flex h-12 items-center justify-center rounded-xl transition-all md:justify-start md:gap-3 md:px-3"
           activeProps={{
-            className: "bg-primary/20 text-primary shadow-[inset_0_0_15px_rgba(16,185,129,0.2)]",
+            className: "bg-primary/20 text-primary",
           }}
           inactiveProps={{
             className: "text-muted-foreground hover:bg-muted hover:text-foreground",

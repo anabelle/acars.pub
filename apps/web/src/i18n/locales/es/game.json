@@ -289,7 +289,15 @@
       "formatAria": "Tamaño del póster"
     },
     "planeName": "Nombre",
-    "anotherName": "Otro"
+    "anotherName": "Otro",
+    "spotter": {
+      "tab": "Spotter",
+      "title": "Libro del spotter",
+      "progress": "{{owned}} / {{total}} tipos",
+      "owned": "En tu flota",
+      "next": "Listo para pedir",
+      "locked": "Nivel {{tier}}"
+    }
   },
   "network": {
     "title": "Red",
@@ -988,7 +996,20 @@
     "toGo": "Faltan",
     "timeLeft": "Quedan",
     "today": "Últimas 24 h",
-    "blockHoursToday": "{{hours}} h bloque"
+    "blockHoursToday": "{{hours}} h bloque",
+    "logbook": {
+      "title": "Bitácora",
+      "recent_one": "Registro reciente · {{count}} aterrizaje",
+      "recent_other": "Registro reciente · {{count}} aterrizajes",
+      "hours": "Horas",
+      "landings": "Aterrizajes",
+      "passengers": "Pasajeros",
+      "distance": "Distancia",
+      "earned": "Ganado",
+      "laps": "{{laps}}× la vuelta al mundo",
+      "passport": "Aeropuertos visitados",
+      "empty": "Aún sin aterrizajes: su primer sello está en camino."
+    }
   },
   "airlineFlightBoard": {
     "title": "Vuelos",
@@ -1198,5 +1219,14 @@
     "speed": "×{{speed}}",
     "landed": "{{landed}} de {{total}} vuelos aterrizados",
     "close": "Parar la repetición"
+  },
+  "delivery": {
+    "kicker": "Entregado en {{airport}}",
+    "firstOfType": "Tu primer {{type}}",
+    "firstFlight": "{{name}} se une a la flota. Primer vuelo {{origin}} → {{destination}}, ya a la venta.",
+    "waiting": "{{name}} se une a la flota y espera una ruta en {{airport}}.",
+    "open": "Conoce a {{name}}",
+    "continue": "Continuar",
+    "close": "Cerrar"
   }
 }
