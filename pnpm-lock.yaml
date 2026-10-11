@@ -90,6 +90,15 @@ importers:
       "@capacitor/core":
         specifier: ^8.5.1
         version: 8.5.1
+      "@fontsource/b612":
+        specifier: 5.3.0
+        version: 5.3.0
+      "@fontsource/b612-mono":
+        specifier: 5.3.0
+        version: 5.3.0
+      "@fontsource/overpass":
+        specifier: 5.3.0
+        version: 5.3.0
       "@nostr-dev-kit/ndk":
         specifier: 3.0.3
         version: 3.0.3(nostr-tools@2.25.2(typescript@5.9.3))
@@ -1132,6 +1141,24 @@ packages:
     peerDependenciesMeta:
       "@noble/hashes":
         optional: true
+
+  "@fontsource/b612-mono@5.3.0":
+    resolution:
+      {
+        integrity: sha512-G0Ihm+ekqqP5PZJ1zrx6GbeS2q4GDmYnM01zrNrPARRg64GoG0D2pTf+FsbDWvbg/9tVWFRmFIz8xYLjgFrUpg==,
+      }
+
+  "@fontsource/b612@5.3.0":
+    resolution:
+      {
+        integrity: sha512-2AQPrSFDI9K00w/lPlgfcqve+ZPdRSCttvVUxcmv+UrnwwaKLMym+/uXmM7+dgPCVBIV9omoXUabFoyBFpc1Vg==,
+      }
+
+  "@fontsource/overpass@5.3.0":
+    resolution:
+      {
+        integrity: sha512-601DJ9xb8+8XbxAS05+lkh9cW6wc4TnXL2vhQBUN6PrtE/mQTgxqrqac7rXkthyJO7c3KMHOpl9Tt0sRql1p5Q==,
+      }
 
   "@humanfs/core@0.19.2":
     resolution:
@@ -6259,6 +6286,12 @@ snapshots:
     optionalDependencies:
       "@noble/hashes": 2.0.1
 
+  "@fontsource/b612-mono@5.3.0": {}
+
+  "@fontsource/b612@5.3.0": {}
+
+  "@fontsource/overpass@5.3.0": {}
+
   "@humanfs/core@0.19.2":
     dependencies:
       "@humanfs/types": 0.15.0
@@ -6893,10 +6926,10 @@ snapshots:
 
   "@types/unist@3.0.3": {}
 
-  "@typescript-eslint/eslint-plugin@8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)":
+  "@typescript-eslint/eslint-plugin@8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)":
     dependencies:
       "@eslint-community/regexpp": 4.12.2
-      "@typescript-eslint/parser": 8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      "@typescript-eslint/parser": 8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/scope-manager": 8.70.0
       "@typescript-eslint/type-utils": 8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/utils": 8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
@@ -8814,7 +8847,7 @@ snapshots:
 
   typescript-eslint@8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3):
     dependencies:
-      "@typescript-eslint/eslint-plugin": 8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
+      "@typescript-eslint/eslint-plugin": 8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/parser": 8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
       "@typescript-eslint/typescript-estree": 8.70.0(typescript@5.9.3)
       "@typescript-eslint/utils": 8.70.0(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)
