@@ -23,6 +23,8 @@ export type { CycleFlightEvent, CyclePhase } from "./cycle.js";
 export * from "./line.js";
 // Connecting passengers (S67)
 export * from "./connections.js";
+// Real weather (S68)
+export * from "./weather.js";
 // Cycle
 export {
   countLandingsBetween,
