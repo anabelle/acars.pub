@@ -47,7 +47,7 @@ export function WhatIfCurve({ curve, formatX, onPick, pickBestLabel, testId, cla
         className,
       )}
     >
-      <figcaption className="flex items-baseline justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
         <span>{t("whatIf.title")}</span>
         <span className="flex gap-2 font-normal normal-case tracking-normal">
           <span className="text-nd-green">● {t("whatIf.best")}</span>
@@ -59,7 +59,7 @@ export function WhatIfCurve({ curve, formatX, onPick, pickBestLabel, testId, cla
       </figcaption>
       <svg
         viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-        className="h-24 w-full touch-none select-none"
+        className="h-auto w-full touch-none select-none"
         role="img"
         aria-label={t("whatIf.aria", {
           best: formatX(best.x),
