@@ -1,9 +1,9 @@
 # S69 — Published timetables (changes take effect tomorrow)
 
-> **Status:** ◐ in progress
-> **Next step:** S69.4 — e2e (desktop and phone), screenshots, PR
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge the PR)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** — (next)
+> **PR:** #201 (with S68)
 >
 > **Track:** Decisions · **Size:** M (4 steps) · **Depends on:** D12 ✅ (2026-10-12), S66 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §4 Decisions, §5 game theory
 
@@ -29,7 +29,7 @@ Fares and schedules are published, like a real airline's: a change made today ta
 - [x] **S69.1** Core: `Route.pending`, `FlightOffer.next`, `nextUtcDayStartTick`, `routeAt`, `offerAt`, `scheduleChangeTiming` (now / tomorrow, with the reason), `mergePending`; tests.
 - [x] **S69.2** Store: replay defers fares and frequency per the rule; optimistic slice does the same; engine and catch-up price with `routeAt`/`offerAt`; registry offers carry rivals' announced changes; pending promoted when due; tests (replay = optimistic, midnight switch).
 - [x] **S69.3** Web: fare editor and frequency control explain timing and show today's values; "changes tomorrow" badge; rivals' announced changes; i18n.
-- [ ] **S69.4** e2e (desktop and phone), screenshots, PR.
+- [x] **S69.4** e2e (desktop and phone), screenshots, PR.
 
 ## Progress log
 
@@ -49,3 +49,5 @@ Fares and schedules are published, like a real airline's: a change made today ta
 - `TimetableNote.tsx`: `TimetableAnnounced` (chip "From 00:00 UTC: E $80 · 3/wk" on the route card and in the fare editor), `TimetableHint` (published: "changes take effect at 00:00 UTC tomorrow, so rivals see them coming"; opened today: "changes apply now"; a plane just joined: "the extra flights start now"), `RivalAnnounced` (a rival's coming economy fare in the route's competition list; the list itself shows offers as in force now, `offerAt`).
 - Fare editor: starts from the planned fares (announced ones if any), the button reads "Announce for tomorrow" on a published route and confirms with a toast. Frequency control: steps from the planned frequency; the button and hint follow `scheduleChangeTiming` (with the route's latest join, `lastJoinTickOn`, now exported by the store).
 - i18n en/es `timetable.*`. Tests: chip, hints, rival note, editor (now vs announce, seeded from the announcement), frequency (announce, new capacity). Web 689/689.
+
+2026-10-12 · S69.4 · (this commit) · **On screen, through midnight.** e2e `timetable.spec.ts` (1440) and `mobile-timetable.spec.ts` (390) with a new journey, `publishedRoute` (MAD → BCN launched at 23:30 UTC, clock run past midnight): one fewer round trip → "Announce for tomorrow" and the 00:00 UTC hint; an economy fare $10 lower → the card's chip reads "From 00:00 UTC: E $… · N/wk"; then the clock runs to the next 00:05 UTC and the chip is gone, the frequency and fare are in force. The same-day specs (route frequency, fare editor, what-if, first hour) still pass unchanged. Screenshots: `media/s69/timetable-announced-1440.png`, `media/s69/timetable-announced-390.png`. Ships in #201 with S68 (same branch).
