@@ -1402,9 +1402,9 @@
     "onTime": "Puntual {{pct}}% de {{count}} vuelos · retraso medio {{minutes}} min · 7 días"
   },
   "connections": {
-    "title_one": "{{count}} persona al día conecta en {{iata}} en dos de tus vuelos.",
-    "title_other": "{{count}} personas al día conectan en {{iata}} en dos de tus vuelos.",
-    "perDay": "Conexiones / día",
+    "title_one": "{{count}} persona al día quiere conectar en {{iata}} en dos de tus vuelos (si hay asientos).",
+    "title_other": "{{count}} personas al día quieren conectar en {{iata}} en dos de tus vuelos (si hay asientos).",
+    "perDay": "Quieren conectar / día",
     "bank": "Sincronía del banco",
     "tip": "Programa las llegadas a {{iata}} entre 45 min y 3 h antes de las salidas (Plan del día de un avión) para conectar más."
   }

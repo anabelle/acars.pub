@@ -1402,9 +1402,9 @@
     "onTime": "On time {{pct}}% of {{count}} flights · average delay {{minutes}} min · 7 days"
   },
   "connections": {
-    "title_one": "{{count}} person a day connects through {{iata}} on two of your flights.",
-    "title_other": "{{count}} people a day connect through {{iata}} on two of your flights.",
-    "perDay": "Connecting / day",
+    "title_one": "{{count}} person a day wants to connect through {{iata}} on two of your flights (seats permitting).",
+    "title_other": "{{count}} people a day want to connect through {{iata}} on two of your flights (seats permitting).",
+    "perDay": "Want to connect / day",
     "bank": "Bank timing",
     "tip": "Time arrivals into {{iata}} 45 min – 3 h before departures (a plane's Day plan) to connect more."
   }

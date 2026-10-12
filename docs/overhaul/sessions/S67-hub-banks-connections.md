@@ -1,7 +1,7 @@
 # S67 — Hub banks and connecting passengers
 
-> **Status:** ◐ in progress
-> **Next step:** S67.4 — e2e (desktop and phone), screenshots, PR
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge #200)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #200 (with S66)
 >
@@ -24,7 +24,7 @@ A hub earns more than the sum of its routes: people flying Lisbon→Berlin with 
 - [x] **S67.1** Core: `detourFactor`, `bankQuality`, `connectingDemand`. _Done when:_ unit tests.
 - [x] **S67.2** Store: `buildConnectionService` (per directed leg, cached per hour), injected into a leg's demand in the live engine; landing details `connectingPassengers`. _Done when:_ engine tests (pairs, no double count with direct routes, bank timing raises it).
 - [x] **S67.3** UI: the airport panel shows connections at your hub (people a day, best pairs, bank quality with a tip); the receipt and cabin say how many connected.
-- [ ] **S67.4** e2e + screenshots; PR.
+- [x] **S67.4** e2e + screenshots; PR.
 
 ## Progress log
 
@@ -37,3 +37,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 2026-10-12 · S67.2 · (this commit) · **Connections fly.** `connections.ts` (store): `computeConnectionService` — per airport with 2+ of the airline's routes, every pair it does not fly direct (largest 30 partner markets), addressable A→B demand × 15 % × detour × bank quality (timed arrivals/departures from lines), added to both directed legs; per hub: quality, weekly connecting passengers, top 5 pairs. `buildConnectionService` caches it per game hour and network/line signature. The live engine adds a leg's connecting pool to its own weekly allocation (same seats, same fares; cycle planes and line legs alike); `FlightPassengerResult.connectingShare`; landing details `connectingPassengers`. Catch-up estimates keep using the last load factor. Tests: both legs carry them, no pair flown direct, a bank raises quality to 1 and the flow, cache, more seats filled with a connecting pool. Store 295/295.
 
 2026-10-12 · S67.3 · (this commit) · **Connections on screen.** `HubConnections` in the airport panel (own airline, only where people connect): "N people a day connect through MAD on two of your flights", readouts for connecting/day and bank timing (amber under 80 %), the biggest flows ("LIS→BCN 42"), and a tip to time arrivals 45 min–3 h before departures with a Day plan. The last flight's cabin line adds "12 connecting". `useHubConnections` re-reads once per game hour. Tests: component (hub with flows and tip; silent elsewhere). Web feature suites green.
+
+2026-10-12 · S67.4 · (this commit) · **e2e and screenshots; S67 complete.** `connections` (desktop) and `mobile-connections` (phone): an airline flying MAD–BCN and MAD–LIS for three hours shows Madrid's connections card ("264 people a day want to connect", BCN→LIS 136 · LIS→BCN 128, bank 50 % with the timing tip). Wording says "want to connect (seats permitting)": it is demand; seats decide how many board. Screenshots: [`hub-connections-1440`](../media/s67/hub-connections-1440.png), [`hub-connections-390`](../media/s67/hub-connections-390.png).

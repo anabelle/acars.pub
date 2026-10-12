@@ -130,7 +130,7 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 44  | S66     | P0       | 5     | Lines of flying: a plane flies a daily chain of legs; buffers and knock-on delays.        |
 | 45  | S67     | P1       | 4     | Hub banks and connecting passengers (aggregate, per leg; bank timing from lines).         |
 
-**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196), S60 is merged (#198); S61–S65 and S76 are merged (#199); the owner decided D9–D16 and D18 on 2026-10-12 (all as recommended; D13 visual first) and deferred S75 (3D camera, "not now"); S66 (lines of flying) is done (PR open); S67 (hub banks and connections) is in progress.
+**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196), S60 is merged (#198); S61–S65 and S76 are merged (#199); the owner decided D9–D16 and D18 on 2026-10-12 (all as recommended; D13 visual first) and deferred S75 (3D camera, "not now"); S66 (lines of flying) and S67 (hub banks and connections) are done (#200); S68 (weather oracle, D11) is next.
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 
