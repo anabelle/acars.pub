@@ -24,3 +24,17 @@ export async function stubLivery(page: Page): Promise<() => number> {
   });
   return () => requests;
 }
+
+/**
+ * Closes the delivery-day ceremony if it is showing (S61): a leased plane is
+ * delivered minutes after a launch, and its welcome sits over the map until
+ * the player continues, exactly as a real player would.
+ */
+export async function continuePastDelivery(page: Page): Promise<void> {
+  const ceremony = page.getByTestId("delivery-ceremony");
+  // Several planes can arrive together: each gets its own ceremony in turn.
+  for (let i = 0; i < 8 && (await ceremony.isVisible().catch(() => false)); i++) {
+    await ceremony.getByRole("button", { name: /^(continue|continuar)$/i }).click();
+    await page.waitForTimeout(300);
+  }
+}

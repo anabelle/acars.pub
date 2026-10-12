@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 import { useConfirm } from "@/shared/lib/useConfirm";
+import { suggestPlaneName } from "../utils/planeNames";
 import { CatalogImage } from "./CatalogImage";
 
 /**
@@ -658,7 +659,13 @@ function PurchaseModal({
   const corporateBalance = useAirlineStore((state) => state.airline?.corporateBalance);
 
   const [selectedHub, setSelectedHub] = useState<string>(hubs[0] || "");
-  const [customName, setCustomName] = useState("");
+  const fleetNames = useAirlineStore((state) => state.fleet.map((ac) => ac.name).join("\n"));
+  const pubkey = useAirlineStore((state) => state.pubkey);
+  const [nameSalt, setNameSalt] = useState(0);
+  // A suggested name (S61): every plane arrives as someone, not "<model> <n>".
+  const suggestName = (salt: number) =>
+    suggestPlaneName(`${pubkey ?? ""}:${aircraft.id}:${salt}`, fleetNames.split("\n"));
+  const [customName, setCustomName] = useState(() => suggestName(0));
   const [purchaseType, setPurchaseType] = useState<"buy" | "lease">("buy");
   const [isPurchasing, setIsPurchasing] = useState(false);
 
@@ -799,19 +806,33 @@ function PurchaseModal({
                     htmlFor={nameInputId}
                     className="text-[10px] font-semibold text-muted-foreground uppercase block"
                   >
-                    {t("fleet.registrationNameOptional", { ns: "game" })}
+                    {t("fleet.planeName", { ns: "game" })}
                   </label>
-                  <input
-                    id={nameInputId}
-                    type="text"
-                    value={customName}
-                    onChange={(e) => setCustomName(e.target.value)}
-                    placeholder={t("fleet.registrationPlaceholder", {
-                      ns: "game",
-                      name: aircraft.name,
-                    })}
-                    className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      id={nameInputId}
+                      type="text"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      placeholder={t("fleet.registrationPlaceholder", {
+                        ns: "game",
+                        name: aircraft.name,
+                      })}
+                      className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/50"
+                    />
+                    <button
+                      type="button"
+                      data-testid="plane-name-another"
+                      onClick={() => {
+                        const next = nameSalt + 1;
+                        setNameSalt(next);
+                        setCustomName(suggestName(next));
+                      }}
+                      className="shrink-0 rounded-[3px] border border-border/60 px-2 py-1 text-[11px] font-bold text-muted-foreground hover:text-foreground"
+                    >
+                      {t("fleet.anotherName", { ns: "game" })}
+                    </button>
+                  </div>
                 </div>
 
                 {hubs.length > 0 && (

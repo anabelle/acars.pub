@@ -287,6 +287,16 @@
       "failed": "Couldn't create the poster",
       "closeAria": "Close",
       "formatAria": "Poster size"
+    },
+    "planeName": "Name",
+    "anotherName": "Another",
+    "spotter": {
+      "tab": "Spotter",
+      "title": "Spotter's book",
+      "progress": "{{owned}} / {{total}} types",
+      "owned": "In your fleet",
+      "next": "Ready to order",
+      "locked": "Tier {{tier}}"
     }
   },
   "network": {
@@ -986,7 +996,20 @@
     "toGo": "To go",
     "timeLeft": "Left",
     "today": "Last 24 h",
-    "blockHoursToday": "{{hours}} block h"
+    "blockHoursToday": "{{hours}} block h",
+    "logbook": {
+      "title": "Logbook",
+      "recent_one": "Recent log · {{count}} landing",
+      "recent_other": "Recent log · {{count}} landings",
+      "hours": "Hours",
+      "landings": "Landings",
+      "passengers": "Passengers",
+      "distance": "Distance",
+      "earned": "Earned",
+      "laps": "{{laps}}× round the Earth",
+      "passport": "Airports visited",
+      "empty": "No landings yet: its first stamp is coming."
+    }
   },
   "airlineFlightBoard": {
     "title": "Flights",
@@ -1196,5 +1219,137 @@
     "speed": "×{{speed}}",
     "landed": "{{landed}} of {{total}} flights landed",
     "close": "Stop the replay"
+  },
+  "delivery": {
+    "kicker": "Delivered at {{airport}}",
+    "firstOfType": "Your first {{type}}",
+    "firstFlight": "{{name}} joins the fleet. First flight {{origin}} → {{destination}}, already selling.",
+    "waiting": "{{name}} joins the fleet and waits at {{airport}} for a route.",
+    "open": "Meet {{name}}",
+    "continue": "Continue",
+    "close": "Close"
+  },
+  "instruments": {
+    "title": "Instruments",
+    "trend": "Against the previous 24 h",
+    "noData": "No flights in the last 24 h",
+    "growing": "Growing",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "utilization": {
+      "label": "Utilization",
+      "band": "Target 8–16 h a day per plane",
+      "fix": "Fly more"
+    },
+    "loadFactor": {
+      "label": "Load factor",
+      "band": "Target 75–92% of seats",
+      "fixLow": "Review routes",
+      "fixHigh": "Add capacity"
+    },
+    "margin": {
+      "label": "Margin",
+      "band": "Target 10–25% of revenue",
+      "fix": "Review fares"
+    },
+    "runway": {
+      "label": "Cash runway",
+      "band": "Target 30+ days of cash",
+      "fix": "Open finance"
+    },
+    "years_one": "{{count}} year",
+    "years_other": "{{count}} years"
+  },
+  "today": {
+    "title": "Today · {{date}}",
+    "earned": "earned",
+    "flown_one": "{{count}} person flown",
+    "flown_other": "{{count}} people flown",
+    "landings_one": "{{count}} landing",
+    "landings_other": "{{count}} landings",
+    "quiet": "A quiet day so far. Planes in the air will land with stories to tell.",
+    "now": "Now",
+    "delivery": "Delivery",
+    "deliveredAt": "Joined the fleet at {{airport}}.",
+    "bestFlight": "Best flight",
+    "bestFlightText_one": "{{name}} flew {{count}} person {{origin}} → {{destination}} and earned {{profit}}.",
+    "bestFlightText_other": "{{name}} flew {{count}} people {{origin}} → {{destination}} and earned {{profit}}.",
+    "turnedAwayText_one": "{{destination}} sold out: {{count}} person stayed behind.",
+    "turnedAwayText_other": "{{destination}} sold out: {{count}} people stayed behind.",
+    "boarded": "boarded",
+    "stayedBehind": "stayed behind",
+    "addCapacity": "Add seats on this route",
+    "needsYou": "needs you",
+    "parkedText": "{{name}} is parked at {{airport}} with no route.",
+    "parkedMore_one": " One more plane waits too.",
+    "parkedMore_other": " {{count}} more planes wait too.",
+    "putToWork": "Put {{name}} to work"
+  },
+  "lastFlight": {
+    "title": "Last flight",
+    "cabinAria": "{{filled}} of {{seats}} seats taken",
+    "aboard": "{{filled}} / {{seats}} aboard · {{empty}} empty",
+    "perGlyph_one": "each mark is {{count}} seat",
+    "perGlyph_other": "each mark is {{count}} seats",
+    "receipt": "Receipt",
+    "net": "Net",
+    "seat": "seat {{seat}}",
+    "class": {
+      "first": "F",
+      "business": "J",
+      "economy": "Y"
+    },
+    "line": {
+      "first": "First class",
+      "business": "Business",
+      "economy": "Economy",
+      "ancillary": "Bags & meals",
+      "fuel": "Fuel",
+      "crew": "Crew",
+      "maintenance": "Maintenance",
+      "airport": "Airport fees",
+      "navigation": "Navigation",
+      "handling": "Handling",
+      "distribution": "Booking fees",
+      "leasing": "Lease",
+      "overhead": "Overhead"
+    },
+    "voice": {
+      "full": "Not one empty seat. Even the overhead bins were full.",
+      "roomy": "I had a whole row to myself. Lovely.",
+      "first": "Champagne before take-off. I could get used to this.",
+      "business": "Landed in time for the meeting, and I even slept.",
+      "smooth": "Smooth flight, friendly crew, on time."
+    }
+  },
+  "turnedAway": {
+    "title_one": "{{count}} person couldn't get a seat on your flights from {{iata}} in the last 24 h.",
+    "title_other": "{{count}} people couldn't get a seat on your flights from {{iata}} in the last 24 h."
+  },
+  "whatIf": {
+    "title": "Profit per day — what if?",
+    "best": "best",
+    "now": "now",
+    "max": "max",
+    "aria": "Best {{best}} at {{profit}} a day; now {{now}} at {{nowProfit}} a day",
+    "perDay": "{{profit}}/day",
+    "load": "load {{pct}}%",
+    "share": "share {{pct}}%",
+    "frequency": "What if? Profit by frequency",
+    "hide": "Hide what-if",
+    "tryBest": "Try {{x}}",
+    "fareX": "fares {{pct}}%",
+    "tryBestFare": "Try {{x}}"
+  },
+  "acars": {
+    "title": "ACARS",
+    "subtitle": "Last 24 h · UTC",
+    "empty": "No messages yet — they arrive as planes push back."
+  },
+  "sound": {
+    "kicker": "Sound on this device",
+    "description": "A soft chime when a plane lands and a fanfare on delivery day. Off by default.",
+    "on": "Sound on",
+    "off": "Sound off"
   }
 }

@@ -53,6 +53,7 @@ import { AircraftMaintenanceRow } from "./AircraftMaintenanceRow";
 import { FleetPosterDialog } from "./FleetPosterDialog";
 import { HangarGallery } from "./HangarGallery";
 import { MaintenancePolicyControl } from "./MaintenancePolicyControl";
+import { SpotterBook } from "./SpotterBook";
 
 const timerStyleMap = {
   enroute: {
@@ -127,7 +128,7 @@ export function FleetManager() {
   const tick = useEngineStore((state) => state.tick);
   const tickProgress = useEngineStore((state) => state.tickProgress);
   const [view, setView] = useState<"owned" | "dealer">("owned");
-  const [layout, setLayout] = useState<"list" | "hangar">("list");
+  const [layout, setLayout] = useState<"list" | "hangar" | "spotter">("list");
   const [posterOpen, setPosterOpen] = useState(false);
   const [search, setSearch] = useState("");
   const confirm = useConfirm();
@@ -329,7 +330,7 @@ export function FleetManager() {
             aria-label={t("fleet.hangar.viewAria", { ns: "game" })}
             className="flex h-10 shrink-0 rounded-xl border border-border/50 bg-background p-1 text-xs font-bold"
           >
-            {(["list", "hangar"] as const).map((option) => (
+            {(["list", "hangar", "spotter"] as const).map((option) => (
               <button
                 key={option}
                 type="button"
@@ -343,7 +344,9 @@ export function FleetManager() {
               >
                 {option === "list"
                   ? t("fleet.hangar.list", { ns: "game" })
-                  : t("fleet.hangar.gallery", { ns: "game" })}
+                  : option === "hangar"
+                    ? t("fleet.hangar.gallery", { ns: "game" })
+                    : t("fleet.spotter.tab", { ns: "game" })}
               </button>
             ))}
           </div>
@@ -390,6 +393,8 @@ export function FleetManager() {
               {t("fleet.noSearchResults", { ns: "game", search })}
             </p>
           </div>
+        ) : layout === "spotter" ? (
+          <SpotterBook fleet={fleet} tier={airline?.tier ?? 1} />
         ) : layout === "hangar" ? (
           <>
             {airline ? (

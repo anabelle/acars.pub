@@ -11,6 +11,7 @@ import {
 } from "@/features/network/utils/airlineFlightBoard";
 import { LiveryThumb } from "@/shared/components/LiveryThumb";
 import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
+import { BookingBar } from "./BookingBar";
 
 const STATUS_CLASS: Record<AirlineFlightRow["statusTone"], string> = {
   emerald: "text-emerald-400",
@@ -66,9 +67,7 @@ function AirlineFidsRow({ flight, style }: { flight: AirlineFlightRow; style?: C
       <span className="text-slate-100 font-semibold text-right tabular-nums">
         {flight.timeLabel}
       </span>
-      <span className="text-slate-200 text-right tabular-nums text-[10px]">
-        {loadFactor !== null ? `${loadFactor}%` : "--"}
-      </span>
+      <BookingBar percent={loadFactor} />
     </div>
   );
 }

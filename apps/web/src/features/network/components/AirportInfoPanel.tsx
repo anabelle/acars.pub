@@ -26,6 +26,7 @@ import {
 } from "@/shared/components/layout/mobileLayout";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { useConfirm } from "@/shared/lib/useConfirm";
+import { TurnedAwayHere } from "./TurnedAwayHere";
 
 type AirportInfoPanelProps = {
   airport: Airport;
@@ -81,6 +82,9 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
   const modifyHubs = useAirlineStore((s) => s.modifyHubs);
   const openRoute = useAirlineStore((s) => s.openRoute);
   const setHub = useEngineStore((s) => s.setHub);
+  const timeline = useAirlineStore((s) => s.timeline);
+  // Re-counted once per game minute, not every tick (S63).
+  const minuteTick = useEngineStore((s) => Math.floor(s.tick / 20) * 20);
 
   // Default to 'info' if no valid tab is in search params
   const activeTab = search.airportTab === "flights" ? "flights" : "info";
@@ -527,6 +531,10 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
                   </div>
                 ) : null}
               </div>
+            ) : null}
+
+            {airline ? (
+              <TurnedAwayHere iata={airport.iata} timeline={timeline} tick={minuteTick} />
             ) : null}
 
             {competitorHubNames.length > 0 ? (

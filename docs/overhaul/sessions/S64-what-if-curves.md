@@ -1,0 +1,59 @@
+# S64 — What-if curves for frequency and fares
+
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge #199)
+> **Branch:** `claude/zen-darwin-3op878`
+> **PR:** #199 (with S61–S63)
+>
+> **Track:** Decisions · **Size:** M (3 steps) · **Depends on:** S58 · **Unblocks:** frequency-war stabilizers (the curve teaches the equilibrium) · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 Decisions, §7 game theory
+>
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
+
+## Goal
+
+A player choosing how often to fly or what to charge sees the whole curve, not one number: profit per day against weekly round trips (and against fares), with the sweet spot, where the route is now, the most the planes can fly, and the share of the city pair it buys. One tap moves the route to the sweet spot.
+
+## Why
+
+- Blueprint §6: decisions should show their consequences before they are made; §7: frequency competition is a prisoner's dilemma, and a curve that bends over (more flights, less profit each) teaches the equilibrium better than any text.
+- Today the frequency control shows only "N legs a day" and the S58 "fly more"; the fare editor compares two points (saved and typed).
+
+## Constraints
+
+- Rule 3: a fixed number of O(1) projections (≤ 16 for frequency, 11 for fares) with the engine's own `projectRouteEconomics`; nothing per passenger.
+- Re-project at most once per game hour (like the fare editor and S58); only when the chart is open.
+- Money stays fixed-point in the engine; the curve converts to numbers for drawing only.
+
+## Steps (checkpoints)
+
+- [x] **S64.1** Store: `frequencyCurve` and `fareCurve` (samples, best, current, max, share), `routeProjectionInputFor` (how a route flies today). _Done when:_ unit tests (sampling, best, monotonic load against fare, determinism).
+- [x] **S64.2** UI: `WhatIfCurve` (inline SVG, cockpit style: magenta profit line, dashed zero, green sweet spot, cyan "now", amber max) under a "What if?" toggle in the frequency control (tap a point to try it) and in the fare editor (tap to scale the typed fares). _Done when:_ component tests.
+- [x] **S64.3** e2e (desktop and phone) + 1440/390 screenshots; PR.
+
+## Acceptance criteria
+
+- [x] A route with planes shows profit/day against frequency with the best point, now and max marked, and share at both.
+- [x] Tapping the curve sets the draft frequency (still needs Apply); the fare curve sets the typed fares.
+- [x] Fixed number of projections per game hour; clipped-control audit and full e2e green.
+
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`. If you stop mid-step, add a `WIP` line saying exactly what is done and what remains.
+
+2026-10-12 · brief · (this commit) · Written after reading the S58 projection (`bestWeeklyFrequency`, operating-day cap) and the fare editor's saved-vs-typed outcome.
+
+2026-10-12 · S64.1 · (this commit) · **The curves, in the store.** `frequencyCurve` samples 1 → the operating maximum (14 steps plus now and best) re-projecting the network at each frequency; `fareCurve` scales every fare together 60 % → 160 %; both return profit/day, load and share per point. `routeProjectionInputFor` turns a flying route into a projection input (the S58 suggestion now uses it). Store 282/282.
+
+2026-10-12 · S64.2 · (this commit) · **The curve on screen.**
+
+- `WhatIfCurve` (inline SVG, one series so no legend box): magenta profit line, dashed zero line when the curve crosses it, green sweet spot, cyan "now", amber dashed max; hover or tap reads any point ("18/wk +$4,200/day · load 82% · share 41%"); tapping moves the draft there; a sign button jumps to the best; a screen-reader table carries every point.
+- Frequency control: "What if? Profit by frequency" opens it (projections run only while open, once per game hour, `useFrequencyCurve`); a tap sets the draft, Apply still publishes.
+- Fare editor: the fare curve under the forecast; a tap scales the saved fares (capped) into the inputs.
+- Store: undid an accidental import-order reformat of six unrelated files in the S64.1 commit.
+- Tests: plotting helpers, frequency control (marks, readout, tap → draft, nothing published), fare editor (tap best → inputs ×1.2). Network + i18n 217/217.
+
+2026-10-12 · S64.3 · (this commit) · **e2e and screenshots; S64 complete.**
+
+- e2e `what-if` (desktop) and `mobile-what-if` (phone): launch MAD–BCN, open the frequency curve (best, now, readout), tap its left edge → draft 1/wk with Apply (nothing published), open the fare editor → fare curve. The chart keeps its aspect (no letterboxing in the wide fare editor); the caption wraps on phones.
+- **Finding for the owner (economy, D13):** on a fresh MAD–BCN the fare curve peaks at 150 % of the suggested fares (+$36k/day vs +$7k/day, load 88 % → 82 %): with 3 % of a 1.2 M-seat market, demand far exceeds our seats, so raising fares barely empties them. Honest to the model (scarcity prices up), but it means suggested fares are cheap for small entrants; worth a look when deciding "fares while filling".
+- Screenshots: [`frequency-curve-1440`](../media/s64/frequency-curve-1440.png), [`frequency-curve-390`](../media/s64/frequency-curve-390.png), [`fare-curve-1440`](../media/s64/fare-curve-1440.png), [`fare-curve-390`](../media/s64/fare-curve-390.png).

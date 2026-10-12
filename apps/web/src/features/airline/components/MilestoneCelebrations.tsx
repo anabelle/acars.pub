@@ -167,7 +167,7 @@ function TierUpDialog({
           aria-modal="true"
           aria-labelledby="tier-up-title"
           data-testid="tier-up-dialog"
-          className="relative z-10 w-full max-w-sm overflow-hidden rounded-3xl border border-primary/40 bg-background/95 p-6 text-center shadow-[0_20px_80px_rgba(16,185,129,0.25)]"
+          className="relative z-10 w-full max-w-sm overflow-hidden rounded-3xl border border-primary/40 bg-background/95 p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.6)]"
         >
           <button
             ref={closeRef}

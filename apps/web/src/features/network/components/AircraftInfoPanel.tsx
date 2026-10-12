@@ -16,9 +16,12 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plane, Route as RouteIcon, Users, Wrench, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { PlaneAcars } from "@/features/fleet/components/AcarsFeed";
 import { AircraftLiveryImage } from "@/features/fleet/components/AircraftLiveryImage";
+import { LastFlight } from "@/features/fleet/components/LastFlight";
 import { LiveryFallback } from "@/features/fleet/components/LiveryFallback";
 import { getAircraftTimer } from "@/features/fleet/utils/aircraftTimers";
+import { EARTH_KM, planeLogbook } from "@/features/fleet/utils/logbook";
 import { summarizeFleetDays } from "@/features/fleet/utils/planeDay";
 import { AssignRouteDialog } from "@/features/network/components/AssignRouteDialog";
 import { formatUtcClock } from "@/features/network/utils/tickerFacts";
@@ -428,6 +431,86 @@ function FlightStrip({
   );
 }
 
+/** What the plane has done (S61): lifetime hours, the recent log, its passport. */
+function LogbookSection({
+  aircraft,
+  timeline,
+}: {
+  aircraft: AircraftInstance;
+  timeline: readonly TimelineEvent[];
+}) {
+  const { t } = useTranslation("game");
+  const log = useMemo(
+    () =>
+      planeLogbook(aircraft.id, timeline, (iata) => {
+        const airport = getAirportIndex().get(iata);
+        return airport ? { latitude: airport.latitude, longitude: airport.longitude } : undefined;
+      }),
+    [aircraft.id, timeline],
+  );
+  const laps = log.distanceKm / EARTH_KM;
+  return (
+    <section data-testid="logbook" className="space-y-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <h4 className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          {t("aircraftPanel.logbook.title")}
+        </h4>
+        {log.sinceTick !== null ? (
+          <span className="text-[10px] text-muted-foreground">
+            {t("aircraftPanel.logbook.recent", { count: log.landings })}
+          </span>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Readout
+          label={t("aircraftPanel.logbook.hours")}
+          value={numberFormat.format(Math.round(aircraft.flightHoursTotal))}
+          unit="h"
+        />
+        <Readout
+          label={t("aircraftPanel.logbook.landings")}
+          value={numberFormat.format(log.landings)}
+        />
+        <Readout
+          label={t("aircraftPanel.logbook.passengers")}
+          value={numberFormat.format(log.passengers)}
+        />
+        <Readout
+          label={t("aircraftPanel.logbook.distance")}
+          value={numberFormat.format(log.distanceKm)}
+          unit="km"
+        />
+        <Readout
+          label={t("aircraftPanel.logbook.earned")}
+          value={fpFormat(log.profit, 0)}
+          tone={log.profit > 0 ? "normal" : log.profit < 0 ? "warning" : "data"}
+        />
+      </div>
+      {laps >= 0.05 ? (
+        <p className="text-xs text-muted-foreground">
+          {t("aircraftPanel.logbook.laps", { laps: laps.toFixed(laps < 10 ? 1 : 0) })}
+        </p>
+      ) : null}
+      {log.airports.length > 0 ? (
+        <div className="flex flex-wrap gap-2" aria-label={t("aircraftPanel.logbook.passport")}>
+          {log.airports.slice(0, 12).map((iata, index) => (
+            <span
+              key={iata}
+              data-testid="passport-stamp"
+              className="rounded-[3px] border-2 border-dashed border-nd-magenta/70 px-2 py-0.5 font-sign text-sm font-extrabold tracking-[0.08em] text-nd-magenta"
+              style={{ transform: `rotate(${((index * 37) % 11) - 5}deg)` }}
+            >
+              {iata}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">{t("aircraftPanel.logbook.empty")}</p>
+      )}
+    </section>
+  );
+}
+
 /** The plane's day so far as a strip of legs in its airline's colour (S60). */
 function TodayStrip({ legs, colour }: { legs: DayLeg[]; colour?: string }) {
   const { t } = useTranslation("game");
@@ -698,6 +781,12 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
 
         {activeTab === "info" ? (
           <>
+            {isPlayerAircraft ? <LogbookSection aircraft={aircraft} timeline={timeline} /> : null}
+            {isPlayerAircraft && lastLanding ? (
+              <LastFlight aircraft={aircraft} landing={lastLanding} />
+            ) : null}
+            {isPlayerAircraft ? <PlaneAcars aircraftId={aircraft.id} /> : null}
+
             {/* Specs grid */}
             {model ? (
               <div className="grid grid-cols-2 gap-3">

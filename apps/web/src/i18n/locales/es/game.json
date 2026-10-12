@@ -287,6 +287,16 @@
       "failed": "No se pudo crear el póster",
       "closeAria": "Cerrar",
       "formatAria": "Tamaño del póster"
+    },
+    "planeName": "Nombre",
+    "anotherName": "Otro",
+    "spotter": {
+      "tab": "Spotter",
+      "title": "Libro del spotter",
+      "progress": "{{owned}} / {{total}} tipos",
+      "owned": "En tu flota",
+      "next": "Listo para pedir",
+      "locked": "Nivel {{tier}}"
     }
   },
   "network": {
@@ -986,7 +996,20 @@
     "toGo": "Faltan",
     "timeLeft": "Quedan",
     "today": "Últimas 24 h",
-    "blockHoursToday": "{{hours}} h bloque"
+    "blockHoursToday": "{{hours}} h bloque",
+    "logbook": {
+      "title": "Bitácora",
+      "recent_one": "Registro reciente · {{count}} aterrizaje",
+      "recent_other": "Registro reciente · {{count}} aterrizajes",
+      "hours": "Horas",
+      "landings": "Aterrizajes",
+      "passengers": "Pasajeros",
+      "distance": "Distancia",
+      "earned": "Ganado",
+      "laps": "{{laps}}× la vuelta al mundo",
+      "passport": "Aeropuertos visitados",
+      "empty": "Aún sin aterrizajes: su primer sello está en camino."
+    }
   },
   "airlineFlightBoard": {
     "title": "Vuelos",
@@ -1196,5 +1219,137 @@
     "speed": "×{{speed}}",
     "landed": "{{landed}} de {{total}} vuelos aterrizados",
     "close": "Parar la repetición"
+  },
+  "delivery": {
+    "kicker": "Entregado en {{airport}}",
+    "firstOfType": "Tu primer {{type}}",
+    "firstFlight": "{{name}} se une a la flota. Primer vuelo {{origin}} → {{destination}}, ya a la venta.",
+    "waiting": "{{name}} se une a la flota y espera una ruta en {{airport}}.",
+    "open": "Conoce a {{name}}",
+    "continue": "Continuar",
+    "close": "Cerrar"
+  },
+  "instruments": {
+    "title": "Instrumentos",
+    "trend": "Frente a las 24 h anteriores",
+    "noData": "Sin vuelos en las últimas 24 h",
+    "growing": "Creciendo",
+    "days_one": "{{count}} día",
+    "days_other": "{{count}} días",
+    "utilization": {
+      "label": "Utilización",
+      "band": "Objetivo 8–16 h al día por avión",
+      "fix": "Volar más"
+    },
+    "loadFactor": {
+      "label": "Ocupación",
+      "band": "Objetivo 75–92% de asientos",
+      "fixLow": "Revisar rutas",
+      "fixHigh": "Más capacidad"
+    },
+    "margin": {
+      "label": "Margen",
+      "band": "Objetivo 10–25% de ingresos",
+      "fix": "Revisar tarifas"
+    },
+    "runway": {
+      "label": "Caja",
+      "band": "Objetivo 30+ días de caja",
+      "fix": "Abrir finanzas"
+    },
+    "years_one": "{{count}} año",
+    "years_other": "{{count}} años"
+  },
+  "today": {
+    "title": "Hoy · {{date}}",
+    "earned": "ganados",
+    "flown_one": "{{count}} pasajero",
+    "flown_other": "{{count}} pasajeros",
+    "landings_one": "{{count}} aterrizaje",
+    "landings_other": "{{count}} aterrizajes",
+    "quiet": "Un día tranquilo por ahora. Los aviones en el aire aterrizarán con historias.",
+    "now": "Ahora",
+    "delivery": "Entrega",
+    "deliveredAt": "Se unió a la flota en {{airport}}.",
+    "bestFlight": "Mejor vuelo",
+    "bestFlightText_one": "{{name}} llevó {{count}} pasajero {{origin}} → {{destination}} y ganó {{profit}}.",
+    "bestFlightText_other": "{{name}} llevó {{count}} pasajeros {{origin}} → {{destination}} y ganó {{profit}}.",
+    "turnedAwayText_one": "{{destination}} se agotó: {{count}} persona se quedó en tierra.",
+    "turnedAwayText_other": "{{destination}} se agotó: {{count}} personas se quedaron en tierra.",
+    "boarded": "a bordo",
+    "stayedBehind": "se quedaron en tierra",
+    "addCapacity": "Más asientos en esta ruta",
+    "needsYou": "te necesita",
+    "parkedText": "{{name}} está aparcado en {{airport}} sin ruta.",
+    "parkedMore_one": " Otro avión espera también.",
+    "parkedMore_other": " {{count}} aviones más esperan también.",
+    "putToWork": "Pon a volar a {{name}}"
+  },
+  "lastFlight": {
+    "title": "Último vuelo",
+    "cabinAria": "{{filled}} de {{seats}} asientos ocupados",
+    "aboard": "{{filled}} / {{seats}} a bordo · {{empty}} libres",
+    "perGlyph_one": "cada marca es {{count}} asiento",
+    "perGlyph_other": "cada marca son {{count}} asientos",
+    "receipt": "Recibo",
+    "net": "Neto",
+    "seat": "asiento {{seat}}",
+    "class": {
+      "first": "F",
+      "business": "J",
+      "economy": "Y"
+    },
+    "line": {
+      "first": "Primera",
+      "business": "Business",
+      "economy": "Turista",
+      "ancillary": "Maletas y comidas",
+      "fuel": "Combustible",
+      "crew": "Tripulación",
+      "maintenance": "Mantenimiento",
+      "airport": "Tasas aeroportuarias",
+      "navigation": "Navegación",
+      "handling": "Handling",
+      "distribution": "Comisiones de venta",
+      "leasing": "Arrendamiento",
+      "overhead": "Gastos generales"
+    },
+    "voice": {
+      "full": "Ni un asiento libre. Hasta los compartimentos iban llenos.",
+      "roomy": "Tuve una fila entera para mí. Una delicia.",
+      "first": "Champán antes de despegar. Me podría acostumbrar.",
+      "business": "Llegué a tiempo a la reunión, y hasta dormí.",
+      "smooth": "Vuelo tranquilo, tripulación amable, puntual."
+    }
+  },
+  "turnedAway": {
+    "title_one": "{{count}} persona no consiguió asiento en tus vuelos desde {{iata}} en las últimas 24 h.",
+    "title_other": "{{count}} personas no consiguieron asiento en tus vuelos desde {{iata}} en las últimas 24 h."
+  },
+  "whatIf": {
+    "title": "Beneficio diario — ¿y si…?",
+    "best": "mejor",
+    "now": "ahora",
+    "max": "máx.",
+    "aria": "Mejor {{best}} con {{profit}} al día; ahora {{now}} con {{nowProfit}} al día",
+    "perDay": "{{profit}}/día",
+    "load": "ocupación {{pct}}%",
+    "share": "cuota {{pct}}%",
+    "frequency": "¿Y si…? Beneficio por frecuencia",
+    "hide": "Ocultar ¿y si…?",
+    "tryBest": "Probar {{x}}",
+    "fareX": "tarifas {{pct}}%",
+    "tryBestFare": "Probar {{x}}"
+  },
+  "acars": {
+    "title": "ACARS",
+    "subtitle": "Últimas 24 h · UTC",
+    "empty": "Aún no hay mensajes: llegan cuando los aviones salen."
+  },
+  "sound": {
+    "kicker": "Sonido en este dispositivo",
+    "description": "Un timbre suave cuando aterriza un avión y una fanfarria el día de la entrega. Apagado por defecto.",
+    "on": "Sonido activado",
+    "off": "Sonido apagado"
   }
 }

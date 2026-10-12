@@ -9,8 +9,8 @@ test.use(MADRID_PLAYER);
 test("a new player buys their first aircraft", async ({ page, problems }) => {
   test.setTimeout(120_000);
   await createAirline(page);
-  await buyFirstAircraft(page);
-  await expect(page.getByText("ATR 42-600 1")).toBeVisible();
+  const name = await buyFirstAircraft(page);
+  await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
   await page.screenshot({ path: "test-results/fleet-purchase-desktop.png" });
   expect(problems.pageErrors).toEqual([]);
 });

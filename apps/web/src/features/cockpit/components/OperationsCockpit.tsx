@@ -1,10 +1,11 @@
-import { fpFormat } from "@acars/core";
-import { getAircraftById } from "@acars/data";
+import { FP_ZERO, fp, fpAdd, fpDiv, fpFormat, TICKS_PER_HOUR } from "@acars/core";
+import { getAircraftById, getHubPricingForIata } from "@acars/data";
 import {
   blockHoursPerAircraftPerDay,
   IDLE_BLOCK_HOURS_PER_DAY,
   useActiveAirline,
   useAirlineStore,
+  useEngineStore,
 } from "@acars/store";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
@@ -27,13 +28,19 @@ import { useTranslation } from "react-i18next";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
 import { WorldEventsCard } from "@/features/events/WorldEventsCard";
+import { AirlineAcars } from "@/features/fleet/components/AcarsFeed";
 import { NotificationSettingsCard } from "@/features/notifications/NotificationSettingsCard";
+import { SoundSettingsCard } from "@/features/sound/SoundSettingsCard";
 import { ShareNetworkButton } from "@/features/share/ShareNetworkButton";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
 import { cn } from "@/shared/lib/utils";
+import { computeInstruments } from "../utils/instruments";
+import { buildTodayStory } from "../utils/todayStory";
 import { DailyObjectivesCard } from "./DailyObjectivesCard";
 import { FirstHourChecklist } from "./FirstHourChecklist";
+import { type InstrumentFix, InstrumentPanel } from "./InstrumentPanel";
+import { TodayStory } from "./TodayStory";
 
 const numberFormatter = new Intl.NumberFormat();
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
@@ -193,6 +200,63 @@ export function OperationsCockpit() {
     }
     return ids;
   }, [activeRoutes, fleet]);
+  // The check-in (S62): the last 24 hours as a story and four instruments,
+  // re-read once per game minute.
+  const minuteTick = useEngineStore(
+    (state) => Math.floor(state.tick / (TICKS_PER_HOUR / 60)) * (TICKS_PER_HOUR / 60),
+  );
+  const story = useMemo(
+    () => buildTodayStory({ timeline, fleet, routes, tick: minuteTick }),
+    [timeline, fleet, routes, minuteTick],
+  );
+  const instruments = useMemo(() => {
+    if (!activeAirline) return [];
+    const hubOpex = activeAirline.hubs.reduce(
+      (sum, hub) => sum + getHubPricingForIata(hub).monthlyOpex,
+      0,
+    );
+    let leases = FP_ZERO;
+    for (const aircraft of fleet) {
+      if (aircraft.purchaseType !== "lease") continue;
+      leases = fpAdd(leases, getAircraftById(aircraft.modelId)?.monthlyLease ?? FP_ZERO);
+    }
+    return computeInstruments({
+      timeline,
+      fleet,
+      tick: minuteTick,
+      balance: activeAirline.corporateBalance,
+      fixedCostsPerDay: fpDiv(fpAdd(fp(hubOpex), leases), fp(30)),
+    });
+  }, [activeAirline, fleet, timeline, minuteTick]);
+  const instrumentFixes = useMemo<Partial<Record<string, InstrumentFix>>>(() => {
+    const toRoutes = () => navigate({ to: "/network", search: { tab: "active" } as never });
+    const loadFactor = instruments.find((i) => i.id === "loadFactor");
+    return {
+      utilization:
+        underusedRouteIds.length > 0
+          ? {
+              label: t("instruments.utilization.fix", { ns: "game" }),
+              run: () => {
+                void (async () => {
+                  for (const routeId of underusedRouteIds) await applySuggestedFrequency(routeId);
+                })();
+              },
+            }
+          : undefined,
+      loadFactor: {
+        label:
+          loadFactor?.side === "high"
+            ? t("instruments.loadFactor.fixHigh", { ns: "game" })
+            : t("instruments.loadFactor.fixLow", { ns: "game" }),
+        run: toRoutes,
+      },
+      margin: { label: t("instruments.margin.fix", { ns: "game" }), run: toRoutes },
+      runway: {
+        label: t("instruments.runway.fix", { ns: "game" }),
+        run: () => navigate({ to: "/corporate", search: { section: "overview" } }),
+      },
+    };
+  }, [applySuggestedFrequency, instruments, navigate, t, underusedRouteIds]);
   const sortedRoutes = useMemo(
     () => [...routePerformance].sort((a, b) => b.profitPerHour - a.profitPerHour),
     [routePerformance],
@@ -595,45 +659,18 @@ export function OperationsCockpit() {
 
   return (
     <PanelLayout>
-      <div className="border-b border-border/60 bg-background/95 px-4 py-4 sm:px-6 sm:py-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
-                {t("cockpit.kicker", { ns: "game" })}
-              </span>
-              {isViewingOther ? (
-                <span className="inline-flex rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200">
-                  {t("cockpit.competitorBadge", { ns: "game" })}
-                </span>
-              ) : null}
-            </div>
-            <h1 className="mt-3 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-              {isViewingOther
-                ? t("cockpit.competitorTitle", {
-                    ns: "game",
-                    name: activeAirline.name,
-                  })
-                : t("cockpit.title", { ns: "game", name: activeAirline.name })}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              {isViewingOther
-                ? t("cockpit.competitorSubtitle", { ns: "game" })
-                : t("cockpit.subtitle", {
-                    ns: "game",
-                    competitors: numberFormatter.format(competitors.size),
-                  })}
-            </p>
-            {!isViewingOther && ownPubkey && (
-              <ShareNetworkButton
-                className="mt-3"
-                pubkey={ownPubkey}
-                airline={activeAirline}
-                fleet={fleet}
-                routes={routes}
-              />
-            )}
-          </div>
+      {!isViewingOther ? (
+        <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-background/95 px-4 py-3 sm:px-6">
+          {ownPubkey ? (
+            <ShareNetworkButton
+              pubkey={ownPubkey}
+              airline={activeAirline}
+              fleet={fleet}
+              routes={routes}
+            />
+          ) : (
+            <span />
+          )}
           <button
             type="button"
             onClick={() => navigate({ to: "/", search: { panel: "map" } })}
@@ -644,9 +681,67 @@ export function OperationsCockpit() {
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
-      </div>
+      ) : (
+        <div className="border-b border-border/60 bg-background/95 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
+                  {t("cockpit.kicker", { ns: "game" })}
+                </span>
+                {isViewingOther ? (
+                  <span className="inline-flex rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200">
+                    {t("cockpit.competitorBadge", { ns: "game" })}
+                  </span>
+                ) : null}
+              </div>
+              <h1 className="mt-3 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+                {isViewingOther
+                  ? t("cockpit.competitorTitle", {
+                      ns: "game",
+                      name: activeAirline.name,
+                    })
+                  : t("cockpit.title", { ns: "game", name: activeAirline.name })}
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                {isViewingOther
+                  ? t("cockpit.competitorSubtitle", { ns: "game" })
+                  : t("cockpit.subtitle", {
+                      ns: "game",
+                      competitors: numberFormatter.format(competitors.size),
+                    })}
+              </p>
+              {!isViewingOther && ownPubkey && (
+                <ShareNetworkButton
+                  className="mt-3"
+                  pubkey={ownPubkey}
+                  airline={activeAirline}
+                  fleet={fleet}
+                  routes={routes}
+                />
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/", search: { panel: "map" } })}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/70 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+              title={t("panel.closeTitle", { ns: "common" })}
+              aria-label={t("panel.closeAria", { ns: "common" })}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-6 px-4 py-4 sm:px-6 sm:py-5">
+        {!isViewingOther ? (
+          <>
+            <TodayStory story={story} tick={minuteTick} />
+            <InstrumentPanel instruments={instruments} fixes={instrumentFixes} />
+            <AirlineAcars />
+          </>
+        ) : null}
         {!isViewingOther && (
           <FirstHourChecklist
             routes={routes}
@@ -856,6 +951,7 @@ export function OperationsCockpit() {
         </section>
 
         {!isViewingOther && <NotificationSettingsCard />}
+        {!isViewingOther && <SoundSettingsCard />}
       </div>
     </PanelLayout>
   );

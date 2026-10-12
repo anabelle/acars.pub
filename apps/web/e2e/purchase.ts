@@ -27,9 +27,10 @@ async function giveCatalogPhotos(page: Page): Promise<void> {
 
 /**
  * A new player buys their first aircraft from the dealer: every card's buy
- * button sits inside its card, and the purchase goes through.
+ * button sits inside its card, and the purchase goes through. Returns the
+ * plane's name.
  */
-export async function buyFirstAircraft(page: Page): Promise<void> {
+export async function buyFirstAircraft(page: Page): Promise<string> {
   await navigateInApp(page, "/fleet");
   await page.getByRole("button", { name: /purchase aircraft/i }).click();
   const card = page.getByTestId("dealer-card").first();
@@ -51,7 +52,11 @@ export async function buyFirstAircraft(page: Page): Promise<void> {
   await buy.click();
   const dialog = page.getByRole("dialog", { name: /ATR 42-600/ });
   await expect(dialog).toBeVisible();
+  // The plane comes with a suggested name (S61), never "<model> <n>".
+  const name = await dialog.getByLabel("Name").inputValue();
+  expect(name).not.toMatch(/\d$/);
   await dialog.getByRole("button", { name: /confirm order/i }).click();
   await expect(page.getByText(/ATR 42-600 ordered/)).toBeVisible({ timeout: 30_000 });
   await expect(dialog).toHaveCount(0);
+  return name;
 }

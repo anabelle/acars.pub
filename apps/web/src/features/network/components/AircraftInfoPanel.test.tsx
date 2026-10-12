@@ -172,6 +172,31 @@ describe("AircraftInfoPanel", () => {
     expect(screen.getByTestId("today-strip")).toBeInTheDocument();
   });
 
+  it("keeps a logbook with the airports as passport stamps (S61)", () => {
+    render(<AircraftInfoPanel aircraft={aircraft as never} onClose={() => {}} />);
+    const log = screen.getByTestId("logbook");
+    expect(log).toHaveTextContent("Recent log · 1 landing");
+    expect(log).toHaveTextContent("2,150h");
+    expect(log).toHaveTextContent("31");
+    expect(log).toHaveTextContent("$2,501");
+    expect(screen.getAllByTestId("passport-stamp").map((stamp) => stamp.textContent)).toEqual([
+      "JFK",
+      "LAX",
+    ]);
+  });
+
+  it("shows the last flight's cabin by class (S63)", () => {
+    render(<AircraftInfoPanel aircraft={aircraft as never} onClose={() => {}} />);
+    const cabin = screen.getByTestId("cabin-strip");
+    expect(cabin).toHaveAccessibleName("31 of 140 seats taken");
+    // 140 seats: each mark is two seats (F 1, J 2, Y 13 marks filled).
+    expect(cabin.querySelectorAll("[data-filled=true]")).toHaveLength(16);
+    expect(cabin).toHaveTextContent("31 / 140 aboard · 109 empty · each mark is 2 seats");
+    expect(screen.getByTestId("last-flight")).toHaveTextContent("JFK → LAX");
+    // This landing has no cost breakdown (older event): no receipt.
+    expect(screen.queryByTestId("landing-receipt")).toBeNull();
+  });
+
   it("shows the current seat layout on the info tab", () => {
     render(<AircraftInfoPanel aircraft={aircraft} onClose={vi.fn()} />);
 

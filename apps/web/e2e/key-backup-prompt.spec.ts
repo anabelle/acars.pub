@@ -1,5 +1,6 @@
 import path from "node:path";
 import { expect, gotoReady, test } from "./fixtures";
+import { continuePastDelivery } from "./livery";
 import { createAirline, MADRID_PLAYER, navigateInApp } from "./signup";
 
 test.use(MADRID_PLAYER);
@@ -38,7 +39,9 @@ async function flyFirstFlight(
   for (let step = 0; step < 96 && (await prompt.count()) === 0; step++) {
     await page.clock.fastForward("00:30:00");
     await page.waitForTimeout(500);
+    await continuePastDelivery(page);
   }
+  await continuePastDelivery(page);
   await expect(prompt).toBeVisible();
   return prompt;
 }

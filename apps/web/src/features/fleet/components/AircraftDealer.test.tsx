@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PLANE_NAMES } from "../utils/planeNames";
 import { AircraftDealer } from "./AircraftDealer";
 
 vi.mock("@/shared/components/layout/panelScrollContext", () => ({
@@ -136,5 +137,25 @@ describe("AircraftDealer", () => {
     expect(screen.getAllByText("9,000 kg").length).toBeGreaterThan(1);
     expect(screen.getAllByText("Fuel Burn").length).toBeGreaterThan(1);
     expect(screen.getAllByText("2,700 kg/h").length).toBeGreaterThan(1);
+  });
+
+  it("suggests a real name for the plane and offers another (S61)", () => {
+    const purchaseAircraft = vi.fn(async () => {});
+    mockUseAirlineStore.mockReturnValue({
+      airline: { hubs: ["JFK"], tier: 3, corporateBalance: 1_000_000_000 },
+      fleet: [],
+      pubkey: "pk",
+      purchaseAircraft,
+      purchaseUsedAircraft: vi.fn(async () => {}),
+    });
+    render(<AircraftDealer />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Configure & Buy" })[0]);
+
+    const input = screen.getByLabelText("Name") as HTMLInputElement;
+    expect(PLANE_NAMES).toContain(input.value);
+    const first = input.value;
+    fireEvent.click(screen.getByTestId("plane-name-another"));
+    expect(input.value).not.toBe(first);
+    expect(PLANE_NAMES).toContain(input.value);
   });
 });

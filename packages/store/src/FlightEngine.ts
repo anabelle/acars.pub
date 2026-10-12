@@ -904,7 +904,7 @@ export function processFlightEngine(
           revenue: rev.revenueTotal,
           cost: cost.costTotal,
           profit: profit,
-          description: `${ac.name} ${isFerry ? "ferried" : isOrphan ? "landed (orphaned route)" : "landed"} at ${ac.flight?.destinationIata}. Net Profit: ${profit > 0 ? "+" : ""}${fpToNumber(profit)}`,
+          description: `${ac.name} ${isFerry ? "ferried" : isOrphan ? "landed (orphaned route)" : "landed"} at ${ac.flight?.destinationIata}. Net profit ${profit > 0 ? "+" : ""}${fpFormat(profit, 0)}.`,
           details: includePassengerDetails
             ? {
                 passengers: {

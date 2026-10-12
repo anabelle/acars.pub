@@ -11,7 +11,9 @@ import { Minus, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { useFrequencyCurve } from "../hooks/useFrequencyCurve";
 import { RouteUtilization } from "./RouteUtilization";
+import { WhatIfCurve } from "./WhatIfCurve";
 
 type Props = {
   route: Route;
@@ -30,7 +32,9 @@ export function RouteFrequencyControl({ route }: Props) {
   const current = route.frequencyPerWeek ?? 7;
   const [draft, setDraft] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [whatIf, setWhatIf] = useState(false);
   const value = draft ?? current;
+  const curve = useFrequencyCurve(route, whatIf);
 
   // The slowest assigned aircraft sets the pace (longest round trip).
   const physicalMax = useMemo(() => {
@@ -121,6 +125,26 @@ export function RouteFrequencyControl({ route }: Props) {
             })}
       </span>
       <RouteUtilization route={route} hideFlyMore={draft !== null && draft !== current} />
+      {physicalMax !== null ? (
+        <button
+          type="button"
+          aria-expanded={whatIf}
+          data-testid="what-if-toggle"
+          onClick={() => setWhatIf((open) => !open)}
+          className="mt-1 self-start text-[11px] font-bold text-primary underline-offset-2 hover:underline"
+        >
+          {whatIf ? t("whatIf.hide", { ns: "game" }) : t("whatIf.frequency", { ns: "game" })}
+        </button>
+      ) : null}
+      {whatIf && curve ? (
+        <WhatIfCurve
+          testId="frequency-curve"
+          curve={curve}
+          formatX={(x) => t("routeManager.frequency.perWeek", { ns: "game", count: x })}
+          onPick={(x) => setDraft(Math.min(upperBound, Math.max(MIN_ROUTE_FREQUENCY_PER_WEEK, x)))}
+          pickBestLabel={(x) => t("whatIf.tryBest", { ns: "game", x })}
+        />
+      ) : null}
     </div>
   );
 }

@@ -23,7 +23,12 @@ import {
 } from "./layers/airports.js";
 import { addFlightLayers, registerAircraftIcons } from "./layers/flights.js";
 import { applyGlobeView, globeFitZoom } from "./layers/globeView.js";
-import { addNightOverlay, NIGHT_CANVAS_SOURCE, paintNightCanvas } from "./layers/nightOverlay.js";
+import {
+  addNightOverlay,
+  cityLights,
+  NIGHT_CANVAS_SOURCE,
+  paintNightCanvas,
+} from "./layers/nightOverlay.js";
 import {
   addRouteLayers,
   arcCacheKey,
@@ -172,6 +177,9 @@ export function Globe({
     }
     return idx;
   }, [airports]);
+  // City lights on the night side (S76): one pass per airport catalog.
+  const nightLightsRef = useRef<ReturnType<typeof cityLights>>([]);
+  nightLightsRef.current = useMemo(() => cityLights(airports), [airports]);
 
   // -------------------------------------------------------------------------
   // Optimization 2: Memoized arc geometry cache for static routes.
@@ -406,7 +414,10 @@ export function Globe({
       setMapLoaded(true);
 
       registerAircraftIcons(map);
-      nightCanvasRef.current = addNightOverlay(map, mapThemePalette.nightTint);
+      nightCanvasRef.current = addNightOverlay(map, mapThemePalette.nightTint, {
+        cities: nightLightsRef.current,
+        glow: mapThemePalette.cityGlow,
+      });
       addDataSources(map);
       addRouteLayers(map, mapThemePalette);
       addAirportLayers(map, mapThemePalette);
@@ -740,6 +751,22 @@ export function Globe({
   //  - Viewport culling: skip off-screen aircraft
   //  - RAF loop with map idle detection (pauses when map is hidden)
   // =========================================================================
+  // Repaint the night side once the airport catalog (and its lights) arrives.
+  const nightLights = nightLightsRef.current;
+  useEffect(() => {
+    const map = mapRef.current;
+    const canvas = nightCanvasRef.current;
+    if (!mapLoaded || !map || !canvas || nightLights.length === 0) return;
+    const sun = getSubsolarPoint(new Date());
+    paintNightCanvas(canvas, sun.lat, sun.lng, mapThemePalette.nightTint, {
+      cities: nightLights,
+      glow: mapThemePalette.cityGlow,
+    });
+    const source = map.getSource(NIGHT_CANVAS_SOURCE) as maplibregl.CanvasSource | undefined;
+    source?.play();
+    source?.pause();
+  }, [mapLoaded, nightLights, mapThemePalette]);
+
   useEffect(() => {
     if (!mapLoaded || !mapRef.current) return;
     const map = mapRef.current;
@@ -751,7 +778,10 @@ export function Globe({
       // Use requestIdleCallback when available so the ~2ms pixel-fill doesn't
       // land on a busy animation frame.  Falls back to a simple timeout.
       const paintAndPulse = () => {
-        paintNightCanvas(canvas, sun.lat, sun.lng, mapThemePalette.nightTint);
+        paintNightCanvas(canvas, sun.lat, sun.lng, mapThemePalette.nightTint, {
+          cities: nightLightsRef.current,
+          glow: mapThemePalette.cityGlow,
+        });
         // The canvas source is paused (animate:false): pulse play()/pause()
         // to upload the freshly painted texture exactly once. pause() runs
         // prepare() synchronously, so no continuous repaint loop starts.
