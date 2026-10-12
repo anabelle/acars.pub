@@ -127,8 +127,9 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 41  | S64     | P1       | 3     | What-if curves: profit/day against frequency and fares, sweet spot, max, share.           |
 | 42  | S65     | P1       | 3     | ACARS feed: OOOI and position messages derived from engine events, per plane and airline. |
 | 43  | S76     | P2       | 3     | Night globe (city lights, overlay fix) and opt-in sound.                                  |
+| 44  | S66     | P0       | 5     | Lines of flying: a plane flies a daily chain of legs; buffers and knock-on delays.        |
 
-**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196), S60 is merged (#198); S61–S65 and S76 are merged (#199); the owner decided D9–D16 and D18 on 2026-10-12 (all as recommended; D13 visual first) and deferred S75 (3D camera, "not now"); S66 (lines of flying) is next.
+**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196), S60 is merged (#198); S61–S65 and S76 are merged (#199); the owner decided D9–D16 and D18 on 2026-10-12 (all as recommended; D13 visual first) and deferred S75 (3D camera, "not now"); S66 (lines of flying) is in progress.
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 
