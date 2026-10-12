@@ -1,5 +1,6 @@
 import type { AircraftInstance, FixedPoint, Route, TimelineEvent } from "@acars/core";
 import { getSuggestedFares } from "@acars/core";
+import { isWorking } from "@/features/fleet/utils/linePlan";
 
 export type ChecklistStepId =
   | "openRoute"
@@ -30,7 +31,7 @@ export interface ChecklistInput {
   routes: ReadonlyArray<
     Pick<Route, "distanceKm" | "fareEconomy" | "fareBusiness" | "fareFirst" | "status">
   >;
-  fleet: ReadonlyArray<Pick<AircraftInstance, "status" | "flight" | "assignedRouteId">>;
+  fleet: ReadonlyArray<Pick<AircraftInstance, "status" | "flight" | "assignedRouteId" | "line">>;
   cumulativeRevenue: FixedPoint;
   timeline?: ReadonlyArray<Pick<TimelineEvent, "type">>;
 }
@@ -70,7 +71,7 @@ export function deriveFirstHourChecklist(input: ChecklistInput): FirstHourCheckl
       done: tookOff,
       // Launching from the airport panel assigns an aircraft that then waits
       // for delivery and its slot: nothing to do but wait.
-      waiting: !tookOff && input.fleet.some((aircraft) => Boolean(aircraft.assignedRouteId)),
+      waiting: !tookOff && input.fleet.some((aircraft) => isWorking(aircraft)),
       to: "/fleet",
     },
     { id: "firstLanding", done: landed, to: "/network", search: { tab: "active" } },

@@ -1,7 +1,7 @@
 # S66 — Lines of flying, buffers, knock-on delays
 
 > **Status:** ◐ in progress
-> **Next step:** S66.3 — the plane's 24-hour board: build a line, auto-fill
+> **Next step:** S66.4 — on-time performance per plane and airline; ACARS shows delays
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -29,7 +29,7 @@ A plane flies a daily line of several legs — MAD→BCN→LIS→MAD→BCN→MAD
 
 - [x] **S66.1** Core: `LineOfFlying`, `validateLine`, `departureDisruptionTicks`, `lineDay`, `linePhaseAt`, `lineLandingsBetween`, `lineLandingCount`; `AircraftInstance.line`, `FlightState.routeId`. _Done when:_ unit tests (validation, determinism, no spill, phases, counts = walk).
 - [x] **S66.2** Store: `AIRCRAFT_LINE_SET` action (validate: own plane, routes active and in range, line starts at the plane's base), reducer, engine (live and reconcile) flying lines with per-leg economics; route frequency/assignment from lines. _Done when:_ engine tests (live = catch-up, landings and money per leg, delays).
-- [ ] **S66.3** UI: the plane's 24-hour board (legs on a day strip, buffers, on-time %), build a line from the plane's routes, auto-fill.
+- [x] **S66.3** UI: the plane's 24-hour board (legs on a day strip, buffers, on-time %), build a line from the plane's routes, auto-fill.
 - [ ] **S66.4** On-time performance: per plane and airline (last 7 days), ACARS shows delays.
 - [ ] **S66.5** e2e (desktop and phone) + screenshots; PR.
 
@@ -56,3 +56,10 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - Action `AIRCRAFT_LINE_SET` {aircraftId, legs[{routeId, direction, departOffsetTicks}]}: only on the ground, first leg from the plane's airport; lists the plane on each leg's route; empty legs clear it. A single-route assignment, unassign, route close or rebase clears a line. Store: `setAircraftLine` (returns an error code or null).
 - Tests: build/refuse, three-day catch-up (every landing paid, delays recorded, position = line), **a day ticked live lands the same flights and ends where catch-up does**, optimistic set/clear and refusals, replay set and route-close. Store 290/290, core 415/415, web unit 664/664.
 - Known approximations: maintenance and grounding pause a line, and the plane resumes wherever the line places it.
+
+2026-10-12 · S66.3 · (this commit) · **Plan a plane's day.**
+
+- `LineSection` in the plane panel (own planes, top of Info): the line's airports ("MAD→BCN→LIS→MAD"), legs and block hours, and a `LineBoard` — a 24-hour board with each leg as a bar (destination over it), its turnaround hatched, the gaps the buffers, now as a cyan line; or "Flies one route back and forth" with **Plan a day**.
+- `LineBuilder` dialog: legs in order from where the plane is; the next leg picked from your routes touching the last airport (in range); departures in 15-minute steps, defaulting to ready + 30 min; buffers coloured (green, amber under 20 min, red when it would leave before ready); live check with the replay's own rules (`planLine` → `buildLineLegs`) and the error said plainly; **Auto-fill** (out-and-back trips from base, routes in turn, 06:00–23:30 UTC, always valid); save; "Fly one route instead" clears it. Can't save while flying.
+- Line planes count as working everywhere a plane with a route did (`isWorking`): nav badge, cockpit idle list, Today's parked chapter, first-hour checklist, launch's plane picker, fleet list badges and ferry, hangar card (shows the chain, not "parked").
+- Tests: `linePlan` (options, plan/buffers/errors, default departure, auto-fill valid, draft from line, helpers), `LineSection` (invite → auto-fill → save; leg by leg until home; existing line on the board). Web feature suites 437/437.

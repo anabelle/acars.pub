@@ -1,5 +1,6 @@
 import type { AircraftInstance, AircraftModel, Route } from "@acars/core";
 import { getAircraftById } from "@acars/data";
+import { isWorking } from "@/features/fleet/utils/linePlan";
 
 /** The three actions a one-click launch performs, in order. */
 export type LaunchStep = "openRoute" | "acquireAircraft" | "assignAircraft";
@@ -49,7 +50,7 @@ export function findAvailableAircraft(
   plan: Pick<LaunchPlan, "originIata" | "distanceKm">,
 ): AircraftInstance | undefined {
   return fleet.find((aircraft) => {
-    if (aircraft.assignedRouteId) return false;
+    if (isWorking(aircraft)) return false;
     if (aircraft.status !== "idle" && aircraft.status !== "delivery") return false;
     if (aircraft.baseAirportIata !== plan.originIata) return false;
     const model = getAircraftById(aircraft.modelId);
