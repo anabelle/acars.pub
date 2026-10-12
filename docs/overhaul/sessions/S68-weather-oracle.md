@@ -1,7 +1,7 @@
 # S68 — Weather oracle (METAR on Nostr)
 
 > **Status:** ◐ in progress
-> **Next step:** S68.2 — nostr: weather bundle event (publish, parse, subscribe) and the publisher script
+> **Next step:** S68.3 — engine: weather delays on line departures; store keeps recent bundles; ACARS "WX"
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -23,7 +23,7 @@ Real weather slows real airports: a thunderstorm at Dallas, fog at San Francisco
 ## Steps (checkpoints)
 
 - [x] **S68.1** Core: `parseMetar` (category from ceiling/visibility in SM or metres, gusts in KT/MPS, TS/FG/SN, remarks ignored), compact encode/decode, `weatherDelayTicks`, `describeWeather`, `WEATHER_LAG_TICKS`.
-- [ ] **S68.2** Nostr: bundle builder/parser (strict), publish, subscribe (weather pubkey only); `scripts/weather-publish.ts` (fetch METARs, reduce, sign, publish) with docs for the owner.
+- [x] **S68.2** Nostr: bundle builder/parser (strict), publish, subscribe (weather pubkey only); `scripts/weather-publish.ts` (fetch METARs, reduce, sign, publish) with docs for the owner.
 - [ ] **S68.3** Engine: lines take a weather lookup (origin, departure) → extra delay; store keeps recent bundles; delays show in on-time and ACARS ("WX IFR · TS").
 - [ ] **S68.4** UI: weather at the airport panel and boards; e2e with a stubbed bundle; screenshots; PR.
 
@@ -32,3 +32,10 @@ Real weather slows real airports: a thunderstorm at Dallas, fog at San Francisco
 2026-10-12 · brief · (this commit) · Written after the owner's D11 "yes, one key first" and a read of how the nostr package publishes and loads addressable events (catalog images).
 
 2026-10-12 · S68.1 · (this commit) · **Weather, in core.** `weather.ts`: `parseMetar`, `encodeWeather`/`decodeWeather` (strict), `weatherDelayTicks` (seeded by flight), `describeWeather`, `WEATHER_LAG_TICKS`. Tests: clear days, categories (SM, fractions, metres, VV), fog, snow, gusts (KT, MPS), thunderstorms, remarks ignored, garbage → calm; round-trip; delays by severity and deterministic. Core coverage holds (100 % functions).
+
+2026-10-12 · S68.2 · (this commit) · **Bundles on Nostr, and the oracle.**
+
+- `weatherBundle.ts` (nostr, pure): hour keys, d-tag `airtr:world:v6-beta:weather:YYYYMMDDHH`, `buildWeatherEvent` (sorted, compact), `parseWeatherEvent` (strict: weather key only, kind, d-tag = issued hour, ≤128 KB, ≤6,000 airports, 3-letter codes, valid factors). `weather.ts`: `loadWeatherBundles(pubkey, now, hours)` keeps the newest valid bundle per hour.
+- **Oracle**: `pnpm weather:publish` (`packages/nostr/scripts/weather-publish.ts`): the 500 biggest airports (one per city), METARs from aviationweather.gov in chunks of 100, `parseMetar`, sign with `WEATHER_NSEC` (nostr-tools; the key never leaves the process), self-check with the client's parser, publish to 4 relays. `--dry-run` works without a key: live run here read 34/40 airports into a 532-byte bundle (Heathrow MVFR at OVC011, Singapore/Delhi IFR in haze — correct by the category rules).
+- Tests: hours, round-trip, every rejection; loader with a mocked relay (other authors ignored, newest per hour). Nostr 136/136, coverage 87.9 %.
+- **Owner setup** (when ready): generate a key (`nak key generate` or any Nostr client), run `WEATHER_NSEC=nsec1… pnpm weather:publish` hourly (cron `2 * * * *`), and set `VITE_WEATHER_PUBKEY` to its hex pubkey in the web build. Until then the game is calm everywhere.
