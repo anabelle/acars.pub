@@ -1,7 +1,7 @@
 # S74 — Social: delivery posts, rivalry notes, friends league
 
 > **Status:** ◐ in progress
-> **Next step:** S74.2 — web: post preview; delivery reveal post; rivalry note with the daily limit
+> **Next step:** S74.3 — web: friends league filter on the leaderboard
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -24,7 +24,7 @@ The proud moments travel: a new plane's livery reveal becomes a picture post tha
 ## Steps (checkpoints)
 
 - [x] **S74.1** Nostr: `buildPictureNote`, `buildRivalryNote`, `publishNote` for kind 1 or 20, `loadFollows`; tests.
-- [ ] **S74.2** Web: post preview dialog; delivery reveal post; rivalry note with the daily limit; i18n; tests.
+- [x] **S74.2** Web: post preview dialog; delivery reveal post; rivalry note with the daily limit; i18n; tests.
 - [ ] **S74.3** Web: friends league filter on the leaderboard; tests.
 - [ ] **S74.4** e2e (desktop and phone), screenshots, PR.
 
@@ -33,3 +33,10 @@ The proud moments travel: a new plane's livery reveal becomes a picture post tha
 2026-10-12 · brief · (this commit) · Written after the owner's D18 "yes, opt-in only" and a read of the S51 milestone posts (preview, Blossom upload, kind 1 publish) and the S61 delivery ceremony.
 
 2026-10-12 · S74.1 · (this commit) · **Posts and follows, in nostr.** `notes.ts`: `NoteDraft.kind` (1 or 20; `publishNote` honours it), `buildPictureNote` (NIP-68: `title`, `imeta` url/mime from the extension/alt, hashtags, link in the content), `buildRivalryNote` (kind 1 like the milestone notes). `follows.ts`: `loadFollows` (the author's newest kind 3, valid `p` keys only). Tests for all; nostr 147/147, coverage 88.5 %.
+
+2026-10-12 · S74.2 · (this commit) · **Posts, opt-in.**
+
+- `SocialPostDialog` (share): title, editable text, the image when there is one, Cancel / Post; builds with the airline link (with referral) and publishes only on Post; failures keep the preview open with a toast.
+- Delivery ceremony: "Post the reveal" when the plane's livery image is published → a NIP-68 picture post ("Meet Quetzal, our new ATR 72-600, home at PTY. #liveryreveal", alt "{type} in {airline} livery"). Escape closes the preview, not the ceremony.
+- Route card, competition list (rivals present, your own airline only): `AnnounceEntry` → "{airline} enters {city}: {origin} → {destination}. Your move." as a kind 1 note; `rivalryLimit` keeps it to 3 a UTC day per browser and shows what's left.
+- i18n en/es `socialPost.*`. Tests: dialog (edit, post, failure, no key), limit (count, reset, broken storage), announce (preview, count, limit), ceremony (button only with an image; Escape). Web 714/714.

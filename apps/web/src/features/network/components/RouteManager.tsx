@@ -57,6 +57,7 @@ import {
   estimateRouteEconomics,
   getPrimaryAssignedAircraft,
 } from "@/features/network/utils/routeEconomics";
+import { AnnounceEntry } from "@/features/share/AnnounceEntry";
 import { LiveryThumb } from "@/shared/components/LiveryThumb";
 import { PanelHeader } from "@/shared/components/layout/PanelLayout";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
@@ -1247,6 +1248,7 @@ export function RouteManager() {
 
                                 return (
                                   <div className="grid grid-cols-1 gap-2">
+                                    {!isViewingOther ? <AnnounceEntry route={route} /> : null}
                                     {offers.map((offer: FlightOffer) => {
                                       const comp = competitors.get(offer.airlinePubkey);
 

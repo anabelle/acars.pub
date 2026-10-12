@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { airlinePath } from "@/features/airline/utils/airlineKey";
 import { cn } from "@/shared/lib/utils";
+import { withReferral } from "./referral";
 import {
   browserShareApi,
   catalogAirportByIata,
@@ -14,7 +15,6 @@ import {
   shareNetwork,
   summaryFromState,
 } from "./shareNetwork";
-import { withReferral } from "./referral";
 
 /**
  * "Share my network" (S51.1): the airline's network card plus its public

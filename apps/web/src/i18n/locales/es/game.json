@@ -1459,5 +1459,28 @@
     "ranked": "Con ranking: tu aerolínea cuenta en la clasificación.",
     "badge": "Ranking",
     "unrankedBadge": "Sin ranking"
+  },
+  "socialPost": {
+    "intro": "Publicación pública en Nostr, con tu clave. No se envía nada hasta que pulses Publicar.",
+    "textLabel": "Texto",
+    "cancel": "Cancelar",
+    "post": "Publicar",
+    "posting": "Publicando…",
+    "posted": "Publicado en Nostr",
+    "failed": "No se pudo publicar",
+    "reveal": {
+      "button": "Publicar la presentación",
+      "title": "Publicar la presentación de la librea",
+      "text": "Os presentamos a {{name}}, nuestro nuevo {{type}}, ya en {{airport}}. #liveryreveal",
+      "alt": "{{type}} con la librea de {{airline}}"
+    },
+    "rivalry": {
+      "button": "Anuncia tu llegada",
+      "title": "Anuncia tu llegada",
+      "text": "{{airline}} llega a {{city}}: {{origin}} → {{destination}}. Os toca mover.",
+      "left_one": "Te queda {{count}} anuncio hoy",
+      "left_other": "Te quedan {{count}} anuncios hoy",
+      "none": "Tres anuncios al día: vuelve mañana."
+    }
   }
 }

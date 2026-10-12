@@ -1459,5 +1459,28 @@
     "ranked": "Ranked: your airline counts in the ranking.",
     "badge": "Ranked",
     "unrankedBadge": "Unranked"
+  },
+  "socialPost": {
+    "intro": "Public post on Nostr, from your key. Nothing is sent until you press Post.",
+    "textLabel": "Text",
+    "cancel": "Cancel",
+    "post": "Post",
+    "posting": "Posting…",
+    "posted": "Posted to Nostr",
+    "failed": "Couldn't post",
+    "reveal": {
+      "button": "Post the reveal",
+      "title": "Post the livery reveal",
+      "text": "Meet {{name}}, our new {{type}}, home at {{airport}}. #liveryreveal",
+      "alt": "{{type}} in {{airline}} livery"
+    },
+    "rivalry": {
+      "button": "Announce your entry",
+      "title": "Announce your entry",
+      "text": "{{airline}} enters {{city}}: {{origin}} → {{destination}}. Your move.",
+      "left_one": "{{count}} announcement left today",
+      "left_other": "{{count}} announcements left today",
+      "none": "Three announcements a day: come back tomorrow."
+    }
   }
 }
