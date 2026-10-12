@@ -1,7 +1,7 @@
 # S68 — Weather oracle (METAR on Nostr)
 
-> **Status:** ◐ in progress
-> **Next step:** S68.4 — e2e with a signed bundle from a fake relay; screenshots; PR
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge the PR)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -25,7 +25,7 @@ Real weather slows real airports: a thunderstorm at Dallas, fog at San Francisco
 - [x] **S68.1** Core: `parseMetar` (category from ceiling/visibility in SM or metres, gusts in KT/MPS, TS/FG/SN, remarks ignored), compact encode/decode, `weatherDelayTicks`, `describeWeather`, `WEATHER_LAG_TICKS`.
 - [x] **S68.2** Nostr: bundle builder/parser (strict), publish, subscribe (weather pubkey only); `scripts/weather-publish.ts` (fetch METARs, reduce, sign, publish) with docs for the owner.
 - [x] **S68.3** Engine: lines take a weather lookup (origin, departure) → extra delay; store keeps recent bundles; delays show in on-time and ACARS ("WX IFR · TS").
-- [ ] **S68.4** UI: weather at the airport panel and boards; e2e with a stubbed bundle; screenshots; PR.
+- [x] **S68.4** UI: weather at the airport panel and boards; e2e with a stubbed bundle; screenshots; PR.
 
 ## Progress log
 
@@ -46,3 +46,5 @@ Real weather slows real airports: a thunderstorm at Dallas, fog at San Francisco
 - Store: `useWeatherStore` (hour → airport → factors, two days kept), `weatherAt`, `tickHourKey`; the live engine and catch-up pass it to line planes; landing details `weatherDelayTicks`.
 - Web: `WeatherBridge` (root) loads the last 3 hours of bundles every 10 min when a weather key is set (`VITE_WEATHER_PUBKEY`, or `localStorage.acars_weather_pubkey` for testing); `AirportWeather` in the airport panel ("IFR · TS · G38", what it does to departures; silent without a report); ACARS OUT ends in "WX" when weather caused part of the delay.
 - Tests: core (storm delays, no spill, counts), store (hour keys, retention, engine records weather delays only from the stormy origin), web (key, bridge, card, ACARS). Web suites 674/674, store 298/298.
+
+2026-10-12 · S68.4 · (this commit) · **Seen on screen.** e2e `weather.spec.ts` (1440) and `mobile-weather.spec.ts` (390): a fresh weather key signs an hour bundle inline (nostr-tools), a page-level fake relay serves it only to REQs for that author and d-tag, the client is pointed at the key through `localStorage.acars_weather_pubkey`, and Madrid's airport panel shows "IFR · TS · G38" with "expect delays". Screenshots: `media/s68/airport-weather-1440.png`, `media/s68/airport-weather-390.png`. Owner setup is in the S68.2 entry above.
