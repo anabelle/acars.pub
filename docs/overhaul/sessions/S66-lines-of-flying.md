@@ -1,9 +1,9 @@
 # S66 — Lines of flying, buffers, knock-on delays
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge the PR)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #200)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** — (next)
+> **PR:** #200
 >
 > **Track:** Decisions · **Size:** L (5 steps) · **Depends on:** D9 ✅ (2026-10-12) · **Unblocks:** S67 hub banks, S69 timetables · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 Decisions ("Lines of flying")
 >
@@ -73,3 +73,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - Screenshots: [`line-builder-1440`](../media/s66/line-builder-1440.png), [`line-builder-390`](../media/s66/line-builder-390.png), [`line-flying-1440`](../media/s66/line-flying-1440.png), [`line-flying-390`](../media/s66/line-flying-390.png).
 
 2026-10-12 · fix · (this commit) · CI verify failed on core coverage (lines 98.5% < 99%, functions 98.9% < 100%): `lineBlockTicks`, `lineDeparturesBetween`, the 12-leg limit, empty inputs and a line starting more than a day ahead were untested. Tests added; `pnpm run test:coverage` passes for every package locally (core line.ts 100% lines/functions).
+
+2026-10-12 · merged · 0f8d3ee · Squash-merged in #200.

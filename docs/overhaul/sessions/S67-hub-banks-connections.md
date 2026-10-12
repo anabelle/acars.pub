@@ -1,9 +1,9 @@
 # S67 — Hub banks and connecting passengers
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge #200)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #200)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #200 (with S66)
+> **PR:** #200
 >
 > **Track:** Decisions · **Size:** M (4 steps) · **Depends on:** D10 ✅ (2026-10-12), S66 · **Unblocks:** S73 alliances · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 Decisions
 
@@ -39,3 +39,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 2026-10-12 · S67.3 · (this commit) · **Connections on screen.** `HubConnections` in the airport panel (own airline, only where people connect): "N people a day connect through MAD on two of your flights", readouts for connecting/day and bank timing (amber under 80 %), the biggest flows ("LIS→BCN 42"), and a tip to time arrivals 45 min–3 h before departures with a Day plan. The last flight's cabin line adds "12 connecting". `useHubConnections` re-reads once per game hour. Tests: component (hub with flows and tip; silent elsewhere). Web feature suites green.
 
 2026-10-12 · S67.4 · (this commit) · **e2e and screenshots; S67 complete.** `connections` (desktop) and `mobile-connections` (phone): an airline flying MAD–BCN and MAD–LIS for three hours shows Madrid's connections card ("264 people a day want to connect", BCN→LIS 136 · LIS→BCN 128, bank 50 % with the timing tip). Wording says "want to connect (seats permitting)": it is demand; seats decide how many board. Screenshots: [`hub-connections-1440`](../media/s67/hub-connections-1440.png), [`hub-connections-390`](../media/s67/hub-connections-390.png).
+
+2026-10-12 · merged · 0f8d3ee · Squash-merged in #200.
