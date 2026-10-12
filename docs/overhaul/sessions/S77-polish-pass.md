@@ -1,7 +1,7 @@
 # S77 — Polish pass: play every main flow and fix what is broken or confusing
 
 > **Status:** ◐ in progress
-> **Next step:** S77.2 — Opportunities launch with a plane, like the airport card.
+> **Next step:** S77.3 — a confirm closes on navigation; the aircraft order shows its price and closes when done.
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -40,7 +40,7 @@ A scripted playtest (desktop 1440 and phone 390) played a new player end to end 
 ## Steps (checkpoints)
 
 - [x] **S77.1** Plane duty said plainly: "Day plan MAD → BCN → LIS → MAD, every day", "Flies MAD ⇄ BCN back and forth", "Parked at MAD, nothing to fly" in the fleet card, plane panel (info, route tab, day plan section); the day plan says it repeats daily and replaces the single route; "Fly one route instead"; tests.
-- [ ] **S77.2** Opportunities launch with a plane through the same one-click flow as the airport card (shared hook); drop "suggested fleet"; copy; tests.
+- [x] **S77.2** Opportunities launch with a plane through the same one-click flow as the airport card (shared hook); drop "suggested fleet"; copy; tests.
 - [ ] **S77.3** Dialogs and buying: a confirm closes on navigation and never leaks; the aircraft order shows its price and closes when done; tests.
 - [ ] **S77.4** Numbers that agree: one "today" (UTC day) in cockpit and footer; airlines counted once after reload; "—" load factor before the first landing; tests.
 - [ ] **S77.5** Nags and copy: one key-backup prompt at a time; roadmap (alliances shipped); short registration; badges; tests.
@@ -49,3 +49,5 @@ A scripted playtest (desktop 1440 and phone 390) played a new player end to end 
 ## Progress log
 
 2026-10-12 · brief + S77.1 · (this commit) · **Playtest and plane duty.** Findings above from the scripted playtest. `fleet/utils/duty.ts` (`aircraftDuty`: line → route → parked) and `DutySummary`; the fleet card shows it and its route picker names the day plan instead of "Unassigned (Idle)"; the plane panel's route cell and route tab show the day plan's airports and "Repeats every day at these UTC times…"; the day plan section says what the plane does now and that a day plan replaces its single route; "Unassigned" reads "Parked, no route"; the assign button reads "Fly one route instead" on a day-plan plane. en + es. Tests: duty 3, LineSection +2.
+
+2026-10-12 · S77.2 · (this commit) · **Opportunities launch with a plane.** `useConfirmedLaunch` (network/hooks): the one confirm (slot fee, lease deposit, daily lease, delivery time, or the idle plane it reuses) + open, lease, assign + toast, shared by the airport card and the opportunities list. Each opportunity's button now reads "Launch route with ATR 72-600" (disabled when out of range) instead of opening a bare route for $100,000; "with an Dash 8" → "with the Dash 8-Q400, after lease"; the "suggested fleet: 239 aircraft" tile is gone. Tests: opportunities +1 (launch asks once with the full cost; out-of-range disabled); RouteDecisionCard unchanged and green.

@@ -759,7 +759,7 @@
     "opportunities": {
       "profitPerDay": "Beneficio / día",
       "outOfRange": "Fuera de alcance",
-      "withModel": "con un {{model}}, tras el alquiler",
+      "withModel": "con el {{model}}, tras el alquiler",
       "totalMarket": "Mercado total",
       "addressable": "Alcanzable",
       "distance": "Distancia",
