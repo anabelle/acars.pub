@@ -1,20 +1,22 @@
 import type { AircraftInstance, AirlineEntity, FixedPoint, Route } from "@acars/core";
 import { fpFormat } from "@acars/core";
-import { useAirlineStore, useEngineStore } from "@acars/store";
+import { useAirlineStore, useEngineStore, useRankStore } from "@acars/store";
 import { Link } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDownRight, ArrowUpRight, ChevronDown, MapPin, Trophy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { airlineNpub as npubOf } from "@/features/airline/utils/airlineKey";
 import type {
   LeaderboardMetric,
   LeaderboardRow as LeaderboardRowData,
 } from "@/features/competition/leaderboardMetrics";
 import {
   buildLeaderboardRows,
+  rankedFirst,
   sortLeaderboardRows,
 } from "@/features/competition/leaderboardMetrics";
-import { airlineNpub as npubOf } from "@/features/airline/utils/airlineKey";
+import { GetRanked } from "@/features/rank/GetRanked";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { useNostrProfile } from "@/shared/hooks/useNostrProfile";
 import { cn } from "@/shared/lib/utils";
@@ -181,6 +183,7 @@ function LeaderboardRow({
   value: number | FixedPoint;
   onView: (pubkey: string) => void;
 }) {
+  const ranked = useRankStore((s) => (s.loaded ? s.ranked.has(row.ceoPubkey) : null));
   const { t } = useTranslation("game");
   const profile = useNostrProfile(row.ceoPubkey);
   const npub = profile.npub;
@@ -231,6 +234,19 @@ function LeaderboardRow({
             {isOwn && (
               <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase text-primary">
                 {t("leaderboard.yourAirline")}
+              </span>
+            )}
+            {ranked !== null && (
+              <span
+                data-testid={ranked ? "leaderboard-ranked" : "leaderboard-unranked"}
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase",
+                  ranked
+                    ? "bg-emerald-500/10 text-emerald-300"
+                    : "bg-muted/40 text-muted-foreground",
+                )}
+              >
+                {ranked ? t("rank.badge") : t("rank.unrankedBadge")}
               </span>
             )}
           </div>
@@ -355,9 +371,16 @@ export function Leaderboard() {
     [fleetByOwner, routesByOwner],
   );
 
+  // Ranked entry (S72): ranked airlines first, each part in the metric's order.
+  const rankedSet = useRankStore((s) => s.ranked);
+  const rankLoaded = useRankStore((s) => s.loaded);
   const rows = useMemo(
-    () => getLeaderboardRows(competitors, airline, aircraftById, routeById, currentTick, metric),
-    [competitors, airline, aircraftById, routeById, currentTick, metric],
+    () =>
+      rankedFirst(
+        getLeaderboardRows(competitors, airline, aircraftById, routeById, currentTick, metric),
+        rankLoaded ? (pubkey) => rankedSet.has(pubkey) : null,
+      ),
+    [competitors, airline, aircraftById, routeById, currentTick, metric, rankLoaded, rankedSet],
   );
 
   const ownId = airline?.id ?? null;
@@ -379,6 +402,7 @@ export function Leaderboard() {
 
   return (
     <div className="flex w-full flex-col gap-3 sm:gap-4">
+      <GetRanked />
       <div className="rounded-2xl border border-border/50 bg-card/95 p-3 shadow-sm sm:p-4">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-primary/10 p-2">

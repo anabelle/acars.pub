@@ -6,6 +6,7 @@ import { DeliveryCeremony } from "@/features/fleet/components/DeliveryCeremony";
 import { IdentityGate } from "@/features/identity/components/IdentityGate";
 import { PendingAssignmentsRunner } from "@/features/network/components/PendingAssignmentsRunner";
 import { Ticker } from "@/features/network/components/Ticker";
+import { RankBridge } from "@/features/rank/RankBridge";
 import { SoundBridge } from "@/features/sound/SoundBridge";
 import { WeatherBridge } from "@/features/weather/WeatherBridge";
 import { MOBILE_TOPBAR_PANEL_PADDING_CLASS } from "@/shared/components/layout/mobileLayout";
@@ -87,6 +88,7 @@ function RootLayout() {
       <DeliveryCeremony />
       <SoundBridge />
       <WeatherBridge />
+      <RankBridge />
       <PendingAssignmentsRunner />
     </AppInitializer>
   );

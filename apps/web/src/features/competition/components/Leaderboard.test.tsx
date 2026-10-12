@@ -44,6 +44,11 @@ vi.mock("@acars/store", () => {
       selector(mockUseAirlineStore() as AirlineStoreState),
     useEngineStore: (selector: Selector<EngineStoreState>) =>
       selector(mockUseEngineStore() as EngineStoreState),
+    // Rank proofs loaded (S72): "pubkey" is ranked.
+    useRankStore: (selector: Selector<{ ranked: Set<string>; loaded: boolean; status: string }>) =>
+      selector({ ranked: new Set(["pubkey"]), loaded: true, status: "unknown" }),
+    getRanked: vi.fn(),
+    cancelRankMining: vi.fn(),
   };
 });
 
@@ -56,6 +61,7 @@ vi.mock("@/features/competition/leaderboardMetrics", () => {
       currentTick: unknown,
     ) => mockBuildLeaderboardRows(airlines, aircraftById, routeById, currentTick),
     sortLeaderboardRows: (rows: unknown, metric: unknown) => mockSortLeaderboardRows(rows, metric),
+    rankedFirst: (rows: unknown[]) => [...rows],
   };
 });
 
@@ -129,6 +135,7 @@ describe("Leaderboard", () => {
 
     render(<Leaderboard />);
     expect(screen.getByText("Test Air")).toBeInTheDocument();
+    expect(screen.getByTestId("leaderboard-ranked")).toHaveTextContent("Ranked");
 
     fireEvent.change(screen.getByRole("combobox"), {
       target: { value: "fleet" },

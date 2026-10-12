@@ -1446,5 +1446,18 @@
       "balanced": "Middling on price.",
       "forgiving": "Forgiving on price: they pay for the seat."
     }
+  },
+  "rank": {
+    "title": "Get ranked",
+    "why": "A few seconds of computer work, once. Ranked airlines appear in the ranking and price freely; unranked ones can't undercut the suggested fare, so throwaway airlines can't dump fares on you.",
+    "start": "Get ranked (a few seconds)",
+    "mining_one": "Working… {{tries}} try",
+    "mining_other": "Working… {{tries}} tries",
+    "publishing": "Publishing your proof…",
+    "cancel": "Cancel",
+    "failed": "That didn't go through. Try again.",
+    "ranked": "Ranked: your airline counts in the ranking.",
+    "badge": "Ranked",
+    "unrankedBadge": "Unranked"
   }
 }

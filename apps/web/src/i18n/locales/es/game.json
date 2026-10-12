@@ -1446,5 +1446,18 @@
       "balanced": "Sensibilidad al precio media.",
       "forgiving": "Poco sensibles al precio: pagan por el asiento."
     }
+  },
+  "rank": {
+    "title": "Entra en el ranking",
+    "why": "Unos segundos de trabajo del ordenador, una sola vez. Las aerolíneas con ranking aparecen en la clasificación y fijan precios libremente; las que no, no pueden bajar de la tarifa sugerida, así que nadie puede tirar precios contra ti con aerolíneas de usar y tirar.",
+    "start": "Entrar en el ranking (unos segundos)",
+    "mining_one": "Trabajando… {{tries}} intento",
+    "mining_other": "Trabajando… {{tries}} intentos",
+    "publishing": "Publicando tu prueba…",
+    "cancel": "Cancelar",
+    "failed": "No se pudo completar. Inténtalo de nuevo.",
+    "ranked": "Con ranking: tu aerolínea cuenta en la clasificación.",
+    "badge": "Ranking",
+    "unrankedBadge": "Sin ranking"
   }
 }

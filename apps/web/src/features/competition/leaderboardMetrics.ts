@@ -100,3 +100,17 @@ export function sortLeaderboardRows(
     return b.routes - a.routes;
   });
 }
+
+/**
+ * Ranked airlines first (S72), each part keeping the metric's order. Before
+ * rank proofs load (`isRanked` null) the order is unchanged.
+ */
+export function rankedFirst<T extends { ceoPubkey: string }>(
+  rows: readonly T[],
+  isRanked: ((pubkey: string) => boolean) | null,
+): T[] {
+  if (!isRanked) return [...rows];
+  const ranked = rows.filter((row) => isRanked(row.ceoPubkey));
+  const unranked = rows.filter((row) => !isRanked(row.ceoPubkey));
+  return [...ranked, ...unranked];
+}
