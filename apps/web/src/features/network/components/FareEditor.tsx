@@ -1,6 +1,6 @@
 import {
-  FARE_CAP_MULTIPLIER,
   canonicalRouteKey,
+  FARE_CAP_MULTIPLIER,
   type FixedPoint,
   fp,
   fpFormat,
@@ -8,7 +8,6 @@ import {
   getMaxFares,
   getSuggestedFares,
   PRICE_ELASTICITY_BUSINESS,
-  PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
   type Route,
   routeAt,
@@ -29,6 +28,13 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
+  FARE_PRESETS,
+  type FarePresetId,
+  fareProjectionBase,
+  matchingPreset,
+  presetFares,
+} from "@/features/network/utils/fareProjection";
+import {
   calculateElasticityDisplay,
   formatSignedPercent,
   getElasticityTone,
@@ -36,13 +42,7 @@ import {
   toneDotClass,
   toneTextClass,
 } from "@/features/network/utils/fareTones";
-import {
-  FARE_PRESETS,
-  type FarePresetId,
-  fareProjectionBase,
-  matchingPreset,
-  presetFares,
-} from "@/features/network/utils/fareProjection";
+import { destinationEconomyElasticity } from "@/features/network/utils/passengerGroups";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { TimetableAnnounced, TimetableHint } from "./TimetableNote";
@@ -110,7 +110,7 @@ export function FareEditor({
       economy: calculateElasticityDisplay(
         fp(resolvedFareInputs.economy),
         suggestedFares.economy,
-        PRICE_ELASTICITY_ECONOMY,
+        destinationEconomyElasticity(fareEditor.destinationIata),
       ),
       business: calculateElasticityDisplay(
         fp(resolvedFareInputs.business),

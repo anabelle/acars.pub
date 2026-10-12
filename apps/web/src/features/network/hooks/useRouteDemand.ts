@@ -1,19 +1,21 @@
 import type { Airport, DemandResult, FixedPoint, Route } from "@acars/core";
 import {
   buildHubState,
-  type HubState,
   calculateDemand,
   calculatePriceElasticity,
-  supplyLoadFactor,
+  economyElasticity,
   getHubCongestionModifier,
   getHubDemandModifier,
   getProsperityIndex,
   getSeason,
   getSuggestedFares,
+  groupMix,
+  type HubState,
   PRICE_ELASTICITY_BUSINESS,
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
   scaleToAddressableMarket,
+  supplyLoadFactor,
   worldEventDemandMultiplier,
 } from "@acars/core";
 import { getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
@@ -241,10 +243,11 @@ export function getRouteDemandSnapshot(
   const isOversupplied = totalWeeklySeats > weeklyAddressableTotal;
 
   const referenceFares = getSuggestedFares(route.distanceKm);
+  // Passenger groups (S71): the destination's mix sets economy's price sensitivity.
   const elasticityEconomy = calculatePriceElasticity(
     route.fareEconomy,
     referenceFares.economy,
-    PRICE_ELASTICITY_ECONOMY,
+    economyElasticity(groupMix(destination.tags?.[0])),
   );
   const elasticityBusiness = calculatePriceElasticity(
     route.fareBusiness,

@@ -61,7 +61,8 @@ vi.mock("@acars/core", async () => {
       first: fp(300),
     })),
     calculatePriceElasticity: vi.fn((_actual, _reference, elasticity) => {
-      if (elasticity === -1.2) return 0.5;
+      // Economy: the general passenger mix (S71) is −1.195, today's −1.2 within rounding.
+      if (Math.abs(elasticity + 1.2) < 0.01) return 0.5;
       if (elasticity === -0.5) return 0.9;
       return 1.1;
     }),

@@ -53,6 +53,7 @@ vi.mock("@acars/store", () => ({
 }));
 vi.mock("@acars/data", () => ({
   getAircraftById: (id: string) => (id === "atr72-600" ? { id, name: "ATR 72" } : undefined),
+  getAirports: () => [{ iata: "BCN", tags: ["business"] }],
 }));
 const toastSuccess = vi.fn();
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: (m: string) => toastSuccess(m) } }));

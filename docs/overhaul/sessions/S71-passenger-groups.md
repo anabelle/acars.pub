@@ -1,7 +1,7 @@
 # S71 — Passenger groups (three light types)
 
 > **Status:** ◐ in progress
-> **Next step:** S71.2 — engine: economy elasticity from the destination's mix
+> **Next step:** S71.3 — web: who flies (route card, fare editor), group voices
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -24,7 +24,7 @@ Not every passenger is the same: holiday-makers chase price, families visiting r
 ## Steps (checkpoints)
 
 - [x] **S71.1** Core: `PassengerGroup`, `GROUP_ELASTICITY`, `groupMix(tag)`, `economyElasticity(mix)`, `dominantGroup`, `groupAt`; tests.
-- [ ] **S71.2** Store/engine: economy elasticity from the destination's mix; projections follow; tests.
+- [x] **S71.2** Store/engine: economy elasticity from the destination's mix; projections follow; tests.
 - [ ] **S71.3** Web: who flies (route card, fare editor), group voices; i18n; tests.
 - [ ] **S71.4** e2e (desktop and phone), screenshots, PR.
 
@@ -33,3 +33,5 @@ Not every passenger is the same: holiday-makers chase price, families visiting r
 2026-10-12 · brief · (this commit) · Written after the owner's D14 "three light types" and a read of the demand model: one economy elasticity constant feeds the engine (`computeFlightPassengers`), the fare editor and route demand.
 
 2026-10-12 · S71.1 · (this commit) · **Groups, in core.** `groups.ts`: `PassengerGroup`, `GROUP_ELASTICITY` (−1.6 / −1.0 / −0.5), `groupMix` (by destination tag; unknown → general), `economyElasticity` (weighted, rounded to 3 decimals: general −1.195, beach/ski −1.37, business cities −0.925 — the brief first said 30/35/35 for business cities, which gives −1.005; changed to 25/30/45 so they forgive fare rises clearly), `dominantGroup`, `groupAt` (seeded pick for voices). 5 tests; core 454/454, 100 % functions.
+
+2026-10-12 · S71.2 · (this commit) · **Groups in the engine.** `computeFlightPassengers` prices economy with `economyElasticity(groupMix(destination.tags[0]))` (falls back to the old constant without an airport), so landings live and in catch-up, rivals' included, and every projection built on it follow. The web's own estimates follow too: `useRouteDemand` and the fare editor's elasticity hint use `destinationEconomyElasticity` (`utils/passengerGroups.ts`). Test: on MAD→TFS (beach) vs MAD→LHR (business city), the share of economy passengers kept at 1.5× the fare differs by exactly 1.5^(−1.37+0.925). The route-demand test's mock now matches economy by value (−1.195 ≈ −1.2). Store 312/312, web 699/699.

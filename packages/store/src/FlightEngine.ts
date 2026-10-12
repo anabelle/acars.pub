@@ -23,6 +23,7 @@ import {
   computeRouteFrequency,
   countLandingsBetween,
   detectPriceWar,
+  economyElasticity,
   entrantMarketShare,
   enumerateFlightEvents,
   fp,
@@ -44,6 +45,7 @@ import {
   getProsperityIndex,
   getSeason,
   getSuggestedFares,
+  groupMix,
   isGrounded,
   legTicksFor,
   maintenanceCost,
@@ -491,10 +493,11 @@ export function computeFlightPassengers({
     ourWeeklyAllocation.economy + ourWeeklyAllocation.business + ourWeeklyAllocation.first;
   const pressureMultiplier = calculateSupplyPressure(totalWeeklySeats, totalWeeklyDemand);
 
+  // Passenger groups (S71): who flies economy (by destination) sets its price sensitivity.
   const elasticityEconomy = calculatePriceElasticity(
     fareEconomy,
     referenceFares.economy,
-    PRICE_ELASTICITY_ECONOMY,
+    destination ? economyElasticity(groupMix(destination.tags?.[0])) : PRICE_ELASTICITY_ECONOMY,
   );
   const elasticityBusiness = calculatePriceElasticity(
     fareBusiness,
