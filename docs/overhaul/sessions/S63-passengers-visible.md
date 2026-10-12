@@ -1,9 +1,9 @@
 # S63 — Passengers visible: cabin, receipts, voices, turned away, booking bars
 
-> **Status:** ◐ in progress
-> **Next step:** S63.3
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge #199)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #199 (with S61, S62)
 >
 > **Track:** People · **Size:** M (3 steps) · **Depends on:** S60, S62 · **Unblocks:** D13 (decide "fares while filling" after seeing this) · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 People
 >
@@ -27,14 +27,14 @@ Passengers stop being one vague number. A plane shows its cabin by class, filled
 
 - [x] **S63.1** Plane panel: `CabinStrip` (first / business / economy rows, filled vs empty, from the last landing or the last known load) and `LandingReceipt` (route, UTC time, tickets per class, ancillary, each cost line incl. handling and distribution, net) with an occasional voice. _Done when:_ unit tests (glyph scaling, receipt lines, voice determinism) + panel test.
 - [x] **S63.2** Airports and boards: the airport panel shows people turned away from the player's departures there in the last 24 h (pictograms, "add seats"); departure boards show a booking bar per flight. _Done when:_ component tests.
-- [ ] **S63.3** e2e (desktop and phone) + 1440/390 screenshots; PR.
+- [x] **S63.3** e2e (desktop and phone) + 1440/390 screenshots; PR.
 
 ## Acceptance criteria
 
-- [ ] Opening a plane that has landed shows its cabin by class and the last landing's receipt.
-- [ ] An airport that turned people away says how many, with pictograms.
-- [ ] Departure boards read fullness at a glance.
-- [ ] No per-passenger loops; clipped-control audit and full e2e green.
+- [x] Opening a plane that has landed shows its cabin by class and the last landing's receipt.
+- [x] An airport that turned people away says how many, with pictograms.
+- [x] Departure boards read fullness at a glance.
+- [x] No per-passenger loops; clipped-control audit and full e2e green.
 
 ## Progress log
 
@@ -55,3 +55,10 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - `turnedAwayAt` (one pass): the player's departures from an airport in the last 24 h — boarded, turned away (engine spill), by destination. `TurnedAwayHere` in the airport panel (own airline, only when someone stayed behind): count sentence, pictograms (boarded vs stayed behind), "→ BCN 20 · → LIS 8", "Add seats on this route".
 - `BookingBar` on both departure boards (airport and airline): percentage over a thin bar, green from 60 %, amber from 95 % (sold out), grey when thin.
 - Tests: helper, component (counts, breakdown, action, silent when nobody stayed behind); boards still green.
+
+2026-10-12 · S63.3 · (this commit) · **e2e and screenshots; S63 complete.**
+
+- e2e `passengers` (desktop and phone): a 4-hour airline opens a plane (cabin strip named "N of M seats taken", receipt with a net), the Madrid departures board (booking bars), and the airport info (turned-away card captured when the engine spilled anyone).
+- The receipt uses the tabular B612 figures (B612 Mono spaced the commas: "$5, 586").
+- Checks: gate green; passengers, clipped-control audit and route-card e2e green.
+- Screenshots: [`last-flight-1440`](../media/s63/last-flight-1440.png), [`last-flight-390`](../media/s63/last-flight-390.png), [`booking-bars-1440`](../media/s63/booking-bars-1440.png).

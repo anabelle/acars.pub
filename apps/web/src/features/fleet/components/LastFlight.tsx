@@ -89,7 +89,7 @@ export function LastFlight({
       {receipt ? (
         <div
           data-testid="landing-receipt"
-          className="rounded-[3px] bg-ramp-paint px-3 py-2.5 font-avionics-mono text-[11px] text-sign-black"
+          className="rounded-[3px] bg-ramp-paint px-3 py-2.5 font-mono text-[11px] text-sign-black"
         >
           <p className="mb-1.5 text-center font-bold uppercase tracking-[0.2em]">
             {t("lastFlight.receipt")}
