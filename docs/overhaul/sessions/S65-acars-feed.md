@@ -1,9 +1,9 @@
 # S65 — ACARS feed from engine events
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge #199)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #199)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #199 (with S61–S64)
+> **PR:** #199
 >
 > **Track:** Real · **Size:** S–M (3 steps) · **Depends on:** S60 · **Unblocks:** weather messages (S68) · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §2 Real, §4 "A plane", §6
 
@@ -46,3 +46,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 2026-10-12 · S65.3 WIP · (this commit) · First e2e run green on desktop and phone. The feed now uses `font-mono` (B612, tabular digits): B612 Mono spaced the punctuation ("05: 54Z"). Re-running for the final screenshots.
 
 2026-10-12 · S65.3 · (this commit) · **e2e and screenshots; S65 complete.** `acars` (desktop) and `mobile-acars` (phone) green: after 4 h of flying the cockpit feed shows OUT/OFF/ON/IN with "PAX 42 LF 88%", the flight number opens the plane and its panel lists its own messages. Screenshots: [`airline-acars-1440`](../media/s65/airline-acars-1440.png), [`airline-acars-390`](../media/s65/airline-acars-390.png), [`plane-acars-1440`](../media/s65/plane-acars-1440.png), [`plane-acars-390`](../media/s65/plane-acars-390.png).
+
+2026-10-12 · merged · 131e6af · Squash-merged in #199.

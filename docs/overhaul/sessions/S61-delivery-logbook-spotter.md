@@ -1,7 +1,7 @@
 # S61 — Delivery day, names, logbook and the spotter's book
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge #199)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #199)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #199
 >
@@ -68,3 +68,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - Fleet manager gets a third view, "Spotter": `spotterEntries` lists every catalog type as owned (count, the airline's own painting), ready to order (unlocked at the tier) or locked (tier shown, greyed silhouette, no image requested); progress "n / N types" with a sign-yellow bar.
 - e2e plane-panel specs (desktop and phone) now walk launch → delivery ceremony → plane (name, flight strip, logbook) → hangar → spotter's book. Clipped-control audit green; full e2e run earlier in the session green apart from the two specs fixed in S61.2.
 - Screenshots: [`spotter-1440`](../media/s61/spotter-1440.png), [`spotter-390`](../media/s61/spotter-390.png), [`hangar-named-1440`](../media/s61/hangar-named-1440.png).
+
+2026-10-12 · merged · 131e6af · Squash-merged in #199.

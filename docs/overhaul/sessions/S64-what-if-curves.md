@@ -1,9 +1,9 @@
 # S64 — What-if curves for frequency and fares
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge #199)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #199)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #199 (with S61–S63)
+> **PR:** #199
 >
 > **Track:** Decisions · **Size:** M (3 steps) · **Depends on:** S58 · **Unblocks:** frequency-war stabilizers (the curve teaches the equilibrium) · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 Decisions, §7 game theory
 >
@@ -57,3 +57,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - e2e `what-if` (desktop) and `mobile-what-if` (phone): launch MAD–BCN, open the frequency curve (best, now, readout), tap its left edge → draft 1/wk with Apply (nothing published), open the fare editor → fare curve. The chart keeps its aspect (no letterboxing in the wide fare editor); the caption wraps on phones.
 - **Finding for the owner (economy, D13):** on a fresh MAD–BCN the fare curve peaks at 150 % of the suggested fares (+$36k/day vs +$7k/day, load 88 % → 82 %): with 3 % of a 1.2 M-seat market, demand far exceeds our seats, so raising fares barely empties them. Honest to the model (scarcity prices up), but it means suggested fares are cheap for small entrants; worth a look when deciding "fares while filling".
 - Screenshots: [`frequency-curve-1440`](../media/s64/frequency-curve-1440.png), [`frequency-curve-390`](../media/s64/frequency-curve-390.png), [`fare-curve-1440`](../media/s64/fare-curve-1440.png), [`fare-curve-390`](../media/s64/fare-curve-390.png).
+
+2026-10-12 · merged · 131e6af · Squash-merged in #199.

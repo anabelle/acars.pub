@@ -1,9 +1,9 @@
 # S62 — Instruments and the check-in story (Today)
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge #199)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #199)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #199 (shared with S61)
+> **PR:** #199
 >
 > **Track:** UX/Story · **Size:** M (3 steps) · **Depends on:** S59, S61 · **Unblocks:** S63, S65 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §5 (check-in loop), §6 Decisions, §8 Story
 >
@@ -68,3 +68,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - Landing toasts read money ("Net profit -$30.", was "+8.7863") and toasts follow the dark theme.
 - Checks: full gate green (web unit 635); e2e `today` (desktop and phone) with a 6-hour airline, clipped-control audit, first-hour, share-network, daily-objectives and world-events specs green.
 - Screenshots: [`before-cockpit-1440`](../media/s62/before-cockpit-1440.png) → [`after-cockpit-1440`](../media/s62/after-cockpit-1440.png); [`before-cockpit-390`](../media/s62/before-cockpit-390.png) → [`after-cockpit-390`](../media/s62/after-cockpit-390.png).
+
+2026-10-12 · merged · 131e6af · Squash-merged in #199.
