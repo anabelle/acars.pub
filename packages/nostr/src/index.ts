@@ -46,5 +46,7 @@ export {
   withPublishRetry,
 } from "./schema.js";
 export * from "./snapshot.js";
+export * from "./rank.js";
+export * from "./rankProof.js";
 export * from "./weather.js";
 export * from "./weatherBundle.js";
