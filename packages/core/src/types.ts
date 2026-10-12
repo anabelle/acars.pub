@@ -274,6 +274,18 @@ export interface Route {
   // Simulation
   status: "active" | "suspended";
   lastTickProcessed?: number;
+
+  /** Published timetable (S69): changes announced today, in force from `effectiveTick`. */
+  pending?: RouteChange;
+}
+
+/** Fares and frequency announced for a later tick (S69). Only changed fields are set. */
+export interface RouteChange {
+  effectiveTick: number;
+  fareEconomy?: FixedPoint;
+  fareBusiness?: FixedPoint;
+  fareFirst?: FixedPoint;
+  frequencyPerWeek?: number;
 }
 
 // --- Flight Offer (for QSI calculation) ---
@@ -297,6 +309,8 @@ export interface FlightOffer {
   serviceScore: number;
   /** Brand reputation 0.0–1.0 */
   brandScore: number;
+  /** An announced change (S69): what this offer becomes from `effectiveTick`. */
+  next?: RouteChange;
 }
 
 export type PassengerClass = "economy" | "business" | "first";

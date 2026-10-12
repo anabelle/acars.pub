@@ -4,12 +4,6 @@
 
 // Brand (S11)
 export * from "./brand.js";
-
-// Milestones (S12)
-export * from "./milestones.js";
-export * from "./objectives.js";
-export * from "./worldEvents.js";
-
 // Checkpoints
 export {
   canonicalize,
@@ -18,13 +12,9 @@ export {
   verifyCheckpoint,
 } from "./checkpoint.js";
 export * from "./compression.js";
-export type { CycleFlightEvent, CyclePhase } from "./cycle.js";
-// Lines of flying (S66)
-export * from "./line.js";
 // Connecting passengers (S67)
 export * from "./connections.js";
-// Real weather (S68)
-export * from "./weather.js";
+export type { CycleFlightEvent, CyclePhase } from "./cycle.js";
 // Cycle
 export {
   countLandingsBetween,
@@ -45,7 +35,6 @@ export {
   calculateDemand,
   calculatePriceElasticity,
   calculateSupplyPressure,
-  supplyLoadFactor,
   getHubCongestionModifier,
   getHubDemandModifier,
   getProsperityIndex,
@@ -58,6 +47,7 @@ export {
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
   scaleToAddressableMarket,
+  supplyLoadFactor,
 } from "./demand.js";
 // Deterministic transcendental math (cross-runtime bit-identical)
 export {
@@ -99,11 +89,11 @@ export {
 } from "./fixed-point.js";
 // Fleet
 export {
-  calculateBookValue,
   AUTO_MAINTENANCE_HOURS_SHARE,
   AUTO_MAINTENANCE_MAX_THRESHOLD,
   AUTO_MAINTENANCE_MIN_THRESHOLD,
   CONDITION_WEAR_PER_FLIGHT_HOUR,
+  calculateBookValue,
   computeRouteFrequency,
   DEFAULT_MAINTENANCE_POLICY,
   effectiveMaintenancePolicy,
@@ -111,16 +101,16 @@ export {
   GROUNDED_MIN_CONDITION,
   getMaintenanceDowntimeTicks,
   isGrounded,
-  maintenanceCost,
-  needsAutoMaintenance,
-  sanitizeMaintenancePolicy,
   LEASE_DEPOSIT_SHARE,
   LEASE_MONTHLY_RATE,
   leaseBuyBreakEvenMonths,
   leaseDeposit,
   leaseMonthlyPayment,
+  maintenanceCost,
+  needsAutoMaintenance,
   ownershipCost,
   SCRAP_RESALE_SHARE,
+  sanitizeMaintenancePolicy,
 } from "./fleet.js";
 export {
   FUEL_PRICE_EPOCH_TICKS,
@@ -145,8 +135,13 @@ export {
   INCUMBENT_TARGET_LOAD_FACTOR,
   incumbentSeatsPerFlight,
 } from "./incumbent.js";
+// Lines of flying (S66)
+export * from "./line.js";
 // Logging
 export { createLogger } from "./logger.js";
+// Milestones (S12)
+export * from "./milestones.js";
+export * from "./objectives.js";
 // PRNG
 export { createPRNG, createTickPRNG } from "./prng.js";
 // QSI
@@ -176,6 +171,8 @@ export {
   TIER_THRESHOLDS,
   type TierProgress,
 } from "./tier.js";
+// Published timetables (S69)
+export * from "./timetable.js";
 export type {
   AircraftInstance,
   AircraftModel,
@@ -192,11 +189,12 @@ export type {
   GameActionEnvelope,
   GameActionPayload,
   GameActionType,
-  MaintenancePolicy,
   HubState,
   HubTier,
+  MaintenancePolicy,
   PassengerClass,
   Route,
+  RouteChange,
   RouteTickResult,
   Season,
   TickResult,
@@ -214,3 +212,6 @@ export {
   TICKS_PER_MONTH,
   TICKS_PER_WEEK,
 } from "./types.js";
+// Real weather (S68)
+export * from "./weather.js";
+export * from "./worldEvents.js";

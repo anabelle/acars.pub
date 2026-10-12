@@ -3,7 +3,7 @@
 > **Status:** ☑ done (awaiting merge)
 > **Next step:** — (merge the PR)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** — (next)
+> **PR:** #201
 >
 > **Track:** Real · **Size:** M (4 steps) · **Depends on:** D11 ✅ (2026-10-12), S66 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 Real
 
