@@ -90,7 +90,7 @@ describe("buildAcarsFeed", () => {
     });
     const kinds = feed.map((m) => m.kind);
     expect(kinds).not.toContain("ON");
-    expect(kinds.at(-1)).toBe("OUT");
+    expect(kinds[kinds.length - 1]).toBe("OUT");
     const pos = feed.filter((m) => m.kind === "POS");
     expect(pos.length).toBe(3);
     for (const m of pos) {

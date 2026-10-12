@@ -28,6 +28,7 @@ import { useTranslation } from "react-i18next";
 import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse";
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
 import { WorldEventsCard } from "@/features/events/WorldEventsCard";
+import { AirlineAcars } from "@/features/fleet/components/AcarsFeed";
 import { NotificationSettingsCard } from "@/features/notifications/NotificationSettingsCard";
 import { ShareNetworkButton } from "@/features/share/ShareNetworkButton";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
@@ -737,6 +738,7 @@ export function OperationsCockpit() {
           <>
             <TodayStory story={story} tick={minuteTick} />
             <InstrumentPanel instruments={instruments} fixes={instrumentFixes} />
+            <AirlineAcars />
           </>
         ) : null}
         {!isViewingOther && (

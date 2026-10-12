@@ -1340,5 +1340,10 @@
     "tryBest": "Try {{x}}",
     "fareX": "fares {{pct}}%",
     "tryBestFare": "Try {{x}}"
+  },
+  "acars": {
+    "title": "ACARS",
+    "subtitle": "Last 24 h · UTC",
+    "empty": "No messages yet — they arrive as planes push back."
   }
 }

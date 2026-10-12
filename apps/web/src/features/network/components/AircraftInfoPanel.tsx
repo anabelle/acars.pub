@@ -16,6 +16,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plane, Route as RouteIcon, Users, Wrench, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { PlaneAcars } from "@/features/fleet/components/AcarsFeed";
 import { AircraftLiveryImage } from "@/features/fleet/components/AircraftLiveryImage";
 import { LastFlight } from "@/features/fleet/components/LastFlight";
 import { LiveryFallback } from "@/features/fleet/components/LiveryFallback";
@@ -784,6 +785,7 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
             {isPlayerAircraft && lastLanding ? (
               <LastFlight aircraft={aircraft} landing={lastLanding} />
             ) : null}
+            {isPlayerAircraft ? <PlaneAcars aircraftId={aircraft.id} /> : null}
 
             {/* Specs grid */}
             {model ? (

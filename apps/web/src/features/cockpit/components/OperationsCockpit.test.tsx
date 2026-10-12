@@ -69,6 +69,7 @@ vi.mock("@/features/corporate/hooks/useRoutePerformance", () => ({
   useRoutePerformance: () => [],
 }));
 // Covered by its own tests (DailyObjectivesCard.test.tsx).
+vi.mock("@/features/fleet/components/AcarsFeed", () => ({ AirlineAcars: () => null }));
 vi.mock("./DailyObjectivesCard", () => ({ DailyObjectivesCard: () => null }));
 vi.mock("@/features/events/WorldEventsCard", () => ({ WorldEventsCard: () => null }));
 vi.mock("@/shared/components/layout/PanelLayout", () => ({

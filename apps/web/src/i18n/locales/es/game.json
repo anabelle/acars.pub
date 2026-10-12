@@ -1340,5 +1340,10 @@
     "tryBest": "Probar {{x}}",
     "fareX": "tarifas {{pct}}%",
     "tryBestFare": "Probar {{x}}"
+  },
+  "acars": {
+    "title": "ACARS",
+    "subtitle": "Últimas 24 h · UTC",
+    "empty": "Aún no hay mensajes: llegan cuando los aviones salen."
   }
 }
