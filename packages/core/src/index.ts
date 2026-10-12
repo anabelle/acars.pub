@@ -177,6 +177,8 @@ export * from "./timetable.js";
 export * from "./booking.js";
 // Passenger groups (S71)
 export * from "./groups.js";
+// Ranked entry (S72)
+export * from "./ranked.js";
 export type {
   AircraftInstance,
   AircraftModel,
