@@ -9,7 +9,9 @@ import { SocialPostDialog } from "./SocialPostDialog";
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 const published = vi.hoisted(() => [] as unknown[]);
-vi.mock("@acars/nostr", () => ({
+vi.mock("@acars/nostr", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@acars/nostr")>()),
+  ensureConnected: async () => {},
   buildRivalryNote: ({ text, link }: { text: string; link: string }) => ({
     kind: 1,
     content: `${text} ${link}`,
