@@ -1,7 +1,7 @@
 # S76 — Night globe and sound
 
 > **Status:** ◐ in progress
-> **Next step:** S76.2 — opt-in sound (landing chime, delivery fanfare)
+> **Next step:** S76.3 — e2e for the sound switch, PR
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #199 (with S61–S65) or the next one
 >
@@ -24,8 +24,8 @@ Wave A (S58–S65) is done and every Wave B session waits on an owner decision (
 
 ## Steps (checkpoints)
 
-- [ ] **S76.1** City lights on the night side (`cityLights`, `nightFactor`, warm glow per palette) and the night overlay's corner fix. _Done when:_ unit tests + e2e that counts warm pixels at 02:00 UTC + screenshots.
-- [ ] **S76.2** Opt-in sound: landing chime (pitch by load) and delivery fanfare, a toggle in settings. _Done when:_ unit tests (off by default, no sound in catch-up) + component test.
+- [x] **S76.1** City lights on the night side (`cityLights`, `nightFactor`, warm glow per palette) and the night overlay's corner fix. _Done when:_ unit tests + e2e that counts warm pixels at 02:00 UTC + screenshots.
+- [x] **S76.2** Opt-in sound: landing chime (pitch by load) and delivery fanfare, a toggle in settings. _Done when:_ unit tests (off by default, no sound in catch-up) + component test.
 - [ ] **S76.3** e2e for the toggle, PR.
 
 ## Acceptance criteria
@@ -45,3 +45,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - `cityLights` (map package): one light per city (largest metro population), the 900 biggest, brightness on a log scale 100k → 30M; Mercator canvas positions. `nightFactor`: lights switch on as the sun sinks from 2° to 10° below the horizon. Painted after the tint with additive blending, warm sodium colour per palette (`cityGlow`), squashed vertically so they stay round on the 2:1 Mercator canvas. Repainted with the terminator (once a minute) and once more when the airport catalog arrives.
 - **Fix (pre-existing):** the night canvas's fourth corner repeated the top-left, folding the quad into a triangle — half of the night side was never drawn. Corners are now TL, TR, BR, BL.
 - Tests: map unit 133/133 (dedupe, cap, Mercator placement, twilight ramp); e2e `night-globe` (desktop) and `mobile-night-globe` (phone) at a fixed 02:00 UTC count warm pixels on the globe; `map.spec` still green. Screenshots: [`night-globe-1440`](../media/s76/night-globe-1440.png), [`night-globe-390`](../media/s76/night-globe-390.png).
+
+2026-10-12 · S76.2 · (this commit) · **Opt-in sound.** `features/sound`: `soundSettings` (per device, off by default), `tones` (landing "ding-dong", a falling third pitched by load; delivery fanfare of three rising notes and a held octave; a delivery wins over landings in one batch), `player` (Web Audio sine tones with a short attack and long release — no audio files), `SoundBridge` in the root (live timeline events only via the shared subscription, so catch-ups stay silent; tab visible; one sound per 2.5 s at most), `SoundSettingsCard` in the cockpit under the alerts card (switching on plays a sample chime, which also unlocks audio). Tests: tones, settings, card, bridge (off, throttle, delivery, catch-up); web unit 664/664.

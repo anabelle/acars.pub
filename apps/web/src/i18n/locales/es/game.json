@@ -1345,5 +1345,11 @@
     "title": "ACARS",
     "subtitle": "Últimas 24 h · UTC",
     "empty": "Aún no hay mensajes: llegan cuando los aviones salen."
+  },
+  "sound": {
+    "kicker": "Sonido en este dispositivo",
+    "description": "Un timbre suave cuando aterriza un avión y una fanfarria el día de la entrega. Apagado por defecto.",
+    "on": "Sonido activado",
+    "off": "Sonido apagado"
   }
 }

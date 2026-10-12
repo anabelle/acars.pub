@@ -30,6 +30,7 @@ import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerforma
 import { WorldEventsCard } from "@/features/events/WorldEventsCard";
 import { AirlineAcars } from "@/features/fleet/components/AcarsFeed";
 import { NotificationSettingsCard } from "@/features/notifications/NotificationSettingsCard";
+import { SoundSettingsCard } from "@/features/sound/SoundSettingsCard";
 import { ShareNetworkButton } from "@/features/share/ShareNetworkButton";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
@@ -950,6 +951,7 @@ export function OperationsCockpit() {
         </section>
 
         {!isViewingOther && <NotificationSettingsCard />}
+        {!isViewingOther && <SoundSettingsCard />}
       </div>
     </PanelLayout>
   );

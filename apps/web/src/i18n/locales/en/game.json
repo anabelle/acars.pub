@@ -1345,5 +1345,11 @@
     "title": "ACARS",
     "subtitle": "Last 24 h · UTC",
     "empty": "No messages yet — they arrive as planes push back."
+  },
+  "sound": {
+    "kicker": "Sound on this device",
+    "description": "A soft chime when a plane lands and a fanfare on delivery day. Off by default.",
+    "on": "Sound on",
+    "off": "Sound off"
   }
 }
