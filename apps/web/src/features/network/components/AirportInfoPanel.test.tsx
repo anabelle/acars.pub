@@ -19,6 +19,7 @@ type EngineStoreState = { setHub: () => void };
 const mockUseAirlineStore = vi.fn();
 const mockUseEngineStore = vi.fn();
 
+vi.mock("@/features/weather/AirportWeather", () => ({ AirportWeather: () => null }));
 vi.mock("@acars/store", () => {
   return {
     useAirlineStore: (selector: Selector<AirlineStoreState>) =>

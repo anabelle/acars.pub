@@ -9,3 +9,4 @@ export * from "./rivalRoutes.js";
 export * from "./routeCurves.js";
 export * from "./routeProjection.js";
 export * from "./routeSuggestion.js";
+export * from "./weather.js";

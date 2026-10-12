@@ -393,6 +393,8 @@ export interface TimelineEvent {
     delayTicks?: number;
     /** Passengers aboard who were connecting through a hub (S67). */
     connectingPassengers?: number;
+    /** The part of the delay the origin's weather caused (S68). */
+    weatherDelayTicks?: number;
     revenue?: {
       tickets: FixedPoint;
       economy: FixedPoint;

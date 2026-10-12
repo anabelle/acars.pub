@@ -136,7 +136,7 @@ function legMessages(leg: Leg, input: AcarsInput, flight: string): AcarsMessage[
   push(
     "OUT",
     departure,
-    `${origin}-${destination} ETA ${formatUtcClock(arrival)}Z${delayMinutes >= 5 ? ` DLY ${Math.floor(delayMinutes / 60)}:${String(delayMinutes % 60).padStart(2, "0")}` : ""}`,
+    `${origin}-${destination} ETA ${formatUtcClock(arrival)}Z${delayMinutes >= 5 ? ` DLY ${Math.floor(delayMinutes / 60)}:${String(delayMinutes % 60).padStart(2, "0")}` : ""}${landing?.details?.weatherDelayTicks ? " WX" : ""}`,
   );
   push("OFF", off, `${origin} ${cruiseLevel(distanceKm)}`);
   if (from && to && on - off > 2 * POS_MARGIN) {

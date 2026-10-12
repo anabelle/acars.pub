@@ -1,7 +1,7 @@
 # S68 — Weather oracle (METAR on Nostr)
 
 > **Status:** ◐ in progress
-> **Next step:** S68.3 — engine: weather delays on line departures; store keeps recent bundles; ACARS "WX"
+> **Next step:** S68.4 — e2e with a signed bundle from a fake relay; screenshots; PR
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -24,7 +24,7 @@ Real weather slows real airports: a thunderstorm at Dallas, fog at San Francisco
 
 - [x] **S68.1** Core: `parseMetar` (category from ceiling/visibility in SM or metres, gusts in KT/MPS, TS/FG/SN, remarks ignored), compact encode/decode, `weatherDelayTicks`, `describeWeather`, `WEATHER_LAG_TICKS`.
 - [x] **S68.2** Nostr: bundle builder/parser (strict), publish, subscribe (weather pubkey only); `scripts/weather-publish.ts` (fetch METARs, reduce, sign, publish) with docs for the owner.
-- [ ] **S68.3** Engine: lines take a weather lookup (origin, departure) → extra delay; store keeps recent bundles; delays show in on-time and ACARS ("WX IFR · TS").
+- [x] **S68.3** Engine: lines take a weather lookup (origin, departure) → extra delay; store keeps recent bundles; delays show in on-time and ACARS ("WX IFR · TS").
 - [ ] **S68.4** UI: weather at the airport panel and boards; e2e with a stubbed bundle; screenshots; PR.
 
 ## Progress log
@@ -39,3 +39,10 @@ Real weather slows real airports: a thunderstorm at Dallas, fog at San Francisco
 - **Oracle**: `pnpm weather:publish` (`packages/nostr/scripts/weather-publish.ts`): the 500 biggest airports (one per city), METARs from aviationweather.gov in chunks of 100, `parseMetar`, sign with `WEATHER_NSEC` (nostr-tools; the key never leaves the process), self-check with the client's parser, publish to 4 relays. `--dry-run` works without a key: live run here read 34/40 airports into a 532-byte bundle (Heathrow MVFR at OVC011, Singapore/Delhi IFR in haze — correct by the category rules).
 - Tests: hours, round-trip, every rejection; loader with a mocked relay (other authors ignored, newest per hour). Nostr 136/136, coverage 87.9 %.
 - **Owner setup** (when ready): generate a key (`nak key generate` or any Nostr client), run `WEATHER_NSEC=nsec1… pnpm weather:publish` hourly (cron `2 * * * *`), and set `VITE_WEATHER_PUBKEY` to its hex pubkey in the web build. Until then the game is calm everywhere.
+
+2026-10-12 · S68.3 · (this commit) · **Weather flies.**
+
+- Core: every line function takes an optional `WeatherLookup`; a leg's departure adds its origin's weather delay (report of the hour 20 min before departure), seeded by plane/day/leg; `LineFlight.weatherTicks`; the no-spill cap and the O(legs) counts still hold (tests with a storm).
+- Store: `useWeatherStore` (hour → airport → factors, two days kept), `weatherAt`, `tickHourKey`; the live engine and catch-up pass it to line planes; landing details `weatherDelayTicks`.
+- Web: `WeatherBridge` (root) loads the last 3 hours of bundles every 10 min when a weather key is set (`VITE_WEATHER_PUBKEY`, or `localStorage.acars_weather_pubkey` for testing); `AirportWeather` in the airport panel ("IFR · TS · G38", what it does to departures; silent without a report); ACARS OUT ends in "WX" when weather caused part of the delay.
+- Tests: core (storm delays, no spill, counts), store (hour keys, retention, engine records weather delays only from the stormy origin), web (key, bridge, card, ACARS). Web suites 674/674, store 298/298.

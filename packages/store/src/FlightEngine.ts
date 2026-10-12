@@ -65,6 +65,7 @@ import type { HubClassification } from "@acars/data";
 import { getAircraftById, getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
 import { buildConnectionService, legKey } from "./connections.js";
 import { advanceLineAircraft, type LineEngineContext } from "./lineEngine.js";
+import { weatherAt } from "./weather.js";
 
 /** Module-level O(1) airport lookup — avoids O(N) airports.find() on every
  * landing. Built lazily on first use: the airports catalog loads async, so
@@ -783,6 +784,7 @@ export function processFlightEngine(
     registry: globalRouteRegistry,
     lineService: lineServiceByRoute,
     connections,
+    weather: weatherAt,
     playerPubkey,
     playerBrandScore,
     distanceLimitKm,
@@ -1617,6 +1619,7 @@ export function reconcileFleetToTick(
     hubStates: new Map(),
     registry: new Map(),
     lineService: new Map(),
+    weather: weatherAt,
     playerPubkey: "",
     playerBrandScore: 0.5,
     distanceLimitKm: Number.POSITIVE_INFINITY,

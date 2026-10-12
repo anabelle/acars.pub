@@ -189,3 +189,33 @@ describe("edges", () => {
     expect(phase).toMatchObject({ status: "idle", flight: null, next: null, airportIata: "MAD" });
   });
 });
+
+describe("weather (S68)", () => {
+  const storm = { category: 3 as const, gustKt: 40, thunderstorm: true, fog: false, snow: true };
+  const madStorm = (iata: string) => (iata === "MAD" ? storm : null);
+
+  it("delays departures from a stormy origin and records the weather's part", () => {
+    const calm = lineDay(line, "a1", 104);
+    const stormy = lineDay(line, "a1", 104, madStorm);
+    expect(stormy[0].weatherTicks).toBeGreaterThan(0);
+    expect(stormy[0].departureTick).toBeGreaterThan(calm[0].departureTick);
+    expect(stormy[1].weatherTicks).toBe(0); // leaves from BCN
+    expect(calm.every((f) => f.weatherTicks === 0)).toBe(true);
+  });
+
+  it("still never spills into the next day, and counts still match a walk", () => {
+    for (let d = 101; d < 140; d++) {
+      const day = lineDay(line, "a1", d, madStorm);
+      const next = lineDay(line, "a1", d + 1, madStorm)[0];
+      const last = day[day.length - 1];
+      expect(last.arrivalTick + last.leg.turnaroundTicks).toBeLessThanOrEqual(next.departureTick);
+    }
+    const from = line.startTick;
+    const to = line.startTick + 20 * TICKS_PER_DAY;
+    const walked = lineLandingsBetween(line, "a1", from, to, 100_000, madStorm);
+    const counts = lineLandingCount(line, "a1", from, to, madStorm);
+    expect(counts.reduce((a, b) => a + b, 0)).toBe(walked.length);
+    expect(linePhaseAt(line, "a1", to, madStorm).status).toBeTypeOf("string");
+    expect(lineDeparturesBetween(line, "a1", from, to, 5, madStorm)).toHaveLength(5);
+  });
+});

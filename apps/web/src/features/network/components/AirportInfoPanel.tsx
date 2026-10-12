@@ -19,6 +19,7 @@ import { RouteDecisionCard } from "@/features/network/components/RouteDecisionCa
 import { buildCompetitorHubEntries } from "@/features/network/utils/competitorHubs";
 import { buildGroundTraffic } from "@/features/network/utils/groundTraffic";
 import { getWorldFleetAtAirport } from "@/features/network/utils/worldFleetIndex";
+import { AirportWeather } from "@/features/weather/AirportWeather";
 import {
   MOBILE_BOTTOM_NAV_BOTTOM_CLASS,
   MOBILE_OVERLAY_MAX_HEIGHT_CLASS,
@@ -537,6 +538,8 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
             {airline ? (
               <TurnedAwayHere iata={airport.iata} timeline={timeline} tick={minuteTick} />
             ) : null}
+
+            <AirportWeather iata={airport.iata} />
 
             {airline ? <HubConnections iata={airport.iata} /> : null}
 

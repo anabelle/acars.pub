@@ -1407,5 +1407,11 @@
     "perDay": "Want to connect / day",
     "bank": "Bank timing",
     "tip": "Time arrivals into {{iata}} 45 min – 3 h before departures (a plane's Day plan) to connect more."
+  },
+  "weather": {
+    "title": "Weather now · METAR",
+    "delays": "Departures here are slowed: expect delays.",
+    "marginal": "Marginal: short delays possible.",
+    "clear": "Clear: no weather delays."
   }
 }

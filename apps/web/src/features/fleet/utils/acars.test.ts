@@ -126,4 +126,13 @@ describe("buildAcarsFeed", () => {
     );
     expect(out?.body).toMatch(/ DLY 0:25$/);
   });
+
+  it("marks a weather delay in the OUT message", () => {
+    const late = landing(100 * H, H);
+    late.details = { ...late.details, delayTicks: 40 * (H / 60), weatherDelayTicks: 30 * (H / 60) };
+    const out = buildAcarsFeed({ ...base, timeline: [late], fleet: [plane()], tick: 101 * H }).find(
+      (m) => m.kind === "OUT",
+    );
+    expect(out?.body).toMatch(/ DLY 0:40 WX$/);
+  });
 });

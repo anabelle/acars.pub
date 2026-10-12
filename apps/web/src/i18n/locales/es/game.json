@@ -1407,5 +1407,11 @@
     "perDay": "Quieren conectar / día",
     "bank": "Sincronía del banco",
     "tip": "Programa las llegadas a {{iata}} entre 45 min y 3 h antes de las salidas (Plan del día de un avión) para conectar más."
+  },
+  "weather": {
+    "title": "Tiempo ahora · METAR",
+    "delays": "Las salidas aquí van lentas: habrá retrasos.",
+    "marginal": "Marginal: posibles retrasos cortos.",
+    "clear": "Despejado: sin retrasos por meteo."
   }
 }
