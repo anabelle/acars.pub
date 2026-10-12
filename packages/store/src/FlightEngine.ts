@@ -213,6 +213,8 @@ export function getLegAirportFeesMultiplier(
  * a flight lands. Exported so route projections (UI) run the exact same math.
  */
 export interface FlightPassengerInput {
+  /** Flights the route gets from planes on lines of flying (S66). */
+  lineService?: LineService;
   originIata: string | null | undefined;
   destinationIata: string | null | undefined;
   tick: number;
@@ -281,6 +283,7 @@ export function computeFlightPassengers({
   playerPubkey,
   playerBrandScore,
   distanceLimitKm,
+  lineService,
 }: FlightPassengerInput): FlightPassengerResult {
   const origin = originIata ? (getAirportMap().get(originIata) ?? null) : null;
   const destination = destinationIata ? (getAirportMap().get(destinationIata) ?? null) : null;
@@ -337,8 +340,12 @@ export function computeFlightPassengers({
   // fly, capped by what its aircraft can physically fly, so market share and
   // the per-leg demand split match the flights the engine actually flies.
   // Routes without a stored frequency keep the capacity estimate.
-  const aircraftOnRoute = Math.max(1, route?.assignedAircraftIds.length ?? 1);
-  const ourFrequency = route
+  // Planes on lines (S66) add their legs; the route's own cycle counts only the rest.
+  const lineAircraft = lineService?.aircraft ?? 0;
+  const lineRoundTrips = lineService?.roundTripsPerWeek ?? 0;
+  const cycleAircraft = (route?.assignedAircraftIds.length ?? 1) - lineAircraft;
+  const aircraftOnRoute = Math.max(1, cycleAircraft);
+  const cycleFrequency = route
     ? route.frequencyPerWeek && route.frequencyPerWeek > 0
       ? (() => {
           const legs = legTicksFor(route.distanceKm, model.speedKmh, model.turnaroundTimeMinutes);
@@ -357,6 +364,10 @@ export function computeFlightPassengers({
           model.blockHoursPerDay,
         )
     : Math.max(1, fallback?.frequencyPerWeek ?? 7);
+  const ourFrequency =
+    lineService && route
+      ? Math.max(1, (cycleAircraft > 0 ? cycleFrequency : 0) + lineRoundTrips)
+      : cycleFrequency;
 
   // Travel time for our current aircraft
   const distanceForOffer = route?.distanceKm ?? fallback?.distanceKm ?? 0;
@@ -560,6 +571,153 @@ export interface EngineMaintenanceContext {
 
 const NO_MAINTENANCE_POLICY: EngineMaintenanceContext = { hubs: [] };
 
+/** Flights a route gets from planes flying lines (S66): round trips a week and the planes. */
+export interface LineService {
+  roundTripsPerWeek: number;
+  aircraft: number;
+}
+
+/**
+ * Per route, what planes on lines of flying (S66) add: each leg flown once a
+ * day counts as half a round trip, so a route flown out and back daily gets
+ * 7 round trips a week. O(planes × legs).
+ */
+export function buildLineService(fleet: readonly AircraftInstance[]): Map<string, LineService> {
+  const service = new Map<string, LineService>();
+  for (const ac of fleet) {
+    const legs = ac.line?.legs;
+    if (!legs?.length) continue;
+    const seen = new Set<string>();
+    for (const leg of legs) {
+      const entry = service.get(leg.routeId) ?? { roundTripsPerWeek: 0, aircraft: 0 };
+      entry.roundTripsPerWeek += 3.5;
+      if (!seen.has(leg.routeId)) {
+        entry.aircraft += 1;
+        seen.add(leg.routeId);
+      }
+      service.set(leg.routeId, entry);
+    }
+  }
+  return service;
+}
+
+export interface LandingEconomicsInput {
+  ac: AircraftInstance;
+  model: AircraftModel;
+  route: Route | null;
+  originIata: string | null | undefined;
+  destinationIata: string | null | undefined;
+  /** Sold tickets: a route, or an orphaned flight with a fare snapshot. */
+  priced: boolean;
+  tick: number;
+  airportTraffic: ReadonlyMap<string, number>;
+  hubStates: ReadonlyMap<string, FlightEngineHubState>;
+  competitorOffers: FlightOffer[];
+  playerPubkey: string;
+  playerBrandScore: number;
+  distanceLimitKm: number;
+  lineService?: LineService;
+}
+
+/**
+ * The money of one landing (live engine): passengers by class from the
+ * demand and market-share model, revenue, every cost line and the profit.
+ * Shared by route cycles and lines of flying (S66). Pure.
+ */
+export function computeLandingEconomics({
+  ac,
+  model,
+  route,
+  originIata,
+  destinationIata,
+  priced,
+  tick,
+  airportTraffic,
+  hubStates,
+  competitorOffers,
+  playerPubkey,
+  playerBrandScore,
+  distanceLimitKm,
+  lineService,
+}: LandingEconomicsInput) {
+  const flight = ac.flight;
+  const seatConfig = {
+    economy: ac.configuration?.economy ?? model.capacity.economy,
+    business: ac.configuration?.business ?? model.capacity.business,
+    first: ac.configuration?.first ?? model.capacity.first,
+  };
+
+  let rev = calculateFlightRevenue({
+    passengersEconomy: 0,
+    passengersBusiness: 0,
+    passengersFirst: 0,
+    fareEconomy: fp(0),
+    fareBusiness: fp(0),
+    fareFirst: fp(0),
+    seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first,
+  });
+
+  // Economy fare ÷ market reference fare, graded by the brand (S11).
+  let fareRatio = 1;
+  let playerUndercutting = false;
+
+  if (priced) {
+    const passengers = computeFlightPassengers({
+      originIata,
+      destinationIata,
+      tick,
+      airportTraffic,
+      hubStates,
+      seatConfig,
+      model,
+      route,
+      fallback: flight,
+      competitorOffers,
+      playerPubkey,
+      playerBrandScore,
+      distanceLimitKm,
+      lineService,
+    });
+    playerUndercutting = passengers.playerUndercutting;
+
+    rev = calculateFlightRevenue({
+      passengersEconomy: passengers.passengersEconomy,
+      passengersBusiness: passengers.passengersBusiness,
+      passengersFirst: passengers.passengersFirst,
+      fareEconomy: passengers.fareEconomy,
+      fareBusiness: passengers.fareBusiness,
+      fareFirst: passengers.fareFirst,
+      seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first,
+    });
+
+    const referenceEconomy = fpToNumber(
+      getSuggestedFares(route ? route.distanceKm : (flight?.distanceKm ?? 0)).economy,
+    );
+    fareRatio = referenceEconomy > 0 ? fpToNumber(passengers.fareEconomy) / referenceEconomy : 1;
+  }
+
+  const endpointContext = getRouteEndpointContext(originIata, destinationIata, airportTraffic);
+  // Strikes and congested hubs (S33) raise fees at the affected airport.
+  const airportFeesMultiplier =
+    getAirportFeesMultiplier(endpointContext) *
+    worldEventFeesMultiplier(tick, originIata ?? "", destinationIata ?? "");
+
+  const distanceKm = route ? route.distanceKm : (flight?.distanceKm ?? 0);
+  const fuelPricePerKg = getEventFuelPriceAtTick(tick);
+  const cost = calculateFlightCost({
+    distanceKm,
+    aircraft: model,
+    actualPassengers: rev.actualPassengers,
+    blockHours: flight ? (flight.arrivalTick - flight.departureTick) / TICKS_PER_HOUR : 0,
+    airportFeesMultiplier,
+    fuelPricePerKg,
+    revenue: rev.revenueTotal,
+  });
+
+  const profit = fpSub(rev.revenueTotal, cost.costTotal);
+  return { rev, cost, profit, fareRatio, playerUndercutting, priced };
+}
+
 export function processFlightEngine(
   tick: number,
   fleet: AircraftInstance[],
@@ -585,6 +743,8 @@ export function processFlightEngine(
   // O(1) route lookup for the per-aircraft state machine below (was
   // routes.find inside the fleet loop — O(R) per aircraft per tick).
   const routeById = new Map(routes.map((route) => [route.id, route]));
+  // Flights each route gets from planes on lines (S66), for market share.
+  const lineServiceByRoute = buildLineService(fleet);
 
   // 1. Process each aircraft
   for (const ac of updatedFleetMap.values()) {
@@ -769,108 +929,43 @@ export function processFlightEngine(
             : route.destinationIata
           : ac.flight?.destinationIata;
 
-        const seatConfig = {
-          economy: ac.configuration?.economy ?? model.capacity.economy,
-          business: ac.configuration?.business ?? model.capacity.business,
-          first: ac.configuration?.first ?? model.capacity.first,
-        };
-
-        let rev = calculateFlightRevenue({
-          passengersEconomy: 0,
-          passengersBusiness: 0,
-          passengersFirst: 0,
-          fareEconomy: fp(0),
-          fareBusiness: fp(0),
-          fareFirst: fp(0),
-          seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first,
-        });
-
-        // Economy fare ÷ market reference fare, graded by the brand (S11).
-        let fareRatio = 1;
-
-        if (route || (isOrphan && hasFareSnapshot)) {
-          const routeKey =
-            originIata && destinationIata ? canonicalRouteKey(originIata, destinationIata) : "";
-          const competitorOffers = route && routeKey ? globalRouteRegistry.get(routeKey) || [] : [];
-          const {
-            passengersEconomy: paxE,
-            passengersBusiness: paxB,
-            passengersFirst: paxF,
-            fareEconomy,
-            fareBusiness,
-            fareFirst,
-            playerUndercutting,
-          } = computeFlightPassengers({
-            originIata,
-            destinationIata,
-            tick,
-            airportTraffic,
-            hubStates,
-            seatConfig,
-            model,
-            route,
-            fallback: ac.flight,
-            competitorOffers,
-            playerPubkey,
-            playerBrandScore,
-            distanceLimitKm,
-          });
-
-          // Price war: undercutting damages brand reputation.
-          if (playerUndercutting && route) {
-            events.push({
-              id: `evt-pricewar-${ac.id}-${tick}`,
-              tick,
-              timestamp: simulatedTimestamp,
-              type: "price_war",
-              aircraftId: ac.id,
-              aircraftName: ac.name,
-              description: `[PRICE WAR] Extreme undercutting on ${route.originIata}-${route.destinationIata} is damaging your brand reputation.`,
-            });
-          }
-
-          rev = calculateFlightRevenue({
-            passengersEconomy: paxE,
-            passengersBusiness: paxB,
-            passengersFirst: paxF,
-            fareEconomy,
-            fareBusiness,
-            fareFirst,
-            seatsOffered: seatConfig.economy + seatConfig.business + seatConfig.first,
-          });
-          tickRevenue = fpAdd(tickRevenue, rev.revenueTotal);
-
-          const referenceEconomy = fpToNumber(
-            getSuggestedFares(route ? route.distanceKm : (ac.flight?.distanceKm ?? 0)).economy,
-          );
-          fareRatio = referenceEconomy > 0 ? fpToNumber(fareEconomy) / referenceEconomy : 1;
-
-          ac.lastKnownLoadFactor = rev.loadFactor;
-        }
-
-        const endpointContext = getRouteEndpointContext(
+        const outcome = computeLandingEconomics({
+          ac,
+          model,
+          route,
           originIata,
           destinationIata,
+          priced: !!(route || (isOrphan && hasFareSnapshot)),
+          tick,
           airportTraffic,
-        );
-        // Strikes and congested hubs (S33) raise fees at the affected airport.
-        const airportFeesMultiplier =
-          getAirportFeesMultiplier(endpointContext) *
-          worldEventFeesMultiplier(tick, originIata ?? "", destinationIata ?? "");
-
-        const distanceKm = route ? route.distanceKm : (ac.flight?.distanceKm ?? 0);
-        const fuelPricePerKg = getEventFuelPriceAtTick(tick);
-        const cost = calculateFlightCost({
-          distanceKm,
-          aircraft: model,
-          actualPassengers: rev.actualPassengers,
-          blockHours: (ac.flight.arrivalTick - ac.flight.departureTick) / TICKS_PER_HOUR,
-          airportFeesMultiplier,
-          fuelPricePerKg,
-          revenue: rev.revenueTotal,
+          hubStates,
+          competitorOffers:
+            route && originIata && destinationIata
+              ? globalRouteRegistry.get(canonicalRouteKey(originIata, destinationIata)) || []
+              : [],
+          playerPubkey,
+          playerBrandScore,
+          distanceLimitKm,
+          lineService: lineServiceByRoute.get(route?.id ?? ""),
         });
+        const { rev, cost, profit, fareRatio } = outcome;
 
-        const profit = fpSub(rev.revenueTotal, cost.costTotal);
+        // Price war: undercutting damages brand reputation.
+        if (outcome.playerUndercutting && route) {
+          events.push({
+            id: `evt-pricewar-${ac.id}-${tick}`,
+            tick,
+            timestamp: simulatedTimestamp,
+            type: "price_war",
+            aircraftId: ac.id,
+            aircraftName: ac.name,
+            description: `[PRICE WAR] Extreme undercutting on ${route.originIata}-${route.destinationIata} is damaging your brand reputation.`,
+          });
+        }
+        if (outcome.priced) {
+          tickRevenue = fpAdd(tickRevenue, rev.revenueTotal);
+          ac.lastKnownLoadFactor = rev.loadFactor;
+        }
         corporateBalance = fpAdd(corporateBalance, profit);
 
         // Wear and Tear
