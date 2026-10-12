@@ -17,11 +17,11 @@ import { Plane, Route as RouteIcon, Users, Wrench, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PlaneAcars } from "@/features/fleet/components/AcarsFeed";
-import { LineSection } from "@/features/fleet/components/LineSection";
-import { NextDepartureBookingsCard } from "@/features/fleet/components/NextDepartureBookings";
 import { AircraftLiveryImage } from "@/features/fleet/components/AircraftLiveryImage";
 import { LastFlight } from "@/features/fleet/components/LastFlight";
+import { LineSection } from "@/features/fleet/components/LineSection";
 import { LiveryFallback } from "@/features/fleet/components/LiveryFallback";
+import { NextDepartureBookingsCard } from "@/features/fleet/components/NextDepartureBookings";
 import { getAircraftTimer } from "@/features/fleet/utils/aircraftTimers";
 import { EARTH_KM, planeLogbook } from "@/features/fleet/utils/logbook";
 import { summarizeFleetDays } from "@/features/fleet/utils/planeDay";
@@ -1000,6 +1000,13 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
                           {assignedRoute.destinationIata}
                         </button>
                       </>
+                    ) : aircraft.line?.legs.length ? (
+                      <span data-testid="aircraft-route-line">
+                        {[
+                          aircraft.line.legs[0].originIata,
+                          ...aircraft.line.legs.map((leg) => leg.destinationIata),
+                        ].join("→")}
+                      </span>
                     ) : (
                       t("fleet.unassigned", { ns: "game" })
                     )}
@@ -1012,14 +1019,16 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
                   data-testid="aircraft-assign-route"
                   onClick={() => setAssigningRoute(true)}
                   className={
-                    assignedRoute
+                    assignedRoute || aircraft.line?.legs.length
                       ? "w-full rounded-xl border border-border/60 px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-accent hover:text-foreground"
                       : "w-full rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
                   }
                 >
-                  {assignedRoute
-                    ? t("assign.changeRoute", { ns: "game" })
-                    : t("assign.assignRoute", { ns: "game" })}
+                  {aircraft.line?.legs.length
+                    ? t("line.flyOneRoute", { ns: "game" })
+                    : assignedRoute
+                      ? t("assign.changeRoute", { ns: "game" })
+                      : t("assign.assignRoute", { ns: "game" })}
                 </button>
               ) : null}
             </div>
@@ -1067,6 +1076,22 @@ export function RouteTab({
       }),
     [i18n.resolvedLanguage, i18n.language],
   );
+
+  const lineLegs = aircraft.line?.legs ?? [];
+  if (!route && lineLegs.length > 0) {
+    return (
+      <div
+        data-testid="route-tab-line"
+        className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground"
+      >
+        <RouteIcon className="h-8 w-8 mb-3 opacity-40" />
+        <p className="font-mono text-sm font-semibold text-foreground">
+          {[lineLegs[0].originIata, ...lineLegs.map((leg) => leg.destinationIata)].join("→")}
+        </p>
+        <p className="text-xs mt-1">{t("line.repeats", { ns: "game" })}</p>
+      </div>
+    );
+  }
 
   if (!route) {
     return (

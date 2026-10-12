@@ -101,7 +101,7 @@
     "noAircraft": "Aún no hay aeronaves en tu flota.",
     "noAircraftDesc": "Visita el Distribuidor de Aeronaves para comprar tu primer avión.",
     "assigned": "Asignado",
-    "unassigned": "Sin asignar",
+    "unassigned": "Aparcado, sin ruta",
     "condition": "Condición",
     "flightHours": "Horas de Vuelo",
     "bookValue": "Valor Contable",
@@ -141,7 +141,7 @@
     "deniedPassengers": "{{count}} denegados",
     "routeAssignment": "Asignación de ruta",
     "routeChangesLocked": "Los cambios de ruta están bloqueados en vuelo.",
-    "unassignedIdle": "Sin asignar (inactiva)",
+    "unassignedIdle": "Aparcado (sin ruta)",
     "healthy": "Saludable",
     "caution": "Precaución",
     "outOfRange": "[FUERA DE ALCANCE]",
@@ -1369,7 +1369,7 @@
     "sectionTitle": "Plan del día",
     "summary_one": "{{count}} tramo · {{hours}} h bloque",
     "summary_other": "{{count}} tramos · {{hours}} h bloque",
-    "none": "Vuela una sola ruta de ida y vuelta. Planifica un día con varias rutas para tenerlo ocupado.",
+    "none": "Planifica un día por varias rutas para tenerlo ocupado todo el día.",
     "plan": "Planificar un día",
     "edit": "Editar plan del día",
     "kicker": "Plan del día · {{name}}",
@@ -1409,7 +1409,10 @@
       "no-airline": "Sin aerolínea.",
       "unknown-aircraft": "Avión desconocido."
     },
-    "onTime": "Puntual {{pct}}% de {{count}} vuelos · retraso medio {{minutes}} min · 7 días"
+    "onTime": "Puntual {{pct}}% de {{count}} vuelos · retraso medio {{minutes}} min · 7 días",
+    "repeats": "Se repite cada día a estas horas UTC, hasta que lo cambies o le des una sola ruta.",
+    "replacesRoute": "Un plan del día sustituye a su ruta única.",
+    "flyOneRoute": "Volar una sola ruta"
   },
   "connections": {
     "title_one": "{{count}} persona al día quiere conectar en {{iata}} en dos de tus vuelos (si hay asientos).",
@@ -1505,5 +1508,10 @@
     "leave": "Dejar la alianza",
     "full": "Como mucho {{count}} socios: deja uno primero.",
     "badge": "Aliado"
+  },
+  "duty": {
+    "line": "Plan del día {{path}}, cada día",
+    "route": "Vuela {{origin}} ⇄ {{destination}} de ida y vuelta",
+    "parked": "Aparcado en {{airport}}, sin nada que volar"
   }
 }

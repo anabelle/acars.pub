@@ -51,6 +51,7 @@ import { getAircraftTimer } from "../utils/aircraftTimers";
 import { AircraftDealer } from "./AircraftDealer";
 import { AircraftLiveryImage } from "./AircraftLiveryImage";
 import { AircraftMaintenanceRow } from "./AircraftMaintenanceRow";
+import { DutySummary } from "./DutySummary";
 import { FleetPosterDialog } from "./FleetPosterDialog";
 import { HangarGallery } from "./HangarGallery";
 import { MaintenancePolicyControl } from "./MaintenancePolicyControl";
@@ -916,6 +917,7 @@ export function FleetManager() {
                             <div className="h-px w-full bg-border/50 mb-2" />
 
                             <div className="flex flex-col gap-3">
+                              <DutySummary aircraft={ac} routes={routes} />
                               {ac.status !== "delivery" && !isViewingOther && (
                                 <div className="flex flex-col gap-1.5">
                                   <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-widest pl-1">
@@ -955,9 +957,17 @@ export function FleetManager() {
                                       }}
                                     >
                                       <option value="">
-                                        {t("fleet.unassignedIdle", {
-                                          ns: "game",
-                                        })}
+                                        {ac.line?.legs.length
+                                          ? t("duty.line", {
+                                              ns: "game",
+                                              path: [
+                                                ac.line.legs[0].originIata,
+                                                ...ac.line.legs.map((leg) => leg.destinationIata),
+                                              ].join(" → "),
+                                            })
+                                          : t("fleet.unassignedIdle", {
+                                              ns: "game",
+                                            })}
                                       </option>
                                       {routes
                                         .filter((r) =>
