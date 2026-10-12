@@ -12,6 +12,7 @@ import type {
 } from "@acars/core";
 import {
   allocatePassengers,
+  CONDITION_WEAR_PER_FLIGHT_HOUR,
   calculateDemand,
   calculateFlightCost,
   calculateFlightRevenue,
@@ -20,7 +21,6 @@ import {
   calculateSupplyPressure,
   canonicalRouteKey,
   computeRouteFrequency,
-  CONDITION_WEAR_PER_FLIGHT_HOUR,
   countLandingsBetween,
   detectPriceWar,
   entrantMarketShare,
@@ -31,12 +31,10 @@ import {
   fpFormat,
   fpSub,
   fpToNumber,
-  worldEventDemandMultiplier,
-  worldEventFeesMultiplier,
   GENESIS_TIME,
-  getCyclePhase,
   GROUNDED_MAX_HOURS_SINCE_CHECK,
   GROUNDED_MIN_CONDITION,
+  getCyclePhase,
   getEventFuelPriceAtTick,
   getHubCongestionModifier,
   getHubDemandModifier,
@@ -60,9 +58,12 @@ import {
   TICK_DURATION,
   TICKS_PER_HOUR,
   TICKS_PER_MONTH,
+  worldEventDemandMultiplier,
+  worldEventFeesMultiplier,
 } from "@acars/core";
 import type { HubClassification } from "@acars/data";
 import { getAircraftById, getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
+import { advanceLineAircraft, type LineEngineContext } from "./lineEngine.js";
 
 /** Module-level O(1) airport lookup — avoids O(N) airports.find() on every
  * landing. Built lazily on first use: the airports catalog loads async, so
@@ -745,11 +746,22 @@ export function processFlightEngine(
   const routeById = new Map(routes.map((route) => [route.id, route]));
   // Flights each route gets from planes on lines (S66), for market share.
   const lineServiceByRoute = buildLineService(fleet);
+  const lineContext: LineEngineContext = {
+    routeById,
+    airportTraffic,
+    hubStates,
+    registry: globalRouteRegistry,
+    lineService: lineServiceByRoute,
+    playerPubkey,
+    playerBrandScore,
+    distanceLimitKm,
+  };
 
   // 1. Process each aircraft
   for (const ac of updatedFleetMap.values()) {
     // Optimization: Already processed this tick?
     if (ac.lastTickProcessed === tick) continue;
+    const previousProcessed = ac.lastTickProcessed ?? lastTick;
     ac.lastTickProcessed = tick;
 
     // Handle Delivery
@@ -822,6 +834,24 @@ export function processFlightEngine(
           continue;
         }
       }
+    }
+
+    // Lines of flying (S66): the plane's day comes from its line.
+    if (ac.line?.legs.length) {
+      const advance = advanceLineAircraft(
+        ac,
+        model,
+        previousProcessed,
+        tick,
+        "live",
+        lineContext,
+        CONDITION_WEAR_PER_FLIGHT_HOUR,
+      );
+      if (advance.changed) hasChanges = true;
+      corporateBalance = fpAdd(corporateBalance, advance.balanceDelta);
+      tickRevenue = fpAdd(tickRevenue, advance.revenue);
+      events.push(...advance.events);
+      continue;
     }
 
     // --- FLIGHT STATE MACHINE ---
@@ -1544,6 +1574,18 @@ export function reconcileFleetToTick(
   // O(1) route lookup for the per-aircraft reconciliation below.
   const routeById = new Map(routes.map((route) => [route.id, route]));
 
+  const lineEvents: TimelineEvent[] = [];
+  const reconcileLineContext: LineEngineContext = {
+    routeById,
+    airportTraffic: new Map(),
+    hubStates: new Map(),
+    registry: new Map(),
+    lineService: new Map(),
+    playerPubkey: "",
+    playerBrandScore: 0.5,
+    distanceLimitKm: Number.POSITIVE_INFINITY,
+  };
+
   const updatedFleet: AircraftInstance[] = fleet.map((ac): AircraftInstance => {
     // Handle delivery aircraft that have been delivered but have no route —
     // they just need to transition to idle.  This must happen before the
@@ -1570,6 +1612,28 @@ export function reconcileFleetToTick(
         };
       }
       return ac;
+    }
+
+    // Lines of flying (S66): position and landings come from the line.
+    if (ac.line?.legs.length) {
+      const lineModel = getAircraftById(ac.modelId);
+      if (!lineModel) return ac;
+      const updated = { ...ac };
+      const fromTick =
+        typeof ac.lastTickProcessed === "number" ? ac.lastTickProcessed : ac.line.startTick;
+      const advance = advanceLineAircraft(
+        updated,
+        lineModel,
+        fromTick,
+        targetTick,
+        "estimate",
+        reconcileLineContext,
+        CONDITION_WEAR_PER_FLIGHT_HOUR,
+      );
+      updated.lastTickProcessed = targetTick;
+      balanceDelta = fpAdd(balanceDelta, advance.balanceDelta);
+      lineEvents.push(...advance.events);
+      return updated;
     }
 
     // Only reconcile aircraft that are on active routes and have a stale
@@ -1966,6 +2030,7 @@ export function reconcileFleetToTick(
 
   // --- Generate synthetic timeline events for the reconciled period ---
   const events: TimelineEvent[] = [];
+  events.push(...lineEvents);
   for (const params of eventGenQueue) {
     if (params.cappedLandings <= 0) continue;
     for (const evt of getCappedReconciledFlightEvents(params, targetTick)) {

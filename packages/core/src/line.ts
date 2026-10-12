@@ -254,6 +254,28 @@ export function lineLandingsBetween(
   return landings.slice(-max);
 }
 
+/** The line's departures in (fromTick, toTick], oldest first, at most `max` (the newest kept). */
+export function lineDeparturesBetween(
+  line: LineOfFlying,
+  aircraftId: string,
+  fromTick: number,
+  toTick: number,
+  max = 200,
+): LineFlight[] {
+  if (toTick <= fromTick || line.legs.length === 0) return [];
+  const daysNeeded = Math.ceil(max / line.legs.length) + 2;
+  const lastDay = Math.floor(toTick / TICKS_PER_DAY);
+  const firstDay = Math.max(Math.floor(fromTick / TICKS_PER_DAY) - 1, lastDay - daysNeeded);
+  const departures: LineFlight[] = [];
+  for (let day = firstDay; day <= lastDay; day++) {
+    for (const flight of lineDay(line, aircraftId, day)) {
+      if (flight.departureTick > fromTick && flight.departureTick <= toTick)
+        departures.push(flight);
+    }
+  }
+  return departures.slice(-max);
+}
+
 /**
  * How many landings each leg makes in (fromTick, toTick], for any span in
  * O(legs): the two edge days are flown exactly, whole days in between land

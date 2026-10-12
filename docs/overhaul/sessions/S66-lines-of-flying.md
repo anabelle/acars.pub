@@ -1,7 +1,7 @@
 # S66 — Lines of flying, buffers, knock-on delays
 
 > **Status:** ◐ in progress
-> **Next step:** S66.2 — store: set a line (action + reducer), fly it (live and catch-up)
+> **Next step:** S66.3 — the plane's 24-hour board: build a line, auto-fill
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -28,7 +28,7 @@ A plane flies a daily line of several legs — MAD→BCN→LIS→MAD→BCN→MAD
 ## Steps (checkpoints)
 
 - [x] **S66.1** Core: `LineOfFlying`, `validateLine`, `departureDisruptionTicks`, `lineDay`, `linePhaseAt`, `lineLandingsBetween`, `lineLandingCount`; `AircraftInstance.line`, `FlightState.routeId`. _Done when:_ unit tests (validation, determinism, no spill, phases, counts = walk).
-- [ ] **S66.2** Store: `AIRCRAFT_LINE_SET` action (validate: own plane, routes active and in range, line starts at the plane's base), reducer, engine (live and reconcile) flying lines with per-leg economics; route frequency/assignment from lines. _Done when:_ engine tests (live = catch-up, landings and money per leg, delays).
+- [x] **S66.2** Store: `AIRCRAFT_LINE_SET` action (validate: own plane, routes active and in range, line starts at the plane's base), reducer, engine (live and reconcile) flying lines with per-leg economics; route frequency/assignment from lines. _Done when:_ engine tests (live = catch-up, landings and money per leg, delays).
 - [ ] **S66.3** UI: the plane's 24-hour board (legs on a day strip, buffers, on-time %), build a line from the plane's routes, auto-fill.
 - [ ] **S66.4** On-time performance: per plane and airline (last 7 days), ACARS shows delays.
 - [ ] **S66.5** e2e (desktop and phone) + screenshots; PR.
@@ -48,3 +48,11 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 2026-10-12 · S66.1 · (this commit) · **The line, in core.** `line.ts`: validation (empty, too many legs, bad offset, not chained, not closed, overlap, too long), deterministic disruption, `lineDay` (knock-on with the no-spill cap: each leg's latest departure keeps the rest of the day before the next first departure), `linePhaseAt` (enroute / turnaround / idle with next departure), `lineLandingsBetween` (newest `max`), `lineLandingCount` (edges walked, whole days counted). Types: `AircraftInstance.line`, `FlightState.routeId`. Core 415/415.
 
 2026-10-12 · S66.2 WIP · (this commit) · Landing money extracted from the live loop into `computeLandingEconomics` (same body, side effects left in the caller) so line legs can share it; `buildLineService` + `FlightPassengerInput.lineService` let a route count the round trips its line planes fly (cycle planes keep their own count). No behaviour change: store 282/282. Remaining: the line action and reducer, the line engine (live + catch-up), store method.
+
+2026-10-12 · S66.2 · (this commit) · **Lines fly, live and in catch-up.**
+
+- `lineEngine.ts` (store): `buildLineLegs` (route + direction → legs with this plane's timings; unknown, closed, out-of-range routes refused; `validateLine`), `parseLineLegRequests` (Nostr payload), `advanceLineAircraft` — position straight from the line; landings in the span paid with the full demand model live (`computeLandingEconomics`) or estimated from the last load factor in catch-up (≤200 events; landings beyond them paid at the sampled average, counted in O(legs)); takeoff events; wear; landing details carry `delayTicks`. A grounded plane stays on the ground. `applyAircraftLine` is the optimistic update.
+- Engine: `processFlightEngine` and `reconcileFleetToTick` hand line planes to it (own and rival fleets). Market share counts line legs (`buildLineService`: a daily leg = half a round trip a week).
+- Action `AIRCRAFT_LINE_SET` {aircraftId, legs[{routeId, direction, departOffsetTicks}]}: only on the ground, first leg from the plane's airport; lists the plane on each leg's route; empty legs clear it. A single-route assignment, unassign, route close or rebase clears a line. Store: `setAircraftLine` (returns an error code or null).
+- Tests: build/refuse, three-day catch-up (every landing paid, delays recorded, position = line), **a day ticked live lands the same flights and ends where catch-up does**, optimistic set/clear and refusals, replay set and route-close. Store 290/290, core 415/415, web unit 664/664.
+- Known approximations: maintenance and grounding pause a line, and the plane resumes wherever the line places it.

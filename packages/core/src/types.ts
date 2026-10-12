@@ -389,6 +389,8 @@ export interface TimelineEvent {
     spilledPassengers?: number;
     routeId?: string;
     flightDurationTicks?: number;
+    /** Departure minus schedule, for planes on lines of flying (S66). */
+    delayTicks?: number;
     revenue?: {
       tickets: FixedPoint;
       economy: FixedPoint;
@@ -452,6 +454,7 @@ export type GameActionType =
   | "ROUTE_UNASSIGN_AIRCRAFT"
   | "ROUTE_UPDATE_FARES"
   | "ROUTE_UPDATE_FREQUENCY"
+  | "AIRCRAFT_LINE_SET"
   | "AIRCRAFT_PURCHASE"
   | "AIRCRAFT_SELL"
   | "AIRCRAFT_BUYOUT"

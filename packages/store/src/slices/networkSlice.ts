@@ -20,6 +20,7 @@ import {
   getHubPricingForIata,
   HUB_CLASSIFICATIONS,
 } from "@acars/data";
+import type { LineLegRequest } from "../lineEngine";
 
 /** Module-level O(1) airport lookup — built lazily on first use so importing
  * this slice does not require the async airports catalog to be loaded yet. */
@@ -35,6 +36,7 @@ import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { clampFixedPoint } from "../actionReducer";
 import { useEngineStore } from "../engine";
+import { applyAircraftLine } from "../lineEngine";
 import { suggestRouteFrequency } from "../routeSuggestion";
 import type { AirlineState } from "../types";
 
@@ -58,6 +60,8 @@ export interface NetworkSlice {
   ) => Promise<void>;
   /** Round trips a week (S14); the engine flies them, capped by what the aircraft can do. */
   updateRouteFrequency: (routeId: string, frequencyPerWeek: number) => Promise<void>;
+  /** Lines of flying (S66): a daily chain of legs for a plane; empty clears it. */
+  setAircraftLine: (aircraftId: string, legs: LineLegRequest[]) => Promise<string | null>;
   /**
    * Raises the route's weekly frequency to the suggestion for the planes on it
    * (S58); never lowers it. Returns the frequency it applied, or null.
@@ -1103,6 +1107,48 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         ),
       }));
       console.error("Failed to sync frequency to Nostr:", e);
+    }
+  },
+
+  setAircraftLine: async (aircraftId: string, legs: LineLegRequest[]) => {
+    const { fleet, routes, airline } = get();
+    if (!airline) return "no-airline";
+    const aircraft = fleet.find((ac) => ac.id === aircraftId);
+    const model = aircraft ? getAircraftById(aircraft.modelId) : undefined;
+    if (!aircraft || !model) return "unknown-aircraft";
+    const tick = useEngineStore.getState().tick;
+    const result = applyAircraftLine(fleet, routes, aircraftId, legs, tick, model);
+    if ("error" in result) return result.error;
+    const previous = { fleet, routes };
+    set({ fleet: result.fleet, routes: result.routes });
+    try {
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: "AIRCRAFT_LINE_SET",
+          payload: { aircraftId, legs, tick },
+        },
+        get,
+        set,
+      });
+      return null;
+    } catch (e) {
+      // Merge-safe rollback: restore this plane and the routes it touched.
+      set((state) => ({
+        fleet: state.fleet.map((ac) =>
+          ac.id === aircraftId ? (previous.fleet.find((p) => p.id === aircraftId) ?? ac) : ac,
+        ),
+        routes: state.routes.map((rt) => {
+          const before = previous.routes.find((p) => p.id === rt.id);
+          return before &&
+            before.assignedAircraftIds.includes(aircraftId) !==
+              rt.assignedAircraftIds.includes(aircraftId)
+            ? { ...rt, assignedAircraftIds: before.assignedAircraftIds }
+            : rt;
+        }),
+      }));
+      console.error("Failed to sync line to Nostr:", e);
+      return "sync-failed";
     }
   },
 
