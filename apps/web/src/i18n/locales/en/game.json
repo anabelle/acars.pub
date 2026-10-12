@@ -1283,7 +1283,8 @@
     "parkedText": "{{name}} is parked at {{airport}} with no route.",
     "parkedMore_one": " One more plane waits too.",
     "parkedMore_other": " {{count}} more planes wait too.",
-    "putToWork": "Put {{name}} to work"
+    "putToWork": "Put {{name}} to work",
+    "onTime": "on time {{pct}}%"
   },
   "lastFlight": {
     "title": "Last flight",
@@ -1320,7 +1321,9 @@
       "first": "Champagne before take-off. I could get used to this.",
       "business": "Landed in time for the meeting, and I even slept.",
       "smooth": "Smooth flight, friendly crew, on time."
-    }
+    },
+    "connecting_one": "{{count}} connecting",
+    "connecting_other": "{{count}} connecting"
   },
   "turnedAway": {
     "title_one": "{{count}} person couldn't get a seat on your flights from {{iata}} in the last 24 h.",
@@ -1351,5 +1354,58 @@
     "description": "A soft chime when a plane lands and a fanfare on delivery day. Off by default.",
     "on": "Sound on",
     "off": "Sound off"
+  },
+  "line": {
+    "sectionTitle": "Day plan",
+    "summary_one": "{{count}} leg · {{hours}} block h",
+    "summary_other": "{{count}} legs · {{hours}} block h",
+    "none": "Flies one route back and forth. Plan a day over several routes to keep it busy.",
+    "plan": "Plan a day",
+    "edit": "Edit day plan",
+    "kicker": "Day plan · {{name}}",
+    "title": "A day from {{airport}}",
+    "close": "Close",
+    "empty": "No legs yet. Add the first one from {{airport}}, or let auto-fill plan the day.",
+    "buffer": "{{minutes}} min buffer",
+    "earlier": "15 minutes earlier",
+    "later": "15 minutes later",
+    "remove": "Remove this leg",
+    "addFrom": "Next leg from {{airport}}",
+    "choose": "Choose a route…",
+    "noRoutes": "No route of yours flies from {{airport}}.",
+    "hint": "Each leg leaves after the plane is ready; the last one must bring it home.",
+    "ok": "Back at {{airport}} at {{time}}Z · {{hours}} block h a day",
+    "whenLanded": "It is flying now: the plan can be saved once it lands.",
+    "autofill": "Auto-fill",
+    "clear": "Fly one route instead",
+    "save": "Save day plan",
+    "failed": "Couldn’t save the day plan",
+    "boardAria_one": "{{count}} leg: {{route}}",
+    "boardAria_other": "{{count}} legs: {{route}}",
+    "error": {
+      "empty": "Add at least one leg.",
+      "too-many-legs": "At most 12 legs a day.",
+      "bad-offset": "A departure time is outside the day.",
+      "not-chained": "Each leg must leave from where the last one landed.",
+      "not-closed": "The last leg must bring the plane back to {{airport}}.",
+      "overlap": "A leg leaves before the plane is ready: move it later.",
+      "too-long": "The day is too long: the plane cannot be back for tomorrow's first leg.",
+      "unknown-route": "A route in the plan no longer exists.",
+      "inactive-route": "A route in the plan is closed.",
+      "out-of-range": "A route is beyond this plane's range.",
+      "flying": "It is flying now: save once it lands.",
+      "not-at-start": "The plan must start at {{airport}}, where the plane is.",
+      "sync-failed": "The relays did not take it; try again.",
+      "no-airline": "No airline.",
+      "unknown-aircraft": "Unknown plane."
+    },
+    "onTime": "On time {{pct}}% of {{count}} flights · average delay {{minutes}} min · 7 days"
+  },
+  "connections": {
+    "title_one": "{{count}} person a day wants to connect through {{iata}} on two of your flights (seats permitting).",
+    "title_other": "{{count}} people a day want to connect through {{iata}} on two of your flights (seats permitting).",
+    "perDay": "Want to connect / day",
+    "bank": "Bank timing",
+    "tip": "Time arrivals into {{iata}} 45 min – 3 h before departures (a plane's Day plan) to connect more."
   }
 }

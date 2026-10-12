@@ -17,6 +17,7 @@ import { Plane, Route as RouteIcon, Users, Wrench, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PlaneAcars } from "@/features/fleet/components/AcarsFeed";
+import { LineSection } from "@/features/fleet/components/LineSection";
 import { AircraftLiveryImage } from "@/features/fleet/components/AircraftLiveryImage";
 import { LastFlight } from "@/features/fleet/components/LastFlight";
 import { LiveryFallback } from "@/features/fleet/components/LiveryFallback";
@@ -781,6 +782,7 @@ export function AircraftInfoPanel({ aircraft, onClose }: AircraftInfoPanelProps)
 
         {activeTab === "info" ? (
           <>
+            {isPlayerAircraft ? <LineSection aircraft={aircraft} /> : null}
             {isPlayerAircraft ? <LogbookSection aircraft={aircraft} timeline={timeline} /> : null}
             {isPlayerAircraft && lastLanding ? (
               <LastFlight aircraft={aircraft} landing={lastLanding} />

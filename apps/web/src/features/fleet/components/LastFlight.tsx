@@ -42,6 +42,7 @@ export function LastFlight({
   const filled = rows.reduce((sum, row) => sum + row.filled, 0);
   const receipt = landingReceipt(landing);
   const voice = passengerVoice(landing);
+  const connecting = landing.details?.connectingPassengers ?? 0;
 
   return (
     <section data-testid="last-flight" className="space-y-3">
@@ -83,6 +84,7 @@ export function LastFlight({
         <p className="pt-1 font-mono text-[11px] text-muted-foreground">
           {t("lastFlight.aboard", { filled, seats, empty: seats - filled })}
           {seatsPerGlyph > 1 ? ` · ${t("lastFlight.perGlyph", { count: seatsPerGlyph })}` : ""}
+          {connecting > 0 ? ` · ${t("lastFlight.connecting", { count: connecting })}` : ""}
         </p>
       </div>
 

@@ -28,14 +28,15 @@ import {
   pruneObjectiveLedger,
   REPLACEABLE_ACTION_TYPES,
   ROUTE_SLOT_FEE,
-  sanitizeMaintenancePolicy,
   SCRAP_RESALE_SHARE,
+  sanitizeMaintenancePolicy,
   TICK_DURATION,
   TICKS_PER_HOUR,
   verifyObjectiveClaim,
 } from "@acars/core";
 import { getAircraftById, getAirports, whenDataCatalogReady } from "@acars/data";
 import { reconcileFleetToTick } from "./FlightEngine";
+import { buildLineLegs, describeLine, parseLineLegRequests } from "./lineEngine";
 
 export interface ActionRecord {
   action: import("@acars/core").GameActionEnvelope;
@@ -444,6 +445,24 @@ export async function replayActionLog(params: {
     if (!routeIds) return;
     for (const routeId of [...routeIds]) {
       removeAircraftFromRoute(aircraftId, routeId);
+    }
+  };
+  // Lines of flying (S66): a plane on a line drops it when it gets a single
+  // route, or when a route of its line closes or moves.
+  const clearAircraftLine = (aircraft: AircraftInstance) => {
+    if (!aircraft.line) return;
+    for (const leg of aircraft.line.legs) removeAircraftFromRoute(aircraft.id, leg.routeId);
+    aircraft.line = null;
+    if (aircraft.status !== "delivery" && aircraft.status !== "maintenance") {
+      aircraft.status = "idle";
+      aircraft.flight = null;
+      aircraft.turnaroundEndTick = undefined;
+      aircraft.arrivalTickProcessed = undefined;
+    }
+  };
+  const clearLinesUsingRoute = (routeId: string) => {
+    for (const aircraft of fleetById.values()) {
+      if (aircraft.line?.legs.some((leg) => leg.routeId === routeId)) clearAircraftLine(aircraft);
     }
   };
   const deleteIndexedRoute = (routeId: string) => {
@@ -943,6 +962,7 @@ export async function replayActionLog(params: {
         const routeId = resolveRouteId(clampString(payload.routeId, 64));
         if (!routeId) break;
         const route = routesById.get(routeId);
+        clearLinesUsingRoute(routeId);
         deleteIndexedRoute(routeId);
         if (route) {
           const pairKey = routePairKey(route.originIata, route.destinationIata);
@@ -977,6 +997,7 @@ export async function replayActionLog(params: {
         if (!originIata || !destinationIata) break;
         const route = routesById.get(routeId);
         if (!route) break;
+        clearLinesUsingRoute(routeId);
         const previousPairKey = routePairKey(route.originIata, route.destinationIata);
         routePairs.delete(previousPairKey);
         routePairToRouteId.delete(previousPairKey);
@@ -1013,6 +1034,7 @@ export async function replayActionLog(params: {
         const aircraft = fleetById.get(aircraftId);
         const route = routesById.get(routeId);
         if (!aircraft || !route) break;
+        clearAircraftLine(aircraft);
         // Remove from previous route's assignedAircraftIds
         const previousRouteId = aircraft.assignedRouteId;
         // A real move, or this event re-applied on its optimistic copy
@@ -1063,6 +1085,7 @@ export async function replayActionLog(params: {
         if (!aircraftId) break;
         const aircraft = fleetById.get(aircraftId);
         if (aircraft) {
+          clearAircraftLine(aircraft);
           aircraft.assignedRouteId = null;
           aircraft.routeAssignedAtTick = undefined;
           aircraft.routeAssignedAtIata = undefined;
@@ -1132,6 +1155,72 @@ export async function replayActionLog(params: {
           originIata: route.originIata,
           destinationIata: route.destinationIata,
           description: `Updated fares for ${route.originIata} ↔ ${route.destinationIata}.`,
+        });
+        break;
+      }
+      case "AIRCRAFT_LINE_SET": {
+        // Lines of flying (S66): a daily chain of legs, set while on the ground.
+        const aircraftId = clampString(payload.aircraftId, 64);
+        const requests = parseLineLegRequests(payload.legs);
+        if (!aircraftId || !requests) break;
+        const aircraft = fleetById.get(aircraftId);
+        if (!aircraft) break;
+        if (aircraft.status === "enroute" && (aircraft.flight?.arrivalTick ?? 0) > actionTick)
+          break;
+        if (requests.length === 0) {
+          clearAircraftLine(aircraft);
+          updateLastTick(actionTick);
+          pushTimelineEvent({
+            id: `evt-action-${record.eventId}`,
+            tick: actionTick,
+            timestamp: eventTimestamp,
+            type: "route_change",
+            aircraftId,
+            aircraftName: aircraft.name,
+            description: `${aircraft.name} no longer flies a line.`,
+          });
+          break;
+        }
+        const model = getAircraftById(aircraft.modelId);
+        if (!model) break;
+        const built = buildLineLegs(
+          requests.map((leg) => ({ ...leg, routeId: resolveRouteId(leg.routeId) ?? leg.routeId })),
+          routesById,
+          model,
+        );
+        if (!built.legs || built.legs[0].originIata !== aircraft.baseAirportIata) break;
+        clearAircraftLine(aircraft);
+        if (aircraft.assignedRouteId) {
+          const previous = resolveRouteId(aircraft.assignedRouteId);
+          if (previous) removeAircraftFromRoute(aircraftId, previous);
+        }
+        aircraft.assignedRouteId = null;
+        aircraft.routeAssignedAtTick = undefined;
+        aircraft.routeAssignedAtIata = undefined;
+        aircraft.lastKnownLoadFactor = undefined;
+        aircraft.line = { legs: built.legs, startTick: actionTick };
+        if (aircraft.status !== "delivery" && aircraft.status !== "maintenance") {
+          aircraft.status = "idle";
+          aircraft.flight = null;
+          aircraft.turnaroundEndTick = undefined;
+          aircraft.arrivalTickProcessed = undefined;
+        }
+        for (const leg of built.legs) {
+          const route = routesById.get(leg.routeId);
+          if (route && !route.assignedAircraftIds.includes(aircraftId)) {
+            route.assignedAircraftIds = [...route.assignedAircraftIds, aircraftId];
+            indexAircraftOnRoute(aircraftId, route.id);
+          }
+        }
+        updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "route_change",
+          aircraftId,
+          aircraftName: aircraft.name,
+          description: `${aircraft.name} now flies a line: ${describeLine(built.legs)}.`,
         });
         break;
       }

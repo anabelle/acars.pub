@@ -26,6 +26,7 @@ import {
 } from "@/shared/components/layout/mobileLayout";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { useConfirm } from "@/shared/lib/useConfirm";
+import { HubConnections } from "./HubConnections";
 import { TurnedAwayHere } from "./TurnedAwayHere";
 
 type AirportInfoPanelProps = {
@@ -536,6 +537,8 @@ export function AirportInfoPanel({ airport, onClose }: AirportInfoPanelProps) {
             {airline ? (
               <TurnedAwayHere iata={airport.iata} timeline={timeline} tick={minuteTick} />
             ) : null}
+
+            {airline ? <HubConnections iata={airport.iata} /> : null}
 
             {competitorHubNames.length > 0 ? (
               <div className="space-y-2">

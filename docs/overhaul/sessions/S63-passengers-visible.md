@@ -1,9 +1,9 @@
 # S63 — Passengers visible: cabin, receipts, voices, turned away, booking bars
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge #199)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #199)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #199 (with S61, S62)
+> **PR:** #199
 >
 > **Track:** People · **Size:** M (3 steps) · **Depends on:** S60, S62 · **Unblocks:** D13 (decide "fares while filling" after seeing this) · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 People
 >
@@ -62,3 +62,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - The receipt uses the tabular B612 figures (B612 Mono spaced the commas: "$5, 586").
 - Checks: gate green; passengers, clipped-control audit and route-card e2e green.
 - Screenshots: [`last-flight-1440`](../media/s63/last-flight-1440.png), [`last-flight-390`](../media/s63/last-flight-390.png), [`booking-bars-1440`](../media/s63/booking-bars-1440.png).
+
+2026-10-12 · merged · 131e6af · Squash-merged in #199.

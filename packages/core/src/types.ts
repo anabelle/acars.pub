@@ -1,4 +1,6 @@
 // ============================================================
+import type { LineOfFlying } from "./line.js";
+
 // --- Constants ---
 export const GENESIS_TIME = 1740333600000;
 export const TICK_DURATION = 3000; // ms
@@ -146,6 +148,8 @@ export interface FlightState {
   fareBusiness?: FixedPoint;
   fareFirst?: FixedPoint;
   frequencyPerWeek?: number;
+  /** The route this leg belongs to (lines of flying, S66). */
+  routeId?: string;
 }
 
 export interface AircraftInstance {
@@ -163,6 +167,8 @@ export interface AircraftInstance {
   listingPrice?: FixedPoint | null; // If set, the aircraft is listed on the used marketplace
   routeAssignedAtTick?: number; // When this aircraft was assigned to its current route (cycle anchor)
   routeAssignedAtIata?: string; // Which airport the aircraft was at when assigned (for cycle direction)
+  /** A daily line of several legs (S66). When set, it replaces `assignedRouteId`. */
+  line?: LineOfFlying | null;
 
   // Flight state
   flight: FlightState | null;
@@ -383,6 +389,10 @@ export interface TimelineEvent {
     spilledPassengers?: number;
     routeId?: string;
     flightDurationTicks?: number;
+    /** Departure minus schedule, for planes on lines of flying (S66). */
+    delayTicks?: number;
+    /** Passengers aboard who were connecting through a hub (S67). */
+    connectingPassengers?: number;
     revenue?: {
       tickets: FixedPoint;
       economy: FixedPoint;
@@ -446,6 +456,7 @@ export type GameActionType =
   | "ROUTE_UNASSIGN_AIRCRAFT"
   | "ROUTE_UPDATE_FARES"
   | "ROUTE_UPDATE_FREQUENCY"
+  | "AIRCRAFT_LINE_SET"
   | "AIRCRAFT_PURCHASE"
   | "AIRCRAFT_SELL"
   | "AIRCRAFT_BUYOUT"

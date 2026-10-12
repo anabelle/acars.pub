@@ -1,9 +1,9 @@
 # S76 — Night globe and sound
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge #199)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #199)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #199 (with S61–S65)
+> **PR:** #199
 >
 > **Track:** Wonder · **Size:** S–M (3 steps) · **Depends on:** S59 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 Wonder, §10 Wave C
 >
@@ -49,3 +49,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 2026-10-12 · S76.2 · (this commit) · **Opt-in sound.** `features/sound`: `soundSettings` (per device, off by default), `tones` (landing "ding-dong", a falling third pitched by load; delivery fanfare of three rising notes and a held octave; a delivery wins over landings in one batch), `player` (Web Audio sine tones with a short attack and long release — no audio files), `SoundBridge` in the root (live timeline events only via the shared subscription, so catch-ups stay silent; tab visible; one sound per 2.5 s at most), `SoundSettingsCard` in the cockpit under the alerts card (switching on plays a sample chime, which also unlocks audio). Tests: tones, settings, card, bridge (off, throttle, delivery, catch-up); web unit 664/664.
 
 2026-10-12 · S76.3 · (this commit) · **e2e; S76 complete.** `sound` (desktop) and `mobile-sound` (phone): off by default, switching on flips the button and survives a reload; clipped-control audits green on both. Full e2e (perf probes included) runs in CI.
+
+2026-10-12 · merged · 131e6af · Squash-merged in #199.

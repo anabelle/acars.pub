@@ -10,6 +10,7 @@ import type {
   TimelineEvent,
 } from "@acars/core";
 import type { ActionLogEntry, MarketplaceListing } from "@acars/nostr";
+import type { LineLegRequest } from "./lineEngine";
 import type { CreateAirlineParams } from "./slices/identitySlice";
 import type { HubAction } from "./slices/networkSlice";
 
@@ -74,6 +75,8 @@ export interface AirlineState {
     fares: { economy?: FixedPoint; business?: FixedPoint; first?: FixedPoint },
   ) => Promise<void>;
   updateRouteFrequency: (routeId: string, frequencyPerWeek: number) => Promise<void>;
+  /** Lines of flying (S66): a daily chain of legs for a plane; empty clears it. */
+  setAircraftLine: (aircraftId: string, legs: LineLegRequest[]) => Promise<string | null>;
   /** Raises the route to its suggested weekly frequency (S58); never lowers it. */
   applySuggestedFrequency: (routeId: string) => Promise<number | null>;
   updateHub: (newHubIata: string) => Promise<void>;

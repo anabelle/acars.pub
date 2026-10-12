@@ -34,6 +34,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
+import { isWorking } from "@/features/fleet/utils/linePlan";
 import { RouteUtilization } from "@/features/network/components/RouteUtilization";
 import {
   DEMAND_SNAPSHOT_BUCKET_TICKS,
@@ -529,15 +530,13 @@ export function FleetManager() {
                                 <span
                                   className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
                                     ac.status === "idle"
-                                      ? ac.assignedRouteId
+                                      ? isWorking(ac)
                                         ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                                         : "bg-primary/20 text-primary border border-primary/30"
                                       : "bg-orange-500/20 text-orange-400 border border-orange-500/30"
                                   }`}
                                 >
-                                  {ac.status === "idle" && ac.assignedRouteId
-                                    ? "assigned"
-                                    : ac.status}
+                                  {ac.status === "idle" && isWorking(ac) ? "assigned" : ac.status}
                                 </span>
                               )}
                             </div>
@@ -1184,7 +1183,7 @@ export function FleetManager() {
                                 </button>
 
                                 {ac.status === "idle" &&
-                                  !ac.assignedRouteId &&
+                                  !isWorking(ac) &&
                                   airline &&
                                   airline.hubs.length > 0 && (
                                     <div className="flex-1 flex items-center gap-2">

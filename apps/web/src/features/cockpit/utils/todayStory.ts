@@ -1,5 +1,7 @@
 import type { AircraftInstance, FixedPoint, Route, TimelineEvent } from "@acars/core";
 import { fp, fpAdd, TICKS_PER_HOUR } from "@acars/core";
+import { isWorking } from "@/features/fleet/utils/linePlan";
+import { type OnTime, onTimePerformance } from "@/features/fleet/utils/onTime";
 
 const DAY = TICKS_PER_HOUR * 24;
 /** Fewer people than this turned away is noise, not a story. */
@@ -39,6 +41,8 @@ export interface TodayStory {
   earned: FixedPoint;
   passengers: number;
   landings: number;
+  /** On-time share of scheduled flights (planes on lines, S66), when any flew. */
+  onTime: OnTime | null;
   chapters: Chapter[];
 }
 
@@ -57,7 +61,7 @@ export function buildTodayStory({
   timeline: readonly TimelineEvent[];
   fleet: readonly Pick<
     AircraftInstance,
-    "id" | "name" | "status" | "assignedRouteId" | "baseAirportIata"
+    "id" | "name" | "status" | "assignedRouteId" | "baseAirportIata" | "line"
   >[];
   routes: readonly Pick<Route, "id" | "originIata" | "destinationIata">[];
   tick: number;
@@ -136,7 +140,7 @@ export function buildTodayStory({
   }
 
   chapters.sort((a, b) => a.tick - b.tick);
-  const parked = fleet.filter((a) => !a.assignedRouteId && a.status !== "delivery");
+  const parked = fleet.filter((a) => !isWorking(a) && a.status !== "delivery");
   if (parked.length > 0) {
     chapters.push({
       kind: "parked",
@@ -147,5 +151,11 @@ export function buildTodayStory({
       others: parked.length - 1,
     });
   }
-  return { earned, passengers, landings, chapters: chapters.slice(-5) };
+  return {
+    earned,
+    passengers,
+    landings,
+    onTime: onTimePerformance(timeline, { sinceTick: since }),
+    chapters: chapters.slice(-5),
+  };
 }

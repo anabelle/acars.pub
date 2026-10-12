@@ -139,7 +139,8 @@ function HangarCard({
   const utilization = useRouteUtilization(route);
   const legs = day?.legs ?? [];
   const blockHours = clipDay(legs).blockHours;
-  const parked = !route;
+  const lineLegs = aircraft.line?.legs ?? [];
+  const parked = !route && lineLegs.length === 0;
   const idle = parked || utilization.idle;
   const profit: FixedPoint | undefined = day?.profit7d;
 
@@ -202,7 +203,9 @@ function HangarCard({
         <span className={`truncate ${idle ? "text-nd-amber" : "text-ramp-paint/85"}`}>
           {route
             ? `${route.originIata} → ${route.destinationIata}`
-            : t("fleet.hangar.parked", { base: aircraft.baseAirportIata })}
+            : lineLegs.length
+              ? [lineLegs[0].originIata, ...lineLegs.map((leg) => leg.destinationIata)].join("→")
+              : t("fleet.hangar.parked", { base: aircraft.baseAirportIata })}
         </span>
         <span className="shrink-0 text-ramp-paint/70">
           {t("fleet.hangar.blockHours24", { hours: blockHours.toFixed(1) })}

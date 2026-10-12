@@ -1,4 +1,5 @@
 import { useAirlineStore } from "@acars/store";
+import { isWorking } from "@/features/fleet/utils/linePlan";
 
 export interface NavBadges {
   fleetTotal: number;
@@ -23,10 +24,7 @@ export function useNavBadges(): NavBadges {
   const fleetTotal = useAirlineStore((s) => (s.airline ? s.fleet.length : 0));
   const fleetUnassigned = useAirlineStore((s) =>
     s.airline
-      ? s.fleet.reduce(
-          (n, ac) => n + (ac.status === "idle" && ac.assignedRouteId === null ? 1 : 0),
-          0,
-        )
+      ? s.fleet.reduce((n, ac) => n + (ac.status === "idle" && !isWorking(ac) ? 1 : 0), 0)
       : 0,
   );
   const networkTotal = useAirlineStore((s) => (s.airline ? s.routes.length : 0));

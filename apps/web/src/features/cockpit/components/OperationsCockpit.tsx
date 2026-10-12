@@ -29,9 +29,10 @@ import { useFinancialPulse } from "@/features/corporate/hooks/useFinancialPulse"
 import { useRoutePerformance } from "@/features/corporate/hooks/useRoutePerformance";
 import { WorldEventsCard } from "@/features/events/WorldEventsCard";
 import { AirlineAcars } from "@/features/fleet/components/AcarsFeed";
+import { isWorking } from "@/features/fleet/utils/linePlan";
 import { NotificationSettingsCard } from "@/features/notifications/NotificationSettingsCard";
-import { SoundSettingsCard } from "@/features/sound/SoundSettingsCard";
 import { ShareNetworkButton } from "@/features/share/ShareNetworkButton";
+import { SoundSettingsCard } from "@/features/sound/SoundSettingsCard";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
 import { cn } from "@/shared/lib/utils";
@@ -175,8 +176,7 @@ export function OperationsCockpit() {
     [routes],
   );
   const idleAircraft = useMemo(
-    () =>
-      fleet.filter((aircraft) => aircraft.status === "idle" && aircraft.assignedRouteId === null),
+    () => fleet.filter((aircraft) => aircraft.status === "idle" && !isWorking(aircraft)),
     [fleet],
   );
   const unassignedRoutes = useMemo(

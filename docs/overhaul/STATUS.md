@@ -127,8 +127,10 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 41  | S64     | P1       | 3     | What-if curves: profit/day against frequency and fares, sweet spot, max, share.           |
 | 42  | S65     | P1       | 3     | ACARS feed: OOOI and position messages derived from engine events, per plane and airline. |
 | 43  | S76     | P2       | 3     | Night globe (city lights, overlay fix) and opt-in sound.                                  |
+| 44  | S66     | P0       | 5     | Lines of flying: a plane flies a daily chain of legs; buffers and knock-on delays.        |
+| 45  | S67     | P1       | 4     | Hub banks and connecting passengers (aggregate, per leg; bank timing from lines).         |
 
-**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196), S60 is merged (#198); S61–S65 and S76 are done (#199); Wave B (S66–S74) waits on decisions D9–D16, D18; S75 (3D follow camera) is the last session without a decision.
+**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196), S60 is merged (#198); S61–S65 and S76 are merged (#199); the owner decided D9–D16 and D18 on 2026-10-12 (all as recommended; D13 visual first) and deferred S75 (3D camera, "not now"); S66 (lines of flying) and S67 (hub banks and connections) are done (#200); S68 (weather oracle, D11) is next.
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 
@@ -152,16 +154,16 @@ Update when the owner decides. Full context is in [`README.md` §2](README.md#2-
 | D6  | Reward validation model                  | ✅ decided | 2026-10-07 | Replay-verified claims: rewards are pure functions of the action log.                                                                    |
 | D7  | Store/domain/social account owner        | ⏸ deferred | 2026-10-07 | Left for later by the owner; S52 waits.                                                                                                  |
 | D8  | Flights follow route frequency           | ✅ decided | 2026-10-05 | Yes: respect the weekly frequency (S14), capped by physics.                                                                              |
-| D9  | Lines of flying (multi-route days)       | ❓ open    | 2026-10-10 | Blueprint §6 Decisions; S66.                                                                                                             |
-| D10 | Hub banks and connections                | ❓ open    | 2026-10-10 | Blueprint §6; S67, after D9.                                                                                                             |
-| D11 | Real weather oracle (METAR/TAF)          | ❓ open    | 2026-10-10 | Blueprint §6 Real; S68.                                                                                                                  |
-| D12 | Published timetables (next day)          | ❓ open    | 2026-10-10 | Blueprint §6 Decisions; S69.                                                                                                             |
-| D13 | Fares while filling (revenue mgmt)       | ❓ open    | 2026-10-10 | Blueprint §6; S70; visual first.                                                                                                         |
-| D14 | Passenger groups in demand               | ❓ open    | 2026-10-10 | Blueprint §6 People; S71.                                                                                                                |
-| D15 | Ranked entry cost (PoW or sats)          | ❓ open    | 2026-10-10 | Blueprint §6 Fair play; S72.                                                                                                             |
-| D16 | Alliances and codeshares                 | ❓ open    | 2026-10-10 | Blueprint §6 Social; S73.                                                                                                                |
+| D9  | Lines of flying (multi-route days)       | ✅ decided | 2026-10-12 | Yes: lines of flying (a plane flies a chain of routes each day; delays ripple). S66.                                                     |
+| D10 | Hub banks and connections                | ✅ decided | 2026-10-12 | Yes, after D9: connecting passengers through hubs. S67.                                                                                  |
+| D11 | Real weather oracle (METAR/TAF)          | ✅ decided | 2026-10-12 | Yes: real weather from one publisher key the owner controls first; 2-of-3 later. S68.                                                    |
+| D12 | Published timetables (next day)          | ✅ decided | 2026-10-12 | Yes: schedule changes publish and take effect the next day. S69.                                                                         |
+| D13 | Fares while filling (revenue mgmt)       | ✅ decided | 2026-10-12 | Visual first: show how flights fill before departure; one fare for revenue until seen in play. S70 (visual part).                        |
+| D14 | Passenger groups in demand               | ✅ decided | 2026-10-12 | Yes: three light passenger groups (business, leisure, visiting family), computed in aggregate. S71.                                      |
+| D15 | Ranked entry cost (PoW or sats)          | ✅ decided | 2026-10-12 | Proof-of-work entry first; sats only for prize leagues later. S72.                                                                       |
+| D16 | Alliances and codeshares                 | ✅ decided | 2026-10-12 | Later, after D10 (codeshares ride on connections). S73.                                                                                  |
 | D17 | Art direction                            | ✅ decided | 2026-10-10 | Cockpit + Ramp: avionics in the air, airport signage on the ground, softened ramp (Blueprint §8).                                        |
-| D18 | Opt-in social posts on public relays     | ❓ open    | 2026-10-10 | Blueprint §6 Social; S74.                                                                                                                |
+| D18 | Opt-in social posts on public relays     | ✅ decided | 2026-10-12 | Yes, opt-in only: nothing posts unless the player switches it on or taps share. S74.                                                     |
 | D19 | Economy calibration for real utilization | ✅ decided | 2026-10-10 | Owner: "recalibrate, realism is important for playability". Done in S58.2 (handling, distribution, cycle fuel, tapered fares, tiers ×3). |
 
 ## 5. Budget notes

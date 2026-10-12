@@ -1283,7 +1283,8 @@
     "parkedText": "{{name}} está aparcado en {{airport}} sin ruta.",
     "parkedMore_one": " Otro avión espera también.",
     "parkedMore_other": " {{count}} aviones más esperan también.",
-    "putToWork": "Pon a volar a {{name}}"
+    "putToWork": "Pon a volar a {{name}}",
+    "onTime": "puntualidad {{pct}}%"
   },
   "lastFlight": {
     "title": "Último vuelo",
@@ -1320,7 +1321,9 @@
       "first": "Champán antes de despegar. Me podría acostumbrar.",
       "business": "Llegué a tiempo a la reunión, y hasta dormí.",
       "smooth": "Vuelo tranquilo, tripulación amable, puntual."
-    }
+    },
+    "connecting_one": "{{count}} en conexión",
+    "connecting_other": "{{count}} en conexión"
   },
   "turnedAway": {
     "title_one": "{{count}} persona no consiguió asiento en tus vuelos desde {{iata}} en las últimas 24 h.",
@@ -1351,5 +1354,58 @@
     "description": "Un timbre suave cuando aterriza un avión y una fanfarria el día de la entrega. Apagado por defecto.",
     "on": "Sonido activado",
     "off": "Sonido apagado"
+  },
+  "line": {
+    "sectionTitle": "Plan del día",
+    "summary_one": "{{count}} tramo · {{hours}} h bloque",
+    "summary_other": "{{count}} tramos · {{hours}} h bloque",
+    "none": "Vuela una sola ruta de ida y vuelta. Planifica un día con varias rutas para tenerlo ocupado.",
+    "plan": "Planificar un día",
+    "edit": "Editar plan del día",
+    "kicker": "Plan del día · {{name}}",
+    "title": "Un día desde {{airport}}",
+    "close": "Cerrar",
+    "empty": "Aún no hay tramos. Añade el primero desde {{airport}} o deja que el autocompletado planifique el día.",
+    "buffer": "{{minutes}} min de margen",
+    "earlier": "15 minutos antes",
+    "later": "15 minutos después",
+    "remove": "Quitar este tramo",
+    "addFrom": "Siguiente tramo desde {{airport}}",
+    "choose": "Elige una ruta…",
+    "noRoutes": "Ninguna de tus rutas sale de {{airport}}.",
+    "hint": "Cada tramo sale cuando el avión está listo; el último debe traerlo de vuelta.",
+    "ok": "De vuelta en {{airport}} a las {{time}}Z · {{hours}} h bloque al día",
+    "whenLanded": "Está volando: el plan se puede guardar cuando aterrice.",
+    "autofill": "Autocompletar",
+    "clear": "Volar una sola ruta",
+    "save": "Guardar plan del día",
+    "failed": "No se pudo guardar el plan del día",
+    "boardAria_one": "{{count}} tramo: {{route}}",
+    "boardAria_other": "{{count}} tramos: {{route}}",
+    "error": {
+      "empty": "Añade al menos un tramo.",
+      "too-many-legs": "Como mucho 12 tramos al día.",
+      "bad-offset": "Una hora de salida está fuera del día.",
+      "not-chained": "Cada tramo debe salir de donde aterrizó el anterior.",
+      "not-closed": "El último tramo debe traer el avión de vuelta a {{airport}}.",
+      "overlap": "Un tramo sale antes de que el avión esté listo: atrásalo.",
+      "too-long": "El día es demasiado largo: el avión no volvería a tiempo para el primer tramo de mañana.",
+      "unknown-route": "Una ruta del plan ya no existe.",
+      "inactive-route": "Una ruta del plan está cerrada.",
+      "out-of-range": "Una ruta supera el alcance de este avión.",
+      "flying": "Está volando: guarda cuando aterrice.",
+      "not-at-start": "El plan debe empezar en {{airport}}, donde está el avión.",
+      "sync-failed": "Los relés no lo aceptaron; inténtalo de nuevo.",
+      "no-airline": "Sin aerolínea.",
+      "unknown-aircraft": "Avión desconocido."
+    },
+    "onTime": "Puntual {{pct}}% de {{count}} vuelos · retraso medio {{minutes}} min · 7 días"
+  },
+  "connections": {
+    "title_one": "{{count}} persona al día quiere conectar en {{iata}} en dos de tus vuelos (si hay asientos).",
+    "title_other": "{{count}} personas al día quieren conectar en {{iata}} en dos de tus vuelos (si hay asientos).",
+    "perDay": "Quieren conectar / día",
+    "bank": "Sincronía del banco",
+    "tip": "Programa las llegadas a {{iata}} entre 45 min y 3 h antes de las salidas (Plan del día de un avión) para conectar más."
   }
 }

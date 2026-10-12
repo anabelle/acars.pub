@@ -117,4 +117,13 @@ describe("buildAcarsFeed", () => {
     ).toEqual(new Set(["a1"]));
     expect(buildAcarsFeed({ ...input, limit: 3 })).toHaveLength(3);
   });
+
+  it("marks a late departure in the OUT message", () => {
+    const late = landing(100 * H, H);
+    late.details = { ...late.details, delayTicks: 25 * (H / 60) };
+    const out = buildAcarsFeed({ ...base, timeline: [late], fleet: [plane()], tick: 101 * H }).find(
+      (m) => m.kind === "OUT",
+    );
+    expect(out?.body).toMatch(/ DLY 0:25$/);
+  });
 });

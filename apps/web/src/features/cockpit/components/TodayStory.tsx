@@ -51,6 +51,11 @@ export function TodayStory({ story, tick }: { story: Story; tick: number }) {
         </span>
         <span>{t("today.flown", { count: story.passengers })}</span>
         <span>{t("today.landings", { count: story.landings })}</span>
+        {story.onTime ? (
+          <span data-testid="today-on-time">
+            {t("today.onTime", { pct: Math.round(story.onTime.rate * 100) })}
+          </span>
+        ) : null}
       </p>
       {story.chapters.length === 0 ? (
         <p className="text-sm text-ramp-paint/80">{t("today.quiet")}</p>
