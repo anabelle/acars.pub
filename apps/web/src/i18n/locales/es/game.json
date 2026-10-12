@@ -22,7 +22,14 @@
     "viewAs": "Ver Como",
     "pageTitle": "Clasificación",
     "pageSubtitle": "Posiciones multijugador a través del mundo activo.",
-    "airlinePage": "Página"
+    "airlinePage": "Página",
+    "league": {
+      "label": "A quién clasificar",
+      "everyone": "Todos",
+      "following": "Gente a la que sigo",
+      "loading": "Cargando a quién sigues…",
+      "none": "Nadie a quien sigues vuela todavía. Comparte tu aerolínea con ellos."
+    }
   },
   "flightBoard": {
     "flightInfo": "{{iata}} — Información de Vuelo",

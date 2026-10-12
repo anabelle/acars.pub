@@ -1,7 +1,7 @@
 # S74 — Social: delivery posts, rivalry notes, friends league
 
 > **Status:** ◐ in progress
-> **Next step:** S74.3 — web: friends league filter on the leaderboard
+> **Next step:** S74.4 — e2e (desktop and phone), screenshots, PR
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -25,7 +25,7 @@ The proud moments travel: a new plane's livery reveal becomes a picture post tha
 
 - [x] **S74.1** Nostr: `buildPictureNote`, `buildRivalryNote`, `publishNote` for kind 1 or 20, `loadFollows`; tests.
 - [x] **S74.2** Web: post preview dialog; delivery reveal post; rivalry note with the daily limit; i18n; tests.
-- [ ] **S74.3** Web: friends league filter on the leaderboard; tests.
+- [x] **S74.3** Web: friends league filter on the leaderboard; tests.
 - [ ] **S74.4** e2e (desktop and phone), screenshots, PR.
 
 ## Progress log
@@ -40,3 +40,5 @@ The proud moments travel: a new plane's livery reveal becomes a picture post tha
 - Delivery ceremony: "Post the reveal" when the plane's livery image is published → a NIP-68 picture post ("Meet Quetzal, our new ATR 72-600, home at PTY. #liveryreveal", alt "{type} in {airline} livery"). Escape closes the preview, not the ceremony.
 - Route card, competition list (rivals present, your own airline only): `AnnounceEntry` → "{airline} enters {city}: {origin} → {destination}. Your move." as a kind 1 note; `rivalryLimit` keeps it to 3 a UTC day per browser and shows what's left.
 - i18n en/es `socialPost.*`. Tests: dialog (edit, post, failure, no key), limit (count, reset, broken storage), announce (preview, count, limit), ceremony (button only with an image; Escape). Web 714/714.
+
+2026-10-12 · S74.3 · (this commit) · **Friends league.** Leaderboard: "Everyone / People I follow" under the metric picker; `useFollows` loads the player's NIP-02 follows once, the first time the filter is chosen (a failed load reads as following nobody); the list keeps your own airline and the airlines whose CEO you follow, ranked-first order and metric kept; "Loading who you follow…" and "None of the people you follow fly yet. Share your airline with them." when empty. i18n en/es `leaderboard.league.*`. Tests: hook (once, off, keyless, failure), filter (loading, narrowing, empty). Web 717/717.

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Leaderboard } from "./Leaderboard";
 
@@ -52,6 +52,11 @@ vi.mock("@acars/store", () => {
   };
 });
 
+const mockFollows = vi.hoisted(() => ({ value: null as Set<string> | null }));
+vi.mock("../useFollows", () => ({
+  useFollows: (_pubkey: unknown, enabled: boolean) => (enabled ? mockFollows.value : null),
+}));
+
 vi.mock("@/features/competition/leaderboardMetrics", () => {
   return {
     buildLeaderboardRows: (
@@ -98,6 +103,7 @@ vi.mock("@/shared/hooks/useNostrProfile", () => {
 
 describe("Leaderboard", () => {
   beforeEach(() => {
+    cleanup();
     mockUseAirlineStore.mockReset();
     mockUseEngineStore.mockReset();
     mockBuildLeaderboardRows.mockReset();
@@ -159,5 +165,65 @@ describe("Leaderboard", () => {
     render(<Leaderboard />);
 
     expect(screen.getByText("No active airlines on the board yet")).toBeInTheDocument();
+  });
+
+  it("narrows to the people you follow, and your own airline (S74)", () => {
+    const row = (id: string, ceoPubkey: string) => ({
+      id,
+      name: id,
+      icaoCode: "TST",
+      ceoPubkey,
+      liveryPrimary: "#ff3333",
+      hubs: [],
+      balance: 0,
+      fleet: 1,
+      routes: 1,
+      brand: 0.5,
+      fleetValue: 0,
+      networkDistance: 1,
+    });
+    mockBuildLeaderboardRows.mockReturnValue([
+      row("Mine", "me"),
+      row("Friend", "friend"),
+      row("Stranger", "stranger"),
+    ]);
+    mockUseAirlineStore.mockReturnValue({
+      competitors: new Map(),
+      airline: { id: "Mine" },
+      pubkey: "me",
+      fleet: [],
+      routes: [],
+      fleetByOwner: new Map(),
+      routesByOwner: new Map(),
+      viewAs: vi.fn(),
+    });
+    mockUseEngineStore.mockReturnValue({ tick: 0 });
+    mockFollows.value = null;
+    const { rerender } = render(<Leaderboard />);
+    expect(screen.getByText("Stranger")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "People I follow" }));
+    expect(screen.getByTestId("leaderboard-empty")).toHaveTextContent("Loading who you follow");
+    mockFollows.value = new Set(["friend"]);
+    rerender(<Leaderboard />);
+    expect(screen.getByText("Friend")).toBeInTheDocument();
+    expect(screen.getByText("Mine")).toBeInTheDocument();
+    expect(screen.queryByText("Stranger")).toBeNull();
+    mockFollows.value = new Set();
+    mockBuildLeaderboardRows.mockReturnValue([row("Stranger", "stranger")]);
+    // Fresh store references, so the leaderboard's row cache recomputes.
+    mockUseAirlineStore.mockReturnValue({
+      competitors: new Map(),
+      airline: null,
+      pubkey: "me",
+      fleet: [],
+      routes: [],
+      fleetByOwner: new Map(),
+      routesByOwner: new Map(),
+      viewAs: vi.fn(),
+    });
+    rerender(<Leaderboard />);
+    expect(screen.getByTestId("leaderboard-empty")).toHaveTextContent(
+      "None of the people you follow fly yet",
+    );
   });
 });

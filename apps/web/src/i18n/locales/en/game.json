@@ -22,7 +22,14 @@
     "viewAs": "View As",
     "pageTitle": "Leaderboard",
     "pageSubtitle": "Multiplayer standings across the active world.",
-    "airlinePage": "Page"
+    "airlinePage": "Page",
+    "league": {
+      "label": "Who to rank",
+      "everyone": "Everyone",
+      "following": "People I follow",
+      "loading": "Loading who you follow…",
+      "none": "None of the people you follow fly yet. Share your airline with them."
+    }
   },
   "flightBoard": {
     "flightInfo": "{{iata}} — Flight Information",
