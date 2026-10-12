@@ -63,6 +63,7 @@ import {
 } from "@acars/core";
 import type { HubClassification } from "@acars/data";
 import { getAircraftById, getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
+import { buildConnectionService, legKey } from "./connections.js";
 import { advanceLineAircraft, type LineEngineContext } from "./lineEngine.js";
 
 /** Module-level O(1) airport lookup — avoids O(N) airports.find() on every
@@ -216,6 +217,8 @@ export function getLegAirportFeesMultiplier(
 export interface FlightPassengerInput {
   /** Flights the route gets from planes on lines of flying (S66). */
   lineService?: LineService;
+  /** Weekly connecting passengers this leg carries (S67). */
+  connecting?: { economy: number; business: number; first: number };
   originIata: string | null | undefined;
   destinationIata: string | null | undefined;
   tick: number;
@@ -258,6 +261,8 @@ export interface FlightPassengerResult {
   allOffers: FlightOffer[];
   /** True when a price war is on and the player is one of the undercutters. */
   playerUndercutting: boolean;
+  /** Share of this leg's passengers who are connecting (S67). */
+  connectingShare: number;
   /** The market's incumbent carrier (S10), or null on a market too thin for one. */
   incumbent: IncumbentOffer | null;
   /** Share of economy demand the players win from the incumbent (1 without one). */
@@ -285,6 +290,7 @@ export function computeFlightPassengers({
   playerBrandScore,
   distanceLimitKm,
   lineService,
+  connecting,
 }: FlightPassengerInput): FlightPassengerResult {
   const origin = originIata ? (getAirportMap().get(originIata) ?? null) : null;
   const destination = destinationIata ? (getAirportMap().get(destinationIata) ?? null) : null;
@@ -457,11 +463,24 @@ export function computeFlightPassengers({
     ),
   };
   const allocations = allocatePassengers(allOffers, playersDemand);
-  const ourWeeklyAllocation = allocations.get(playerPubkey) ?? {
+  const localAllocation = allocations.get(playerPubkey) ?? {
     economy: 0,
     business: 0,
     first: 0,
   };
+  // Connecting passengers (S67) join the leg's own: same seats, same fares.
+  const ourWeeklyAllocation =
+    connecting && route
+      ? {
+          economy: localAllocation.economy + connecting.economy,
+          business: localAllocation.business + connecting.business,
+          first: localAllocation.first + connecting.first,
+        }
+      : localAllocation;
+  const connectingWeekly =
+    connecting && route ? connecting.economy + connecting.business + connecting.first : 0;
+  const allocationWeekly =
+    ourWeeklyAllocation.economy + ourWeeklyAllocation.business + ourWeeklyAllocation.first;
 
   const totalWeeklySeats =
     ourFrequency * (seatConfig.economy + seatConfig.business + seatConfig.first);
@@ -542,6 +561,7 @@ export function computeFlightPassengers({
     playerUndercutting,
     incumbent,
     playersShareOfMarket,
+    connectingShare: allocationWeekly > 0 ? connectingWeekly / allocationWeekly : 0,
   };
 }
 
@@ -618,6 +638,7 @@ export interface LandingEconomicsInput {
   playerBrandScore: number;
   distanceLimitKm: number;
   lineService?: LineService;
+  connecting?: { economy: number; business: number; first: number };
 }
 
 /**
@@ -640,6 +661,7 @@ export function computeLandingEconomics({
   playerBrandScore,
   distanceLimitKm,
   lineService,
+  connecting,
 }: LandingEconomicsInput) {
   const flight = ac.flight;
   const seatConfig = {
@@ -661,6 +683,7 @@ export function computeLandingEconomics({
   // Economy fare ÷ market reference fare, graded by the brand (S11).
   let fareRatio = 1;
   let playerUndercutting = false;
+  let connectingShare = 0;
 
   if (priced) {
     const passengers = computeFlightPassengers({
@@ -678,8 +701,10 @@ export function computeLandingEconomics({
       playerBrandScore,
       distanceLimitKm,
       lineService,
+      connecting,
     });
     playerUndercutting = passengers.playerUndercutting;
+    connectingShare = passengers.connectingShare;
 
     rev = calculateFlightRevenue({
       passengersEconomy: passengers.passengersEconomy,
@@ -716,7 +741,8 @@ export function computeLandingEconomics({
   });
 
   const profit = fpSub(rev.revenueTotal, cost.costTotal);
-  return { rev, cost, profit, fareRatio, playerUndercutting, priced };
+  const connectingPassengers = Math.round(rev.actualPassengers * connectingShare);
+  return { rev, cost, profit, fareRatio, playerUndercutting, priced, connectingPassengers };
 }
 
 export function processFlightEngine(
@@ -746,12 +772,17 @@ export function processFlightEngine(
   const routeById = new Map(routes.map((route) => [route.id, route]));
   // Flights each route gets from planes on lines (S66), for market share.
   const lineServiceByRoute = buildLineService(fleet);
+  // Connecting passengers through the airline's hubs (S67), once per game hour.
+  const connections = buildConnectionService(routes, fleet, tick, (iata) =>
+    getAirportMap().get(iata),
+  );
   const lineContext: LineEngineContext = {
     routeById,
     airportTraffic,
     hubStates,
     registry: globalRouteRegistry,
     lineService: lineServiceByRoute,
+    connections,
     playerPubkey,
     playerBrandScore,
     distanceLimitKm,
@@ -977,6 +1008,10 @@ export function processFlightEngine(
           playerBrandScore,
           distanceLimitKm,
           lineService: lineServiceByRoute.get(route?.id ?? ""),
+          connecting:
+            route && originIata && destinationIata
+              ? connections.byLeg.get(legKey(originIata, destinationIata))
+              : undefined,
         });
         const { rev, cost, profit, fareRatio } = outcome;
 
@@ -1043,6 +1078,7 @@ export function processFlightEngine(
                 fareRatio,
                 aircraftCondition: ac.condition,
                 spilledPassengers: rev.spilledPassengers,
+                connectingPassengers: outcome.connectingPassengers,
                 routeId: route?.id,
                 flightDurationTicks: ac.flight.arrivalTick - ac.flight.departureTick,
                 revenue: {

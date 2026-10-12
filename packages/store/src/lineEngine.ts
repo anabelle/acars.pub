@@ -26,6 +26,7 @@ import {
   TICKS_PER_HOUR,
   validateLine,
 } from "@acars/core";
+import { type ConnectionService, legKey } from "./connections.js";
 import {
   computeLandingEconomics,
   estimateLandingFinancials,
@@ -104,6 +105,8 @@ export interface LineEngineContext {
   hubStates: ReadonlyMap<string, FlightEngineHubState>;
   registry: ReadonlyMap<string, FlightOffer[]>;
   lineService: ReadonlyMap<string, LineService>;
+  /** Connecting passengers per leg (S67); absent in catch-up estimates. */
+  connections?: ConnectionService;
   playerPubkey: string;
   playerBrandScore: number;
   distanceLimitKm: number;
@@ -210,6 +213,9 @@ export function advanceLineAircraft(
         playerBrandScore: ctx.playerBrandScore,
         distanceLimitKm: ctx.distanceLimitKm,
         lineService: ctx.lineService.get(route.id),
+        connecting: ctx.connections?.byLeg.get(
+          legKey(flight.leg.originIata, flight.leg.destinationIata),
+        ),
       });
       const { rev, cost, profit, fareRatio } = outcome;
       result.revenue = fpAdd(result.revenue, rev.revenueTotal);
@@ -242,6 +248,7 @@ export function advanceLineAircraft(
           fareRatio,
           aircraftCondition: ac.condition,
           spilledPassengers: rev.spilledPassengers,
+          connectingPassengers: outcome.connectingPassengers,
           routeId: route.id,
           flightDurationTicks: flight.leg.durationTicks,
           delayTicks: flight.delayTicks,

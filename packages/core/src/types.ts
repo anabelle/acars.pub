@@ -391,6 +391,8 @@ export interface TimelineEvent {
     flightDurationTicks?: number;
     /** Departure minus schedule, for planes on lines of flying (S66). */
     delayTicks?: number;
+    /** Passengers aboard who were connecting through a hub (S67). */
+    connectingPassengers?: number;
     revenue?: {
       tickets: FixedPoint;
       economy: FixedPoint;

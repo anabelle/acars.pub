@@ -1,7 +1,7 @@
 # S67 — Hub banks and connecting passengers
 
 > **Status:** ◐ in progress
-> **Next step:** S67.2 — store: connection service per leg, added to the leg's demand; landings record connecting passengers
+> **Next step:** S67.3 — UI: connections at your hub in the airport panel; connecting passengers on the receipt
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #200 (with S66)
 >
@@ -22,7 +22,7 @@ A hub earns more than the sum of its routes: people flying Lisbon→Berlin with 
 ## Steps (checkpoints)
 
 - [x] **S67.1** Core: `detourFactor`, `bankQuality`, `connectingDemand`. _Done when:_ unit tests.
-- [ ] **S67.2** Store: `buildConnectionService` (per directed leg, cached per hour), injected into a leg's demand in the live engine; landing details `connectingPassengers`. _Done when:_ engine tests (pairs, no double count with direct routes, bank timing raises it).
+- [x] **S67.2** Store: `buildConnectionService` (per directed leg, cached per hour), injected into a leg's demand in the live engine; landing details `connectingPassengers`. _Done when:_ engine tests (pairs, no double count with direct routes, bank timing raises it).
 - [ ] **S67.3** UI: the airport panel shows connections at your hub (people a day, best pairs, bank quality with a tip); the receipt and cabin say how many connected.
 - [ ] **S67.4** e2e + screenshots; PR.
 
@@ -33,3 +33,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 2026-10-12 · brief · (this commit) · Written after the owner's D10 "yes, after chains" and a read of the per-leg demand path (`computeFlightPassengers`: gravity → addressable → incumbent/QSI share → per-flight).
 
 2026-10-12 · S67.1 · (this commit) · **The connection maths, in core.** `connections.ts`: `detourFactor`, `bankQuality` (wraps midnight; 45 min–3 h window), `connectingDemand` (15 % × detour × quality of the addressable market). Tests.
+
+2026-10-12 · S67.2 · (this commit) · **Connections fly.** `connections.ts` (store): `computeConnectionService` — per airport with 2+ of the airline's routes, every pair it does not fly direct (largest 30 partner markets), addressable A→B demand × 15 % × detour × bank quality (timed arrivals/departures from lines), added to both directed legs; per hub: quality, weekly connecting passengers, top 5 pairs. `buildConnectionService` caches it per game hour and network/line signature. The live engine adds a leg's connecting pool to its own weekly allocation (same seats, same fares; cycle planes and line legs alike); `FlightPassengerResult.connectingShare`; landing details `connectingPassengers`. Catch-up estimates keep using the last load factor. Tests: both legs carry them, no pair flown direct, a bank raises quality to 1 and the flow, cache, more seats filled with a connecting pool. Store 295/295.
