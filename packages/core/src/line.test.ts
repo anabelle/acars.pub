@@ -4,7 +4,9 @@ import {
   firstLineDay,
   type LineLeg,
   type LineOfFlying,
+  lineBlockTicks,
   lineDay,
+  lineDeparturesBetween,
   lineLandingCount,
   lineLandingsBetween,
   linePhaseAt,
@@ -157,5 +159,33 @@ describe("landings", () => {
     expect(capped).toHaveLength(7);
     const all = lineLandingsBetween(line, "a1", from, to, 100_000);
     expect(capped).toEqual(all.slice(-7));
+  });
+});
+
+describe("edges", () => {
+  it("measures block time and lists departures in a span", () => {
+    expect(lineBlockTicks(legs)).toBe(legs.reduce((sum, l) => sum + l.durationTicks, 0));
+    const day = lineDay(line, "a1", 103);
+    const from = day[0].departureTick - 1;
+    const to = day[2].departureTick;
+    expect(lineDeparturesBetween(line, "a1", from, to).map((f) => f.legIndex)).toEqual([0, 1, 2]);
+    expect(lineDeparturesBetween(line, "a1", to, from)).toEqual([]);
+    expect(lineDeparturesBetween(line, "a1", from, to + 10 * TICKS_PER_DAY, 3)).toHaveLength(3);
+  });
+
+  it("refuses more than twelve legs and handles empty inputs", () => {
+    const many = Array.from({ length: 13 }, (_, i) => leg("MAD", "MAD", i, 0.1, 0));
+    expect(validateLine(many)).toBe("too-many-legs");
+    const empty: LineOfFlying = { legs: [], startTick: 0 };
+    expect(lineDay(empty, "a1", 5)).toEqual([]);
+    expect(lineLandingsBetween(empty, "a1", 0, TICKS_PER_DAY)).toEqual([]);
+    expect(lineLandingCount(empty, "a1", 0, TICKS_PER_DAY)).toEqual([]);
+    expect(lineLandingCount(line, "a1", 10, 5)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it("waits at its first airport when the line starts more than a day ahead", () => {
+    const later: LineOfFlying = { legs, startTick: utcDayStartTick(200) };
+    const phase = linePhaseAt(later, "a1", utcDayStartTick(150));
+    expect(phase).toMatchObject({ status: "idle", flight: null, next: null, airportIata: "MAD" });
   });
 });
