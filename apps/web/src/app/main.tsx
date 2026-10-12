@@ -39,6 +39,9 @@ const router = createRouter({
   defaultPendingMs: 250,
 });
 
+// A confirm dialog never outlives the page that asked it.
+const subscribeNavigation = (onNavigate: () => void) => router.history.subscribe(onNavigate);
+
 // Register the router instance for type safety
 declare module "@tanstack/react-router" {
   interface Register {
@@ -62,7 +65,7 @@ if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <React.StrictMode>
-      <ConfirmProvider>
+      <ConfirmProvider subscribeNavigation={subscribeNavigation}>
         <RouterProvider router={router} />
         <ToastHost />
         <TimelineToastBridge />

@@ -304,7 +304,9 @@
       "owned": "In your fleet",
       "next": "Ready to order",
       "locked": "Tier {{tier}}"
-    }
+    },
+    "orderTotalBuy": "You pay {{amount}} now.",
+    "orderTotalLease": "You pay a {{amount}} deposit now, then {{monthly}} a month."
   },
   "network": {
     "title": "Network",

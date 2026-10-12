@@ -304,7 +304,9 @@
       "owned": "En tu flota",
       "next": "Listo para pedir",
       "locked": "Nivel {{tier}}"
-    }
+    },
+    "orderTotalBuy": "Pagas {{amount}} ahora.",
+    "orderTotalLease": "Pagas un depósito de {{amount}} ahora y luego {{monthly}} al mes."
   },
   "network": {
     "title": "Red",

@@ -137,6 +137,12 @@ describe("AircraftDealer", () => {
     expect(screen.getAllByText("9,000 kg").length).toBeGreaterThan(1);
     expect(screen.getAllByText("Fuel Burn").length).toBeGreaterThan(1);
     expect(screen.getAllByText("2,700 kg/h").length).toBeGreaterThan(1);
+    // What the order costs sits next to the button, not below the fold.
+    expect(screen.getByTestId("order-total")).toHaveTextContent(/^You pay \$[\d,]+ now\.$/);
+    fireEvent.click(screen.getByRole("button", { name: "Lease Agreement" }));
+    expect(screen.getByTestId("order-total")).toHaveTextContent(
+      /deposit now, then \$[\d,]+ a month/,
+    );
   });
 
   it("suggests a real name for the plane and offers another (S61)", () => {
