@@ -175,6 +175,8 @@ export {
 export * from "./timetable.js";
 // Booking curve (S70)
 export * from "./booking.js";
+// Passenger groups (S71)
+export * from "./groups.js";
 export type {
   AircraftInstance,
   AircraftModel,
