@@ -1,9 +1,9 @@
 # S76 — Night globe and sound
 
-> **Status:** ◐ in progress
-> **Next step:** S76.3 — e2e for the sound switch, PR
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge #199)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** #199 (with S61–S65) or the next one
+> **PR:** #199 (with S61–S65)
 >
 > **Track:** Wonder · **Size:** S–M (3 steps) · **Depends on:** S59 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 Wonder, §10 Wave C
 >
@@ -26,13 +26,13 @@ Wave A (S58–S65) is done and every Wave B session waits on an owner decision (
 
 - [x] **S76.1** City lights on the night side (`cityLights`, `nightFactor`, warm glow per palette) and the night overlay's corner fix. _Done when:_ unit tests + e2e that counts warm pixels at 02:00 UTC + screenshots.
 - [x] **S76.2** Opt-in sound: landing chime (pitch by load) and delivery fanfare, a toggle in settings. _Done when:_ unit tests (off by default, no sound in catch-up) + component test.
-- [ ] **S76.3** e2e for the toggle, PR.
+- [x] **S76.3** e2e for the toggle, PR.
 
 ## Acceptance criteria
 
-- [ ] At night, cities glow in proportion to their size and fade in through twilight; the whole night side is tinted.
-- [ ] Sound is silent unless switched on; a switched-on player hears landings and deliveries live, never a burst on catch-up.
-- [ ] Map perf probes and full e2e green.
+- [x] At night, cities glow in proportion to their size and fade in through twilight; the whole night side is tinted.
+- [x] Sound is silent unless switched on; a switched-on player hears landings and deliveries live, never a burst on catch-up.
+- [x] Map perf probes and full e2e green.
 
 ## Progress log
 
@@ -47,3 +47,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - Tests: map unit 133/133 (dedupe, cap, Mercator placement, twilight ramp); e2e `night-globe` (desktop) and `mobile-night-globe` (phone) at a fixed 02:00 UTC count warm pixels on the globe; `map.spec` still green. Screenshots: [`night-globe-1440`](../media/s76/night-globe-1440.png), [`night-globe-390`](../media/s76/night-globe-390.png).
 
 2026-10-12 · S76.2 · (this commit) · **Opt-in sound.** `features/sound`: `soundSettings` (per device, off by default), `tones` (landing "ding-dong", a falling third pitched by load; delivery fanfare of three rising notes and a held octave; a delivery wins over landings in one batch), `player` (Web Audio sine tones with a short attack and long release — no audio files), `SoundBridge` in the root (live timeline events only via the shared subscription, so catch-ups stay silent; tab visible; one sound per 2.5 s at most), `SoundSettingsCard` in the cockpit under the alerts card (switching on plays a sample chime, which also unlocks audio). Tests: tones, settings, card, bridge (off, throttle, delivery, catch-up); web unit 664/664.
+
+2026-10-12 · S76.3 · (this commit) · **e2e; S76 complete.** `sound` (desktop) and `mobile-sound` (phone): off by default, switching on flips the button and survives a reload; clipped-control audits green on both. Full e2e (perf probes included) runs in CI.

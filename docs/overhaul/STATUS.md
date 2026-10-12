@@ -128,7 +128,7 @@ Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-
 | 42  | S65     | P1       | 3     | ACARS feed: OOOI and position messages derived from engine events, per plane and airline. |
 | 43  | S76     | P2       | 3     | Night globe (city lights, overlay fix) and opt-in sound.                                  |
 
-**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196), S60 is merged (#198); S61–S65 are done (#199); Wave B (S66+) waits on decisions D9–D16, D18, so S76 (Wave C) is in progress.
+**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196), S60 is merged (#198); S61–S65 and S76 are done (#199); Wave B (S66–S74) waits on decisions D9–D16, D18; S75 (3D follow camera) is the last session without a decision.
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 
