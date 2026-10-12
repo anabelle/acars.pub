@@ -10,7 +10,11 @@ import {
 import { getAircraftById, setAirportsCatalog } from "@acars/data";
 import { airports } from "@acars/data/airports";
 import { beforeAll, describe, expect, it } from "vitest";
-import { estimateLandingFinancials, reconcileFleetToTick } from "./FlightEngine.js";
+import {
+  estimateLandingFinancials,
+  processFlightEngine,
+  reconcileFleetToTick,
+} from "./FlightEngine.js";
 import {
   findLastEvent,
   initState,
@@ -1225,6 +1229,19 @@ describe("reconcileFleetToTick — delivery aircraft", () => {
     const { fleet: result } = reconcileFleetToTick([aircraft], [], 50000);
     expect(result[0].status).toBe("idle");
     expect(result[0].flight).toBeNull();
+  });
+
+  it("records where a delivered plane joined the fleet (S77)", () => {
+    const aircraft = makeAircraft({
+      id: "ac-del-where",
+      assignedRouteId: null,
+      status: "delivery",
+      deliveryAtTick: 1000,
+      flight: null,
+    });
+    const { events } = processFlightEngine(1000, [aircraft], [], fp(0), 999);
+    const delivery = events.find((event) => event.type === "delivery");
+    expect(delivery?.destinationIata).toBe(aircraft.baseAirportIata);
   });
 
   it("aircraft still in delivery period stays in delivery", () => {
