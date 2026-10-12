@@ -1,9 +1,9 @@
 # S70 — Booking curve (fares while filling, visual first)
 
-> **Status:** ◐ in progress
-> **Next step:** S70.3 — e2e (desktop and phone), screenshots, PR
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge the PR)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** — (next)
+> **PR:** #201 (with S68, S69)
 >
 > **Track:** Decisions · **Size:** S (3 steps) · **Depends on:** D13 ✅ (2026-10-12: "show filling, decide later"), S63 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §4 Decisions
 
@@ -25,7 +25,7 @@ Flights fill over the hours before departure, the way real ones do: departure bo
 
 - [x] **S70.1** Core: `bookedShare`, `classBookedShare`, constants; tests.
 - [x] **S70.2** Web: booking bars fill toward departure on both boards ("filling" look), plane panel bookings card; i18n; tests.
-- [ ] **S70.3** e2e (desktop and phone), screenshots, PR.
+- [x] **S70.3** e2e (desktop and phone), screenshots, PR.
 
 ## Progress log
 
@@ -38,3 +38,5 @@ Flights fill over the hours before departure, the way real ones do: departure bo
 - Boards: `bookingsSoFar` (flight board utils) gives a departure still on the ground its expected load × `bookedShare`, marked `filling`; flights in the air, departed ones and arrivals keep the load itself. Both the airport board and the airline board use it. `BookingBar` pulses and adds "↑" while filling (aria "62% ↑").
 - Plane panel: `NextDepartureBookingsCard` (fleet) for a plane turning around: "Next departure 14:20 · bookings", "112 of 170 seats sold", "About 24 more expected before departure, 6 of them business or first: they book late." (`nextDepartureBookings`, per-cabin curves).
 - i18n en/es `bookings.*`. Tests: utils (counts, climbing, nulls), card (premium and plain wording, hidden cases), bar (filling mark). Web 697/697.
+
+2026-10-12 · S70.3 · (this commit) · **On screen.** e2e `booking-curve.spec.ts` (1440) and `mobile-booking-curve.spec.ts` (390): a two-route Madrid airline flies two hours, then the clock steps five minutes at a time until a plane turns around: its panel shows "Next departure HH:MM · bookings", "N of M seats sold", "more expected before departure" and a filling bar; Madrid's departures board shows a filling bar ("85% ↑"). Screenshots: `media/s70/next-departure-bookings-{1440,390}.png`, `media/s70/booking-bars-filling-{1440,390}.png`. Ships in #201 (same branch).
