@@ -1,7 +1,7 @@
 # S77 — Polish pass: play every main flow and fix what is broken or confusing
 
 > **Status:** ◐ in progress
-> **Next step:** S77.4 — numbers that agree: one "today", airlines counted once, "—" load factor before the first landing.
+> **Next step:** S77.5 — one key-backup prompt at a time; roadmap copy; short registration; sidebar badges.
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -42,7 +42,7 @@ A scripted playtest (desktop 1440 and phone 390) played a new player end to end 
 - [x] **S77.1** Plane duty said plainly: "Day plan MAD → BCN → LIS → MAD, every day", "Flies MAD ⇄ BCN back and forth", "Parked at MAD, nothing to fly" in the fleet card, plane panel (info, route tab, day plan section); the day plan says it repeats daily and replaces the single route; "Fly one route instead"; tests.
 - [x] **S77.2** Opportunities launch with a plane through the same one-click flow as the airport card (shared hook); drop "suggested fleet"; copy; tests.
 - [x] **S77.3** Dialogs and buying: a confirm closes on navigation and never leaks; the aircraft order shows its price and closes when done; tests.
-- [ ] **S77.4** Numbers that agree: one "today" (UTC day) in cockpit and footer; airlines counted once after reload; "—" load factor before the first landing; tests.
+- [x] **S77.4** Numbers that agree: one "today" (UTC day) in cockpit and footer; airlines counted once after reload; "—" load factor before the first landing; tests.
 - [ ] **S77.5** Nags and copy: one key-backup prompt at a time; roadmap (alliances shipped); short registration; badges; tests.
 - [ ] **S77.6** The playtest as an e2e journey (desktop and phone), before/after screenshots, PR.
 
@@ -53,3 +53,5 @@ A scripted playtest (desktop 1440 and phone 390) played a new player end to end 
 2026-10-12 · S77.2 · (this commit) · **Opportunities launch with a plane.** `useConfirmedLaunch` (network/hooks): the one confirm (slot fee, lease deposit, daily lease, delivery time, or the idle plane it reuses) + open, lease, assign + toast, shared by the airport card and the opportunities list. Each opportunity's button now reads "Launch route with ATR 72-600" (disabled when out of range) instead of opening a bare route for $100,000; "with an Dash 8" → "with the Dash 8-Q400, after lease"; the "suggested fleet: 239 aircraft" tile is gone. Tests: opportunities +1 (launch asks once with the full cost; out-of-range disabled); RouteDecisionCard unchanged and green.
 
 2026-10-12 · S77.3 · (this commit) · **Dialogs and buying.** `ConfirmProvider` takes `subscribeNavigation` (main.tsx passes `router.history.subscribe`): any navigation answers a pending confirm "no" and closes it; a newer confirm answers an unanswered one "no" instead of leaking its promise. The aircraft order's footer now says what it costs next to the button ("You pay $21,000,000 now." / "You pay a $2,100,000 deposit now, then $156,000 a month."), red when unaffordable. The "Purchasing…" wait after the timeline toast is the relay publish; the existing echo rule already drops the double toast, so it stays. Tests: useConfirm 3 (new), dealer +2 assertions.
+
+2026-10-12 · S77.4 · (this commit) · **Numbers that agree.** The cockpit story is a rolling 24 hours (by design: a check-in reads "what happened since I last looked"), so its sign now says "Last 24 h · to Oct 13" instead of "Today · Oct 13", which disagreed with the footer's UTC-day "Today". Root cause of "Airlines 2": a world sync that ran before the identity loaded took the player's own snapshot for a rival's and later syncs kept it; `syncWorld` now drops the player's pubkey from `competitors` whenever it knows it (this also kept the player's own offers out of the rival registry). The top bar's load factor reads "—" until the first landing instead of a red 0%. Tests: worldSlice +1, Topbar +1 assertion, TodayStory and e2e headings updated.

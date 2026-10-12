@@ -1270,13 +1270,13 @@
     "years_other": "{{count}} años"
   },
   "today": {
-    "title": "Hoy · {{date}}",
+    "title": "Últimas 24 h · hasta el {{date}}",
     "earned": "ganados",
     "flown_one": "{{count}} pasajero",
     "flown_other": "{{count}} pasajeros",
     "landings_one": "{{count}} aterrizaje",
     "landings_other": "{{count}} aterrizajes",
-    "quiet": "Un día tranquilo por ahora. Los aviones en el aire aterrizarán con historias.",
+    "quiet": "Unas 24 horas tranquilas por ahora. Los aviones en el aire aterrizarán con historias.",
     "now": "Ahora",
     "delivery": "Entrega",
     "deliveredAt": "Se unió a la flota en {{airport}}.",

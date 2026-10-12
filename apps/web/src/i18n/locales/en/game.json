@@ -1270,13 +1270,13 @@
     "years_other": "{{count}} years"
   },
   "today": {
-    "title": "Today · {{date}}",
+    "title": "Last 24 h · to {{date}}",
     "earned": "earned",
     "flown_one": "{{count}} person flown",
     "flown_other": "{{count}} people flown",
     "landings_one": "{{count}} landing",
     "landings_other": "{{count}} landings",
-    "quiet": "A quiet day so far. Planes in the air will land with stories to tell.",
+    "quiet": "A quiet 24 hours so far. Planes in the air will land with stories to tell.",
     "now": "Now",
     "delivery": "Delivery",
     "deliveredAt": "Joined the fleet at {{airport}}.",

@@ -313,6 +313,9 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
 
         // Seed player data into the unified maps
         if (myPubkey) {
+          // A sync that ran before the identity loaded may have taken the
+          // player's own snapshot for a rival's: never count it as one.
+          competitors.delete(myPubkey);
           updatedFleetByOwner.set(myPubkey, existingState.fleet || []);
           updatedRoutesByOwner.set(myPubkey, existingState.routes || []);
         }

@@ -69,7 +69,7 @@ describe("TodayStory (S62)", () => {
         }}
       />,
     );
-    expect(screen.getByRole("heading", { name: /^Today · / })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^Last 24 h · to / })).toBeInTheDocument();
     expect(screen.getByTestId("today-summary")).toHaveTextContent(
       "+$2,000 earned134 people flown2 landings",
     );
@@ -95,6 +95,6 @@ describe("TodayStory (S62)", () => {
         story={{ earned: fp(0), passengers: 0, landings: 0, onTime: null, chapters: [] }}
       />,
     );
-    expect(screen.getByTestId("today-story")).toHaveTextContent("A quiet day so far.");
+    expect(screen.getByTestId("today-story")).toHaveTextContent("A quiet 24 hours so far.");
   });
 });

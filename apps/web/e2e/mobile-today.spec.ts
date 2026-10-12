@@ -16,7 +16,7 @@ test("on a phone, the cockpit opens on today's story and the instruments", async
 
   const story = page.getByTestId("today-story");
   await expect(story).toBeVisible({ timeout: 30_000 });
-  await expect(story.getByRole("heading", { name: /^Today · / })).toBeVisible();
+  await expect(story.getByRole("heading", { name: /^Last 24 h · to / })).toBeVisible();
   await expect(page.getByTestId("today-summary")).toContainText(/earned.*people flown.*landings/);
   await expect(page.getByTestId("chapter-delivery").first()).toBeVisible();
   await expect(page.getByTestId("chapter-bestFlight")).toBeVisible();

@@ -281,6 +281,18 @@ describe("syncWorld", () => {
     expect([...state.fleetByOwner.values()].flat().map((a) => a.id)).toContain("ac-new");
   });
 
+  it("never keeps the player's own airline as a rival (a sync before the identity loaded)", async () => {
+    const me = "me-pubkey";
+    const { state } = createSliceState({
+      pubkey: me,
+      competitors: new Map([[me, makeAirline(me, 100)]]),
+    } as Partial<AirlineState>);
+
+    await state.syncWorld();
+
+    expect(state.competitors.has(me)).toBe(false);
+  });
+
   it("hides abandoned airlines: no active route and idle for a week (S26)", async () => {
     const idle = "comp-idle";
     const flying = "comp-flying";

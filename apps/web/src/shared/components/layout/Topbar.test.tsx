@@ -122,6 +122,10 @@ describe("Topbar", () => {
     // Tier 2 with nothing earned yet: progress towards tier 3 starts at 0%.
     expect(screen.getByTestId("topbar-tier")).toHaveTextContent("T2 → 3");
     expect(screen.getByTestId("topbar-tier")).toHaveTextContent("Rev 0%");
+    // Nothing has landed yet: the load factor is blank, not a red 0%.
+    for (const loadFactor of screen.getAllByTestId("topbar-load-factor")) {
+      expect(loadFactor).toHaveTextContent("—");
+    }
     expect(screen.getByTestId("topbar-metrics").className).not.toMatch(/\bhidden\b/);
   });
 
