@@ -8,8 +8,8 @@ import {
   getProsperityIndex,
   getSeason,
   haversineDistance,
-  TICK_DURATION,
   TICKS_PER_DAY,
+  TICK_DURATION,
 } from "@acars/core";
 import { getAirports } from "@acars/data";
 import { create } from "zustand";

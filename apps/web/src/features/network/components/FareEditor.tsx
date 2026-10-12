@@ -5,6 +5,7 @@ import {
   fp,
   fpFormat,
   fpToNumber,
+  getMaxFares,
   getSuggestedFares,
   PRICE_ELASTICITY_BUSINESS,
   PRICE_ELASTICITY_ECONOMY,
@@ -13,6 +14,7 @@ import {
 } from "@acars/core";
 import { getAircraftById } from "@acars/data";
 import {
+  fareCurve,
   projectRouteEconomics,
   type RouteProjection,
   useActiveAirline,
@@ -40,6 +42,7 @@ import {
 } from "@/features/network/utils/fareProjection";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
+import { WhatIfCurve } from "./WhatIfCurve";
 
 export interface FareEditorTarget {
   routeId: string;
@@ -171,6 +174,32 @@ export function FareEditor({
         : null,
     [projectionBase, resolvedFareInputs],
   );
+  // What-if (S64): every fare scaled together, 60 % to 160 % of the saved ones.
+  const savedFareCurve = useMemo(
+    () =>
+      projectionBase && activeFareRoute
+        ? fareCurve({
+            ...projectionBase,
+            fares: {
+              economy: activeFareRoute.fareEconomy,
+              business: activeFareRoute.fareBusiness,
+              first: activeFareRoute.fareFirst,
+            },
+          })
+        : null,
+    [projectionBase, activeFareRoute],
+  );
+  const scaleSavedFares = (multiplier: number) => {
+    if (!activeFareRoute) return;
+    const max = getMaxFares(fareEditor.distanceKm);
+    const scale = (fare: FixedPoint, cap: FixedPoint) =>
+      Math.min(Math.round(fpToNumber(fare) * multiplier), Math.floor(fpToNumber(cap))).toString();
+    setFareInputs({
+      e: scale(activeFareRoute.fareEconomy, max.economy),
+      b: scale(activeFareRoute.fareBusiness, max.business),
+      f: scale(activeFareRoute.fareFirst, max.first),
+    });
+  };
   const activePreset = matchingPreset(fareEditor.distanceKm, resolvedFareInputs);
   const applyPreset = (preset: FarePresetId) => {
     const fares = presetFares(fareEditor.distanceKm, preset);
@@ -509,6 +538,16 @@ export function FareEditor({
                 {t("routeManager.fareEditor.assignToProject", { ns: "game" })}
               </div>
             )}
+            {savedFareCurve ? (
+              <WhatIfCurve
+                testId="fare-curve"
+                className="w-full"
+                curve={savedFareCurve}
+                formatX={(x) => t("whatIf.fareX", { ns: "game", pct: Math.round(x * 100) })}
+                onPick={scaleSavedFares}
+                pickBestLabel={(x) => t("whatIf.tryBestFare", { ns: "game", x })}
+              />
+            ) : null}
             {fareError ? <p className="text-xs font-semibold text-red-400">{fareError}</p> : null}
           </div>
           <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border/50 px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-4">

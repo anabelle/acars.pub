@@ -12,7 +12,6 @@ import type {
 } from "@acars/core";
 import {
   allocatePassengers,
-  CONDITION_WEAR_PER_FLIGHT_HOUR,
   calculateDemand,
   calculateFlightCost,
   calculateFlightRevenue,
@@ -21,6 +20,7 @@ import {
   calculateSupplyPressure,
   canonicalRouteKey,
   computeRouteFrequency,
+  CONDITION_WEAR_PER_FLIGHT_HOUR,
   countLandingsBetween,
   detectPriceWar,
   entrantMarketShare,
@@ -31,10 +31,12 @@ import {
   fpFormat,
   fpSub,
   fpToNumber,
+  worldEventDemandMultiplier,
+  worldEventFeesMultiplier,
   GENESIS_TIME,
+  getCyclePhase,
   GROUNDED_MAX_HOURS_SINCE_CHECK,
   GROUNDED_MIN_CONDITION,
-  getCyclePhase,
   getEventFuelPriceAtTick,
   getHubCongestionModifier,
   getHubDemandModifier,
@@ -58,8 +60,6 @@ import {
   TICK_DURATION,
   TICKS_PER_HOUR,
   TICKS_PER_MONTH,
-  worldEventDemandMultiplier,
-  worldEventFeesMultiplier,
 } from "@acars/core";
 import type { HubClassification } from "@acars/data";
 import { getAircraftById, getAirports, HUB_CLASSIFICATIONS } from "@acars/data";

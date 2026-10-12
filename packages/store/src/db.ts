@@ -1,6 +1,7 @@
-import type { AircraftInstance, AirlineEntity, GameActionEnvelope, Route } from "@acars/core";
-import { WORLD_ID } from "@acars/nostr/src/schema";
 import Dexie, { type EntityTable } from "dexie";
+import type { AirlineEntity, AircraftInstance, Route } from "@acars/core";
+import type { GameActionEnvelope } from "@acars/core";
+import { WORLD_ID } from "@acars/nostr/src/schema";
 
 const DB_NAME = `AirTRDatabase-${WORLD_ID}`;
 

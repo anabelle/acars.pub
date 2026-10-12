@@ -29,6 +29,15 @@ const projectRouteEconomics = vi.fn((input: { fares: { economy: number } }) => {
 
 vi.mock("@acars/store", () => ({
   projectRouteEconomics: (input: never) => projectRouteEconomics(input),
+  fareCurve: () => ({
+    points: [
+      { x: 0.8, profitPerDay: 900, loadFactor: 0.9, share: 0.45 },
+      { x: 1, profitPerDay: 960, loadFactor: 0.8, share: 0.4 },
+      { x: 1.2, profitPerDay: 1100, loadFactor: 0.7, share: 0.35 },
+    ],
+    best: 1.2,
+    current: 1,
+  }),
   useActiveAirline: () => ({ routes: [route], fleet }),
   useEngineStore: (selector: (state: { tick: number }) => unknown) => selector({ tick: 1000 }),
   useAirlineStore: (selector: (state: Record<string, unknown>) => unknown) =>
@@ -142,5 +151,16 @@ describe("FareEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: /save fares/i }));
     expect(updateRouteFares).not.toHaveBeenCalled();
     expect(screen.getByText(/at least one/i)).toBeInTheDocument();
+  });
+
+  it("shows the fare what-if and scales the saved fares to its best point (S64)", () => {
+    flyRoute();
+    render(<FareEditor target={target} onClose={() => {}} />);
+    expect(screen.getByTestId("fare-curve")).toBeInTheDocument();
+    expect(screen.getByTestId("what-if-readout")).toHaveTextContent("fares 120%");
+    fireEvent.click(screen.getByTestId("what-if-best"));
+    expect(screen.getByLabelText("Economy")).toHaveValue(144);
+    expect(screen.getByLabelText("Business")).toHaveValue(360);
+    expect(screen.getByLabelText("First")).toHaveValue(720);
   });
 });

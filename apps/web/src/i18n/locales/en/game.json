@@ -1325,5 +1325,20 @@
   "turnedAway": {
     "title_one": "{{count}} person couldn't get a seat on your flights from {{iata}} in the last 24 h.",
     "title_other": "{{count}} people couldn't get a seat on your flights from {{iata}} in the last 24 h."
+  },
+  "whatIf": {
+    "title": "Profit per day — what if?",
+    "best": "best",
+    "now": "now",
+    "max": "max",
+    "aria": "Best {{best}} at {{profit}} a day; now {{now}} at {{nowProfit}} a day",
+    "perDay": "{{profit}}/day",
+    "load": "load {{pct}}%",
+    "share": "share {{pct}}%",
+    "frequency": "What if? Profit by frequency",
+    "hide": "Hide what-if",
+    "tryBest": "Try {{x}}",
+    "fareX": "fares {{pct}}%",
+    "tryBestFare": "Try {{x}}"
   }
 }

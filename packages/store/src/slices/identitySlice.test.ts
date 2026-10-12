@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StateCreator } from "zustand";
-import { hydrateIdentityFromStorage } from "../localLoader";
 import type { AirlineState } from "../types";
 import { createIdentitySlice } from "./identitySlice";
+import { hydrateIdentityFromStorage } from "../localLoader";
 
 vi.mock("../localLoader", () => ({
   hydrateIdentityFromStorage: vi.fn(),

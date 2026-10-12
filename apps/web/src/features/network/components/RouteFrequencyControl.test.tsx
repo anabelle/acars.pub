@@ -107,4 +107,27 @@ describe("RouteFrequencyControl", () => {
     expect(screen.getByTestId("route-block-hours")).not.toHaveTextContent(/idle/);
     expect(screen.queryByTestId("route-fly-more")).toBeNull();
   });
+
+  it("opens a what-if curve and taps the sweet spot into the draft (S64)", () => {
+    storeState.fleet = [
+      { ...atr, configuration: { economy: 70, business: 0, first: 0, cargoKg: 0 } },
+    ];
+    storeState.routes = [route];
+    render(<RouteFrequencyControl route={route} />);
+    expect(screen.queryByTestId("frequency-curve")).toBeNull();
+    fireEvent.click(screen.getByTestId("what-if-toggle"));
+    const chart = screen.getByTestId("frequency-curve");
+    expect(chart.querySelector('[data-mark="best"]')).not.toBeNull();
+    expect(chart.querySelector('[data-mark="now"]')).not.toBeNull();
+    expect(chart.querySelector('[data-mark="max"]')).not.toBeNull();
+    expect(screen.getByTestId("what-if-readout").textContent).toMatch(
+      /\/wk .*\/day · load \d+% · share \d+%/,
+    );
+    const best = screen.queryByTestId("what-if-best");
+    if (best) {
+      fireEvent.click(best);
+      expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
+    }
+    expect(updateRouteFrequency).not.toHaveBeenCalled();
+  });
 });

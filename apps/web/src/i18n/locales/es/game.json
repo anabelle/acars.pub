@@ -1325,5 +1325,20 @@
   "turnedAway": {
     "title_one": "{{count}} persona no consiguió asiento en tus vuelos desde {{iata}} en las últimas 24 h.",
     "title_other": "{{count}} personas no consiguieron asiento en tus vuelos desde {{iata}} en las últimas 24 h."
+  },
+  "whatIf": {
+    "title": "Beneficio diario — ¿y si…?",
+    "best": "mejor",
+    "now": "ahora",
+    "max": "máx.",
+    "aria": "Mejor {{best}} con {{profit}} al día; ahora {{now}} con {{nowProfit}} al día",
+    "perDay": "{{profit}}/día",
+    "load": "ocupación {{pct}}%",
+    "share": "cuota {{pct}}%",
+    "frequency": "¿Y si…? Beneficio por frecuencia",
+    "hide": "Ocultar ¿y si…?",
+    "tryBest": "Probar {{x}}",
+    "fareX": "tarifas {{pct}}%",
+    "tryBestFare": "Probar {{x}}"
   }
 }

@@ -1,7 +1,7 @@
 # S64 — What-if curves for frequency and fares
 
 > **Status:** ◐ in progress
-> **Next step:** S64.2 — the chart in the frequency control and the fare editor
+> **Next step:** S64.3 — e2e (desktop and phone), screenshots, PR
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #199 (with S61–S63) or the next one
 >
@@ -26,8 +26,8 @@ A player choosing how often to fly or what to charge sees the whole curve, not o
 
 ## Steps (checkpoints)
 
-- [ ] **S64.1** Store: `frequencyCurve` and `fareCurve` (samples, best, current, max, share), `routeProjectionInputFor` (how a route flies today). _Done when:_ unit tests (sampling, best, monotonic load against fare, determinism).
-- [ ] **S64.2** UI: `WhatIfCurve` (inline SVG, cockpit style: magenta profit line, dashed zero, green sweet spot, cyan "now", amber max) under a "What if?" toggle in the frequency control (tap a point to try it) and in the fare editor (tap to scale the typed fares). _Done when:_ component tests.
+- [x] **S64.1** Store: `frequencyCurve` and `fareCurve` (samples, best, current, max, share), `routeProjectionInputFor` (how a route flies today). _Done when:_ unit tests (sampling, best, monotonic load against fare, determinism).
+- [x] **S64.2** UI: `WhatIfCurve` (inline SVG, cockpit style: magenta profit line, dashed zero, green sweet spot, cyan "now", amber max) under a "What if?" toggle in the frequency control (tap a point to try it) and in the fare editor (tap to scale the typed fares). _Done when:_ component tests.
 - [ ] **S64.3** e2e (desktop and phone) + 1440/390 screenshots; PR.
 
 ## Acceptance criteria
@@ -43,3 +43,11 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 2026-10-12 · brief · (this commit) · Written after reading the S58 projection (`bestWeeklyFrequency`, operating-day cap) and the fare editor's saved-vs-typed outcome.
 
 2026-10-12 · S64.1 · (this commit) · **The curves, in the store.** `frequencyCurve` samples 1 → the operating maximum (14 steps plus now and best) re-projecting the network at each frequency; `fareCurve` scales every fare together 60 % → 160 %; both return profit/day, load and share per point. `routeProjectionInputFor` turns a flying route into a projection input (the S58 suggestion now uses it). Store 282/282.
+
+2026-10-12 · S64.2 · (this commit) · **The curve on screen.**
+
+- `WhatIfCurve` (inline SVG, one series so no legend box): magenta profit line, dashed zero line when the curve crosses it, green sweet spot, cyan "now", amber dashed max; hover or tap reads any point ("18/wk +$4,200/day · load 82% · share 41%"); tapping moves the draft there; a sign button jumps to the best; a screen-reader table carries every point.
+- Frequency control: "What if? Profit by frequency" opens it (projections run only while open, once per game hour, `useFrequencyCurve`); a tap sets the draft, Apply still publishes.
+- Fare editor: the fare curve under the forecast; a tap scales the saved fares (capped) into the inputs.
+- Store: undid an accidental import-order reformat of six unrelated files in the S64.1 commit.
+- Tests: plotting helpers, frequency control (marks, readout, tap → draft, nothing published), fare editor (tap best → inputs ×1.2). Network + i18n 217/217.
