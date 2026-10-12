@@ -9,9 +9,7 @@ import {
   fpSub,
   GENESIS_TIME,
   getMaxRouteDistanceKm,
-  mutualPartners,
   nextBrandScore,
-  type Route,
   TICK_DURATION,
   TICKS_PER_MONTH,
 } from "@acars/core";
@@ -22,6 +20,7 @@ import { bootMark } from "../bootTrace";
 import { useEngineStore } from "../engine";
 import { processFlightEngine, reconcileFleetToTick, routesInForce } from "../FlightEngine";
 import type { AirlineState } from "../types";
+import { alliedRoutes } from "../alliance";
 import { AsyncMutex } from "../utils/asyncMutex";
 
 export interface EngineSlice {
@@ -665,17 +664,3 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
     }
   },
 });
-
-/** Routes of the airline's active allies (S73): partners it names who name it back. */
-export function alliedRoutes(
-  state: Pick<AirlineState, "airline" | "pubkey" | "competitors" | "routesByOwner">,
-): Route[] {
-  const me = state.pubkey;
-  const mine = state.airline?.alliancePartners;
-  if (!me || !mine || mine.length === 0) return [];
-  return mutualPartners(
-    me,
-    mine,
-    (partner) => state.competitors.get(partner)?.alliancePartners,
-  ).flatMap((partner) => state.routesByOwner.get(partner) ?? []);
-}

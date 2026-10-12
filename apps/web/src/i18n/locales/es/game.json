@@ -1416,7 +1416,9 @@
     "title_other": "{{count}} personas al día quieren conectar en {{iata}} en dos de tus vuelos (si hay asientos).",
     "perDay": "Quieren conectar / día",
     "bank": "Sincronía del banco",
-    "tip": "Programa las llegadas a {{iata}} entre 45 min y 3 h antes de las salidas (Plan del día de un avión) para conectar más."
+    "tip": "Programa las llegadas a {{iata}} entre 45 min y 3 h antes de las salidas (Plan del día de un avión) para conectar más.",
+    "codeshare_one": "{{count}} persona al día conecta aquí con vuelos de tus aliados.",
+    "codeshare_other": "{{count}} personas al día conectan aquí con vuelos de tus aliados."
   },
   "weather": {
     "title": "Tiempo ahora · METAR",
@@ -1489,5 +1491,19 @@
       "left_other": "Te quedan {{count}} anuncios hoy",
       "none": "Tres anuncios al día: vuelve mañana."
     }
+  },
+  "alliance": {
+    "status": {
+      "none": "Aliaos con ellos: donde vuestras rutas se cruzan, los pasajeros conectan entre ambas redes.",
+      "proposed": "Has propuesto una alianza. Empieza cuando la acepten.",
+      "invited": "Te han propuesto una alianza.",
+      "allied": "Aliados: los pasajeros conectan entre ambas redes donde vuestras rutas se cruzan."
+    },
+    "propose": "Proponer alianza",
+    "accept": "Aceptar la alianza",
+    "withdraw": "Retirar",
+    "leave": "Dejar la alianza",
+    "full": "Como mucho {{count}} socios: deja uno primero.",
+    "badge": "Aliado"
   }
 }

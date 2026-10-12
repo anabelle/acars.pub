@@ -1,7 +1,7 @@
 # S73 — Alliances and codeshares
 
 > **Status:** ◐ in progress
-> **Next step:** S73.3 — web: alliance control, allies on the leaderboard, codeshare passengers on the hub card
+> **Next step:** S73.4 — e2e (desktop and phone), screenshots, PR
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -25,7 +25,7 @@ Two airlines can ally: where one's route meets the other's at an airport, passen
 
 - [x] **S73.1** Core: `MAX_ALLIANCE_PARTNERS`, `CODESHARE_SHARE`, `parsePartners`, `mutualPartners`, `allianceStatus`; `AirlineEntity.alliancePartners`; tests.
 - [x] **S73.2** Store: replay `ALLIANCE_SET`, `setAlliancePartners`, codeshare connections from allies' routes in engine and catch-up; tests.
-- [ ] **S73.3** Web: alliance control on rivals' pages, allies on the leaderboard, codeshare passengers on the hub card; i18n; tests.
+- [x] **S73.3** Web: alliance control on rivals' pages, allies on the leaderboard, codeshare passengers on the hub card; i18n; tests.
 - [ ] **S73.4** e2e (desktop and phone), screenshots, PR.
 
 ## Progress log
@@ -40,3 +40,10 @@ Two airlines can ally: where one's route meets the other's at an airport, passen
 - Store: `setAlliancePartners` (optimistic, publishes, rolls back only the list on failure). `alliedRoutes(state)` (engine slice): routes of partners who name us back, from the world sync's `routesByOwner`.
 - Connections: `computeConnectionService(…, allyRoutes)` — at each airport where our route meets an ally's, markets neither flies direct (and within the S67 detour) get `CODESHARE_SHARE` of the connecting demand on our leg only; ally ends we already serve are left to our own banks; `HubConnections.codeshareWeekly`. `buildConnectionService` keys its hourly cache on ally routes too; the engine gets them through its context (`allyRoutes`).
 - Tests: replay (partners, self, garbage, clear), connections (our leg only, direct markets skipped, own banks unchanged, no-overlap cases), `alliedRoutes` (mutual only), slice (publish, rollback). Store 321/321; web 717/717 unchanged.
+
+2026-10-12 · S73.3 · (this commit) · **Alliances, on screen.**
+
+- `AllianceControl` on a rival's airline page: "Propose an alliance" → "You proposed an alliance. It starts when they accept." (Withdraw); "They proposed an alliance to you." → "Accept the alliance"; "Allies: passengers connect across both networks where your routes meet." (Leave the alliance); disabled with "At most 3 partners: leave one first." when full. Hidden on your own page and without an airline.
+- `AllyBadge` ("Ally") next to allied airlines on the leaderboard.
+- Hub card: "N people a day connect here to your allies' flights." (`hub-codeshare`); a codeshare-only airport shows just that line. `useHubConnections` passes `alliedRoutes` (now `@acars/store/alliance`, exported) to the connection service.
+- i18n en/es `alliance.*`, `connections.codeshare_*`. Tests: control (propose/withdraw, accept/leave, full, hidden), badge, hub card with an ally. Web 722/722; store 323/323.

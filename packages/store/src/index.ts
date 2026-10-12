@@ -1,4 +1,5 @@
 export * from "./airline.js";
+export * from "./alliance.js";
 export * from "./bootTrace.js";
 export * from "./connections.js";
 export * from "./engine.js";

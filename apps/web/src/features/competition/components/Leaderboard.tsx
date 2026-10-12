@@ -7,6 +7,7 @@ import { ArrowDownRight, ArrowUpRight, ChevronDown, MapPin, Trophy } from "lucid
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { airlineNpub as npubOf } from "@/features/airline/utils/airlineKey";
+import { AllyBadge } from "@/features/alliance/AllianceControl";
 import type {
   LeaderboardMetric,
   LeaderboardRow as LeaderboardRowData,
@@ -237,6 +238,7 @@ function LeaderboardRow({
                 {t("leaderboard.yourAirline")}
               </span>
             )}
+            <AllyBadge pubkey={row.ceoPubkey} />
             {ranked !== null && (
               <span
                 data-testid={ranked ? "leaderboard-ranked" : "leaderboard-unranked"}

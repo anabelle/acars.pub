@@ -1416,7 +1416,9 @@
     "title_other": "{{count}} people a day want to connect through {{iata}} on two of your flights (seats permitting).",
     "perDay": "Want to connect / day",
     "bank": "Bank timing",
-    "tip": "Time arrivals into {{iata}} 45 min – 3 h before departures (a plane's Day plan) to connect more."
+    "tip": "Time arrivals into {{iata}} 45 min – 3 h before departures (a plane's Day plan) to connect more.",
+    "codeshare_one": "{{count}} person a day connects here to your allies' flights.",
+    "codeshare_other": "{{count}} people a day connect here to your allies' flights."
   },
   "weather": {
     "title": "Weather now · METAR",
@@ -1489,5 +1491,19 @@
       "left_other": "{{count}} announcements left today",
       "none": "Three announcements a day: come back tomorrow."
     }
+  },
+  "alliance": {
+    "status": {
+      "none": "Ally with them: where your routes meet theirs, passengers connect across both networks.",
+      "proposed": "You proposed an alliance. It starts when they accept.",
+      "invited": "They proposed an alliance to you.",
+      "allied": "Allies: passengers connect across both networks where your routes meet."
+    },
+    "propose": "Propose an alliance",
+    "accept": "Accept the alliance",
+    "withdraw": "Withdraw",
+    "leave": "Leave the alliance",
+    "full": "At most {{count}} partners: leave one first.",
+    "badge": "Ally"
   }
 }

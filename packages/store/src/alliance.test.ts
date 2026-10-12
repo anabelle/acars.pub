@@ -5,7 +5,7 @@ import { airports } from "@acars/data/airports";
 import { beforeAll, describe, expect, it } from "vitest";
 import { type ActionRecord, replayActionLog } from "./actionReducer";
 import { computeConnectionService, legKey } from "./connections";
-import { alliedRoutes } from "./slices/engineSlice";
+import { alliedRoutes } from "./alliance";
 
 const ME = "a".repeat(64);
 const ALLY = "b".repeat(64);

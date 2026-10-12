@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { airlinePath } from "@/features/airline/utils/airlineKey";
 import { projectRouteMap } from "@/features/airline/utils/routeMap";
+import { AllianceControl } from "@/features/alliance/AllianceControl";
 import { ShareNetworkButton } from "@/features/share/ShareNetworkButton";
 import { LiveryThumb } from "@/shared/components/LiveryThumb";
 
@@ -164,6 +165,8 @@ export function PublicAirlinePage({ pubkey }: { pubkey: string }) {
           ))}
         </dl>
       </section>
+
+      {!isMine ? <AllianceControl pubkey={pubkey} /> : null}
 
       <div className="flex flex-wrap gap-2">
         {isMine ? (

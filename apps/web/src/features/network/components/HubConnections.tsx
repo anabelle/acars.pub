@@ -15,9 +15,16 @@ export function HubConnections({ iata }: { iata: string }) {
   const quality = Math.round(hub.quality * 100);
   return (
     <Slab data-testid="hub-connections" className="flex flex-col gap-2.5 p-3">
-      <span className="text-sm leading-relaxed">
-        {t("connections.title", { count: Math.round(hub.weekly / 7), iata })}
-      </span>
+      {hub.weekly > 0 ? (
+        <span className="text-sm leading-relaxed">
+          {t("connections.title", { count: Math.round(hub.weekly / 7), iata })}
+        </span>
+      ) : null}
+      {hub.codeshareWeekly > 0 ? (
+        <span className="text-sm leading-relaxed" data-testid="hub-codeshare">
+          {t("connections.codeshare", { count: Math.round(hub.codeshareWeekly / 7) })}
+        </span>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <Readout
           label={t("connections.perDay")}
