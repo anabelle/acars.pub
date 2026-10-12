@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "./fixtures";
+import { continuePastDelivery } from "./livery";
 import { createAirline, MADRID_PLAYER, navigateInApp } from "./signup";
 
 test.use(MADRID_PLAYER);
@@ -119,6 +120,9 @@ async function measure(page: import("@playwright/test").Page, mode: Mode) {
   for (let step = 0; step < 60 && !airborne; step++) {
     await page.clock.fastForward("00:05:00");
     await page.waitForTimeout(1_500);
+    // The leased plane's delivery day (S61) opens a ceremony over the map: close it
+    // so the sample measures the map alone.
+    await continuePastDelivery(page);
     airborne = (await minutesLeft()) >= 10;
   }
   expect(airborne).toBe(true);
