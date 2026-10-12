@@ -36,6 +36,7 @@ describe("TodayStory (S62)", () => {
           earned: fp(2_000),
           passengers: 134,
           landings: 2,
+          onTime: { flights: 4, onTime: 3, rate: 0.75, averageDelayTicks: 200 },
           chapters: [
             {
               kind: "delivery",
@@ -72,6 +73,7 @@ describe("TodayStory (S62)", () => {
     expect(screen.getByTestId("today-summary")).toHaveTextContent(
       "+$2,000 earned134 people flown2 landings",
     );
+    expect(screen.getByTestId("today-on-time")).toHaveTextContent("on time 75%");
     expect(screen.getByTestId("chapter-delivery")).toHaveTextContent("Joined the fleet at PTY.");
     expect(screen.getByTestId("chapter-bestFlight")).toHaveTextContent(
       "Quetzal flew 64 people PTY → SJO and earned $1,200.",
@@ -90,7 +92,7 @@ describe("TodayStory (S62)", () => {
     render(
       <TodayStory
         tick={tick}
-        story={{ earned: fp(0), passengers: 0, landings: 0, chapters: [] }}
+        story={{ earned: fp(0), passengers: 0, landings: 0, onTime: null, chapters: [] }}
       />,
     );
     expect(screen.getByTestId("today-story")).toHaveTextContent("A quiet day so far.");

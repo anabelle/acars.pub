@@ -1,8 +1,9 @@
-import type { AircraftInstance } from "@acars/core";
+import type { AircraftInstance, TimelineEvent } from "@acars/core";
 import { TICKS_PER_DAY, TICKS_PER_HOUR } from "@acars/core";
-import { useEngineStore } from "@acars/store";
-import { useState } from "react";
+import { useAirlineStore, useEngineStore } from "@acars/store";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { onTimePerformance } from "../utils/onTime";
 import { LineBoard } from "./LineBoard";
 import { LineBuilder } from "./LineBuilder";
 
@@ -16,6 +17,15 @@ export function LineSection({ aircraft }: { aircraft: AircraftInstance }) {
   const minute = useEngineStore((s) => Math.floor(s.tick / (TICKS_PER_HOUR / 60)));
   const legs = aircraft.line?.legs ?? [];
   const block = legs.reduce((sum, leg) => sum + leg.durationTicks, 0) / TICKS_PER_HOUR;
+  const timeline = useAirlineStore((s) => s.timeline) as TimelineEvent[] | undefined;
+  const onTime = useMemo(
+    () =>
+      onTimePerformance(timeline ?? [], {
+        aircraftId: aircraft.id,
+        sinceTick: minute * (TICKS_PER_HOUR / 60) - 7 * TICKS_PER_DAY,
+      }),
+    [timeline, aircraft.id, minute],
+  );
   return (
     <section data-testid="line-section" className="space-y-2">
       <div className="flex items-baseline justify-between gap-2">
@@ -37,6 +47,15 @@ export function LineSection({ aircraft }: { aircraft: AircraftInstance }) {
             legs={legs}
             nowOffsetTicks={(minute * (TICKS_PER_HOUR / 60)) % TICKS_PER_DAY}
           />
+          {onTime ? (
+            <p data-testid="line-on-time" className="font-mono text-[11px] text-muted-foreground">
+              {t("line.onTime", {
+                pct: Math.round(onTime.rate * 100),
+                count: onTime.flights,
+                minutes: Math.round(onTime.averageDelayTicks / (TICKS_PER_HOUR / 60)),
+              })}
+            </p>
+          ) : null}
         </>
       ) : (
         <p className="text-sm text-muted-foreground">{t("line.none")}</p>

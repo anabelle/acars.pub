@@ -132,7 +132,12 @@ function legMessages(leg: Leg, input: AcarsInput, flight: string): AcarsMessage[
   const distanceKm =
     from && to ? haversineDistance(from.latitude, from.longitude, to.latitude, to.longitude) : 0;
 
-  push("OUT", departure, `${origin}-${destination} ETA ${formatUtcClock(arrival)}Z`);
+  const delayMinutes = Math.round((landing?.details?.delayTicks ?? 0) / TICKS_PER_MINUTE);
+  push(
+    "OUT",
+    departure,
+    `${origin}-${destination} ETA ${formatUtcClock(arrival)}Z${delayMinutes >= 5 ? ` DLY ${Math.floor(delayMinutes / 60)}:${String(delayMinutes % 60).padStart(2, "0")}` : ""}`,
+  );
   push("OFF", off, `${origin} ${cruiseLevel(distanceKm)}`);
   if (from && to && on - off > 2 * POS_MARGIN) {
     // A report at each whole UTC hour of the cruise (GENESIS_TIME is on the hour).

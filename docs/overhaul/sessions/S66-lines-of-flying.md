@@ -1,7 +1,7 @@
 # S66 — Lines of flying, buffers, knock-on delays
 
 > **Status:** ◐ in progress
-> **Next step:** S66.4 — on-time performance per plane and airline; ACARS shows delays
+> **Next step:** S66.5 — e2e (desktop and phone), screenshots, PR
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -30,7 +30,7 @@ A plane flies a daily line of several legs — MAD→BCN→LIS→MAD→BCN→MAD
 - [x] **S66.1** Core: `LineOfFlying`, `validateLine`, `departureDisruptionTicks`, `lineDay`, `linePhaseAt`, `lineLandingsBetween`, `lineLandingCount`; `AircraftInstance.line`, `FlightState.routeId`. _Done when:_ unit tests (validation, determinism, no spill, phases, counts = walk).
 - [x] **S66.2** Store: `AIRCRAFT_LINE_SET` action (validate: own plane, routes active and in range, line starts at the plane's base), reducer, engine (live and reconcile) flying lines with per-leg economics; route frequency/assignment from lines. _Done when:_ engine tests (live = catch-up, landings and money per leg, delays).
 - [x] **S66.3** UI: the plane's 24-hour board (legs on a day strip, buffers, on-time %), build a line from the plane's routes, auto-fill.
-- [ ] **S66.4** On-time performance: per plane and airline (last 7 days), ACARS shows delays.
+- [x] **S66.4** On-time performance: per plane and airline (last 7 days), ACARS shows delays.
 - [ ] **S66.5** e2e (desktop and phone) + screenshots; PR.
 
 ## Acceptance criteria
@@ -63,3 +63,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - `LineBuilder` dialog: legs in order from where the plane is; the next leg picked from your routes touching the last airport (in range); departures in 15-minute steps, defaulting to ready + 30 min; buffers coloured (green, amber under 20 min, red when it would leave before ready); live check with the replay's own rules (`planLine` → `buildLineLegs`) and the error said plainly; **Auto-fill** (out-and-back trips from base, routes in turn, 06:00–23:30 UTC, always valid); save; "Fly one route instead" clears it. Can't save while flying.
 - Line planes count as working everywhere a plane with a route did (`isWorking`): nav badge, cockpit idle list, Today's parked chapter, first-hour checklist, launch's plane picker, fleet list badges and ferry, hangar card (shows the chain, not "parked").
 - Tests: `linePlan` (options, plan/buffers/errors, default departure, auto-fill valid, draft from line, helpers), `LineSection` (invite → auto-fill → save; leg by leg until home; existing line on the board). Web feature suites 437/437.
+
+2026-10-12 · S66.4 · (this commit) · **On time, or not.** `onTimePerformance` (one pass: scheduled flights that left within 15 min, mean delay; null when nothing was scheduled). Today's summary adds "on time 75%" when line planes flew; the day plan shows "On time 82% of 34 flights · average delay 6 min · 7 days"; ACARS OUT messages carry "DLY 0:25" for departures 5+ min late. Tests: on-time (window, plane, threshold), Today, ACARS delay.

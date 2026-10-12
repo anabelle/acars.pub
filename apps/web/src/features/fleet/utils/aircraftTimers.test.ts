@@ -1,7 +1,7 @@
+import type { AircraftInstance } from "@acars/core";
+import { fp } from "@acars/core";
 import { describe, expect, it } from "vitest";
 import { formatCountdown, getAircraftTimer } from "./aircraftTimers";
-import { fp } from "@acars/core";
-import type { AircraftInstance } from "@acars/core";
 
 const makeAircraft = (overrides: Partial<AircraftInstance> = {}): AircraftInstance => ({
   id: "ac-1",

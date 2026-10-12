@@ -1283,7 +1283,8 @@
     "parkedText": "{{name}} is parked at {{airport}} with no route.",
     "parkedMore_one": " One more plane waits too.",
     "parkedMore_other": " {{count}} more planes wait too.",
-    "putToWork": "Put {{name}} to work"
+    "putToWork": "Put {{name}} to work",
+    "onTime": "on time {{pct}}%"
   },
   "lastFlight": {
     "title": "Last flight",
@@ -1395,6 +1396,7 @@
       "sync-failed": "The relays did not take it; try again.",
       "no-airline": "No airline.",
       "unknown-aircraft": "Unknown plane."
-    }
+    },
+    "onTime": "On time {{pct}}% of {{count}} flights · average delay {{minutes}} min · 7 days"
   }
 }

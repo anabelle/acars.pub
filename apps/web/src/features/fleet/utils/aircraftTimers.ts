@@ -1,4 +1,4 @@
-import { TICK_DURATION, type AircraftInstance } from "@acars/core";
+import { type AircraftInstance, TICK_DURATION } from "@acars/core";
 
 export type AircraftTimerKind = "enroute" | "turnaround" | "maintenance" | "delivery";
 

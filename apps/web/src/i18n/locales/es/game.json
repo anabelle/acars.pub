@@ -1283,7 +1283,8 @@
     "parkedText": "{{name}} está aparcado en {{airport}} sin ruta.",
     "parkedMore_one": " Otro avión espera también.",
     "parkedMore_other": " {{count}} aviones más esperan también.",
-    "putToWork": "Pon a volar a {{name}}"
+    "putToWork": "Pon a volar a {{name}}",
+    "onTime": "puntualidad {{pct}}%"
   },
   "lastFlight": {
     "title": "Último vuelo",
@@ -1395,6 +1396,7 @@
       "sync-failed": "Los relés no lo aceptaron; inténtalo de nuevo.",
       "no-airline": "Sin aerolínea.",
       "unknown-aircraft": "Avión desconocido."
-    }
+    },
+    "onTime": "Puntual {{pct}}% de {{count}} vuelos · retraso medio {{minutes}} min · 7 días"
   }
 }
