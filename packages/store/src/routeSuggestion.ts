@@ -13,7 +13,11 @@ import {
   TICKS_PER_HOUR,
 } from "@acars/core";
 import { getAircraftById } from "@acars/data";
-import { bestWeeklyFrequency, type FrequencySuggestion } from "./routeProjection.js";
+import {
+  bestWeeklyFrequency,
+  type FrequencySuggestion,
+  type RouteProjectionInput,
+} from "./routeProjection.js";
 
 export interface RouteSuggestionInput {
   route: Route;
@@ -25,11 +29,10 @@ export interface RouteSuggestionInput {
 }
 
 /**
- * The weekly frequency that earns an existing route the most for the planes
- * flying it (S58), at its current fares. The route's most common model stands
- * in for a mixed fleet. Null when no plane flies the route.
+ * How a route flies today, as a projection input (S64): its most common model
+ * stands in for a mixed fleet. Null when no plane flies the route.
  */
-export function suggestRouteFrequency(input: RouteSuggestionInput): FrequencySuggestion | null {
+export function routeProjectionInputFor(input: RouteSuggestionInput): RouteProjectionInput | null {
   const { route } = input;
   const assigned = input.fleet.filter((aircraft) => aircraft.assignedRouteId === route.id);
   if (assigned.length === 0) return null;
@@ -43,12 +46,13 @@ export function suggestRouteFrequency(input: RouteSuggestionInput): FrequencySug
   }
   const model = getAircraftById(modelId);
   if (!model) return null;
-  return bestWeeklyFrequency({
+  return {
     originIata: route.originIata,
     destinationIata: route.destinationIata,
     distanceKm: route.distanceKm,
     model,
     aircraftCount: assigned.length,
+    frequencyPerWeek: route.frequencyPerWeek ?? 7,
     fares: { economy: route.fareEconomy, business: route.fareBusiness, first: route.fareFirst },
     tick: input.tick,
     competitorOffers:
@@ -57,7 +61,16 @@ export function suggestRouteFrequency(input: RouteSuggestionInput): FrequencySug
     playerBrandScore: input.airline.brandScore ?? 0.5,
     distanceLimitKm: getMaxRouteDistanceKm(input.airline.tier ?? 1),
     networkRoutes: input.routes,
-  });
+  };
+}
+
+/**
+ * The weekly frequency that earns an existing route the most for the planes
+ * flying it (S58), at its current fares. Null when no plane flies the route.
+ */
+export function suggestRouteFrequency(input: RouteSuggestionInput): FrequencySuggestion | null {
+  const projection = routeProjectionInputFor(input);
+  return projection ? bestWeeklyFrequency(projection) : null;
 }
 
 /** Under this many block hours a day a plane counts as idle (S58). */

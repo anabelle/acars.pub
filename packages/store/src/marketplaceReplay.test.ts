@@ -1,6 +1,6 @@
+import type { ActionLogEntry } from "@acars/nostr";
 import { describe, expect, it } from "vitest";
 import { computeRejectedBuyEventIds } from "./marketplaceReplay.js";
-import type { ActionLogEntry } from "@acars/nostr";
 
 function buyEntry(id: string, instanceId: unknown, createdAt: number): ActionLogEntry {
   return {
