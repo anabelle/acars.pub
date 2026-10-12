@@ -62,6 +62,7 @@ import {
   TICK_DURATION,
   TICKS_PER_HOUR,
   TICKS_PER_MONTH,
+  unrankedOffer,
   worldEventDemandMultiplier,
   worldEventFeesMultiplier,
 } from "@acars/core";
@@ -69,6 +70,7 @@ import type { HubClassification } from "@acars/data";
 import { getAircraftById, getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
 import { buildConnectionService, legKey } from "./connections.js";
 import { advanceLineAircraft, type LineEngineContext, type OfferLookup } from "./lineEngine.js";
+import { isRankedAirline } from "./rank.js";
 import { weatherAt } from "./weather.js";
 
 /** Module-level O(1) airport lookup — avoids O(N) airports.find() on every
@@ -758,17 +760,29 @@ export function routesInForce(routes: Route[], tick: number): Route[] {
     : routes;
 }
 
-/** Rivals' offers as they are in force at `tick` (S69). */
+/**
+ * Rivals' offers as they are in force at `tick` (S69), with unranked
+ * airlines' fares floored at the suggested fare (S72, anti-dumping).
+ */
 export function offersInForce(
   registry: ReadonlyMap<string, FlightOffer[]>,
   tick: number,
+  isRanked: (pubkey: string) => boolean = isRankedAirline,
 ): OfferLookup {
+  const seen = (offer: FlightOffer) =>
+    offer.distanceKm !== undefined && !isRanked(offer.airlinePubkey)
+      ? unrankedOffer(offer, offer.distanceKm)
+      : offer;
   return {
     get(key: string) {
       const offers = registry.get(key);
-      return offers?.some((offer) => offer.next && offer.next.effectiveTick <= tick)
-        ? offers.map((offer) => offerAt(offer, tick))
-        : offers;
+      if (!offers) return offers;
+      const due = offers.some((offer) => offer.next && offer.next.effectiveTick <= tick);
+      const floored = offers.some(
+        (offer) => offer.distanceKm !== undefined && !isRanked(offer.airlinePubkey),
+      );
+      if (!due && !floored) return offers;
+      return offers.map((offer) => offerAt(seen(offer), tick));
     },
   };
 }

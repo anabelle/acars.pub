@@ -190,6 +190,7 @@ export const buildRouteOffers = (
       stops: 0,
       serviceScore: 0.7,
       brandScore: airline.brandScore || 0.5,
+      distanceKm: route.distanceKm,
     };
     // Announced fares (S69) ride along; the engine applies them from their tick.
     // (Rival frequency here comes from their planes, so only fares are announced.)

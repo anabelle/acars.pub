@@ -5,6 +5,7 @@ export * from "./engine.js";
 export * from "./FlightEngine.js";
 export * from "./hooks.js";
 export * from "./lineEngine.js";
+export * from "./rank.js";
 export * from "./rivalRoutes.js";
 export * from "./routeCurves.js";
 export * from "./routeProjection.js";

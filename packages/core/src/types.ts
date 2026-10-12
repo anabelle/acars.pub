@@ -311,6 +311,8 @@ export interface FlightOffer {
   brandScore: number;
   /** An announced change (S69): what this offer becomes from `effectiveTick`. */
   next?: RouteChange;
+  /** The route's length (S72): sets the anti-dumping floor for unranked airlines. */
+  distanceKm?: number;
 }
 
 export type PassengerClass = "economy" | "business" | "first";
