@@ -1422,5 +1422,13 @@
     "announce": "Announce for tomorrow",
     "announcedToast": "Announced for 00:00 UTC tomorrow",
     "rivalAnnounced": "From 00:00 UTC: E {{economy}}"
+  },
+  "bookings": {
+    "title": "Next departure {{time}} · bookings",
+    "sold": "{{booked}} of {{seats}} seats sold",
+    "toSell_one": "About {{count}} more expected before departure.",
+    "toSell_other": "About {{count}} more expected before departure.",
+    "toSellPremium_one": "About {{count}} more expected before departure, {{premium}} of them business or first: they book late.",
+    "toSellPremium_other": "About {{count}} more expected before departure, {{premium}} of them business or first: they book late."
   }
 }

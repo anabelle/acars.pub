@@ -9,6 +9,7 @@ import { getAirports } from "@acars/data";
 import {
   aircraftModelIndex,
   BOARDING_WINDOW_TICKS,
+  bookingsSoFar,
   type FlightRow,
   formatTickTime,
   getFlightSeed,
@@ -187,7 +188,7 @@ export function buildAirlineFlightBoardRows(
       familyId: model?.familyId,
       timeLabel: `${timeLabel} ${offsetLabel}`,
       timeSort: relevantTick,
-      loadFactor: aircraft.lastKnownLoadFactor,
+      ...bookingsSoFar(aircraft, relevantTick, tick),
     });
   }
 

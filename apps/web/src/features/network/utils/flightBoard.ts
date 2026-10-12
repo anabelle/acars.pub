@@ -1,6 +1,7 @@
 import {
   type AircraftInstance,
   type AirlineEntity,
+  bookedShare,
   GENESIS_TIME,
   TICK_DURATION,
   TICKS_PER_HOUR,
@@ -26,7 +27,25 @@ export type FlightRow = {
   timeLabel: string;
   timeSort: number;
   loadFactor?: number;
+  /** Still selling seats (S70): the load factor is bookings so far, climbing toward departure. */
+  filling?: boolean;
 };
+
+/**
+ * Bookings so far (S70): before a flight leaves, the expected load (its last
+ * known load factor) scaled by the booking curve; after, the load itself.
+ */
+export function bookingsSoFar(
+  aircraft: Pick<AircraftInstance, "status" | "lastKnownLoadFactor">,
+  departureTick: number,
+  tick: number,
+): Pick<FlightRow, "loadFactor" | "filling"> {
+  const expected = aircraft.lastKnownLoadFactor;
+  if (expected === undefined || aircraft.status === "enroute" || departureTick <= tick) {
+    return { loadFactor: expected, filling: false };
+  }
+  return { loadFactor: expected * bookedShare(departureTick - tick), filling: true };
+}
 
 type FlightBoardParams = {
   airportIata: string;
@@ -221,6 +240,7 @@ export function buildFlightBoardRows({
     const model = aircraftModelIndex.get(aircraft.modelId);
     const aircraftLabel = model ? model.name : aircraft.modelId;
     const status = getStatusLabel(aircraft, mode, tick);
+    const timeSort = getTimeSort(aircraft, mode, tick);
 
     rows.push({
       key: `${aircraft.id}-${mode}`,
@@ -235,8 +255,10 @@ export function buildFlightBoardRows({
       liveryImageUrl: aircraft.liveryImageUrl,
       familyId: model?.familyId,
       timeLabel: getTimeLabel(aircraft, mode, airportTimezone, tick),
-      timeSort: getTimeSort(aircraft, mode, tick),
-      loadFactor: aircraft.lastKnownLoadFactor,
+      timeSort,
+      ...(mode === "departures"
+        ? bookingsSoFar(aircraft, timeSort, tick)
+        : { loadFactor: aircraft.lastKnownLoadFactor }),
     });
   }
 

@@ -1422,5 +1422,13 @@
     "announce": "Anunciar para mañana",
     "announcedToast": "Anunciado para mañana a las 00:00 UTC",
     "rivalAnnounced": "Desde las 00:00 UTC: E {{economy}}"
+  },
+  "bookings": {
+    "title": "Próxima salida {{time}} · reservas",
+    "sold": "{{booked}} de {{seats}} asientos vendidos",
+    "toSell_one": "Se espera {{count}} más antes de la salida.",
+    "toSell_other": "Se esperan unos {{count}} más antes de la salida.",
+    "toSellPremium_one": "Se espera {{count}} más antes de la salida, {{premium}} en business o primera: reservan tarde.",
+    "toSellPremium_other": "Se esperan unos {{count}} más antes de la salida, {{premium}} en business o primera: reservan tarde."
   }
 }
