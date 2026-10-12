@@ -292,7 +292,7 @@ export function OpportunitiesList({
                         });
                       }}
                       disabled={!canOpenFromOrigin || !recommendedModel || launching !== null}
-                      className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-primary/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      className="flex shrink-0 items-center justify-center gap-2 whitespace-nowrap px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-primary/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
                       {launching === market.destination.iata ? (
                         <>
@@ -301,12 +301,9 @@ export function OpportunitiesList({
                         </>
                       ) : (
                         <>
-                          <PlaneTakeoff className="h-4 w-4" />
+                          <PlaneTakeoff className="h-4 w-4 shrink-0" />
                           {recommendedModel
-                            ? t("routeCard.launch", {
-                                ns: "game",
-                                model: modelLabel(recommendedModel),
-                              })
+                            ? t("routeManager.opportunities.launch", { ns: "game" })
                             : t("routeManager.opportunities.outOfRange", { ns: "game" })}
                         </>
                       )}

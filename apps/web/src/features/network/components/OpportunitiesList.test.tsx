@@ -118,7 +118,7 @@ describe("OpportunitiesList", () => {
   it("launches a route with its plane, asking once with the full cost", async () => {
     render(<OpportunitiesList {...props} markets={[market("NEAR"), market("FAR")]} />);
     const [near, far] = screen.getAllByTestId("opportunity-launch");
-    expect(near).toHaveTextContent("Launch route with ATR 72-600");
+    expect(near).toHaveTextContent("Launch route");
     expect(far).toBeDisabled();
     fireEvent.click(near);
     await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));

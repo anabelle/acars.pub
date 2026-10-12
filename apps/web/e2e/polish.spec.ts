@@ -25,7 +25,8 @@ test("a new player launches from the opportunities with a plane, and sees what i
 
   // The button launches a route with its plane, not a bare $100,000 route.
   const launch = page.getByTestId("opportunity-launch").first();
-  await expect(launch).toHaveText(/launch route with/i, { timeout: 30_000 });
+  await expect(launch).toHaveText(/launch route/i, { timeout: 30_000 });
+  await page.screenshot({ path: "test-results/polish-opportunities.png" });
   await launch.click();
   const confirm = page.getByRole("alertdialog");
   await expect(confirm).toContainText(/lease deposit/i);

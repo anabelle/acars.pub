@@ -1,7 +1,7 @@
 # S77 — Polish pass: play every main flow and fix what is broken or confusing
 
-> **Status:** ◐ in progress
-> **Next step:** S77.6 — the playtest as an e2e journey (desktop and phone), before/after screenshots, PR.
+> **Status:** ◑ in review
+> **Next step:** — (in review; after merge: mark merged, update STATUS)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -44,7 +44,7 @@ A scripted playtest (desktop 1440 and phone 390) played a new player end to end 
 - [x] **S77.3** Dialogs and buying: a confirm closes on navigation and never leaks; the aircraft order shows its price and closes when done; tests.
 - [x] **S77.4** Numbers that agree: one "today" (UTC day) in cockpit and footer; airlines counted once after reload; "—" load factor before the first landing; tests.
 - [x] **S77.5** Nags and copy: one key-backup prompt at a time; roadmap (alliances shipped); short registration; badges; tests.
-- [ ] **S77.6** The playtest as an e2e journey (desktop and phone), before/after screenshots, PR.
+- [x] **S77.6** The playtest as an e2e journey (desktop and phone), before/after screenshots, PR.
 
 ## Progress log
 
@@ -59,3 +59,5 @@ A scripted playtest (desktop 1440 and phone 390) played a new player end to end 
 2026-10-12 · S77.5 · (this commit) · **Nags and copy.** One key-backup prompt at a time: `backupCardVisibility` (a tiny external store) lets the standing banner step aside while the "Keep your airline" card is on screen. Landing: alliances move from the roadmap to the live features (six cards, two roadmap items). The fleet card's "Registry ID: AC-47DD468E-A80ET-2-0" becomes "Registration: AC-K7QDM" (`registrationFor`: FNV-1a of the id, 5 characters without I/O; the id stays in the tooltip). Sidebar: on the labelled bar the badge sits at the end of its own row instead of floating at the row's corner; the Rivals badge reads "#4" (a rank), not "4" (a count). Tests: banner +1, join +1, registration 2, NavBadge 2.
 
 2026-10-12 · S77.6 (part 1) · (this commit) · **Replayed the playtest on the fixes; two more root causes.** The replay showed "Airlines 2" still after a reload: `syncWorld` read the pubkey before awaiting the snapshots, and on a reload the identity loads while they are in flight. Fixed for every order: `withoutSelfAsRival` in the store's `set` middleware drops the player's pubkey from `competitors` and their offers from `globalRouteRegistry` on any write that leaves both known (O(1) when absent), and `syncWorld` reads the pubkey after the fetch. Proven by e2e: with the fix disabled the new reload test reads "2". Also: delivery events carry `destinationIata` (the base at delivery), so the cockpit says a plane joined the fleet where it was delivered, not wherever it is now. e2e: `polish.spec.ts` (launch from opportunities with a plane + confirm with the lease deposit + fleet duty + registration; a confirm closes on navigation; one airline after reload) and `mobile-polish.spec.ts`; `sharedRelay.published()`; `ticker-airlines` test id. Unit: store 328/328 (+4), web 736/736, all packages green under coverage.
+
+2026-10-12 · S77.6 (part 2) · (this commit) · **Shorter launch button, screenshots, e2e green.** Each opportunity's button reads "Launch route" (the card already names the plane: "with the De Havilland Dash 8-Q400, after lease"); the long model name wrapped it onto four lines at 1440. Before/after screenshots in `media/s77/`. e2e on the final build: polish (desktop 3, phone 2), today, first-hour, route-launch, route-card, fleet purchase, smoke, key backup, lines, plane panel, opportunity map, ticker, route assign, home briefing, ux audit, alliances, mobile layout — all green (alliances and plane-panel timed out once under 3 workers and passed alone; the "today" pair failed once only because a concurrent run cleared `test-results`, then passed).
