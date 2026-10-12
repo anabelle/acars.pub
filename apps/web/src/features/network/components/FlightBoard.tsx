@@ -3,9 +3,10 @@ import { PlaneLanding, PlaneTakeoff } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { buildFlightBoardRows, type FlightRow } from "@/features/network/utils/flightBoard";
-import { LiveryThumb } from "@/shared/components/LiveryThumb";
 import { getWorldFleetAtAirport } from "@/features/network/utils/worldFleetIndex";
-import { navigateToAirport, navigateToAircraft } from "@/shared/lib/permalinkNavigation";
+import { LiveryThumb } from "@/shared/components/LiveryThumb";
+import { navigateToAircraft, navigateToAirport } from "@/shared/lib/permalinkNavigation";
+import { BookingBar } from "./BookingBar";
 
 type FlightBoardProps = {
   airportIata: string;
@@ -55,9 +56,7 @@ function FidsRow({ flight }: { flight: FlightRow }) {
       <span className="text-slate-100 font-semibold text-right tabular-nums">
         {flight.timeLabel}
       </span>
-      <span className="text-slate-200 text-right tabular-nums text-[10px]">
-        {loadFactor !== null ? `${loadFactor}%` : "--"}
-      </span>
+      <BookingBar percent={loadFactor} />
     </div>
   );
 }

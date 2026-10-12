@@ -1321,5 +1321,9 @@
       "business": "Landed in time for the meeting, and I even slept.",
       "smooth": "Smooth flight, friendly crew, on time."
     }
+  },
+  "turnedAway": {
+    "title_one": "{{count}} person couldn't get a seat on your flights from {{iata}} in the last 24 h.",
+    "title_other": "{{count}} people couldn't get a seat on your flights from {{iata}} in the last 24 h."
   }
 }

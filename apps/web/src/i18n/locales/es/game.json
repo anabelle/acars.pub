@@ -1321,5 +1321,9 @@
       "business": "Llegué a tiempo a la reunión, y hasta dormí.",
       "smooth": "Vuelo tranquilo, tripulación amable, puntual."
     }
+  },
+  "turnedAway": {
+    "title_one": "{{count}} persona no consiguió asiento en tus vuelos desde {{iata}} en las últimas 24 h.",
+    "title_other": "{{count}} personas no consiguieron asiento en tus vuelos desde {{iata}} en las últimas 24 h."
   }
 }

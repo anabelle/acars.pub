@@ -1,7 +1,7 @@
 # S63 — Passengers visible: cabin, receipts, voices, turned away, booking bars
 
 > **Status:** ◐ in progress
-> **Next step:** S63.2
+> **Next step:** S63.3
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -26,7 +26,7 @@ Passengers stop being one vague number. A plane shows its cabin by class, filled
 ## Steps (checkpoints)
 
 - [x] **S63.1** Plane panel: `CabinStrip` (first / business / economy rows, filled vs empty, from the last landing or the last known load) and `LandingReceipt` (route, UTC time, tickets per class, ancillary, each cost line incl. handling and distribution, net) with an occasional voice. _Done when:_ unit tests (glyph scaling, receipt lines, voice determinism) + panel test.
-- [ ] **S63.2** Airports and boards: the airport panel shows people turned away from the player's departures there in the last 24 h (pictograms, "add seats"); departure boards show a booking bar per flight. _Done when:_ component tests.
+- [x] **S63.2** Airports and boards: the airport panel shows people turned away from the player's departures there in the last 24 h (pictograms, "add seats"); departure boards show a booking bar per flight. _Done when:_ component tests.
 - [ ] **S63.3** e2e (desktop and phone) + 1440/390 screenshots; PR.
 
 ## Acceptance criteria
@@ -49,3 +49,9 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - `passengerVoice`: about one landing in three (FNV hash of the event id, so every client hears the same), chosen from the flight's own numbers: full, roomy, first class, business, smooth.
 - `LastFlight` in the plane panel (own planes, under the logbook): the cabin strip (F magenta, J cyan, Y paint, empty seats grey) and a receipt printed on paint with dotted leaders, a red net when the flight lost money, and the voice signed with a deterministic seat ("— seat 14C").
 - Tests: helpers (scaling, overfill, empty classes, receipt lines, voice determinism and rarity), component, panel.
+
+2026-10-12 · S63.2 · (this commit) · **Turned away at airports; booking bars on boards.**
+
+- `turnedAwayAt` (one pass): the player's departures from an airport in the last 24 h — boarded, turned away (engine spill), by destination. `TurnedAwayHere` in the airport panel (own airline, only when someone stayed behind): count sentence, pictograms (boarded vs stayed behind), "→ BCN 20 · → LIS 8", "Add seats on this route".
+- `BookingBar` on both departure boards (airport and airline): percentage over a thin bar, green from 60 %, amber from 95 % (sold out), grey when thin.
+- Tests: helper, component (counts, breakdown, action, silent when nobody stayed behind); boards still green.
