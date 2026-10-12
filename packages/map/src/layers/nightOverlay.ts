@@ -1,6 +1,6 @@
 import type * as maplibregl from "maplibre-gl";
 import { getSubsolarPoint } from "@acars/core";
-import type { NightTint } from "../theme.js";
+import type { CityGlow, NightTint } from "../theme.js";
 
 export const NIGHT_CANVAS_W = 1024;
 export const NIGHT_CANVAS_H = 512;
@@ -52,6 +52,7 @@ export function paintNightCanvas(
   subsolarLat: number,
   subsolarLng: number,
   nightTint: NightTint,
+  lights?: { cities: readonly CityLight[]; glow: CityGlow },
 ): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -108,6 +109,103 @@ export function paintNightCanvas(
   }
 
   ctx.putImageData(imgData, 0, 0);
+  if (lights) paintCityLights(ctx, W, H, lights.cities, subsolarLat, subsolarLng, lights.glow);
+}
+
+/** A city on the night canvas (S76): canvas position (0–1) and brightness (0–1). */
+export interface CityLight {
+  x01: number;
+  y01: number;
+  lat: number;
+  lng: number;
+  weight: number;
+}
+
+type CitySource = {
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  population: number;
+};
+
+/**
+ * The cities that light up at night (S76): one light per city (its largest
+ * metro population), the `max` biggest, brightness on a log scale from 100k
+ * (dim) to 30M (brightest). Computed once per airport catalog.
+ */
+export function cityLights(airports: readonly CitySource[], max = 900): CityLight[] {
+  const byCity = new Map<string, CitySource>();
+  for (const airport of airports) {
+    if (!(airport.population > 0) || Math.abs(airport.latitude) > MERCATOR_MAX_LAT) continue;
+    const key = `${airport.country}|${airport.city}`;
+    const seen = byCity.get(key);
+    if (!seen || airport.population > seen.population) byCity.set(key, airport);
+  }
+  return [...byCity.values()]
+    .sort((a, b) => b.population - a.population || a.city.localeCompare(b.city))
+    .slice(0, max)
+    .map((a) => {
+      const latRad = a.latitude * DEG2RAD;
+      const y = (1 - Math.log(Math.tan(Math.PI / 4 + latRad / 2)) / Math.PI) / 2;
+      const weight = (Math.log10(a.population) - 5) / (Math.log10(30_000_000) - 5);
+      return {
+        x01: (a.longitude + 180) / 360,
+        y01: (y - _yTop) / (_yBot - _yTop),
+        lat: a.latitude,
+        lng: a.longitude,
+        weight: Math.min(1, Math.max(0.12, weight)),
+      };
+    });
+}
+
+/**
+ * How dark it is at a point, 0 (sun up) to 1 (night): lights switch on
+ * through twilight, from the sun 2° below the horizon to 10° below.
+ */
+export function nightFactor(
+  lat: number,
+  lng: number,
+  subsolarLat: number,
+  subsolarLng: number,
+): number {
+  const cosD =
+    Math.sin(lat * DEG2RAD) * Math.sin(subsolarLat * DEG2RAD) +
+    Math.cos(lat * DEG2RAD) *
+      Math.cos(subsolarLat * DEG2RAD) *
+      Math.cos((lng - subsolarLng) * DEG2RAD);
+  const dist = Math.acos(Math.min(1, Math.max(-1, cosD))) / DEG2RAD;
+  const t = Math.min(1, Math.max(0, (dist - 92) / 8));
+  return t * t * (3 - 2 * t);
+}
+
+function paintCityLights(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  cities: readonly CityLight[],
+  subsolarLat: number,
+  subsolarLng: number,
+  glow: CityGlow,
+): void {
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for (const city of cities) {
+    const dark = nightFactor(city.lat, city.lng, subsolarLat, subsolarLng);
+    if (dark <= 0) continue;
+    const r = 0.9 + 2.6 * city.weight;
+    const alpha = glow.maxAlpha * dark * (0.35 + 0.65 * city.weight);
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+    gradient.addColorStop(0, `rgba(${glow.r},${glow.g},${glow.b},${alpha.toFixed(3)})`);
+    gradient.addColorStop(0.35, `rgba(${glow.r},${glow.g},${glow.b},${(alpha * 0.45).toFixed(3)})`);
+    gradient.addColorStop(1, `rgba(${glow.r},${glow.g},${glow.b},0)`);
+    // The canvas spans a Mercator square at 2:1, so a canvas pixel is twice
+    // as tall as it is wide: squash the glow vertically to keep it round.
+    ctx.setTransform(1, 0, 0, H / W, city.x01 * W, city.y01 * H);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(-r, -r, r * 2, r * 2);
+  }
+  ctx.restore();
 }
 
 export const NIGHT_CANVAS_SOURCE = "night-canvas";
@@ -118,7 +216,11 @@ export const NIGHT_CANVAS_LAYER = "night-canvas-layer";
  * terminator and the raster layer that draws it. Returns the canvas so the
  * caller can repaint it as the sun moves.
  */
-export function addNightOverlay(map: maplibregl.Map, nightTint: NightTint): HTMLCanvasElement {
+export function addNightOverlay(
+  map: maplibregl.Map,
+  nightTint: NightTint,
+  lights?: { cities: readonly CityLight[]; glow: CityGlow },
+): HTMLCanvasElement {
   // --- Night canvas source (smooth solar gradient) ---
   const nightCanvas = document.createElement("canvas");
   nightCanvas.width = NIGHT_CANVAS_W;
@@ -126,16 +228,19 @@ export function addNightOverlay(map: maplibregl.Map, nightTint: NightTint): HTML
 
   // Paint immediately
   const sun = getSubsolarPoint(new Date());
-  paintNightCanvas(nightCanvas, sun.lat, sun.lng, nightTint);
+  paintNightCanvas(nightCanvas, sun.lat, sun.lng, nightTint, lights);
 
   map.addSource(NIGHT_CANVAS_SOURCE, {
     type: "canvas",
     canvas: nightCanvas,
+    // Corners: top-left, top-right, bottom-right, bottom-left. (Before S76 the
+    // last corner repeated the top-left, folding the quad into a triangle, so
+    // half the night side was never drawn.)
     coordinates: [
-      [-180, 85.051129],
-      [180, 85.051129],
-      [180, -85.051129],
-      [-180, 85.051129],
+      [-180, MERCATOR_MAX_LAT],
+      [180, MERCATOR_MAX_LAT],
+      [180, -MERCATOR_MAX_LAT],
+      [-180, -MERCATOR_MAX_LAT],
     ],
     // Static texture: animate:true made maplibre repaint every frame and
     // re-upload the 1024x512 RGBA texture (~2 MB) at 60fps even though the

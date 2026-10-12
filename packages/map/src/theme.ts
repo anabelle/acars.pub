@@ -13,8 +13,17 @@ export type NightTint = {
   maxAlpha: number;
 };
 
+/** Warm city lights on the night side (S76): colour and peak opacity. */
+export type CityGlow = {
+  r: number;
+  g: number;
+  b: number;
+  maxAlpha: number;
+};
+
 export type MapPalette = {
   nightTint: NightTint;
+  cityGlow: CityGlow;
   routes: {
     global: string;
     active: string;
@@ -59,6 +68,7 @@ export const DARK_MAP_PALETTE: MapPalette = {
     b: 28,
     maxAlpha: 0.38,
   },
+  cityGlow: { r: 255, g: 196, b: 120, maxAlpha: 0.9 },
   routes: {
     global: "#475569",
     active: "#e94560",
@@ -94,6 +104,7 @@ export const EARTH_MAP_PALETTE: MapPalette = {
     b: 43,
     maxAlpha: 0.24,
   },
+  cityGlow: { r: 255, g: 186, b: 96, maxAlpha: 0.7 },
   routes: {
     global: "#4f7894",
     active: "#0ea5e9",
