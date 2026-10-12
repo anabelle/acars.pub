@@ -1,4 +1,4 @@
-import { TICKS_PER_DAY, TICKS_PER_HOUR } from "./types.js";
+import { GENESIS_TIME, TICK_DURATION, TICKS_PER_DAY, TICKS_PER_HOUR } from "./types.js";
 
 /**
  * Lines of flying (S66, D9): a plane flies a daily chain of legs instead of
@@ -10,6 +10,29 @@ import { TICKS_PER_DAY, TICKS_PER_HOUR } from "./types.js";
  */
 
 const TICKS_PER_MINUTE = TICKS_PER_HOUR / 60;
+
+/**
+ * Ticks from UTC midnight to tick 0: the genesis is not at midnight
+ * (2025-02-23 18:00Z), so a UTC day starts this many ticks before a multiple
+ * of TICKS_PER_DAY.
+ */
+export const UTC_MIDNIGHT_OFFSET_TICKS =
+  ((GENESIS_TIME % 86_400_000) / TICK_DURATION) % TICKS_PER_DAY;
+
+/** The UTC day a tick falls in (day 0 is the genesis' UTC day). */
+export function utcDayOf(tick: number): number {
+  return Math.floor((tick + UTC_MIDNIGHT_OFFSET_TICKS) / TICKS_PER_DAY);
+}
+
+/** The tick of 00:00 UTC on a UTC day. */
+export function utcDayStartTick(day: number): number {
+  return day * TICKS_PER_DAY - UTC_MIDNIGHT_OFFSET_TICKS;
+}
+
+/** Ticks since 00:00 UTC for a tick. */
+export function utcTimeOfDayTicks(tick: number): number {
+  return tick - utcDayStartTick(utcDayOf(tick));
+}
 
 /** Within this much of schedule a flight counts as on time (industry: 15 min). */
 export const ON_TIME_TICKS = 15 * TICKS_PER_MINUTE;
@@ -129,7 +152,7 @@ export interface LineFlight {
 export function lineDay(line: LineOfFlying, aircraftId: string, day: number): LineFlight[] {
   const { legs } = line;
   if (legs.length === 0 || day < firstLineDay(line)) return [];
-  const dayStart = day * TICKS_PER_DAY;
+  const dayStart = utcDayStartTick(day);
   const nextFirst = dayStart + TICKS_PER_DAY + legs[0].departOffsetTicks;
   // Latest departure for each leg so the remaining legs still fit before nextFirst.
   const latest: number[] = new Array(legs.length);
@@ -163,7 +186,7 @@ export function lineDay(line: LineOfFlying, aircraftId: string, day: number): Li
 /** The first UTC day the line is flown. */
 export function firstLineDay(line: LineOfFlying): number {
   const off = line.legs[0]?.departOffsetTicks ?? 0;
-  return Math.ceil((line.startTick - off) / TICKS_PER_DAY);
+  return Math.ceil((line.startTick + UTC_MIDNIGHT_OFFSET_TICKS - off) / TICKS_PER_DAY);
 }
 
 export interface LinePhase {
@@ -182,7 +205,7 @@ export interface LinePhase {
  * landing, or waiting on the ground for its next departure. O(legs).
  */
 export function linePhaseAt(line: LineOfFlying, aircraftId: string, tick: number): LinePhase {
-  const today = Math.floor(tick / TICKS_PER_DAY);
+  const today = utcDayOf(tick);
   const flights = [
     ...lineDay(line, aircraftId, today - 1),
     ...lineDay(line, aircraftId, today),
@@ -243,8 +266,8 @@ export function lineLandingsBetween(
   if (toTick <= fromTick || line.legs.length === 0) return [];
   // Only the last days that can hold `max` landings matter.
   const daysNeeded = Math.ceil(max / line.legs.length) + 2;
-  const lastDay = Math.floor(toTick / TICKS_PER_DAY);
-  const firstDay = Math.max(Math.floor(fromTick / TICKS_PER_DAY) - 1, lastDay - daysNeeded);
+  const lastDay = utcDayOf(toTick);
+  const firstDay = Math.max(utcDayOf(fromTick) - 1, lastDay - daysNeeded);
   const landings: LineFlight[] = [];
   for (let day = firstDay; day <= lastDay; day++) {
     for (const flight of lineDay(line, aircraftId, day)) {
@@ -264,8 +287,8 @@ export function lineDeparturesBetween(
 ): LineFlight[] {
   if (toTick <= fromTick || line.legs.length === 0) return [];
   const daysNeeded = Math.ceil(max / line.legs.length) + 2;
-  const lastDay = Math.floor(toTick / TICKS_PER_DAY);
-  const firstDay = Math.max(Math.floor(fromTick / TICKS_PER_DAY) - 1, lastDay - daysNeeded);
+  const lastDay = utcDayOf(toTick);
+  const firstDay = Math.max(utcDayOf(fromTick) - 1, lastDay - daysNeeded);
   const departures: LineFlight[] = [];
   for (let day = firstDay; day <= lastDay; day++) {
     for (const flight of lineDay(line, aircraftId, day)) {
@@ -289,8 +312,8 @@ export function lineLandingCount(
 ): number[] {
   const counts = new Array(line.legs.length).fill(0);
   if (toTick <= fromTick || line.legs.length === 0) return counts;
-  const fromDay = Math.floor(fromTick / TICKS_PER_DAY) - 1;
-  const toDay = Math.floor(toTick / TICKS_PER_DAY);
+  const fromDay = utcDayOf(fromTick) - 1;
+  const toDay = utcDayOf(toTick);
   const edge = (day: number) => {
     for (const flight of lineDay(line, aircraftId, day)) {
       if (flight.arrivalTick > fromTick && flight.arrivalTick <= toTick) {

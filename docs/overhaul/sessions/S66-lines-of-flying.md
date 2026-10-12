@@ -1,7 +1,7 @@
 # S66 — Lines of flying, buffers, knock-on delays
 
-> **Status:** ◐ in progress
-> **Next step:** S66.5 — e2e (desktop and phone), screenshots, PR
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge the PR)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -31,13 +31,13 @@ A plane flies a daily line of several legs — MAD→BCN→LIS→MAD→BCN→MAD
 - [x] **S66.2** Store: `AIRCRAFT_LINE_SET` action (validate: own plane, routes active and in range, line starts at the plane's base), reducer, engine (live and reconcile) flying lines with per-leg economics; route frequency/assignment from lines. _Done when:_ engine tests (live = catch-up, landings and money per leg, delays).
 - [x] **S66.3** UI: the plane's 24-hour board (legs on a day strip, buffers, on-time %), build a line from the plane's routes, auto-fill.
 - [x] **S66.4** On-time performance: per plane and airline (last 7 days), ACARS shows delays.
-- [ ] **S66.5** e2e (desktop and phone) + screenshots; PR.
+- [x] **S66.5** e2e (desktop and phone) + screenshots; PR.
 
 ## Acceptance criteria
 
-- [ ] A player can give a plane a line of 2+ legs over different routes and see it fly them, every day, with UTC times.
-- [ ] Delays appear, are absorbed by buffers, and knock on when they are not; the same on every client.
-- [ ] Planes without a line behave exactly as before; perf probes and full e2e green.
+- [x] A player can give a plane a line of 2+ legs over different routes and see it fly them, every day, with UTC times.
+- [x] Delays appear, are absorbed by buffers, and knock on when they are not; the same on every client.
+- [x] Planes without a line behave exactly as before; perf probes and full e2e green.
 
 ## Progress log
 
@@ -65,3 +65,9 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - Tests: `linePlan` (options, plan/buffers/errors, default departure, auto-fill valid, draft from line, helpers), `LineSection` (invite → auto-fill → save; leg by leg until home; existing line on the board). Web feature suites 437/437.
 
 2026-10-12 · S66.4 · (this commit) · **On time, or not.** `onTimePerformance` (one pass: scheduled flights that left within 15 min, mean delay; null when nothing was scheduled). Today's summary adds "on time 75%" when line planes flew; the day plan shows "On time 82% of 34 flights · average delay 6 min · 7 days"; ACARS OUT messages carry "DLY 0:25" for departures 5+ min late. Tests: on-time (window, plane, threshold), Today, ACARS delay.
+
+2026-10-12 · S66.5 · (this commit) · **e2e and screenshots; S66 complete.**
+
+- **Fix found by the e2e:** tick 0 is 18:00 UTC (the genesis), so tick-days are not UTC days — lines planned for 06:00 would have flown at 15:00. Core now has `UTC_MIDNIGHT_OFFSET_TICKS`, `utcDayOf`, `utcDayStartTick`, `utcTimeOfDayTicks`; every line function works in real UTC days (test pins 2026-10-12T03:00Z = 03:00). The board's "now" uses it too; the engine's idle fast path counts line planes.
+- e2e `lines` (desktop) and `mobile-lines` (phone), clock at 03:00 UTC: launch MAD–BCN and MAD–LIS, plan the first plane's day with auto-fill (8 legs, buffers 33–35 min, back at 20:00Z), save, fly six hours: the panel shows the chain, the board with now, "On time 100% of 2 flights", and ACARS.
+- Screenshots: [`line-builder-1440`](../media/s66/line-builder-1440.png), [`line-builder-390`](../media/s66/line-builder-390.png), [`line-flying-1440`](../media/s66/line-flying-1440.png), [`line-flying-390`](../media/s66/line-flying-390.png).

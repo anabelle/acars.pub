@@ -222,7 +222,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       const ticksPerMonth = TICKS_PER_MONTH;
 
       const hasActiveRoutes = routes.some((route) => route.status === "active");
-      const hasAssignedRoutes = fleet.some((ac) => !!ac.assignedRouteId);
+      const hasAssignedRoutes = fleet.some((ac) => !!ac.assignedRouteId || !!ac.line?.legs.length);
       const hasNonIdleAircraft = fleet.some((ac) => ac.status !== "idle");
       const canFastPath = !hasActiveRoutes && !hasAssignedRoutes && !hasNonIdleAircraft;
 

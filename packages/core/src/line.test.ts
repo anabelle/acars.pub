@@ -8,9 +8,12 @@ import {
   lineLandingCount,
   lineLandingsBetween,
   linePhaseAt,
+  utcDayOf,
+  utcDayStartTick,
+  utcTimeOfDayTicks,
   validateLine,
 } from "./line.js";
-import { TICKS_PER_DAY, TICKS_PER_HOUR } from "./types.js";
+import { GENESIS_TIME, TICK_DURATION, TICKS_PER_DAY, TICKS_PER_HOUR } from "./types.js";
 
 const H = TICKS_PER_HOUR;
 const leg = (o: string, d: string, depH: number, durH = 1.5, turnMin = 40): LineLeg => ({
@@ -29,7 +32,21 @@ const legs = [
   leg("MAD", "BCN", 15),
   leg("BCN", "MAD", 17.5),
 ];
-const line: LineOfFlying = { legs, startTick: 100 * TICKS_PER_DAY };
+const line: LineOfFlying = { legs, startTick: utcDayStartTick(100) };
+
+describe("UTC days", () => {
+  it("map ticks to real UTC days (the genesis is at 18:00Z, not midnight)", () => {
+    const tick = (iso: string) => (Date.parse(iso) - GENESIS_TIME) / TICK_DURATION;
+    expect(utcTimeOfDayTicks(tick("2026-10-12T03:00:00Z"))).toBe(3 * H);
+    expect(utcTimeOfDayTicks(tick("2026-10-12T00:00:00Z"))).toBe(0);
+    expect(utcDayOf(tick("2026-10-12T23:59:57Z"))).toBe(utcDayOf(tick("2026-10-12T00:00:00Z")));
+    expect(utcDayStartTick(utcDayOf(tick("2026-10-12T15:00:00Z")))).toBe(
+      tick("2026-10-12T00:00:00Z"),
+    );
+    const [first] = lineDay(line, "a1", utcDayOf(tick("2026-10-12T12:00:00Z")));
+    expect(utcTimeOfDayTicks(first.scheduledDepartureTick)).toBe(7 * H);
+  });
+});
 
 describe("validateLine", () => {
   it("accepts a closed chain that fits the day", () => {
@@ -84,7 +101,7 @@ describe("lineDay", () => {
       startTick: 0,
     };
     expect(validateLine(tight.legs)).toBeNull();
-    for (let d = 0; d < 400; d++) {
+    for (let d = firstLineDay(tight); d < firstLineDay(tight) + 400; d++) {
       const [, back] = lineDay(tight, "x", d);
       const next = lineDay(tight, "x", d + 1)[0];
       expect(back.arrivalTick + back.leg.turnaroundTicks).toBeLessThanOrEqual(next.departureTick);
@@ -111,7 +128,7 @@ describe("linePhaseAt", () => {
       expect(waiting.status).toBe("idle");
       expect(waiting.next?.legIndex).toBe(1);
     }
-    const night = linePhaseAt(line, "a1", 102 * TICKS_PER_DAY + 23 * H);
+    const night = linePhaseAt(line, "a1", utcDayStartTick(102) + 23 * H);
     expect(night.status).toBe("idle");
     expect(night.airportIata).toBe("MAD");
   });

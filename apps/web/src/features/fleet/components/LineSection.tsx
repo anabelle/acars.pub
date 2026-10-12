@@ -1,5 +1,5 @@
 import type { AircraftInstance, TimelineEvent } from "@acars/core";
-import { TICKS_PER_DAY, TICKS_PER_HOUR } from "@acars/core";
+import { TICKS_PER_DAY, TICKS_PER_HOUR, utcTimeOfDayTicks } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -45,7 +45,7 @@ export function LineSection({ aircraft }: { aircraft: AircraftInstance }) {
           </p>
           <LineBoard
             legs={legs}
-            nowOffsetTicks={(minute * (TICKS_PER_HOUR / 60)) % TICKS_PER_DAY}
+            nowOffsetTicks={utcTimeOfDayTicks(minute * (TICKS_PER_HOUR / 60))}
           />
           {onTime ? (
             <p data-testid="line-on-time" className="font-mono text-[11px] text-muted-foreground">
