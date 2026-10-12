@@ -1,7 +1,7 @@
 # S74 — Social: delivery posts, rivalry notes, friends league
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge the PR)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #201)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #201 (with S68–S72)
 >
@@ -46,3 +46,5 @@ The proud moments travel: a new plane's livery reveal becomes a picture post tha
 2026-10-12 · S74.4 · (this commit) · **On screen.** e2e `social-posts.spec.ts` (1440) and `mobile-social-posts.spec.ts` (390): a Madrid airline launches MAD → BCN; the painting "uploads" to a stubbed Blossom (PUT returns a descriptor, GET serves the image), so the delivered plane has a public livery URL; the ceremony offers "Post the reveal", the preview shows the text and image, Post publishes to the fake relay ("Posted to Nostr"); on the leaderboard "People I follow" keeps the player's own airline (a fresh key follows nobody). `livery.ts` now exports `PAINTING_BYTES`. The rivalry announcement needs a rival on the route and is covered by unit tests. Screenshots: `media/s74/reveal-post-{1440,390}.png`, `media/s74/friends-league-{1440,390}.png`. Ships in #201 (same branch).
 
 2026-10-12 · S74 fix · (this commit) · The full coverage run caught an unhandled rejection from the new dialog test: its `@acars/nostr` mock lacked `ensureConnected`, which a store side effect imports. The mock is now partial (`importOriginal` plus overrides); web coverage run exits clean, 717/717.
+
+2026-10-12 · merged · — · Merged in #201 (with S68–S74).

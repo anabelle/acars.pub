@@ -1,7 +1,7 @@
 # S71 — Passenger groups (three light types)
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge the PR)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #201)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #201 (with S68–S70)
 >
@@ -39,3 +39,5 @@ Not every passenger is the same: holiday-makers chase price, families visiting r
 2026-10-12 · S71.3 · (this commit) · **Who flies, seen and heard.** `WhoFlies` on the route card (under the fares) and in the fare editor: "Who flies: 70% holiday-makers · 20% visiting family · 10% business." plus the tone ("Price-sensitive: a fare rise loses many." / "Middling on price." / "Forgiving on price: they pay for the seat."). Landing voices: an ordinary flight (not full, not empty, no premium cabin story) now speaks as one of the groups flying to its destination, picked by `groupAt` from a hash of the event id ("holiday", "family", "commute" lines). `destinationMix` falls back to the general mix until the airport catalog loads. i18n en/es `groups.*` and three voices. Tests: tones, voice groups, catalog fallback. Web 703/703.
 
 2026-10-12 · S71.4 · (this commit) · **On screen.** e2e `passenger-groups.spec.ts` (1440) and `mobile-passenger-groups.spec.ts` (390): a Madrid airline launches MAD → BCN; the route card shows "Who flies: …% holiday-makers · …% visiting family · …% business." with its tone, and the fare editor shows the same line (Barcelona is a business city: "Forgiving on price"). Screenshots: `media/s71/who-flies-{1440,390}.png`. Ships in #201 (same branch).
+
+2026-10-12 · merged · — · Merged in #201 (with S68–S74).
