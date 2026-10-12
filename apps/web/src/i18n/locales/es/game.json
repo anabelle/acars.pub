@@ -1320,7 +1320,10 @@
       "roomy": "Tuve una fila entera para mí. Una delicia.",
       "first": "Champán antes de despegar. Me podría acostumbrar.",
       "business": "Llegué a tiempo a la reunión, y hasta dormí.",
-      "smooth": "Vuelo tranquilo, tripulación amable, puntual."
+      "smooth": "Vuelo tranquilo, tripulación amable, puntual.",
+      "holiday": "En la playa a la hora de comer, y el billete dejó para el hotel.",
+      "family": "La abuela esperaba en llegadas con un cartel. Mereció la pena.",
+      "commute": "Ida y vuelta para una reunión. En turista basta."
     },
     "connecting_one": "{{count}} en conexión",
     "connecting_other": "{{count}} en conexión"
@@ -1430,5 +1433,18 @@
     "toSell_other": "Se esperan unos {{count}} más antes de la salida.",
     "toSellPremium_one": "Se espera {{count}} más antes de la salida, {{premium}} en business o primera: reservan tarde.",
     "toSellPremium_other": "Se esperan unos {{count}} más antes de la salida, {{premium}} en business o primera: reservan tarde."
+  },
+  "groups": {
+    "whoFlies": "Quién vuela: {{groups}}.",
+    "share": {
+      "leisure": "{{percent}}% de vacaciones",
+      "family": "{{percent}}% visitando familia",
+      "business": "{{percent}}% de negocios"
+    },
+    "tone": {
+      "sensitive": "Sensibles al precio: una subida espanta a muchos.",
+      "balanced": "Sensibilidad al precio media.",
+      "forgiving": "Poco sensibles al precio: pagan por el asiento."
+    }
   }
 }

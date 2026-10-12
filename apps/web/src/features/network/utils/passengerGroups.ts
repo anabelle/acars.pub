@@ -8,7 +8,12 @@ let airportByIata: Map<string, Airport> | null = null;
 /** Who flies to a destination (S71): its passenger group mix, by the airport's tag. */
 export function destinationMix(destinationIata: string): GroupMix {
   if (!airportByIata || airportByIata.size === 0) {
-    airportByIata = new Map(getAirports().map((airport) => [airport.iata, airport]));
+    try {
+      airportByIata = new Map(getAirports().map((airport) => [airport.iata, airport]));
+    } catch {
+      // Catalog still loading: everyone counts as the general mix until it arrives.
+      return groupMix(undefined);
+    }
   }
   return groupMix(airportByIata.get(destinationIata)?.tags?.[0]);
 }

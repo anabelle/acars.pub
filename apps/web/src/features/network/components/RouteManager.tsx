@@ -44,6 +44,7 @@ import {
 } from "@/features/network/components/OpportunitiesList";
 import { RouteFrequencyControl } from "@/features/network/components/RouteFrequencyControl";
 import { RivalAnnounced, TimetableAnnounced } from "@/features/network/components/TimetableNote";
+import { WhoFlies } from "@/features/network/components/WhoFlies";
 import { getRouteDemandSnapshotCached } from "@/features/network/hooks/useRouteDemand";
 import {
   getElasticityTone,
@@ -822,8 +823,9 @@ export function RouteManager() {
                                       F: {fpFormat(route.fareFirst, 0)}
                                     </span>
                                   </div>
-                                  <div className="mt-1 flex">
+                                  <div className="mt-1 flex flex-col gap-1">
                                     <TimetableAnnounced route={route} />
+                                    <WhoFlies destinationIata={route.destinationIata} />
                                   </div>
                                 </div>
                               </div>

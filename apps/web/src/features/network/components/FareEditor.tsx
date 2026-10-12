@@ -47,6 +47,7 @@ import { ModalPortal } from "@/shared/components/ModalPortal";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
 import { TimetableAnnounced, TimetableHint } from "./TimetableNote";
 import { WhatIfCurve } from "./WhatIfCurve";
+import { WhoFlies } from "./WhoFlies";
 
 export interface FareEditorTarget {
   routeId: string;
@@ -336,6 +337,7 @@ export function FareEditor({
             <div className="flex flex-col gap-1.5">
               {sourceRoute ? <TimetableAnnounced route={sourceRoute} /> : null}
               {fareTiming ? <TimetableHint timing={fareTiming} /> : null}
+              <WhoFlies destinationIata={fareEditor.destinationIata} />
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="rounded-xl border border-border/50 bg-background/60 p-4">

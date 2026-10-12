@@ -1320,7 +1320,10 @@
       "roomy": "I had a whole row to myself. Lovely.",
       "first": "Champagne before take-off. I could get used to this.",
       "business": "Landed in time for the meeting, and I even slept.",
-      "smooth": "Smooth flight, friendly crew, on time."
+      "smooth": "Smooth flight, friendly crew, on time.",
+      "holiday": "Beach by lunchtime, and the fare left money for the hotel.",
+      "family": "Grandma was at arrivals with a sign. Worth every minute.",
+      "commute": "Out and back for one meeting. Economy is fine for that."
     },
     "connecting_one": "{{count}} connecting",
     "connecting_other": "{{count}} connecting"
@@ -1430,5 +1433,18 @@
     "toSell_other": "About {{count}} more expected before departure.",
     "toSellPremium_one": "About {{count}} more expected before departure, {{premium}} of them business or first: they book late.",
     "toSellPremium_other": "About {{count}} more expected before departure, {{premium}} of them business or first: they book late."
+  },
+  "groups": {
+    "whoFlies": "Who flies: {{groups}}.",
+    "share": {
+      "leisure": "{{percent}}% holiday-makers",
+      "family": "{{percent}}% visiting family",
+      "business": "{{percent}}% business"
+    },
+    "tone": {
+      "sensitive": "Price-sensitive: a fare rise loses many.",
+      "balanced": "Middling on price.",
+      "forgiving": "Forgiving on price: they pay for the seat."
+    }
   }
 }
