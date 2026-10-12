@@ -1321,7 +1321,9 @@
       "first": "Champán antes de despegar. Me podría acostumbrar.",
       "business": "Llegué a tiempo a la reunión, y hasta dormí.",
       "smooth": "Vuelo tranquilo, tripulación amable, puntual."
-    }
+    },
+    "connecting_one": "{{count}} en conexión",
+    "connecting_other": "{{count}} en conexión"
   },
   "turnedAway": {
     "title_one": "{{count}} persona no consiguió asiento en tus vuelos desde {{iata}} en las últimas 24 h.",
@@ -1398,5 +1400,12 @@
       "unknown-aircraft": "Avión desconocido."
     },
     "onTime": "Puntual {{pct}}% de {{count}} vuelos · retraso medio {{minutes}} min · 7 días"
+  },
+  "connections": {
+    "title_one": "{{count}} persona al día conecta en {{iata}} en dos de tus vuelos.",
+    "title_other": "{{count}} personas al día conectan en {{iata}} en dos de tus vuelos.",
+    "perDay": "Conexiones / día",
+    "bank": "Sincronía del banco",
+    "tip": "Programa las llegadas a {{iata}} entre 45 min y 3 h antes de las salidas (Plan del día de un avión) para conectar más."
   }
 }

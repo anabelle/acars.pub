@@ -1321,7 +1321,9 @@
       "first": "Champagne before take-off. I could get used to this.",
       "business": "Landed in time for the meeting, and I even slept.",
       "smooth": "Smooth flight, friendly crew, on time."
-    }
+    },
+    "connecting_one": "{{count}} connecting",
+    "connecting_other": "{{count}} connecting"
   },
   "turnedAway": {
     "title_one": "{{count}} person couldn't get a seat on your flights from {{iata}} in the last 24 h.",
@@ -1398,5 +1400,12 @@
       "unknown-aircraft": "Unknown plane."
     },
     "onTime": "On time {{pct}}% of {{count}} flights · average delay {{minutes}} min · 7 days"
+  },
+  "connections": {
+    "title_one": "{{count}} person a day connects through {{iata}} on two of your flights.",
+    "title_other": "{{count}} people a day connect through {{iata}} on two of your flights.",
+    "perDay": "Connecting / day",
+    "bank": "Bank timing",
+    "tip": "Time arrivals into {{iata}} 45 min – 3 h before departures (a plane's Day plan) to connect more."
   }
 }
