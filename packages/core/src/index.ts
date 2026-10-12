@@ -21,6 +21,8 @@ export * from "./compression.js";
 export type { CycleFlightEvent, CyclePhase } from "./cycle.js";
 // Lines of flying (S66)
 export * from "./line.js";
+// Connecting passengers (S67)
+export * from "./connections.js";
 // Cycle
 export {
   countLandingsBetween,

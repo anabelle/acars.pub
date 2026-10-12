@@ -1,0 +1,35 @@
+# S67 — Hub banks and connecting passengers
+
+> **Status:** ◐ in progress
+> **Next step:** S67.2 — store: connection service per leg, added to the leg's demand; landings record connecting passengers
+> **Branch:** `claude/zen-darwin-3op878`
+> **PR:** #200 (with S66)
+>
+> **Track:** Decisions · **Size:** M (4 steps) · **Depends on:** D10 ✅ (2026-10-12), S66 · **Unblocks:** S73 alliances · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §6 Decisions
+
+> Resume rules: [`../STATUS.md`](../STATUS.md). One step = one commit, pushed immediately, with the progress log updated in the same commit.
+
+## Goal
+
+A hub earns more than the sum of its routes: people flying Lisbon→Berlin with no direct flight connect through your Madrid hub on two of your flights. A well-timed hub — arrivals followed by departures 45 minutes to 3 hours later, a bank — connects more of them; a detour connects fewer.
+
+## Design (Rule 3: never one passenger at a time)
+
+- For each airport H where the airline has two or more routes, and each pair of its routes A–H and H–B where it does not fly A–B direct: weekly connecting passengers = addressable A→B market × 15 % × detour factor (1 on the way, 0 at a 50 % detour) × bank quality (0.5 with random timings, up to 1 when every timed arrival has a departure 45 min – 3 h later, from lines of flying).
+- They join the weekly demand of both legs (A→H and H→B), like local passengers (same fares, same seats); landings record how many aboard were connecting.
+- Computed once per game hour per network (cached), O(routes at each hub²); nothing per passenger.
+
+## Steps (checkpoints)
+
+- [x] **S67.1** Core: `detourFactor`, `bankQuality`, `connectingDemand`. _Done when:_ unit tests.
+- [ ] **S67.2** Store: `buildConnectionService` (per directed leg, cached per hour), injected into a leg's demand in the live engine; landing details `connectingPassengers`. _Done when:_ engine tests (pairs, no double count with direct routes, bank timing raises it).
+- [ ] **S67.3** UI: the airport panel shows connections at your hub (people a day, best pairs, bank quality with a tip); the receipt and cabin say how many connected.
+- [ ] **S67.4** e2e + screenshots; PR.
+
+## Progress log
+
+Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · commit sha · note`.
+
+2026-10-12 · brief · (this commit) · Written after the owner's D10 "yes, after chains" and a read of the per-leg demand path (`computeFlightPassengers`: gravity → addressable → incumbent/QSI share → per-flight).
+
+2026-10-12 · S67.1 · (this commit) · **The connection maths, in core.** `connections.ts`: `detourFactor`, `bankQuality` (wraps midnight; 45 min–3 h window), `connectingDemand` (15 % × detour × quality of the addressable market). Tests.
