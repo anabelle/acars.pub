@@ -77,6 +77,8 @@ export interface AirlineState {
   updateRouteFrequency: (routeId: string, frequencyPerWeek: number) => Promise<void>;
   /** Lines of flying (S66): a daily chain of legs for a plane; empty clears it. */
   setAircraftLine: (aircraftId: string, legs: LineLegRequest[]) => Promise<string | null>;
+  /** Name alliance partners (S73); allied only with those who name you back. True when published. */
+  setAlliancePartners: (partners: string[]) => Promise<boolean>;
   /** Raises the route to its suggested weekly frequency (S58); never lowers it. */
   applySuggestedFrequency: (routeId: string) => Promise<number | null>;
   updateHub: (newHubIata: string) => Promise<void>;

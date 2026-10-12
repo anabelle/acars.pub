@@ -247,6 +247,8 @@ export interface AirlineEntity {
    * storage and snapshots with the rest of the airline.
    */
   objectives?: import("./objectives.js").ObjectiveLedger;
+  /** Airlines this one names as alliance partners (S73); allied only when they name it back. */
+  alliancePartners?: string[];
 }
 
 // --- Route ---
@@ -274,6 +276,18 @@ export interface Route {
   // Simulation
   status: "active" | "suspended";
   lastTickProcessed?: number;
+
+  /** Published timetable (S69): changes announced today, in force from `effectiveTick`. */
+  pending?: RouteChange;
+}
+
+/** Fares and frequency announced for a later tick (S69). Only changed fields are set. */
+export interface RouteChange {
+  effectiveTick: number;
+  fareEconomy?: FixedPoint;
+  fareBusiness?: FixedPoint;
+  fareFirst?: FixedPoint;
+  frequencyPerWeek?: number;
 }
 
 // --- Flight Offer (for QSI calculation) ---
@@ -297,6 +311,10 @@ export interface FlightOffer {
   serviceScore: number;
   /** Brand reputation 0.0–1.0 */
   brandScore: number;
+  /** An announced change (S69): what this offer becomes from `effectiveTick`. */
+  next?: RouteChange;
+  /** The route's length (S72): sets the anti-dumping floor for unranked airlines. */
+  distanceKm?: number;
 }
 
 export type PassengerClass = "economy" | "business" | "first";
@@ -393,6 +411,8 @@ export interface TimelineEvent {
     delayTicks?: number;
     /** Passengers aboard who were connecting through a hub (S67). */
     connectingPassengers?: number;
+    /** The part of the delay the origin's weather caused (S68). */
+    weatherDelayTicks?: number;
     revenue?: {
       tickets: FixedPoint;
       economy: FixedPoint;
@@ -457,6 +477,7 @@ export type GameActionType =
   | "ROUTE_UPDATE_FARES"
   | "ROUTE_UPDATE_FREQUENCY"
   | "AIRCRAFT_LINE_SET"
+  | "ALLIANCE_SET"
   | "AIRCRAFT_PURCHASE"
   | "AIRCRAFT_SELL"
   | "AIRCRAFT_BUYOUT"

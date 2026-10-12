@@ -66,3 +66,56 @@ describe("publishNote()", () => {
     await expect(publishNote({ content: "x", tags: [] })).rejects.toThrow("No signer");
   });
 });
+
+describe("social posts (S74)", () => {
+  it("builds a NIP-68 picture post for a livery reveal", async () => {
+    const { buildPictureNote } = await import("./notes.js");
+    const note = buildPictureNote({
+      title: "Meet Sabana",
+      text: " Our new ATR 72-600 is home at MAD. ",
+      imageUrl: "https://blossom.primal.net/livery.webp?x=1",
+      alt: "ATR 72-600 in E2E Air livery",
+      link: "https://acars.pub/airline/npub1x",
+    });
+    expect(note.kind).toBe(20);
+    expect(note.content).toBe(
+      "Our new ATR 72-600 is home at MAD.\n\nhttps://acars.pub/airline/npub1x\n\n#acars #aviation",
+    );
+    expect(note.tags).toEqual([
+      ["title", "Meet Sabana"],
+      [
+        "imeta",
+        "url https://blossom.primal.net/livery.webp?x=1",
+        "m image/webp",
+        "alt ATR 72-600 in E2E Air livery",
+      ],
+      ["t", "acars"],
+      ["t", "aviation"],
+      ["r", "https://acars.pub/airline/npub1x"],
+    ]);
+    const jpeg = buildPictureNote({
+      title: "",
+      text: "",
+      imageUrl: "https://x/a.JPG",
+      alt: "",
+      link: "l",
+    });
+    expect(jpeg.tags[1][2]).toBe("m image/jpeg");
+    const unknown = buildPictureNote({
+      title: "",
+      text: "",
+      imageUrl: "https://x/a",
+      alt: "",
+      link: "l",
+    });
+    expect(unknown.tags[1][2]).toBe("m image/png");
+  });
+
+  it("builds a rivalry note and publishes pictures as kind 20", async () => {
+    const { buildRivalryNote } = await import("./notes.js");
+    const note = buildRivalryNote({ text: "E2E Air enters Barcelona", link: "https://x" });
+    expect(note.content).toBe("E2E Air enters Barcelona\n\nhttps://x\n\n#acars #aviation");
+    await publishNote({ kind: 20, content: "pic", tags: [] });
+    expect(mock.state.published.at(-1)?.kind).toBe(20);
+  });
+});

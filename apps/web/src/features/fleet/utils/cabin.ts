@@ -1,5 +1,6 @@
 import type { FixedPoint, TimelineEvent } from "@acars/core";
-import { fp, fpAdd, fpSub } from "@acars/core";
+import { fp, fpAdd, fpSub, groupAt, type PassengerGroup } from "@acars/core";
+import { destinationMix } from "@/features/network/utils/passengerGroups";
 
 export type CabinClass = "first" | "business" | "economy";
 
@@ -88,7 +89,22 @@ export function landingReceipt(event: TimelineEvent): Receipt | null {
   return { income, costs: costLines, net: event.profit ?? fpSub(totalIncome, totalCost) };
 }
 
-export type VoiceKey = "full" | "roomy" | "first" | "business" | "smooth";
+export type VoiceKey =
+  | "full"
+  | "roomy"
+  | "first"
+  | "business"
+  | "smooth"
+  | "holiday"
+  | "family"
+  | "commute";
+
+/** The economy voice for each passenger group (S71). */
+const GROUP_VOICE: Record<PassengerGroup, VoiceKey> = {
+  leisure: "holiday",
+  family: "family",
+  business: "commute",
+};
 
 function hash(seed: string): number {
   let h = 0x811c9dc5;
@@ -102,7 +118,8 @@ function hash(seed: string): number {
 /**
  * Now and then (about one landing in three) a passenger says something about
  * the flight, chosen from the flight's own numbers and seeded by the event id:
- * every client hears the same voice. Null when this landing stays quiet.
+ * every client hears the same voice. On an ordinary flight the speaker is one
+ * of the passenger groups that fly there (S71). Null when this landing stays quiet.
  */
 export function passengerVoice(event: TimelineEvent): VoiceKey | null {
   if (hash(event.id) % 3 !== 0) return null;
@@ -113,5 +130,10 @@ export function passengerVoice(event: TimelineEvent): VoiceKey | null {
   if (load < 0.5) return "roomy";
   if (pax.first > 0) return "first";
   if (pax.business > 0 && pax.business >= pax.total * 0.15) return "business";
+  // Passenger groups (S71): an economy voice from who flies to this destination.
+  if (event.destinationIata) {
+    const seed = (hash(`${event.id}:group`) % 1000) / 1000;
+    return GROUP_VOICE[groupAt(destinationMix(event.destinationIata), seed)];
+  }
   return "smooth";
 }

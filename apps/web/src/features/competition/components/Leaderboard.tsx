@@ -1,23 +1,27 @@
 import type { AircraftInstance, AirlineEntity, FixedPoint, Route } from "@acars/core";
 import { fpFormat } from "@acars/core";
-import { useAirlineStore, useEngineStore } from "@acars/store";
+import { useAirlineStore, useEngineStore, useRankStore } from "@acars/store";
 import { Link } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDownRight, ArrowUpRight, ChevronDown, MapPin, Trophy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { airlineNpub as npubOf } from "@/features/airline/utils/airlineKey";
+import { AllyBadge } from "@/features/alliance/AllianceControl";
 import type {
   LeaderboardMetric,
   LeaderboardRow as LeaderboardRowData,
 } from "@/features/competition/leaderboardMetrics";
 import {
   buildLeaderboardRows,
+  rankedFirst,
   sortLeaderboardRows,
 } from "@/features/competition/leaderboardMetrics";
-import { airlineNpub as npubOf } from "@/features/airline/utils/airlineKey";
+import { GetRanked } from "@/features/rank/GetRanked";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
 import { useNostrProfile } from "@/shared/hooks/useNostrProfile";
 import { cn } from "@/shared/lib/utils";
+import { useFollows } from "../useFollows";
 
 const metricMeta: Record<
   LeaderboardMetric,
@@ -181,6 +185,7 @@ function LeaderboardRow({
   value: number | FixedPoint;
   onView: (pubkey: string) => void;
 }) {
+  const ranked = useRankStore((s) => (s.loaded ? s.ranked.has(row.ceoPubkey) : null));
   const { t } = useTranslation("game");
   const profile = useNostrProfile(row.ceoPubkey);
   const npub = profile.npub;
@@ -231,6 +236,20 @@ function LeaderboardRow({
             {isOwn && (
               <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase text-primary">
                 {t("leaderboard.yourAirline")}
+              </span>
+            )}
+            <AllyBadge pubkey={row.ceoPubkey} />
+            {ranked !== null && (
+              <span
+                data-testid={ranked ? "leaderboard-ranked" : "leaderboard-unranked"}
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase",
+                  ranked
+                    ? "bg-emerald-500/10 text-emerald-300"
+                    : "bg-muted/40 text-muted-foreground",
+                )}
+              >
+                {ranked ? t("rank.badge") : t("rank.unrankedBadge")}
               </span>
             )}
           </div>
@@ -355,10 +374,35 @@ export function Leaderboard() {
     [fleetByOwner, routesByOwner],
   );
 
-  const rows = useMemo(
-    () => getLeaderboardRows(competitors, airline, aircraftById, routeById, currentTick, metric),
-    [competitors, airline, aircraftById, routeById, currentTick, metric],
-  );
+  // Ranked entry (S72): ranked airlines first, each part in the metric's order.
+  const rankedSet = useRankStore((s) => s.ranked);
+  const rankLoaded = useRankStore((s) => s.loaded);
+  // Friends league (S74): just the airlines of the people you follow, and yours.
+  const pubkey = useAirlineStore((s) => s.pubkey);
+  const [league, setLeague] = useState<"everyone" | "following">("everyone");
+  const follows = useFollows(pubkey, league === "following");
+  const rows = useMemo(() => {
+    const all = rankedFirst(
+      getLeaderboardRows(competitors, airline, aircraftById, routeById, currentTick, metric),
+      rankLoaded ? (key) => rankedSet.has(key) : null,
+    );
+    if (league === "everyone") return all;
+    if (!follows) return [];
+    return all.filter((row) => row.ceoPubkey === pubkey || follows.has(row.ceoPubkey));
+  }, [
+    competitors,
+    airline,
+    aircraftById,
+    routeById,
+    currentTick,
+    metric,
+    rankLoaded,
+    rankedSet,
+    league,
+    follows,
+    pubkey,
+  ]);
+  const loadingFollows = league === "following" && !follows;
 
   const ownId = airline?.id ?? null;
   const panelScrollRef = usePanelScrollRef();
@@ -379,6 +423,7 @@ export function Leaderboard() {
 
   return (
     <div className="flex w-full flex-col gap-3 sm:gap-4">
+      <GetRanked />
       <div className="rounded-2xl border border-border/50 bg-card/95 p-3 shadow-sm sm:p-4">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-primary/10 p-2">
@@ -409,12 +454,46 @@ export function Leaderboard() {
           </select>
           <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         </div>
+        <div
+          className="mt-3 flex gap-1 rounded-xl border border-border/60 bg-background/50 p-1"
+          role="group"
+          aria-label={t("leaderboard.league.label")}
+          data-testid="leaderboard-league"
+        >
+          {(["everyone", "following"] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={league === key}
+              onClick={() => setLeague(key)}
+              className={cn(
+                "flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold",
+                league === key ? "bg-primary/15 text-primary" : "text-muted-foreground",
+              )}
+            >
+              {t(`leaderboard.league.${key}`)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border/60 bg-background/40 px-4 py-8 text-center">
-          <p className="text-sm font-semibold text-foreground">{t("leaderboard.noAirlines")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t("leaderboard.noAirlinesDesc")}</p>
+        <div
+          data-testid="leaderboard-empty"
+          className="rounded-2xl border border-dashed border-border/60 bg-background/40 px-4 py-8 text-center"
+        >
+          {league === "following" ? (
+            <p className="text-sm font-semibold text-foreground">
+              {loadingFollows ? t("leaderboard.league.loading") : t("leaderboard.league.none")}
+            </p>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-foreground">{t("leaderboard.noAirlines")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t("leaderboard.noAirlinesDesc")}
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div ref={parentRef}>

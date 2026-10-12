@@ -3,10 +3,12 @@ import { lazy, Suspense, useState } from "react";
 import { AwayReport } from "@/features/airline/components/AwayReport";
 import { MilestoneCelebrations } from "@/features/airline/components/MilestoneCelebrations";
 import { DeliveryCeremony } from "@/features/fleet/components/DeliveryCeremony";
-import { SoundBridge } from "@/features/sound/SoundBridge";
 import { IdentityGate } from "@/features/identity/components/IdentityGate";
 import { PendingAssignmentsRunner } from "@/features/network/components/PendingAssignmentsRunner";
 import { Ticker } from "@/features/network/components/Ticker";
+import { RankBridge } from "@/features/rank/RankBridge";
+import { SoundBridge } from "@/features/sound/SoundBridge";
+import { WeatherBridge } from "@/features/weather/WeatherBridge";
 import { MOBILE_TOPBAR_PANEL_PADDING_CLASS } from "@/shared/components/layout/mobileLayout";
 import { MobileNav, Sidebar } from "@/shared/components/layout/Sidebar";
 import { Topbar } from "@/shared/components/layout/Topbar";
@@ -85,6 +87,8 @@ function RootLayout() {
       <MilestoneCelebrations />
       <DeliveryCeremony />
       <SoundBridge />
+      <WeatherBridge />
+      <RankBridge />
       <PendingAssignmentsRunner />
     </AppInitializer>
   );

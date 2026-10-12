@@ -56,7 +56,7 @@ function FidsRow({ flight }: { flight: FlightRow }) {
       <span className="text-slate-100 font-semibold text-right tabular-nums">
         {flight.timeLabel}
       </span>
-      <BookingBar percent={loadFactor} />
+      <BookingBar percent={loadFactor} filling={flight.filling} />
     </div>
   );
 }

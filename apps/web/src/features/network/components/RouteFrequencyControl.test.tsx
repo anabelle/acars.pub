@@ -36,6 +36,8 @@ const route: Route = {
   fareBusiness: fp(450),
   fareFirst: fp(800),
   status: "active",
+  // Opened today (tick 1000): changes apply now (S69).
+  openedAtTick: 1000,
 };
 const atr = { id: "a1", modelId: "atr72-600", assignedRouteId: "r1" };
 
@@ -129,5 +131,28 @@ describe("RouteFrequencyControl", () => {
       expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
     }
     expect(updateRouteFrequency).not.toHaveBeenCalled();
+  });
+
+  it("announces a published route's change for tomorrow and shows the announced schedule (S69)", () => {
+    storeState.fleet = [atr];
+    const published: Route = {
+      ...route,
+      openedAtTick: undefined,
+      pending: { effectiveTick: 99_999, frequencyPerWeek: 5 },
+    };
+    render(<RouteFrequencyControl route={published} />);
+    expect(screen.getByText("5/wk")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More round trips a week" }));
+    expect(screen.getByRole("button", { name: "Announce for tomorrow" })).toBeInTheDocument();
+    expect(screen.getByTestId("timetable-hint")).toHaveTextContent(/00:00 UTC tomorrow/);
+  });
+
+  it("flies extra round trips at once right after a plane joins (S69)", () => {
+    storeState.fleet = [{ ...atr, routeAssignedAtTick: 990 }];
+    const published: Route = { ...route, openedAtTick: undefined };
+    render(<RouteFrequencyControl route={published} />);
+    fireEvent.click(screen.getByRole("button", { name: "More round trips a week" }));
+    expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
+    expect(screen.getByTestId("timetable-hint")).toHaveTextContent(/start now/);
   });
 });

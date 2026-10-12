@@ -1,6 +1,7 @@
 import type { AircraftInstance, Airport, Route, WeeklyPax } from "@acars/core";
 import {
   bankQuality,
+  CODESHARE_SHARE,
   calculateDemand,
   connectingDemand,
   detourFactor,
@@ -22,6 +23,8 @@ export interface HubConnections {
   weekly: number;
   /** The biggest flows, A→B, weekly passengers (at most 5). */
   pairs: { originIata: string; destinationIata: string; weekly: number }[];
+  /** Passengers a week connecting here to or from allies' flights (S73), on our legs. */
+  codeshareWeekly: number;
 }
 
 export interface ConnectionService {
@@ -51,17 +54,11 @@ function add(map: Map<string, WeeklyPax>, key: string, pax: WeeklyPax) {
  * share of that market that connects (detour, bank quality), added to both
  * legs. Aggregate, never per passenger.
  */
-export function computeConnectionService(
-  routes: readonly Route[],
-  fleet: readonly Pick<AircraftInstance, "line">[],
-  tick: number,
-  airport: (iata: string) => Airport | undefined,
-): ConnectionService {
-  const active = routes.filter((route) => route.status === "active");
-  if (active.length < 2) return EMPTY;
+function networkOf(routes: readonly Route[]) {
   const spokes = new Map<string, Set<string>>();
   const direct = new Set<string>();
-  for (const route of active) {
+  for (const route of routes) {
+    if (route.status !== "active") continue;
     direct.add(legKey(route.originIata, route.destinationIata));
     direct.add(legKey(route.destinationIata, route.originIata));
     for (const [a, b] of [
@@ -73,6 +70,27 @@ export function computeConnectionService(
       spokes.set(a, set);
     }
   }
+  return { spokes, direct };
+}
+
+const scalePax = (pax: WeeklyPax, share: number): WeeklyPax => ({
+  economy: Math.round(pax.economy * share),
+  business: Math.round(pax.business * share),
+  first: Math.round(pax.first * share),
+});
+
+export function computeConnectionService(
+  routes: readonly Route[],
+  fleet: readonly Pick<AircraftInstance, "line">[],
+  tick: number,
+  airport: (iata: string) => Airport | undefined,
+  allyRoutes: readonly Route[] = [],
+): ConnectionService {
+  const { spokes, direct } = networkOf(routes);
+  const ally = networkOf(allyRoutes);
+  const ownLegs = [...spokes.values()].reduce((n, set) => n + set.size, 0) / 2;
+  if (ownLegs < 2 && ally.spokes.size === 0) return EMPTY;
+  if (ownLegs < 1) return EMPTY;
 
   // Timed arrivals and departures per airport, from lines of flying.
   const arrivals = new Map<string, number[]>();
@@ -126,7 +144,57 @@ export function computeConnectionService(
     }
     if (weekly > 0) {
       pairs.sort((a, b) => b.weekly - a.weekly || a.originIata.localeCompare(b.originIata));
-      hubs.set(hubIata, { hubIata, quality, weekly, pairs: pairs.slice(0, 5) });
+      hubs.set(hubIata, { hubIata, quality, weekly, pairs: pairs.slice(0, 5), codeshareWeekly: 0 });
+    }
+  }
+
+  // Codeshares (S73): where our route meets an ally's, passengers connect
+  // across both; we carry our leg of each, at the codeshare share.
+  const ends = (iatas: Iterable<string>) =>
+    [...iatas]
+      .map((iata) => airport(iata))
+      .filter((a): a is Airport => Boolean(a))
+      .sort((a, b) => b.population - a.population || a.iata.localeCompare(b.iata))
+      .slice(0, MAX_SPOKES);
+  for (const [hubIata, allyPartners] of ally.spokes) {
+    const mine = spokes.get(hubIata);
+    if (!mine) continue;
+    const hub = airport(hubIata);
+    if (!hub) continue;
+    const ours = ends(mine);
+    const theirs = ends([...allyPartners].filter((iata) => !mine.has(iata)));
+    if (theirs.length === 0) continue;
+    const quality = bankQuality(arrivals.get(hubIata) ?? [], departures.get(hubIata) ?? []);
+    let codeshareWeekly = 0;
+    const connect = (from: Airport, to: Airport, ourLeg: string) => {
+      if (from.iata === to.iata) return;
+      const pair = legKey(from.iata, to.iata);
+      if (direct.has(pair) || ally.direct.has(pair)) return;
+      const detour = detourFactor(km(from, to), km(from, hub), km(hub, to));
+      if (detour <= 0) return;
+      const market = scaleToAddressableMarket(
+        calculateDemand(from, to, getSeason(to.latitude, date), prosperity),
+      );
+      const pax = scalePax(connectingDemand(market, detour, quality), CODESHARE_SHARE);
+      const total = pax.economy + pax.business + pax.first;
+      if (total <= 0) return;
+      add(byLeg, ourLeg, pax);
+      codeshareWeekly += total;
+    };
+    for (const from of ours) {
+      for (const to of theirs) {
+        connect(from, to, legKey(from.iata, hubIata));
+        connect(to, from, legKey(hubIata, from.iata));
+      }
+    }
+    if (codeshareWeekly > 0) {
+      const existing = hubs.get(hubIata);
+      hubs.set(
+        hubIata,
+        existing
+          ? { ...existing, codeshareWeekly }
+          : { hubIata, quality, weekly: 0, pairs: [], codeshareWeekly },
+      );
     }
   }
   return { byLeg, hubs };
@@ -143,18 +211,23 @@ export function buildConnectionService(
   fleet: readonly Pick<AircraftInstance, "line">[],
   tick: number,
   airport: (iata: string) => Airport | undefined,
+  allyRoutes: readonly Route[] = [],
 ): ConnectionService {
   const hour = Math.floor(tick / TICKS_PER_HOUR);
   let signature = `${hour}|`;
   for (const route of routes) {
     signature += `${route.id}:${route.status}:${route.originIata}-${route.destinationIata};`;
   }
+  signature += "|allies|";
+  for (const route of allyRoutes) {
+    signature += `${route.status}:${route.originIata}-${route.destinationIata};`;
+  }
   for (const plane of fleet) {
     for (const leg of plane.line?.legs ?? [])
       signature += `${leg.routeId}@${leg.departOffsetTicks},`;
   }
   if (cache?.key === signature) return cache.service;
-  const service = computeConnectionService(routes, fleet, tick, airport);
+  const service = computeConnectionService(routes, fleet, tick, airport, allyRoutes);
   cache = { key: signature, service };
   return service;
 }

@@ -43,3 +43,22 @@ export async function flyingAirline(
   const later = page.getByRole("button", { name: /not now/i });
   if (await later.isVisible().catch(() => false)) await later.click();
 }
+
+/**
+ * A Madrid airline whose MAD → BCN route opened yesterday (S69): launched at
+ * 23:30 UTC, then the clock runs past midnight, so the route is on sale and
+ * fare or frequency changes wait for the next 00:00 UTC. Needs `MADRID_PLAYER`.
+ */
+export async function publishedRoute(page: Page): Promise<void> {
+  await page.clock.install({ time: new Date("2026-10-12T23:30:00Z") });
+  await stubLivery(page);
+  await createAirline(page);
+  await launchRoute(page, "BCN");
+  for (let step = 0; step < 3; step++) {
+    await page.clock.fastForward("00:15:00");
+    await page.waitForTimeout(400);
+    await continuePastDelivery(page);
+  }
+  const later = page.getByRole("button", { name: /not now/i });
+  if (await later.isVisible().catch(() => false)) await later.click();
+}

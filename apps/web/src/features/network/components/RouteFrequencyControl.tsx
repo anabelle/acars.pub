@@ -4,15 +4,19 @@ import {
   MAX_ROUTE_FREQUENCY_PER_WEEK,
   MIN_ROUTE_FREQUENCY_PER_WEEK,
   maxWeeklyFrequency,
+  routeAt,
+  scheduleChangeTiming,
+  TICKS_PER_HOUR,
 } from "@acars/core";
 import { getAircraftById } from "@acars/data";
-import { useAirlineStore } from "@acars/store";
+import { lastJoinTickOn, useAirlineStore, useEngineStore } from "@acars/store";
 import { Minus, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useFrequencyCurve } from "../hooks/useFrequencyCurve";
 import { RouteUtilization } from "./RouteUtilization";
+import { TimetableHint } from "./TimetableNote";
 import { WhatIfCurve } from "./WhatIfCurve";
 
 type Props = {
@@ -24,12 +28,17 @@ type Props = {
  * capped by what the assigned aircraft can physically fly. Steps locally and
  * publishes one action on "Apply". Shows how long each plane flies a day and
  * offers the suggested frequency in one tap when planes sit idle (S58).
+ * On a published route the change is announced for 00:00 UTC (S69).
  */
 export function RouteFrequencyControl({ route }: Props) {
   const { t } = useTranslation(["game"]);
   const fleet = useAirlineStore((s) => s.fleet);
   const updateRouteFrequency = useAirlineStore((s) => s.updateRouteFrequency);
-  const current = route.frequencyPerWeek ?? 7;
+  // What the player has asked for: today's schedule, or the one announced (S69).
+  const current = routeAt(route, Number.POSITIVE_INFINITY).frequencyPerWeek ?? 7;
+  const minuteTick = useEngineStore(
+    (s) => Math.floor(s.tick / (TICKS_PER_HOUR / 60)) * (TICKS_PER_HOUR / 60),
+  );
   const [draft, setDraft] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [whatIf, setWhatIf] = useState(false);
@@ -59,6 +68,19 @@ export function RouteFrequencyControl({ route }: Props) {
   );
   const flown = physicalMax === null ? 0 : Math.min(value, physicalMax);
   const legsPerDay = (flown * 2) / 7;
+  const changing = draft !== null && draft !== current;
+  const timing = useMemo(
+    () =>
+      changing
+        ? scheduleChangeTiming(
+            route,
+            { frequencyPerWeek: draft ?? current },
+            minuteTick,
+            lastJoinTickOn(route.assignedAircraftIds, new Map(fleet.map((ac) => [ac.id, ac]))),
+          )
+        : null,
+    [changing, current, draft, fleet, minuteTick, route],
+  );
   const step = (delta: number) =>
     setDraft(Math.min(upperBound, Math.max(MIN_ROUTE_FREQUENCY_PER_WEEK, value + delta)));
 
@@ -104,17 +126,20 @@ export function RouteFrequencyControl({ route }: Props) {
         >
           <Plus className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
-        {draft !== null && draft !== current ? (
+        {changing ? (
           <button
             type="button"
             onClick={apply}
             disabled={saving}
             className="ml-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground disabled:opacity-60"
           >
-            {t("routeManager.frequency.apply", { ns: "game" })}
+            {timing?.when === "tomorrow"
+              ? t("timetable.announce", { ns: "game" })
+              : t("routeManager.frequency.apply", { ns: "game" })}
           </button>
         ) : null}
       </div>
+      {timing ? <TimetableHint timing={timing} /> : null}
       <span className="mt-1 text-[11px] text-muted-foreground">
         {physicalMax === null
           ? t("routeManager.frequency.noAircraft", { ns: "game" })
@@ -124,7 +149,7 @@ export function RouteFrequencyControl({ route }: Props) {
               max: physicalMax,
             })}
       </span>
-      <RouteUtilization route={route} hideFlyMore={draft !== null && draft !== current} />
+      <RouteUtilization route={route} hideFlyMore={changing} />
       {physicalMax !== null ? (
         <button
           type="button"

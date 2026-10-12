@@ -6,10 +6,12 @@ import type {
   ObjectiveActivity,
   ObjectiveLedger,
   Route,
+  RouteChangeFields,
   TimelineEvent,
   TimelineEventType,
 } from "@acars/core";
 import {
+  applyRouteChange,
   calculateBookValue,
   computeActionChainHash,
   fp,
@@ -25,11 +27,13 @@ import {
   MAX_ROUTE_FREQUENCY_PER_WEEK,
   MIN_ROUTE_FREQUENCY_PER_WEEK,
   type ObjectiveAirportLookup,
+  parsePartners,
   pruneObjectiveLedger,
   REPLACEABLE_ACTION_TYPES,
   ROUTE_SLOT_FEE,
   SCRAP_RESALE_SHARE,
   sanitizeMaintenancePolicy,
+  scheduleChangeTiming,
   TICK_DURATION,
   TICKS_PER_HOUR,
   verifyObjectiveClaim,
@@ -37,6 +41,7 @@ import {
 import { getAircraftById, getAirports, whenDataCatalogReady } from "@acars/data";
 import { reconcileFleetToTick } from "./FlightEngine";
 import { buildLineLegs, describeLine, parseLineLegRequests } from "./lineEngine";
+import { lastJoinTickOn } from "./timetable";
 
 export interface ActionRecord {
   action: import("@acars/core").GameActionEnvelope;
@@ -1125,22 +1130,22 @@ export async function replayActionLog(params: {
         const route = routesById.get(routeId);
         if (!route || !faresPayload) break;
         const caps = fareCaps(route.distanceKm);
-        routesById.set(routeId, {
-          ...route,
-          fareEconomy:
-            faresPayload.economy != null
-              ? (clampFixedPoint(faresPayload.economy, fpZero, caps.economy) ?? route.fareEconomy)
-              : route.fareEconomy,
-          fareBusiness:
-            faresPayload.business != null
-              ? (clampFixedPoint(faresPayload.business, fpZero, caps.business) ??
-                route.fareBusiness)
-              : route.fareBusiness,
-          fareFirst:
-            faresPayload.first != null
-              ? (clampFixedPoint(faresPayload.first, fpZero, caps.first) ?? route.fareFirst)
-              : route.fareFirst,
-        });
+        const fareChange: RouteChangeFields = {};
+        if (faresPayload.economy != null) {
+          const fare = clampFixedPoint(faresPayload.economy, fpZero, caps.economy);
+          if (fare !== null) fareChange.fareEconomy = fare;
+        }
+        if (faresPayload.business != null) {
+          const fare = clampFixedPoint(faresPayload.business, fpZero, caps.business);
+          if (fare !== null) fareChange.fareBusiness = fare;
+        }
+        if (faresPayload.first != null) {
+          const fare = clampFixedPoint(faresPayload.first, fpZero, caps.first);
+          if (fare !== null) fareChange.fareFirst = fare;
+        }
+        // Published timetables (S69): on a route already on sale, fares change tomorrow.
+        const timing = scheduleChangeTiming(route, fareChange, actionTick);
+        routesById.set(routeId, applyRouteChange(route, fareChange, actionTick));
         updateLastTick(actionTick);
         // Counted even when the fares match: the store applies them before
         // publishing, so the local replay can't tell a change from a repeat.
@@ -1154,7 +1159,28 @@ export async function replayActionLog(params: {
           routeId,
           originIata: route.originIata,
           destinationIata: route.destinationIata,
-          description: `Updated fares for ${route.originIata} ↔ ${route.destinationIata}.`,
+          description:
+            timing.when === "tomorrow"
+              ? `Announced new fares for ${route.originIata} ↔ ${route.destinationIata} from 00:00 UTC tomorrow.`
+              : `Updated fares for ${route.originIata} ↔ ${route.destinationIata}.`,
+        });
+        break;
+      }
+      case "ALLIANCE_SET": {
+        // Alliances (S73): the partners this airline names; mutual names make an alliance.
+        const partners = parsePartners(payload.partners, pubkey);
+        if (!partners) break;
+        airline = { ...airline, alliancePartners: partners };
+        updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "route_change",
+          description:
+            partners.length > 0
+              ? `Alliance partners: ${partners.map((p) => `${p.slice(0, 8)}…`).join(", ")}.`
+              : "No alliance partners.",
         });
         break;
       }
@@ -1234,7 +1260,18 @@ export async function replayActionLog(params: {
           MAX_ROUTE_FREQUENCY_PER_WEEK,
         );
         if (!route || frequencyPerWeek === null) break;
-        routesById.set(routeId, { ...route, frequencyPerWeek });
+        // Published timetables (S69): tomorrow, unless a plane just joined and it's a rise.
+        const lastJoinTick = lastJoinTickOn(route.assignedAircraftIds, fleetById);
+        const frequencyTiming = scheduleChangeTiming(
+          route,
+          { frequencyPerWeek },
+          actionTick,
+          lastJoinTick,
+        );
+        routesById.set(
+          routeId,
+          applyRouteChange(route, { frequencyPerWeek }, actionTick, lastJoinTick),
+        );
         updateLastTick(actionTick);
         // Counted even when unchanged, like fares (optimistic store update).
         recordActivity({ type: "frequencyUpdated", tick: actionTick, routeId });
@@ -1246,7 +1283,10 @@ export async function replayActionLog(params: {
           routeId,
           originIata: route.originIata,
           destinationIata: route.destinationIata,
-          description: `${route.originIata} ↔ ${route.destinationIata} now flies ${frequencyPerWeek} round trips a week.`,
+          description:
+            frequencyTiming.when === "tomorrow"
+              ? `${route.originIata} ↔ ${route.destinationIata} flies ${frequencyPerWeek} round trips a week from 00:00 UTC tomorrow.`
+              : `${route.originIata} ↔ ${route.destinationIata} now flies ${frequencyPerWeek} round trips a week.`,
         });
         break;
       }

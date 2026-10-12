@@ -22,7 +22,14 @@
     "viewAs": "Ver Como",
     "pageTitle": "Clasificación",
     "pageSubtitle": "Posiciones multijugador a través del mundo activo.",
-    "airlinePage": "Página"
+    "airlinePage": "Página",
+    "league": {
+      "label": "A quién clasificar",
+      "everyone": "Todos",
+      "following": "Gente a la que sigo",
+      "loading": "Cargando a quién sigues…",
+      "none": "Nadie a quien sigues vuela todavía. Comparte tu aerolínea con ellos."
+    }
   },
   "flightBoard": {
     "flightInfo": "{{iata}} — Información de Vuelo",
@@ -1320,7 +1327,10 @@
       "roomy": "Tuve una fila entera para mí. Una delicia.",
       "first": "Champán antes de despegar. Me podría acostumbrar.",
       "business": "Llegué a tiempo a la reunión, y hasta dormí.",
-      "smooth": "Vuelo tranquilo, tripulación amable, puntual."
+      "smooth": "Vuelo tranquilo, tripulación amable, puntual.",
+      "holiday": "En la playa a la hora de comer, y el billete dejó para el hotel.",
+      "family": "La abuela esperaba en llegadas con un cartel. Mereció la pena.",
+      "commute": "Ida y vuelta para una reunión. En turista basta."
     },
     "connecting_one": "{{count}} en conexión",
     "connecting_other": "{{count}} en conexión"
@@ -1406,6 +1416,94 @@
     "title_other": "{{count}} personas al día quieren conectar en {{iata}} en dos de tus vuelos (si hay asientos).",
     "perDay": "Quieren conectar / día",
     "bank": "Sincronía del banco",
-    "tip": "Programa las llegadas a {{iata}} entre 45 min y 3 h antes de las salidas (Plan del día de un avión) para conectar más."
+    "tip": "Programa las llegadas a {{iata}} entre 45 min y 3 h antes de las salidas (Plan del día de un avión) para conectar más.",
+    "codeshare_one": "{{count}} persona al día conecta aquí con vuelos de tus aliados.",
+    "codeshare_other": "{{count}} personas al día conectan aquí con vuelos de tus aliados."
+  },
+  "weather": {
+    "title": "Tiempo ahora · METAR",
+    "delays": "Las salidas aquí van lentas: habrá retrasos.",
+    "marginal": "Marginal: posibles retrasos cortos.",
+    "clear": "Despejado: sin retrasos por meteo."
+  },
+  "timetable": {
+    "announced": "Desde las 00:00 UTC: {{changes}}",
+    "tomorrow": "Horario publicado: los cambios entran en vigor mañana a las 00:00 UTC, así los rivales los ven venir.",
+    "now": "Abierta hoy: los cambios se aplican ya.",
+    "newCapacity": "Avión nuevo en esta ruta: los vuelos extra empiezan ya.",
+    "announce": "Anunciar para mañana",
+    "announcedToast": "Anunciado para mañana a las 00:00 UTC",
+    "rivalAnnounced": "Desde las 00:00 UTC: E {{economy}}"
+  },
+  "bookings": {
+    "title": "Próxima salida {{time}} · reservas",
+    "sold": "{{booked}} de {{seats}} asientos vendidos",
+    "toSell_one": "Se espera {{count}} más antes de la salida.",
+    "toSell_other": "Se esperan unos {{count}} más antes de la salida.",
+    "toSellPremium_one": "Se espera {{count}} más antes de la salida, {{premium}} en business o primera: reservan tarde.",
+    "toSellPremium_other": "Se esperan unos {{count}} más antes de la salida, {{premium}} en business o primera: reservan tarde."
+  },
+  "groups": {
+    "whoFlies": "Quién vuela: {{groups}}.",
+    "share": {
+      "leisure": "{{percent}}% de vacaciones",
+      "family": "{{percent}}% visitando familia",
+      "business": "{{percent}}% de negocios"
+    },
+    "tone": {
+      "sensitive": "Sensibles al precio: una subida espanta a muchos.",
+      "balanced": "Sensibilidad al precio media.",
+      "forgiving": "Poco sensibles al precio: pagan por el asiento."
+    }
+  },
+  "rank": {
+    "title": "Entra en el ranking",
+    "why": "Unos segundos de trabajo del ordenador, una sola vez. Las aerolíneas con ranking aparecen en la clasificación y fijan precios libremente; las que no, no pueden bajar de la tarifa sugerida, así que nadie puede tirar precios contra ti con aerolíneas de usar y tirar.",
+    "start": "Entrar en el ranking (unos segundos)",
+    "mining_one": "Trabajando… {{tries}} intento",
+    "mining_other": "Trabajando… {{tries}} intentos",
+    "publishing": "Publicando tu prueba…",
+    "cancel": "Cancelar",
+    "failed": "No se pudo completar. Inténtalo de nuevo.",
+    "ranked": "Con ranking: tu aerolínea cuenta en la clasificación.",
+    "badge": "Ranking",
+    "unrankedBadge": "Sin ranking"
+  },
+  "socialPost": {
+    "intro": "Publicación pública en Nostr, con tu clave. No se envía nada hasta que pulses Publicar.",
+    "textLabel": "Texto",
+    "cancel": "Cancelar",
+    "post": "Publicar",
+    "posting": "Publicando…",
+    "posted": "Publicado en Nostr",
+    "failed": "No se pudo publicar",
+    "reveal": {
+      "button": "Publicar la presentación",
+      "title": "Publicar la presentación de la librea",
+      "text": "Os presentamos a {{name}}, nuestro nuevo {{type}}, ya en {{airport}}. #liveryreveal",
+      "alt": "{{type}} con la librea de {{airline}}"
+    },
+    "rivalry": {
+      "button": "Anuncia tu llegada",
+      "title": "Anuncia tu llegada",
+      "text": "{{airline}} llega a {{city}}: {{origin}} → {{destination}}. Os toca mover.",
+      "left_one": "Te queda {{count}} anuncio hoy",
+      "left_other": "Te quedan {{count}} anuncios hoy",
+      "none": "Tres anuncios al día: vuelve mañana."
+    }
+  },
+  "alliance": {
+    "status": {
+      "none": "Aliaos con ellos: donde vuestras rutas se cruzan, los pasajeros conectan entre ambas redes.",
+      "proposed": "Has propuesto una alianza. Empieza cuando la acepten.",
+      "invited": "Te han propuesto una alianza.",
+      "allied": "Aliados: los pasajeros conectan entre ambas redes donde vuestras rutas se cruzan."
+    },
+    "propose": "Proponer alianza",
+    "accept": "Aceptar la alianza",
+    "withdraw": "Retirar",
+    "leave": "Dejar la alianza",
+    "full": "Como mucho {{count}} socios: deja uno primero.",
+    "badge": "Aliado"
   }
 }

@@ -25,6 +25,7 @@ import {
   TICK_DURATION,
   TICKS_PER_HOUR,
   validateLine,
+  type WeatherLookup,
 } from "@acars/core";
 import { type ConnectionService, legKey } from "./connections.js";
 import {
@@ -99,14 +100,19 @@ export function parseLineLegRequests(value: unknown): LineLegRequest[] | null {
 }
 
 /** The engine context a live landing needs (the same as a route cycle's). */
+/** Rivals' offers per city pair (S69: as in force at the tick being flown). */
+export type OfferLookup = Pick<ReadonlyMap<string, FlightOffer[]>, "get">;
+
 export interface LineEngineContext {
   routeById: ReadonlyMap<string, Route>;
   airportTraffic: ReadonlyMap<string, number>;
   hubStates: ReadonlyMap<string, FlightEngineHubState>;
-  registry: ReadonlyMap<string, FlightOffer[]>;
+  registry: OfferLookup;
   lineService: ReadonlyMap<string, LineService>;
   /** Connecting passengers per leg (S67); absent in catch-up estimates. */
   connections?: ConnectionService;
+  /** Weather at airports (S68); calm when absent. */
+  weather?: WeatherLookup;
   playerPubkey: string;
   playerBrandScore: number;
   distanceLimitKm: number;
@@ -169,10 +175,10 @@ export function advanceLineAircraft(
   if (isGrounded(ac) && ON_GROUND.has(ac.status)) return result;
 
   const maxEvents = mode === "live" ? 50 : MAX_CATCHUP_EVENTS;
-  const landings = lineLandingsBetween(line, ac.id, fromTick, toTick, maxEvents);
+  const landings = lineLandingsBetween(line, ac.id, fromTick, toTick, maxEvents, ctx.weather);
 
   // Takeoffs in the span (newest few), so boards and the ticker see them.
-  const departed = lineDeparturesBetween(line, ac.id, fromTick, toTick, maxEvents);
+  const departed = lineDeparturesBetween(line, ac.id, fromTick, toTick, maxEvents, ctx.weather);
   for (const flight of departed) {
     result.events.push({
       id: `evt-takeoff-${ac.id}-${flight.departureTick}`,
@@ -252,6 +258,7 @@ export function advanceLineAircraft(
           routeId: route.id,
           flightDurationTicks: flight.leg.durationTicks,
           delayTicks: flight.delayTicks,
+          weatherDelayTicks: flight.weatherTicks || undefined,
           revenue: {
             tickets: rev.revenueTicket,
             economy: rev.revenueEconomy,
@@ -302,6 +309,7 @@ export function advanceLineAircraft(
           ...financials.details,
           flightDurationTicks: flight.leg.durationTicks,
           delayTicks: flight.delayTicks,
+          weatherDelayTicks: flight.weatherTicks || undefined,
         },
       };
     } else {
@@ -312,7 +320,10 @@ export function advanceLineAircraft(
 
   // A long absence: landings beyond the events kept are paid at the average.
   if (mode === "estimate" && landings.length > 0) {
-    const total = lineLandingCount(line, ac.id, fromTick, toTick).reduce((a, b) => a + b, 0);
+    const total = lineLandingCount(line, ac.id, fromTick, toTick, ctx.weather).reduce(
+      (a, b) => a + b,
+      0,
+    );
     const extra = total - landings.length;
     if (extra > 0) {
       const average = fpScale(sampled, 1 / landings.length);
@@ -326,7 +337,7 @@ export function advanceLineAircraft(
   }
 
   // Where the plane is now, from the line.
-  const phase = linePhaseAt(line, ac.id, toTick);
+  const phase = linePhaseAt(line, ac.id, toTick, ctx.weather);
   const before = `${ac.status}|${ac.baseAirportIata}|${ac.flight?.departureTick}`;
   ac.status = phase.status;
   if (phase.status === "enroute" && phase.flight) {

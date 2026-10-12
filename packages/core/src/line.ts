@@ -1,4 +1,8 @@
 import { GENESIS_TIME, TICK_DURATION, TICKS_PER_DAY, TICKS_PER_HOUR } from "./types.js";
+import { WEATHER_LAG_TICKS, type WeatherFactors, weatherDelayTicks } from "./weather.js";
+
+/** Weather at an airport for a moment (S68), or nothing when calm or unknown. */
+export type WeatherLookup = (iata: string, tick: number) => WeatherFactors | null | undefined;
 
 /**
  * Lines of flying (S66, D9): a plane flies a daily chain of legs instead of
@@ -141,6 +145,8 @@ export interface LineFlight {
   arrivalTick: number;
   /** Departure minus schedule. */
   delayTicks: number;
+  /** The part of this leg's own delay that its origin's weather caused (S68). */
+  weatherTicks: number;
 }
 
 /**
@@ -149,7 +155,12 @@ export interface LineFlight {
  * disruption — but never so late that the rest of the day cannot finish
  * before the next day's first departure. Empty before the line's first day.
  */
-export function lineDay(line: LineOfFlying, aircraftId: string, day: number): LineFlight[] {
+export function lineDay(
+  line: LineOfFlying,
+  aircraftId: string,
+  day: number,
+  weather?: WeatherLookup,
+): LineFlight[] {
   const { legs } = line;
   if (legs.length === 0 || day < firstLineDay(line)) return [];
   const dayStart = utcDayStartTick(day);
@@ -166,7 +177,11 @@ export function lineDay(line: LineOfFlying, aircraftId: string, day: number): Li
   for (let i = 0; i < legs.length; i++) {
     const leg = legs[i];
     const scheduled = dayStart + leg.departOffsetTicks;
-    const wanted = Math.max(scheduled, ready) + departureDisruptionTicks(aircraftId, day, i);
+    // Weather at the origin, from the report published before this departure (S68).
+    const wx = weather?.(leg.originIata, scheduled - WEATHER_LAG_TICKS);
+    const weatherTicks = wx ? weatherDelayTicks(wx, `${aircraftId}:${day}:${i}:wx`) : 0;
+    const wanted =
+      Math.max(scheduled, ready) + departureDisruptionTicks(aircraftId, day, i) + weatherTicks;
     const departureTick = Math.max(scheduled, Math.min(wanted, latest[i]));
     const arrivalTick = departureTick + leg.durationTicks;
     flights.push({
@@ -177,6 +192,7 @@ export function lineDay(line: LineOfFlying, aircraftId: string, day: number): Li
       departureTick,
       arrivalTick,
       delayTicks: departureTick - scheduled,
+      weatherTicks,
     });
     ready = arrivalTick + leg.turnaroundTicks;
   }
@@ -204,12 +220,17 @@ export interface LinePhase {
  * Where a plane on a line is at `tick`: in the air, turning around after a
  * landing, or waiting on the ground for its next departure. O(legs).
  */
-export function linePhaseAt(line: LineOfFlying, aircraftId: string, tick: number): LinePhase {
+export function linePhaseAt(
+  line: LineOfFlying,
+  aircraftId: string,
+  tick: number,
+  weather?: WeatherLookup,
+): LinePhase {
   const today = utcDayOf(tick);
   const flights = [
-    ...lineDay(line, aircraftId, today - 1),
-    ...lineDay(line, aircraftId, today),
-    ...lineDay(line, aircraftId, today + 1),
+    ...lineDay(line, aircraftId, today - 1, weather),
+    ...lineDay(line, aircraftId, today, weather),
+    ...lineDay(line, aircraftId, today + 1, weather),
   ];
   let last: LineFlight | null = null;
   for (const flight of flights) {
@@ -262,6 +283,7 @@ export function lineLandingsBetween(
   fromTick: number,
   toTick: number,
   max = 200,
+  weather?: WeatherLookup,
 ): LineFlight[] {
   if (toTick <= fromTick || line.legs.length === 0) return [];
   // Only the last days that can hold `max` landings matter.
@@ -270,7 +292,7 @@ export function lineLandingsBetween(
   const firstDay = Math.max(utcDayOf(fromTick) - 1, lastDay - daysNeeded);
   const landings: LineFlight[] = [];
   for (let day = firstDay; day <= lastDay; day++) {
-    for (const flight of lineDay(line, aircraftId, day)) {
+    for (const flight of lineDay(line, aircraftId, day, weather)) {
       if (flight.arrivalTick > fromTick && flight.arrivalTick <= toTick) landings.push(flight);
     }
   }
@@ -284,6 +306,7 @@ export function lineDeparturesBetween(
   fromTick: number,
   toTick: number,
   max = 200,
+  weather?: WeatherLookup,
 ): LineFlight[] {
   if (toTick <= fromTick || line.legs.length === 0) return [];
   const daysNeeded = Math.ceil(max / line.legs.length) + 2;
@@ -291,7 +314,7 @@ export function lineDeparturesBetween(
   const firstDay = Math.max(utcDayOf(fromTick) - 1, lastDay - daysNeeded);
   const departures: LineFlight[] = [];
   for (let day = firstDay; day <= lastDay; day++) {
-    for (const flight of lineDay(line, aircraftId, day)) {
+    for (const flight of lineDay(line, aircraftId, day, weather)) {
       if (flight.departureTick > fromTick && flight.departureTick <= toTick)
         departures.push(flight);
     }
@@ -309,13 +332,14 @@ export function lineLandingCount(
   aircraftId: string,
   fromTick: number,
   toTick: number,
+  weather?: WeatherLookup,
 ): number[] {
   const counts = new Array(line.legs.length).fill(0);
   if (toTick <= fromTick || line.legs.length === 0) return counts;
   const fromDay = utcDayOf(fromTick) - 1;
   const toDay = utcDayOf(toTick);
   const edge = (day: number) => {
-    for (const flight of lineDay(line, aircraftId, day)) {
+    for (const flight of lineDay(line, aircraftId, day, weather)) {
       if (flight.arrivalTick > fromTick && flight.arrivalTick <= toTick) {
         counts[flight.legIndex] += 1;
       }

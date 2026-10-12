@@ -18,7 +18,16 @@ const route = (id: string, o: string, d: string): Route =>
     fareFirst: fp(800),
     status: "active",
   }) as Route;
-const state = { routes: [route("r1", "MAD", "LIS"), route("r2", "MAD", "BCN")], fleet: [] };
+const ME = "a".repeat(64);
+const ALLY = "b".repeat(64);
+const state = {
+  routes: [route("r1", "MAD", "LIS"), route("r2", "MAD", "BCN")],
+  fleet: [],
+  pubkey: ME,
+  airline: { alliancePartners: [] as string[] },
+  competitors: new Map([[ALLY, { alliancePartners: [ME] }]]),
+  routesByOwner: new Map([[ALLY, [route("a1", "MAD", "CDG")]]]),
+};
 vi.mock("@acars/store", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@acars/store")>()),
   useAirlineStore: (selector: (s: typeof state) => unknown) => selector(state),
@@ -42,5 +51,24 @@ describe("HubConnections (S67)", () => {
   it("stays silent at an airport that is not a connecting hub", () => {
     render(<HubConnections iata="LIS" />);
     expect(screen.queryByTestId("hub-connections")).toBeNull();
+  });
+
+  it("counts people connecting to allies' flights once allied (S73)", () => {
+    render(<HubConnections iata="MAD" />);
+    expect(screen.queryByTestId("hub-codeshare")).toBeNull();
+    cleanup();
+    state.airline = { alliancePartners: [ALLY] };
+    render(<HubConnections iata="MAD" />);
+    expect(screen.getByTestId("hub-codeshare")).toHaveTextContent(
+      /connect here to your allies' flights/,
+    );
+    // A codeshare-only airport: our single route there meets an ally's.
+    cleanup();
+    state.routes = [route("r1", "MAD", "LIS")];
+    render(<HubConnections iata="MAD" />);
+    expect(screen.getByTestId("hub-codeshare")).toBeInTheDocument();
+    expect(screen.getByTestId("hub-connections")).not.toHaveTextContent(/connect through MAD/);
+    state.airline = { alliancePartners: [] };
+    state.routes = [route("r1", "MAD", "LIS"), route("r2", "MAD", "BCN")];
   });
 });

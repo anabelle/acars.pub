@@ -4,6 +4,7 @@ import { useAirlineStore, useEngineStore } from "@acars/store";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SocialPostDialog } from "@/features/share/SocialPostDialog";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 import { isCatchupBatch } from "@/shared/lib/catchupBatch";
 import { navigateToAircraft } from "@/shared/lib/permalinkNavigation";
@@ -71,17 +72,19 @@ function CeremonyDialog({
     aircraft.assignedRouteId ? s.routes.find((r) => r.id === aircraft.assignedRouteId) : undefined,
   );
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [posting, setPosting] = useState(false);
   const model = getAircraftById(aircraft.modelId);
   const type = model ? modelLabel(model.manufacturer, model.name) : aircraft.modelId;
 
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      // The post preview (S74) handles its own Escape.
+      if (event.key === "Escape" && !posting) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, posting]);
 
   return (
     <ModalPortal>
@@ -159,6 +162,16 @@ function CeremonyDialog({
               >
                 {t("delivery.open", { name: aircraft.name })} ▶
               </button>
+              {aircraft.liveryImageUrl ? (
+                <button
+                  type="button"
+                  data-testid="post-reveal"
+                  onClick={() => setPosting(true)}
+                  className="min-h-10 rounded-[3px] border border-sign-yellow/60 px-3 text-sm font-bold text-sign-yellow hover:bg-white/5"
+                >
+                  {t("socialPost.reveal.button")}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={onClose}
@@ -170,6 +183,28 @@ function CeremonyDialog({
           </div>
         </div>
       </div>
+      {posting && aircraft.liveryImageUrl ? (
+        <SocialPostDialog
+          testId="reveal-post-dialog"
+          title={t("socialPost.reveal.title")}
+          initialText={t("socialPost.reveal.text", {
+            name: aircraft.name,
+            type,
+            airport: aircraft.baseAirportIata,
+          })}
+          imageUrl={aircraft.liveryImageUrl}
+          build={async (text, link) =>
+            (await import("@acars/nostr")).buildPictureNote({
+              title: aircraft.name,
+              text,
+              imageUrl: aircraft.liveryImageUrl ?? "",
+              alt: t("socialPost.reveal.alt", { type, airline: airline?.name ?? "" }),
+              link,
+            })
+          }
+          onClose={() => setPosting(false)}
+        />
+      ) : null}
     </ModalPortal>
   );
 }

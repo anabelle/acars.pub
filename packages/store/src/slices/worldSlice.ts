@@ -142,7 +142,7 @@ const applyMonthlyCosts = (
  * offers. Shared by the full `syncWorld` pass and the incremental
  * `syncCompetitor` replay so both paths compute offers identically.
  */
-const buildRouteOffers = (
+export const buildRouteOffers = (
   registry: Map<string, FlightOffer[]>,
   airline: AirlineEntity,
   fleet: AircraftInstance[],
@@ -190,7 +190,24 @@ const buildRouteOffers = (
       stops: 0,
       serviceScore: 0.7,
       brandScore: airline.brandScore || 0.5,
+      distanceKm: route.distanceKm,
     };
+    // Announced fares (S69) ride along; the engine applies them from their tick.
+    // (Rival frequency here comes from their planes, so only fares are announced.)
+    const pending = route.pending;
+    if (
+      pending &&
+      (pending.fareEconomy !== undefined ||
+        pending.fareBusiness !== undefined ||
+        pending.fareFirst !== undefined)
+    ) {
+      offer.next = {
+        effectiveTick: pending.effectiveTick,
+        ...(pending.fareEconomy !== undefined ? { fareEconomy: pending.fareEconomy } : {}),
+        ...(pending.fareBusiness !== undefined ? { fareBusiness: pending.fareBusiness } : {}),
+        ...(pending.fareFirst !== undefined ? { fareFirst: pending.fareFirst } : {}),
+      };
+    }
 
     offers.push(offer);
     registry.set(key, offers);

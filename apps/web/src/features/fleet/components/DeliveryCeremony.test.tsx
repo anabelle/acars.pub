@@ -1,5 +1,5 @@
 import { useAirlineStore } from "@acars/store";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "@/i18n";
 import { DeliveryCeremony } from "./DeliveryCeremony";
@@ -22,19 +22,19 @@ const plane = (status: string, extra: Record<string, unknown> = {}) => ({
 });
 const route = { id: "r1", originIata: "PTY", destinationIata: "SJO" };
 
-function deliver(extraFleet: unknown[] = []) {
+function deliver(extraFleet: unknown[] = [], extra: Record<string, unknown> = {}) {
   act(() => {
     useAirlineStore.setState({
       airline: airline as never,
       routes: [route] as never,
-      fleet: [plane("delivery"), ...extraFleet] as never,
+      fleet: [plane("delivery", extra), ...extraFleet] as never,
     });
   });
   render(<DeliveryCeremony />);
   act(() => {
     useAirlineStore.setState({
       airline: { ...airline, lastTick: 101 } as never,
-      fleet: [plane("idle"), ...extraFleet] as never,
+      fleet: [plane("idle", extra), ...extraFleet] as never,
     });
   });
 }
@@ -73,5 +73,30 @@ describe("DeliveryCeremony (S61)", () => {
     render(<DeliveryCeremony />);
     act(() => useAirlineStore.setState({ fleet: [plane("idle")] as never }));
     expect(screen.queryByTestId("delivery-ceremony")).toBeNull();
+  });
+});
+
+describe("posting the reveal (S74)", () => {
+  it("offers a picture post only when the livery image is published, and posts nothing until asked", () => {
+    deliver();
+    expect(screen.queryByTestId("post-reveal")).toBeNull();
+    cleanup();
+    act(() => useAirlineStore.setState({ pubkey: "a".repeat(64) }));
+    deliver([], { liveryImageUrl: "https://blossom.example/quetzal.png" });
+    fireEvent.click(screen.getByTestId("post-reveal"));
+    const preview = screen.getByTestId("reveal-post-dialog");
+    expect(preview).toHaveTextContent("Post the livery reveal");
+    expect(screen.getByLabelText("Text")).toHaveValue(
+      "Meet Quetzal, our new ATR 72-600, home at PTY. #liveryreveal",
+    );
+    expect(screen.getByTestId("reveal-post-dialog-image")).toHaveAttribute(
+      "src",
+      "https://blossom.example/quetzal.png",
+    );
+    // Escape closes the preview, not the ceremony underneath.
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByTestId("delivery-ceremony")).toBeInTheDocument();
+    fireEvent.click(within(preview).getByText("Cancel"));
+    expect(screen.queryByTestId("reveal-post-dialog")).toBeNull();
   });
 });

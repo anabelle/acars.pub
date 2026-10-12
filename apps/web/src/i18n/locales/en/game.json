@@ -22,7 +22,14 @@
     "viewAs": "View As",
     "pageTitle": "Leaderboard",
     "pageSubtitle": "Multiplayer standings across the active world.",
-    "airlinePage": "Page"
+    "airlinePage": "Page",
+    "league": {
+      "label": "Who to rank",
+      "everyone": "Everyone",
+      "following": "People I follow",
+      "loading": "Loading who you follow…",
+      "none": "None of the people you follow fly yet. Share your airline with them."
+    }
   },
   "flightBoard": {
     "flightInfo": "{{iata}} — Flight Information",
@@ -1320,7 +1327,10 @@
       "roomy": "I had a whole row to myself. Lovely.",
       "first": "Champagne before take-off. I could get used to this.",
       "business": "Landed in time for the meeting, and I even slept.",
-      "smooth": "Smooth flight, friendly crew, on time."
+      "smooth": "Smooth flight, friendly crew, on time.",
+      "holiday": "Beach by lunchtime, and the fare left money for the hotel.",
+      "family": "Grandma was at arrivals with a sign. Worth every minute.",
+      "commute": "Out and back for one meeting. Economy is fine for that."
     },
     "connecting_one": "{{count}} connecting",
     "connecting_other": "{{count}} connecting"
@@ -1406,6 +1416,94 @@
     "title_other": "{{count}} people a day want to connect through {{iata}} on two of your flights (seats permitting).",
     "perDay": "Want to connect / day",
     "bank": "Bank timing",
-    "tip": "Time arrivals into {{iata}} 45 min – 3 h before departures (a plane's Day plan) to connect more."
+    "tip": "Time arrivals into {{iata}} 45 min – 3 h before departures (a plane's Day plan) to connect more.",
+    "codeshare_one": "{{count}} person a day connects here to your allies' flights.",
+    "codeshare_other": "{{count}} people a day connect here to your allies' flights."
+  },
+  "weather": {
+    "title": "Weather now · METAR",
+    "delays": "Departures here are slowed: expect delays.",
+    "marginal": "Marginal: short delays possible.",
+    "clear": "Clear: no weather delays."
+  },
+  "timetable": {
+    "announced": "From 00:00 UTC: {{changes}}",
+    "tomorrow": "Published timetable: changes take effect at 00:00 UTC tomorrow, so rivals see them coming.",
+    "now": "Opened today: changes apply now.",
+    "newCapacity": "New plane on this route: the extra flights start now.",
+    "announce": "Announce for tomorrow",
+    "announcedToast": "Announced for 00:00 UTC tomorrow",
+    "rivalAnnounced": "From 00:00 UTC: E {{economy}}"
+  },
+  "bookings": {
+    "title": "Next departure {{time}} · bookings",
+    "sold": "{{booked}} of {{seats}} seats sold",
+    "toSell_one": "About {{count}} more expected before departure.",
+    "toSell_other": "About {{count}} more expected before departure.",
+    "toSellPremium_one": "About {{count}} more expected before departure, {{premium}} of them business or first: they book late.",
+    "toSellPremium_other": "About {{count}} more expected before departure, {{premium}} of them business or first: they book late."
+  },
+  "groups": {
+    "whoFlies": "Who flies: {{groups}}.",
+    "share": {
+      "leisure": "{{percent}}% holiday-makers",
+      "family": "{{percent}}% visiting family",
+      "business": "{{percent}}% business"
+    },
+    "tone": {
+      "sensitive": "Price-sensitive: a fare rise loses many.",
+      "balanced": "Middling on price.",
+      "forgiving": "Forgiving on price: they pay for the seat."
+    }
+  },
+  "rank": {
+    "title": "Get ranked",
+    "why": "A few seconds of computer work, once. Ranked airlines appear in the ranking and price freely; unranked ones can't undercut the suggested fare, so throwaway airlines can't dump fares on you.",
+    "start": "Get ranked (a few seconds)",
+    "mining_one": "Working… {{tries}} try",
+    "mining_other": "Working… {{tries}} tries",
+    "publishing": "Publishing your proof…",
+    "cancel": "Cancel",
+    "failed": "That didn't go through. Try again.",
+    "ranked": "Ranked: your airline counts in the ranking.",
+    "badge": "Ranked",
+    "unrankedBadge": "Unranked"
+  },
+  "socialPost": {
+    "intro": "Public post on Nostr, from your key. Nothing is sent until you press Post.",
+    "textLabel": "Text",
+    "cancel": "Cancel",
+    "post": "Post",
+    "posting": "Posting…",
+    "posted": "Posted to Nostr",
+    "failed": "Couldn't post",
+    "reveal": {
+      "button": "Post the reveal",
+      "title": "Post the livery reveal",
+      "text": "Meet {{name}}, our new {{type}}, home at {{airport}}. #liveryreveal",
+      "alt": "{{type}} in {{airline}} livery"
+    },
+    "rivalry": {
+      "button": "Announce your entry",
+      "title": "Announce your entry",
+      "text": "{{airline}} enters {{city}}: {{origin}} → {{destination}}. Your move.",
+      "left_one": "{{count}} announcement left today",
+      "left_other": "{{count}} announcements left today",
+      "none": "Three announcements a day: come back tomorrow."
+    }
+  },
+  "alliance": {
+    "status": {
+      "none": "Ally with them: where your routes meet theirs, passengers connect across both networks.",
+      "proposed": "You proposed an alliance. It starts when they accept.",
+      "invited": "They proposed an alliance to you.",
+      "allied": "Allies: passengers connect across both networks where your routes meet."
+    },
+    "propose": "Propose an alliance",
+    "accept": "Accept the alliance",
+    "withdraw": "Withdraw",
+    "leave": "Leave the alliance",
+    "full": "At most {{count}} partners: leave one first.",
+    "badge": "Ally"
   }
 }
