@@ -1,7 +1,7 @@
 # S69 — Published timetables (changes take effect tomorrow)
 
 > **Status:** ◐ in progress
-> **Next step:** S69.2 — store: replay and optimistic slice defer changes; engine prices with `routeAt`/`offerAt`
+> **Next step:** S69.3 — web: fare editor and frequency control explain timing; badge; rivals' announced changes
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -27,7 +27,7 @@ Fares and schedules are published, like a real airline's: a change made today ta
 ## Steps (checkpoints)
 
 - [x] **S69.1** Core: `Route.pending`, `FlightOffer.next`, `nextUtcDayStartTick`, `routeAt`, `offerAt`, `scheduleChangeTiming` (now / tomorrow, with the reason), `mergePending`; tests.
-- [ ] **S69.2** Store: replay defers fares and frequency per the rule; optimistic slice does the same; engine and catch-up price with `routeAt`/`offerAt`; registry offers carry rivals' announced changes; pending promoted when due; tests (replay = optimistic, midnight switch).
+- [x] **S69.2** Store: replay defers fares and frequency per the rule; optimistic slice does the same; engine and catch-up price with `routeAt`/`offerAt`; registry offers carry rivals' announced changes; pending promoted when due; tests (replay = optimistic, midnight switch).
 - [ ] **S69.3** Web: fare editor and frequency control explain timing and show today's values; "changes tomorrow" badge; rivals' announced changes; i18n.
 - [ ] **S69.4** e2e (desktop and phone), screenshots, PR.
 
@@ -36,3 +36,10 @@ Fares and schedules are published, like a real airline's: a change made today ta
 2026-10-12 · brief · (this commit) · Written after the owner's D12 "next day" and a read of how fares and frequency flow from the replay (`ROUTE_UPDATE_FARES`/`ROUTE_UPDATE_FREQUENCY`) into the engine and the rivals' registry.
 
 2026-10-12 · S69.1 · (this commit) · **The rule, in core.** `timetable.ts`: `nextUtcDayStartTick`, `isPublished` (opened before today, UTC; routes without an open tick count as on sale), `routeAt`/`offerAt` (an announcement applies from its tick, only its fields), `scheduleChangeTiming` (now on a route opened today; now for a frequency rise within `JOIN_GRACE_TICKS` = 1 h after a plane joined; otherwise next 00:00 UTC), `applyRouteChange` (puts a due announcement in force first, merges same-day changes, drops fields set back to today's value, new capacity overrides an announced frequency). Types: `Route.pending`, `FlightOffer.next`, `RouteChange`. 14 tests; core 445/445, 100 % functions.
+
+2026-10-12 · S69.2 · (this commit) · **The rule, in the game.**
+
+- Replay: `ROUTE_UPDATE_FARES` and `ROUTE_UPDATE_FREQUENCY` go through `applyRouteChange` (the join tick comes from the route's planes, `lastJoinTickOn`); the timeline says "Announced new fares … from 00:00 UTC tomorrow" or "flies N round trips a week from 00:00 UTC tomorrow" when the change waits.
+- Store: `updateRouteFares`/`updateRouteFrequency` apply the same rule optimistically (a frequency equal to the one already announced is a no-op) and roll back the whole timetable (fares, frequency, announcement) when publishing fails. The engine slice puts due announcements in force each tick.
+- Engine: `processFlightEngine` and `reconcileFleetToTick` fly `routesInForce(routes, tick)`; rival offers come through `offersInForce(registry, tick)` (lines too: `LineEngineContext.registry` is an `OfferLookup`). Rivals' registry offers carry their announced fares as `next` (their frequency comes from their planes, so only fares ride along).
+- Tests: replay (same-day open is immediate, published route announces, a rise right after a join is immediate), engine lookups, `lastJoinTickOn`, slice (announce, immediate on a new route, no-op repeat, rollback, earlier announcement kept), engine slice promotion, rivals' offers. Store 311/311; web 682/682 unchanged.

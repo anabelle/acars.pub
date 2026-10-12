@@ -18,7 +18,7 @@ import type { StateCreator } from "zustand";
 import { publishActionWithChain } from "../actionChain";
 import { bootMark } from "../bootTrace";
 import { useEngineStore } from "../engine";
-import { processFlightEngine, reconcileFleetToTick } from "../FlightEngine";
+import { processFlightEngine, reconcileFleetToTick, routesInForce } from "../FlightEngine";
 import type { AirlineState } from "../types";
 import { AsyncMutex } from "../utils/asyncMutex";
 
@@ -187,6 +187,11 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
 
       // If we are already caught up, skip.
       if (lastTick >= tick) return;
+      // Published timetables (S69): put announced changes in force once due
+      // (the engine already prices with them; this keeps the routes current).
+      if (get().routes.some((route) => route.pending && route.pending.effectiveTick <= tick)) {
+        set((state) => ({ routes: routesInForce(state.routes, tick) }));
+      }
       // 2. Catch up simulation
       // Safety cap: Never simulate more than 50,000 ticks (~40 hours) in one frame
       // to avoid freezing the browser. If the jump is larger, we will catch up

@@ -100,11 +100,14 @@ export function parseLineLegRequests(value: unknown): LineLegRequest[] | null {
 }
 
 /** The engine context a live landing needs (the same as a route cycle's). */
+/** Rivals' offers per city pair (S69: as in force at the tick being flown). */
+export type OfferLookup = Pick<ReadonlyMap<string, FlightOffer[]>, "get">;
+
 export interface LineEngineContext {
   routeById: ReadonlyMap<string, Route>;
   airportTraffic: ReadonlyMap<string, number>;
   hubStates: ReadonlyMap<string, FlightEngineHubState>;
-  registry: ReadonlyMap<string, FlightOffer[]>;
+  registry: OfferLookup;
   lineService: ReadonlyMap<string, LineService>;
   /** Connecting passengers per leg (S67); absent in catch-up estimates. */
   connections?: ConnectionService;

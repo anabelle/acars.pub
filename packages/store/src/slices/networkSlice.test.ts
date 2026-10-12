@@ -740,3 +740,83 @@ describe("applySuggestedFrequency (S58)", () => {
     expect(state.routes[0].frequencyPerWeek).toBe(7);
   });
 });
+
+describe("published timetables (S69)", () => {
+  // No open tick: on sale since before today, so changes wait for 00:00 UTC.
+  const published = (): Route => ({ ...makeRoute("rt-1", "MAD", "BCN"), frequencyPerWeek: 7 });
+
+  it("announces fare changes for tomorrow instead of applying them", async () => {
+    const { state } = createSliceState({
+      airline: makeAirline(["MAD"]),
+      routes: [published()],
+      timeline: [] as TimelineEvent[],
+    });
+    await state.updateRouteFares("rt-1", { economy: 90000 as FixedPoint });
+    expect(state.routes[0].fareEconomy).toBe(100000);
+    expect(state.routes[0].pending?.fareEconomy).toBe(90000);
+    expect(state.routes[0].pending?.effectiveTick).toBeGreaterThan(100);
+  });
+
+  it("applies fares at once on a route opened today", async () => {
+    const { state } = createSliceState({
+      airline: makeAirline(["MAD"]),
+      routes: [{ ...published(), openedAtTick: 90 }],
+      timeline: [] as TimelineEvent[],
+    });
+    await state.updateRouteFares("rt-1", { economy: 90000 as FixedPoint });
+    expect(state.routes[0].fareEconomy).toBe(90000);
+    expect(state.routes[0].pending).toBeUndefined();
+  });
+
+  it("announces a frequency cut, and skips one already announced", async () => {
+    const { publishActionWithChain } = await import("../actionChain");
+    const { state } = createSliceState({
+      airline: makeAirline(["MAD"]),
+      routes: [published()],
+      timeline: [] as TimelineEvent[],
+    });
+    await state.updateRouteFrequency("rt-1", 3);
+    expect(state.routes[0].frequencyPerWeek).toBe(7);
+    expect(state.routes[0].pending?.frequencyPerWeek).toBe(3);
+    const calls = vi.mocked(publishActionWithChain).mock.calls.length;
+    await state.updateRouteFrequency("rt-1", 3);
+    expect(vi.mocked(publishActionWithChain).mock.calls.length).toBe(calls);
+  });
+
+  it("rolls the announcement back when publishing fails", async () => {
+    const { publishActionWithChain } = await import("../actionChain");
+    const { state } = createSliceState({
+      airline: makeAirline(["MAD"]),
+      routes: [published()],
+      timeline: [] as TimelineEvent[],
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(publishActionWithChain).mockRejectedValueOnce(new Error("offline"));
+    await state.updateRouteFrequency("rt-1", 3);
+    expect(state.routes[0].pending).toBeUndefined();
+    expect(state.routes[0].frequencyPerWeek).toBe(7);
+    vi.mocked(publishActionWithChain).mockRejectedValueOnce(new Error("offline"));
+    await state.updateRouteFares("rt-1", { economy: 90000 as FixedPoint });
+    expect(state.routes[0].pending).toBeUndefined();
+    expect(state.routes[0].fareEconomy).toBe(100000);
+    error.mockRestore();
+  });
+
+  it("keeps an earlier announcement when a later change fails", async () => {
+    const { publishActionWithChain } = await import("../actionChain");
+    const { state } = createSliceState({
+      airline: makeAirline(["MAD"]),
+      routes: [published()],
+      timeline: [] as TimelineEvent[],
+    });
+    await state.updateRouteFares("rt-1", { economy: 90000 as FixedPoint });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(publishActionWithChain).mockRejectedValueOnce(new Error("offline"));
+    await state.updateRouteFrequency("rt-1", 3);
+    expect(state.routes[0].pending).toEqual({
+      effectiveTick: state.routes[0].pending?.effectiveTick,
+      fareEconomy: 90000,
+    });
+    error.mockRestore();
+  });
+});

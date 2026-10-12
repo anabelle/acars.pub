@@ -39,14 +39,18 @@ afterEach(async () => {
   await flushAsync();
 });
 
-vi.mock("../FlightEngine", () => ({
-  processFlightEngine: vi.fn(),
-  reconcileFleetToTick: vi.fn((fleet: AircraftInstance[]) => ({
-    fleet,
-    balanceDelta: 0,
-    events: [],
-  })),
-}));
+vi.mock("../FlightEngine", async () => {
+  const { routeAt } = await import("@acars/core");
+  return {
+    processFlightEngine: vi.fn(),
+    routesInForce: (routes: Route[], tick: number) => routes.map((route) => routeAt(route, tick)),
+    reconcileFleetToTick: vi.fn((fleet: AircraftInstance[]) => ({
+      fleet,
+      balanceDelta: 0,
+      events: [],
+    })),
+  };
+});
 
 vi.mock("@acars/nostr", () => ({
   publishAction: vi.fn(() =>
@@ -603,5 +607,22 @@ describe("TICK_UPDATE publish cadence", () => {
     const publishedAction = vi.mocked(publishAction).mock.calls[0][0];
     expect(publishedAction.action).toBe("TICK_UPDATE");
     expect(publishedAction.payload.corporateBalance).toBe(updatedBalance);
+  });
+});
+
+describe("published timetables (S69)", () => {
+  it("puts an announced change in force once its tick passes", async () => {
+    const airline = makeAirline(999_990);
+    const route = {
+      ...makeRoute("rt-1", 400),
+      status: "suspended" as const,
+      pending: { effectiveTick: 999_995, fareEconomy: 450 as FixedPoint },
+    };
+    const later = { ...makeRoute("rt-2", 400), pending: { effectiveTick: 2_000_000 } };
+    const { state } = createSliceState({ airline, fleet: [], routes: [route, later] });
+    await state.processTick(1_000_000);
+    expect(state.routes[0].fareEconomy).toBe(450);
+    expect(state.routes[0].pending).toBeUndefined();
+    expect(state.routes[1].pending).toEqual({ effectiveTick: 2_000_000 });
   });
 });

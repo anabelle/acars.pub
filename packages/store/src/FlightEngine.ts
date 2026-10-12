@@ -49,9 +49,11 @@ import {
   maintenanceCost,
   NATURAL_LF_CEILING,
   needsAutoMaintenance,
+  offerAt,
   PRICE_ELASTICITY_BUSINESS,
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
+  routeAt,
   scaleToAddressableMarket,
   scheduledRoundTripTicks,
   scheduledWeeklyFrequency,
@@ -64,7 +66,7 @@ import {
 import type { HubClassification } from "@acars/data";
 import { getAircraftById, getAirports, HUB_CLASSIFICATIONS } from "@acars/data";
 import { buildConnectionService, legKey } from "./connections.js";
-import { advanceLineAircraft, type LineEngineContext } from "./lineEngine.js";
+import { advanceLineAircraft, type LineEngineContext, type OfferLookup } from "./lineEngine.js";
 import { weatherAt } from "./weather.js";
 
 /** Module-level O(1) airport lookup — avoids O(N) airports.find() on every
@@ -746,10 +748,32 @@ export function computeLandingEconomics({
   return { rev, cost, profit, fareRatio, playerUndercutting, priced, connectingPassengers };
 }
 
+/** Routes as they are in force at `tick` (S69: announced changes apply from their tick). */
+export function routesInForce(routes: Route[], tick: number): Route[] {
+  return routes.some((route) => route.pending && route.pending.effectiveTick <= tick)
+    ? routes.map((route) => routeAt(route, tick))
+    : routes;
+}
+
+/** Rivals' offers as they are in force at `tick` (S69). */
+export function offersInForce(
+  registry: ReadonlyMap<string, FlightOffer[]>,
+  tick: number,
+): OfferLookup {
+  return {
+    get(key: string) {
+      const offers = registry.get(key);
+      return offers?.some((offer) => offer.next && offer.next.effectiveTick <= tick)
+        ? offers.map((offer) => offerAt(offer, tick))
+        : offers;
+    },
+  };
+}
+
 export function processFlightEngine(
   tick: number,
   fleet: AircraftInstance[],
-  routes: Route[],
+  routesInput: Route[],
   initialBalance: FixedPoint,
   lastTick: number = tick - 1,
   globalRouteRegistry: Map<string, FlightOffer[]> = new Map(),
@@ -763,6 +787,8 @@ export function processFlightEngine(
   let tickRevenue = fp(0);
   const events: TimelineEvent[] = [];
   const simulatedTimestamp = GENESIS_TIME + tick * TICK_DURATION;
+  const routes = routesInForce(routesInput, tick);
+  const registry = offersInForce(globalRouteRegistry, tick);
 
   const updatedFleetMap = new Map<string, AircraftInstance>(fleet.map((ac) => [ac.id, { ...ac }]));
 
@@ -781,7 +807,7 @@ export function processFlightEngine(
     routeById,
     airportTraffic,
     hubStates,
-    registry: globalRouteRegistry,
+    registry,
     lineService: lineServiceByRoute,
     connections,
     weather: weatherAt,
@@ -1004,7 +1030,7 @@ export function processFlightEngine(
           hubStates,
           competitorOffers:
             route && originIata && destinationIata
-              ? globalRouteRegistry.get(canonicalRouteKey(originIata, destinationIata)) || []
+              ? registry.get(canonicalRouteKey(originIata, destinationIata)) || []
               : [],
           playerPubkey,
           playerBrandScore,
@@ -1593,7 +1619,7 @@ export function estimateLandingFinancials(
  */
 export function reconcileFleetToTick(
   fleet: AircraftInstance[],
-  routes: Route[],
+  routesInput: Route[],
   targetTick: number,
 ): {
   fleet: AircraftInstance[];
@@ -1609,7 +1635,8 @@ export function reconcileFleetToTick(
   }
   const eventGenQueue: EventGenParams[] = [];
 
-  // O(1) route lookup for the per-aircraft reconciliation below.
+  // O(1) route lookup for the per-aircraft reconciliation below, as in force at the target (S69).
+  const routes = routesInForce(routesInput, targetTick);
   const routeById = new Map(routes.map((route) => [route.id, route]));
 
   const lineEvents: TimelineEvent[] = [];

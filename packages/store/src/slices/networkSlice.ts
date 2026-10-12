@@ -1,5 +1,13 @@
-import type { AircraftInstance, Airport, FixedPoint, Route, TimelineEvent } from "@acars/core";
+import type {
+  AircraftInstance,
+  Airport,
+  FixedPoint,
+  Route,
+  RouteChangeFields,
+  TimelineEvent,
+} from "@acars/core";
 import {
+  applyRouteChange,
   fp,
   fpAdd,
   fpFormat,
@@ -12,6 +20,7 @@ import {
   MAX_ROUTE_FREQUENCY_PER_WEEK,
   MIN_ROUTE_FREQUENCY_PER_WEEK,
   ROUTE_SLOT_FEE,
+  routeAt,
   TICK_DURATION,
 } from "@acars/core";
 import {
@@ -38,6 +47,7 @@ import { clampFixedPoint } from "../actionReducer";
 import { useEngineStore } from "../engine";
 import { applyAircraftLine } from "../lineEngine";
 import { suggestRouteFrequency } from "../routeSuggestion";
+import { lastJoinTickOn } from "../timetable";
 import type { AirlineState } from "../types";
 
 export type HubAction =
@@ -1007,26 +1017,24 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     const capB = lower(caps.business, MAX_FARE);
     const capF = lower(caps.first, MAX_FARE);
 
-    const updatedRoutes = routes.map((rt) => {
-      if (rt.id === routeId) {
-        return {
-          ...rt,
-          fareEconomy:
-            fares.economy !== undefined
-              ? (clampFixedPoint(fares.economy, zero, capE) ?? rt.fareEconomy)
-              : rt.fareEconomy,
-          fareBusiness:
-            fares.business !== undefined
-              ? (clampFixedPoint(fares.business, zero, capB) ?? rt.fareBusiness)
-              : rt.fareBusiness,
-          fareFirst:
-            fares.first !== undefined
-              ? (clampFixedPoint(fares.first, zero, capF) ?? rt.fareFirst)
-              : rt.fareFirst,
-        };
-      }
-      return rt;
-    });
+    const tick = useEngineStore.getState().tick;
+    const change: RouteChangeFields = {};
+    if (fares.economy !== undefined) {
+      const fare = clampFixedPoint(fares.economy, zero, capE);
+      if (fare !== null) change.fareEconomy = fare;
+    }
+    if (fares.business !== undefined) {
+      const fare = clampFixedPoint(fares.business, zero, capB);
+      if (fare !== null) change.fareBusiness = fare;
+    }
+    if (fares.first !== undefined) {
+      const fare = clampFixedPoint(fares.first, zero, capF);
+      if (fare !== null) change.fareFirst = fare;
+    }
+    // Published timetables (S69): the same rule the replay applies.
+    const updatedRoutes = routes.map((rt) =>
+      rt.id === routeId ? applyRouteChange(rt, change, tick) : rt,
+    );
 
     const currentTimeline = get().timeline;
     const updatedAirline = {
@@ -1034,15 +1042,9 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       timeline: currentTimeline,
     };
 
-    // Capture previous fares for merge-safe rollback
+    // Capture the previous timetable for merge-safe rollback
     const targetRoute = routes.find((rt) => rt.id === routeId);
-    const previousFares = targetRoute
-      ? {
-          fareEconomy: targetRoute.fareEconomy,
-          fareBusiness: targetRoute.fareBusiness,
-          fareFirst: targetRoute.fareFirst,
-        }
-      : null;
+    const previousFares = targetRoute ? timetableOf(targetRoute) : null;
 
     set({ routes: updatedRoutes, airline: updatedAirline });
 
@@ -1054,7 +1056,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
           payload: {
             routeId,
             fares,
-            tick: useEngineStore.getState().tick,
+            tick,
           },
         },
         get,
@@ -1064,7 +1066,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       // Merge-safe rollback: restore only the fares on the specific route
       set((state) => ({
         routes: state.routes.map((rt) =>
-          rt.id === routeId && previousFares ? { ...rt, ...previousFares } : rt,
+          rt.id === routeId && previousFares ? withTimetable(rt, previousFares) : rt,
         ),
       }));
       console.error("Failed to sync fares to Nostr:", e);
@@ -1082,11 +1084,23 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
       MAX_ROUTE_FREQUENCY_PER_WEEK,
       Math.max(MIN_ROUTE_FREQUENCY_PER_WEEK, Math.round(frequencyPerWeek)),
     );
-    if (!Number.isFinite(frequency) || frequency === target.frequencyPerWeek) return;
-    const previous = target.frequencyPerWeek;
+    const tick = useEngineStore.getState().tick;
+    // The schedule already asked for: today's, or the one announced for tomorrow (S69).
+    const inForce = routeAt(target, tick);
+    const planned = inForce.pending?.frequencyPerWeek ?? inForce.frequencyPerWeek;
+    if (!Number.isFinite(frequency) || frequency === planned) return;
+    const previous = timetableOf(target);
+    const lastJoinTick = lastJoinTickOn(
+      target.assignedAircraftIds,
+      new Map(get().fleet.map((ac) => [ac.id, ac])),
+    );
 
     set({
-      routes: routes.map((rt) => (rt.id === routeId ? { ...rt, frequencyPerWeek: frequency } : rt)),
+      routes: routes.map((rt) =>
+        rt.id === routeId
+          ? applyRouteChange(rt, { frequencyPerWeek: frequency }, tick, lastJoinTick)
+          : rt,
+      ),
     });
 
     try {
@@ -1094,7 +1108,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         action: {
           schemaVersion: 2,
           action: "ROUTE_UPDATE_FREQUENCY",
-          payload: { routeId, frequencyPerWeek: frequency, tick: useEngineStore.getState().tick },
+          payload: { routeId, frequencyPerWeek: frequency, tick },
         },
         get,
         set,
@@ -1102,9 +1116,7 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     } catch (e) {
       // Merge-safe rollback: restore only this route's frequency.
       set((state) => ({
-        routes: state.routes.map((rt) =>
-          rt.id === routeId ? { ...rt, frequencyPerWeek: previous } : rt,
-        ),
+        routes: state.routes.map((rt) => (rt.id === routeId ? withTimetable(rt, previous) : rt)),
       }));
       console.error("Failed to sync frequency to Nostr:", e);
     }
@@ -1170,3 +1182,24 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
     return suggestion.frequencyPerWeek;
   },
 });
+
+type Timetable = Pick<
+  Route,
+  "fareEconomy" | "fareBusiness" | "fareFirst" | "frequencyPerWeek" | "pending"
+>;
+
+function timetableOf(route: Route): Timetable {
+  return {
+    fareEconomy: route.fareEconomy,
+    fareBusiness: route.fareBusiness,
+    fareFirst: route.fareFirst,
+    frequencyPerWeek: route.frequencyPerWeek,
+    pending: route.pending,
+  };
+}
+
+function withTimetable(route: Route, timetable: Timetable): Route {
+  const next: Route = { ...route, ...timetable };
+  if (!timetable.pending) delete next.pending;
+  return next;
+}
