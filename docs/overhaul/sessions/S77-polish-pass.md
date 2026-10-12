@@ -1,7 +1,7 @@
 # S77 — Polish pass: play every main flow and fix what is broken or confusing
 
 > **Status:** ◐ in progress
-> **Next step:** S77.5 — one key-backup prompt at a time; roadmap copy; short registration; sidebar badges.
+> **Next step:** S77.6 — the playtest as an e2e journey (desktop and phone), before/after screenshots, PR.
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -43,7 +43,7 @@ A scripted playtest (desktop 1440 and phone 390) played a new player end to end 
 - [x] **S77.2** Opportunities launch with a plane through the same one-click flow as the airport card (shared hook); drop "suggested fleet"; copy; tests.
 - [x] **S77.3** Dialogs and buying: a confirm closes on navigation and never leaks; the aircraft order shows its price and closes when done; tests.
 - [x] **S77.4** Numbers that agree: one "today" (UTC day) in cockpit and footer; airlines counted once after reload; "—" load factor before the first landing; tests.
-- [ ] **S77.5** Nags and copy: one key-backup prompt at a time; roadmap (alliances shipped); short registration; badges; tests.
+- [x] **S77.5** Nags and copy: one key-backup prompt at a time; roadmap (alliances shipped); short registration; badges; tests.
 - [ ] **S77.6** The playtest as an e2e journey (desktop and phone), before/after screenshots, PR.
 
 ## Progress log
@@ -55,3 +55,5 @@ A scripted playtest (desktop 1440 and phone 390) played a new player end to end 
 2026-10-12 · S77.3 · (this commit) · **Dialogs and buying.** `ConfirmProvider` takes `subscribeNavigation` (main.tsx passes `router.history.subscribe`): any navigation answers a pending confirm "no" and closes it; a newer confirm answers an unanswered one "no" instead of leaking its promise. The aircraft order's footer now says what it costs next to the button ("You pay $21,000,000 now." / "You pay a $2,100,000 deposit now, then $156,000 a month."), red when unaffordable. The "Purchasing…" wait after the timeline toast is the relay publish; the existing echo rule already drops the double toast, so it stays. Tests: useConfirm 3 (new), dealer +2 assertions.
 
 2026-10-12 · S77.4 · (this commit) · **Numbers that agree.** The cockpit story is a rolling 24 hours (by design: a check-in reads "what happened since I last looked"), so its sign now says "Last 24 h · to Oct 13" instead of "Today · Oct 13", which disagreed with the footer's UTC-day "Today". Root cause of "Airlines 2": a world sync that ran before the identity loaded took the player's own snapshot for a rival's and later syncs kept it; `syncWorld` now drops the player's pubkey from `competitors` whenever it knows it (this also kept the player's own offers out of the rival registry). The top bar's load factor reads "—" until the first landing instead of a red 0%. Tests: worldSlice +1, Topbar +1 assertion, TodayStory and e2e headings updated.
+
+2026-10-12 · S77.5 · (this commit) · **Nags and copy.** One key-backup prompt at a time: `backupCardVisibility` (a tiny external store) lets the standing banner step aside while the "Keep your airline" card is on screen. Landing: alliances move from the roadmap to the live features (six cards, two roadmap items). The fleet card's "Registry ID: AC-47DD468E-A80ET-2-0" becomes "Registration: AC-K7QDM" (`registrationFor`: FNV-1a of the id, 5 characters without I/O; the id stays in the tooltip). Sidebar: on the labelled bar the badge sits at the end of its own row instead of floating at the row's corner; the Rivals badge reads "#4" (a rank), not "4" (a count). Tests: banner +1, join +1, registration 2, NavBadge 2.

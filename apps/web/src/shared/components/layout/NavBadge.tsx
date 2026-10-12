@@ -9,6 +9,8 @@ interface NavBadgeProps {
   variant: "gray" | "red";
   /** Extra Tailwind classes for size/position overrides */
   className?: string;
+  /** Shown before the number, e.g. "#" for a rank. */
+  prefix?: string;
 }
 
 /**
@@ -16,7 +18,7 @@ interface NavBadgeProps {
  * Renders nothing when count <= 0.
  * Position: absolute, placed by the parent's `relative` wrapper.
  */
-export function NavBadge({ count, variant, className = "" }: NavBadgeProps) {
+export function NavBadge({ count, variant, className = "", prefix = "" }: NavBadgeProps) {
   if (count <= 0) return null;
 
   const base =
@@ -30,8 +32,9 @@ export function NavBadge({ count, variant, className = "" }: NavBadgeProps) {
   return (
     <span
       className={`${base} ${colors} ${className}`}
-      aria-label={`${count} notification${count !== 1 ? "s" : ""}`}
+      aria-label={prefix ? `${prefix}${count}` : `${count} notification${count !== 1 ? "s" : ""}`}
     >
+      {prefix}
       {formatCount(count)}
     </span>
   );

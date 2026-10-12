@@ -48,6 +48,7 @@ import { useConfirm } from "@/shared/lib/useConfirm";
 import { cn } from "@/shared/lib/utils";
 import { getAircraftBaseHub } from "../utils/aircraftBaseHub";
 import { getAircraftTimer } from "../utils/aircraftTimers";
+import { registrationFor } from "../utils/registration";
 import { AircraftDealer } from "./AircraftDealer";
 import { AircraftLiveryImage } from "./AircraftLiveryImage";
 import { AircraftMaintenanceRow } from "./AircraftMaintenanceRow";
@@ -576,8 +577,11 @@ export function FleetManager() {
                                 <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-0.5">
                                   {t("fleet.registryId", { ns: "game" })}
                                 </p>
-                                <p className="font-mono text-[11px] font-bold text-foreground sm:text-xs break-all">
-                                  {ac.id.toUpperCase()}
+                                <p
+                                  className="font-mono text-[11px] font-bold text-foreground sm:text-xs break-all"
+                                  title={ac.id}
+                                >
+                                  {registrationFor(ac.id)}
                                 </p>
                               </div>
                               <div>

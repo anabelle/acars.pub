@@ -157,6 +157,10 @@
       "competition": {
         "title": "Un mismo mundo en vivo",
         "description": "Todas las aerolíneas vuelan en el mismo mapa. Los rivales compiten por los mismos pasajeros en las mismas rutas, con clasificaciones en vivo."
+      },
+      "alliances": {
+        "title": "Alianzas",
+        "description": "Alíate con otros jugadores: los pasajeros conectan entre ambas redes y cada aerolínea gana en los tramos que vuela."
       }
     },
     "roadmap": {
@@ -170,10 +174,6 @@
         "bitcoin": {
           "title": "Recompensas en Bitcoin",
           "description": "Zaps de Lightning y pozos de premios."
-        },
-        "alliances": {
-          "title": "Alianzas",
-          "description": "Códigos compartidos y redes conjuntas con otros jugadores."
         }
       }
     }

@@ -2,6 +2,7 @@ import { useAirlineStore } from "@acars/store";
 import { KeyRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { setBackupCardOpen } from "../lib/backupCardVisibility";
 import {
   type BackupPromptMoment,
   browserBackupPromptStorage,
@@ -59,6 +60,12 @@ export function KeyBackupPrompt() {
       }),
     [pubkey],
   );
+
+  // While this card is up, the banner waits (one prompt at a time).
+  useEffect(() => {
+    setBackupCardOpen(moment !== null);
+    return () => setBackupCardOpen(false);
+  }, [moment]);
 
   if (!moment) return null;
 

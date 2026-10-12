@@ -1,6 +1,6 @@
 import { useAirlineStore } from "@acars/store";
 import { useNavigate } from "@tanstack/react-router";
-import { Clock, Globe, Map as MapIcon, Plane, ShieldCheck, Users } from "lucide-react";
+import { Clock, Globe, Handshake, Map as MapIcon, Plane, ShieldCheck, Users } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { GuestKeyOnboarding } from "@/features/identity/components/GuestKeyOnboarding";
@@ -37,6 +37,11 @@ export default function JoinPage() {
         title: t("join.features.competition.title", { ns: "common" }),
         description: t("join.features.competition.description", { ns: "common" }),
       },
+      {
+        icon: Handshake,
+        title: t("join.features.alliances.title", { ns: "common" }),
+        description: t("join.features.alliances.description", { ns: "common" }),
+      },
     ],
     [t],
   );
@@ -45,7 +50,7 @@ export default function JoinPage() {
   // page never presents unshipped mechanics as live (overhaul S20.4).
   const roadmap = useMemo(
     () =>
-      (["company", "bitcoin", "alliances"] as const).map((key) => ({
+      (["company", "bitcoin"] as const).map((key) => ({
         key,
         title: t(`join.roadmap.items.${key}.title`, { ns: "common" }),
         description: t(`join.roadmap.items.${key}.description`, { ns: "common" }),
@@ -140,7 +145,7 @@ export default function JoinPage() {
               {t("join.roadmap.subtitle", { ns: "common" })}
             </p>
           </div>
-          <ul className="mt-3 grid gap-2 sm:grid-cols-3">
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
             {roadmap.map((item) => (
               <li key={item.key} className="text-xs leading-relaxed text-muted-foreground">
                 <span className="font-semibold text-foreground/80">{item.title}</span>
