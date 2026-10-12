@@ -173,6 +173,8 @@ export {
 } from "./tier.js";
 // Published timetables (S69)
 export * from "./timetable.js";
+// Booking curve (S70)
+export * from "./booking.js";
 export type {
   AircraftInstance,
   AircraftModel,
