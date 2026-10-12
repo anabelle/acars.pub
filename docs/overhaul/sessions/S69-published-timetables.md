@@ -1,7 +1,7 @@
 # S69 — Published timetables (changes take effect tomorrow)
 
 > **Status:** ◐ in progress
-> **Next step:** S69.3 — web: fare editor and frequency control explain timing; badge; rivals' announced changes
+> **Next step:** S69.4 — e2e (desktop and phone), screenshots, PR
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -28,7 +28,7 @@ Fares and schedules are published, like a real airline's: a change made today ta
 
 - [x] **S69.1** Core: `Route.pending`, `FlightOffer.next`, `nextUtcDayStartTick`, `routeAt`, `offerAt`, `scheduleChangeTiming` (now / tomorrow, with the reason), `mergePending`; tests.
 - [x] **S69.2** Store: replay defers fares and frequency per the rule; optimistic slice does the same; engine and catch-up price with `routeAt`/`offerAt`; registry offers carry rivals' announced changes; pending promoted when due; tests (replay = optimistic, midnight switch).
-- [ ] **S69.3** Web: fare editor and frequency control explain timing and show today's values; "changes tomorrow" badge; rivals' announced changes; i18n.
+- [x] **S69.3** Web: fare editor and frequency control explain timing and show today's values; "changes tomorrow" badge; rivals' announced changes; i18n.
 - [ ] **S69.4** e2e (desktop and phone), screenshots, PR.
 
 ## Progress log
@@ -43,3 +43,9 @@ Fares and schedules are published, like a real airline's: a change made today ta
 - Store: `updateRouteFares`/`updateRouteFrequency` apply the same rule optimistically (a frequency equal to the one already announced is a no-op) and roll back the whole timetable (fares, frequency, announcement) when publishing fails. The engine slice puts due announcements in force each tick.
 - Engine: `processFlightEngine` and `reconcileFleetToTick` fly `routesInForce(routes, tick)`; rival offers come through `offersInForce(registry, tick)` (lines too: `LineEngineContext.registry` is an `OfferLookup`). Rivals' registry offers carry their announced fares as `next` (their frequency comes from their planes, so only fares ride along).
 - Tests: replay (same-day open is immediate, published route announces, a rise right after a join is immediate), engine lookups, `lastJoinTickOn`, slice (announce, immediate on a new route, no-op repeat, rollback, earlier announcement kept), engine slice promotion, rivals' offers. Store 311/311; web 682/682 unchanged.
+
+2026-10-12 · S69.3 · (this commit) · **Seen and explained.**
+
+- `TimetableNote.tsx`: `TimetableAnnounced` (chip "From 00:00 UTC: E $80 · 3/wk" on the route card and in the fare editor), `TimetableHint` (published: "changes take effect at 00:00 UTC tomorrow, so rivals see them coming"; opened today: "changes apply now"; a plane just joined: "the extra flights start now"), `RivalAnnounced` (a rival's coming economy fare in the route's competition list; the list itself shows offers as in force now, `offerAt`).
+- Fare editor: starts from the planned fares (announced ones if any), the button reads "Announce for tomorrow" on a published route and confirms with a toast. Frequency control: steps from the planned frequency; the button and hint follow `scheduleChangeTiming` (with the route's latest join, `lastJoinTickOn`, now exported by the store).
+- i18n en/es `timetable.*`. Tests: chip, hints, rival note, editor (now vs announce, seeded from the announcement), frequency (announce, new capacity). Web 689/689.

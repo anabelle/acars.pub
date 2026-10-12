@@ -13,6 +13,7 @@ import {
   getSuggestedFares,
   haversineDistance,
   NATURAL_LF_CEILING,
+  offerAt,
   scaleToAddressableMarket,
   TICKS_PER_DAY,
 } from "@acars/core";
@@ -42,6 +43,7 @@ import {
   type ProspectMarket,
 } from "@/features/network/components/OpportunitiesList";
 import { RouteFrequencyControl } from "@/features/network/components/RouteFrequencyControl";
+import { RivalAnnounced, TimetableAnnounced } from "@/features/network/components/TimetableNote";
 import { getRouteDemandSnapshotCached } from "@/features/network/hooks/useRouteDemand";
 import {
   getElasticityTone,
@@ -820,6 +822,9 @@ export function RouteManager() {
                                       F: {fpFormat(route.fareFirst, 0)}
                                     </span>
                                   </div>
+                                  <div className="mt-1 flex">
+                                    <TimetableAnnounced route={route} />
+                                  </div>
                                 </div>
                               </div>
 
@@ -1223,7 +1228,9 @@ export function RouteManager() {
                                   route.originIata,
                                   route.destinationIata,
                                 );
-                                const offers = globalRouteRegistry.get(routeKey) || [];
+                                const offers = (globalRouteRegistry.get(routeKey) || []).map(
+                                  (offer) => offerAt(offer, tick),
+                                );
 
                                 if (offers.length === 0) {
                                   return (
@@ -1289,6 +1296,7 @@ export function RouteManager() {
                                                   value: offer.frequencyPerWeek,
                                                 })}
                                               </span>
+                                              <RivalAnnounced offer={offer} tick={tick} />
                                             </div>
                                           </div>
 

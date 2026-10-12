@@ -10,6 +10,9 @@ import {
   PRICE_ELASTICITY_BUSINESS,
   PRICE_ELASTICITY_ECONOMY,
   PRICE_ELASTICITY_FIRST,
+  type Route,
+  routeAt,
+  scheduleChangeTiming,
   TICKS_PER_HOUR,
 } from "@acars/core";
 import { getAircraftById } from "@acars/data";
@@ -42,6 +45,7 @@ import {
 } from "@/features/network/utils/fareProjection";
 import { ModalPortal } from "@/shared/components/ModalPortal";
 import { navigateToAirport } from "@/shared/lib/permalinkNavigation";
+import { TimetableAnnounced, TimetableHint } from "./TimetableNote";
 import { WhatIfCurve } from "./WhatIfCurve";
 
 export interface FareEditorTarget {
@@ -59,7 +63,11 @@ const faresOf = (
   f: route ? fpToNumber(route.fareFirst).toString() : "",
 });
 
-/** Modal for repricing one route; seeds its inputs from the route's current fares. */
+/** The route with its announced changes applied (S69): what the player has asked for. */
+const planned = (route: Route | undefined) =>
+  route ? routeAt(route, Number.POSITIVE_INFINITY) : undefined;
+
+/** Modal for repricing one route; seeds its inputs from the route's planned fares. */
 export function FareEditor({
   target: fareEditor,
   onClose,
@@ -76,14 +84,15 @@ export function FareEditor({
   const hourTick = useEngineStore((s) => Math.floor(s.tick / TICKS_PER_HOUR) * TICKS_PER_HOUR);
   const updateRouteFares = useAirlineStore((s) => s.updateRouteFares);
   const [fareInputs, setFareInputs] = useState<{ e: string; b: string; f: string }>(() =>
-    faresOf(routes.find((route) => route.id === fareEditor.routeId)),
+    faresOf(planned(routes.find((route) => route.id === fareEditor.routeId))),
   );
   const [fareError, setFareError] = useState<string | null>(null);
   const [isSavingFares, setIsSavingFares] = useState(false);
 
   const fareData = useMemo(() => {
     const suggestedFares = getSuggestedFares(fareEditor.distanceKm);
-    const activeFareRoute = routes.find((route) => route.id === fareEditor.routeId) ?? null;
+    const activeFareRoute =
+      planned(routes.find((route) => route.id === fareEditor.routeId)) ?? null;
     const fareInputValues = {
       economy: parseFareInput(fareInputs.e),
       business: parseFareInput(fareInputs.b),
@@ -210,6 +219,13 @@ export function FareEditor({
     });
   };
 
+  // Published timetables (S69): a route on sale since before today changes at 00:00 UTC.
+  const sourceRoute = routes.find((route) => route.id === fareEditor.routeId);
+  const fareTiming = sourceRoute
+    ? scheduleChangeTiming(sourceRoute, { fareEconomy: sourceRoute.fareEconomy }, hourTick)
+    : null;
+  const published = fareTiming?.when === "tomorrow";
+
   const handleSaveFares = async () => {
     const eVal = parseInt(fareInputs.e.replace(/[^0-9]/g, ""), 10);
     const bVal = parseInt(fareInputs.b.replace(/[^0-9]/g, ""), 10);
@@ -228,6 +244,7 @@ export function FareEditor({
         business: Number.isNaN(bVal) ? undefined : fp(bVal),
         first: Number.isNaN(fVal) ? undefined : fp(fVal),
       });
+      if (published) toast.success(t("timetable.announcedToast", { ns: "game" }));
       onClose();
     } catch (err) {
       const message =
@@ -315,6 +332,10 @@ export function FareEditor({
                   {t(`routeManager.fareEditor.preset.${preset}`, { ns: "game" })}
                 </button>
               ))}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {sourceRoute ? <TimetableAnnounced route={sourceRoute} /> : null}
+              {fareTiming ? <TimetableHint timing={fareTiming} /> : null}
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="rounded-xl border border-border/50 bg-background/60 p-4">
@@ -567,7 +588,9 @@ export function FareEditor({
             >
               {isSavingFares
                 ? t("routeManager.saving", { ns: "game" })
-                : t("routeManager.saveFares", { ns: "game" })}
+                : published
+                  ? t("timetable.announce", { ns: "game" })
+                  : t("routeManager.saveFares", { ns: "game" })}
             </button>
           </div>
         </div>

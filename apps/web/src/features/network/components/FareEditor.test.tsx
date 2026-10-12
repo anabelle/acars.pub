@@ -13,6 +13,9 @@ const route = {
   fareFirst: fp(600),
   assignedAircraftIds: [] as string[],
   frequencyPerWeek: 7,
+  // Opened today (tick 1000): fares change at once (S69).
+  openedAtTick: 1000 as number | undefined,
+  pending: undefined as Record<string, unknown> | undefined,
 };
 const fleet: unknown[] = [];
 
@@ -51,7 +54,8 @@ vi.mock("@acars/store", () => ({
 vi.mock("@acars/data", () => ({
   getAircraftById: (id: string) => (id === "atr72-600" ? { id, name: "ATR 72" } : undefined),
 }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+const toastSuccess = vi.fn();
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: (m: string) => toastSuccess(m) } }));
 vi.mock("@/shared/lib/permalinkNavigation", () => ({ navigateToAirport: vi.fn() }));
 
 import { FareEditor } from "./FareEditor";
@@ -72,6 +76,9 @@ afterEach(() => {
   updateRouteFares.mockClear();
   projectRouteEconomics.mockClear();
   route.assignedAircraftIds = [];
+  route.openedAtTick = 1000;
+  route.pending = undefined;
+  toastSuccess.mockClear();
   fleet.splice(0, fleet.length);
 });
 
@@ -162,5 +169,24 @@ describe("FareEditor", () => {
     expect(screen.getByLabelText("Economy")).toHaveValue(144);
     expect(screen.getByLabelText("Business")).toHaveValue(360);
     expect(screen.getByLabelText("First")).toHaveValue(720);
+  });
+
+  it("says changes apply now on a route opened today", () => {
+    render(<FareEditor target={target} onClose={() => {}} />);
+    expect(screen.getByTestId("timetable-hint")).toHaveTextContent(/apply now/i);
+    expect(screen.queryByTestId("timetable-announced")).toBeNull();
+  });
+
+  it("announces fares for tomorrow on a published route, starting from the announced ones (S69)", async () => {
+    route.openedAtTick = undefined;
+    route.pending = { effectiveTick: 99_999, fareEconomy: fp(110) };
+    const onClose = vi.fn();
+    render(<FareEditor target={target} onClose={onClose} />);
+    expect(screen.getByTestId("timetable-hint")).toHaveTextContent(/00:00 UTC tomorrow/);
+    expect(screen.getByTestId("timetable-announced")).toHaveTextContent("E $110");
+    expect(screen.getByLabelText("Economy")).toHaveValue(110);
+    fireEvent.click(screen.getByRole("button", { name: /announce for tomorrow/i }));
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(toastSuccess).toHaveBeenCalledWith("Announced for 00:00 UTC tomorrow");
   });
 });

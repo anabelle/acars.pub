@@ -1413,5 +1413,14 @@
     "delays": "Las salidas aquí van lentas: habrá retrasos.",
     "marginal": "Marginal: posibles retrasos cortos.",
     "clear": "Despejado: sin retrasos por meteo."
+  },
+  "timetable": {
+    "announced": "Desde las 00:00 UTC: {{changes}}",
+    "tomorrow": "Horario publicado: los cambios entran en vigor mañana a las 00:00 UTC, así los rivales los ven venir.",
+    "now": "Abierta hoy: los cambios se aplican ya.",
+    "newCapacity": "Avión nuevo en esta ruta: los vuelos extra empiezan ya.",
+    "announce": "Anunciar para mañana",
+    "announcedToast": "Anunciado para mañana a las 00:00 UTC",
+    "rivalAnnounced": "Desde las 00:00 UTC: E {{economy}}"
   }
 }
