@@ -20,7 +20,7 @@ export interface Instrument {
 }
 
 export const BANDS: Record<InstrumentId, { low: number; high: number }> = {
-  utilization: { low: 8, high: 13 },
+  utilization: { low: 8, high: 16 },
   loadFactor: { low: 0.75, high: 0.92 },
   margin: { low: 0.1, high: 0.25 },
   runway: { low: 30, high: Number.POSITIVE_INFINITY },
@@ -69,7 +69,7 @@ export function computeInstruments({
   fixedCostsPerDay,
 }: {
   timeline: readonly TimelineEvent[];
-  fleet: readonly Pick<AircraftInstance, "status">[];
+  fleet: readonly Pick<AircraftInstance, "status" | "purchasedAtTick">[];
   tick: number;
   balance: FixedPoint;
   fixedCostsPerDay: FixedPoint;
@@ -91,9 +91,17 @@ export function computeInstruments({
     if (event.profit !== undefined) window.profit = fpAdd(window.profit, event.profit);
   }
 
-  const planes = fleet.filter((aircraft) => aircraft.status !== "delivery").length;
-  const utilization = (w: Window) =>
-    planes > 0 && w.landings > 0 ? w.blockTicks / TICKS_PER_HOUR / planes : null;
+  const delivered = fleet.filter((aircraft) => aircraft.status !== "delivery");
+  const planes = delivered.length;
+  // A young airline has not lived a whole day yet: scale what it flew to a
+  // day of the time its planes have been in service (at least an hour).
+  const firstInService = Math.min(...delivered.map((a) => a.purchasedAtTick ?? tick - DAY));
+  const observedTicks = Math.min(DAY, Math.max(TICKS_PER_HOUR, tick - firstInService));
+  const utilization = (w: Window) => {
+    if (planes === 0 || w.landings === 0) return null;
+    const scale = w === current ? DAY / observedTicks : 1;
+    return (w.blockTicks / TICKS_PER_HOUR / planes) * scale;
+  };
   const loadFactor = (w: Window) =>
     w.loadFactorCount > 0 ? w.loadFactorSum / w.loadFactorCount : null;
   const margin = (w: Window) =>

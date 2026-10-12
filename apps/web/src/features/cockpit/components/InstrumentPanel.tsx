@@ -32,9 +32,10 @@ function format(id: InstrumentId, value: number | null, t: TFunction<"game">) {
     case "margin":
       return `${Math.round(value * 100)}%`;
     case "runway":
-      return Number.isFinite(value)
-        ? t("instruments.days", { count: Math.floor(value) })
-        : t("instruments.growing");
+      if (!Number.isFinite(value)) return t("instruments.growing");
+      return value >= 365
+        ? t("instruments.years", { count: Math.floor(value / 365) })
+        : t("instruments.days", { count: Math.floor(value) });
   }
 }
 

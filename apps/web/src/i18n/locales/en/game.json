@@ -1238,7 +1238,7 @@
     "days_other": "{{count}} days",
     "utilization": {
       "label": "Utilization",
-      "band": "Target 8–13 h a day per plane",
+      "band": "Target 8–16 h a day per plane",
       "fix": "Fly more"
     },
     "loadFactor": {
@@ -1256,7 +1256,9 @@
       "label": "Cash runway",
       "band": "Target 30+ days of cash",
       "fix": "Open finance"
-    }
+    },
+    "years_one": "{{count}} year",
+    "years_other": "{{count}} years"
   },
   "today": {
     "title": "Today · {{date}}",

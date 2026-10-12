@@ -1238,7 +1238,7 @@
     "days_other": "{{count}} días",
     "utilization": {
       "label": "Utilización",
-      "band": "Objetivo 8–13 h al día por avión",
+      "band": "Objetivo 8–16 h al día por avión",
       "fix": "Volar más"
     },
     "loadFactor": {
@@ -1256,7 +1256,9 @@
       "label": "Caja",
       "band": "Objetivo 30+ días de caja",
       "fix": "Abrir finanzas"
-    }
+    },
+    "years_one": "{{count}} año",
+    "years_other": "{{count}} años"
   },
   "today": {
     "title": "Hoy · {{date}}",

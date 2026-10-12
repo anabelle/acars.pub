@@ -34,7 +34,7 @@ describe("InstrumentPanel (S62)", () => {
     );
     const utilization = screen.getByTestId("instrument-utilization");
     expect(utilization).toHaveTextContent("3.2 h▲");
-    expect(utilization).toHaveTextContent("Target 8–13 h a day per plane");
+    expect(utilization).toHaveTextContent("Target 8–16 h a day per plane");
     expect(utilization).toHaveAttribute("data-state", "warning");
     expect(screen.getByTestId("instrument-loadFactor")).toHaveTextContent("84%▼");
     expect(screen.getByTestId("instrument-runway")).toHaveTextContent("Growing");

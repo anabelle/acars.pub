@@ -18,7 +18,11 @@ const landing = (hoursAgo: number, hours: number, lf: number, revenue: number, p
     details: { flightDurationTicks: hours * H, loadFactor: lf },
   }) as TimelineEvent;
 
-const fleet = [{ status: "enroute" }, { status: "idle" }, { status: "delivery" }] as never[];
+const fleet = [
+  { status: "enroute", purchasedAtTick: 0 },
+  { status: "idle", purchasedAtTick: 0 },
+  { status: "delivery", purchasedAtTick: now },
+] as never[];
 const run = (timeline: TimelineEvent[], fixed = 0, balance = 1_000_000) =>
   Object.fromEntries(
     computeInstruments({
@@ -71,5 +75,18 @@ describe("computeInstruments (S62)", () => {
     for (const id of ["utilization", "loadFactor", "margin", "runway"]) {
       expect(i[id]).toMatchObject({ value: null, state: "none" });
     }
+  });
+
+  it("scales a young airline's flying to a day of its time in service", () => {
+    const young = [{ status: "enroute", purchasedAtTick: now - 6 * H }] as never[];
+    const [utilization] = computeInstruments({
+      timeline: [landing(1, 3, 0.8, 1_000, 100)],
+      fleet: young,
+      tick: now,
+      balance: fp(1_000),
+      fixedCostsPerDay: fp(0),
+    });
+    expect(utilization.value).toBe(12); // 3 h in 6 h of service → 12 h a day
+    expect(utilization.state).toBe("normal");
   });
 });

@@ -1,9 +1,9 @@
 # S62 — Instruments and the check-in story (Today)
 
-> **Status:** ◐ in progress
-> **Next step:** S62.3
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge #199)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #199 (shared with S61)
 >
 > **Track:** UX/Story · **Size:** M (3 steps) · **Depends on:** S59, S61 · **Unblocks:** S63, S65 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §5 (check-in loop), §6 Decisions, §8 Story
 >
@@ -33,14 +33,14 @@ Each shows the value, the band, a trend against the previous 24 h, and colour by
 
 - [x] **S62.1** `computeInstruments` (pure, one pass over the timeline) + `InstrumentPanel` (cockpit gauges with band, trend, fix). _Done when:_ unit tests per instrument (in band, low, high, no data) + component test.
 - [x] **S62.2** `buildTodayStory` (pure) + `TodayStory` (Ramp): a header (date sign, earned / people flown / landings) and up to five chapters from the last 24 h — deliveries (with the painting), the best flight, people turned away (pictograms, "add a plane"), and "Now · needs you" (idle planes, one tap). _Done when:_ unit tests per chapter + component test.
-- [ ] **S62.3** Cockpit opens on Today + instruments for the player's own airline (guests and other airlines keep the overview); landing toasts read money; toasts dark. e2e with a flying airline; 1440/390 screenshots; PR.
+- [x] **S62.3** Cockpit opens on Today + instruments for the player's own airline (guests and other airlines keep the overview); landing toasts read money; toasts dark. e2e with a flying airline; 1440/390 screenshots; PR.
 
 ## Acceptance criteria
 
-- [ ] An airline that has flown sees, without scrolling at 1440, what it earned in the last 24 h and its four instruments.
-- [ ] Every out-of-band instrument and every "needs you" chapter has a one-tap action.
-- [ ] Nothing is invented: chapters and instruments only use the timeline, fleet and routes.
-- [ ] Clipped-control audit, perf probes and the full e2e suite green.
+- [x] An airline that has flown sees, without scrolling at 1440, what it earned in the last 24 h and its four instruments.
+- [x] Every out-of-band instrument and every "needs you" chapter has a one-tap action.
+- [x] Nothing is invented: chapters and instruments only use the timeline, fleet and routes.
+- [x] Clipped-control audit, perf probes and the full e2e suite green.
 
 ## Progress log
 
@@ -59,3 +59,12 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 - `buildTodayStory` (pure, one pass): earned, people flown and landings for the last 24 h; chapters in time order — deliveries (own planes only; airport from the plane's base, as the event has none), the best profitable flight, the route that turned most people away (≥ 10, from `spilledPassengers`) — closed by "Now · needs you" for parked planes; at most five.
 - `TodayStory` (Ramp ground): a "Today · <date>" location sign and UTC clock, a summary line (green/red earnings), chapters on a magenta line; deliveries show the painting on a slab; turned-away shows pictograms (boarded vs stayed behind) and "Add seats on this route"; parked shows "Put <name> to work". Quiet days say so. en/es with plurals.
 - Tests: story helper (order, sums, filters), component (summary, each chapter, both actions, quiet day).
+
+2026-10-12 · S62.3 · (this commit) · **The cockpit opens on Today.**
+
+- `OperationsCockpit`, own airline: the big "<airline> at a glance" header becomes a slim bar (share, close); the panel opens on `TodayStory` then `InstrumentPanel`, above the first-hour checklist, objectives and the rest (unchanged). Guests and other airlines keep the overview. Story and instruments re-read once per game minute.
+- Fixes wired: utilization → "Fly more" on underused routes (S58), load factor → routes ("Review routes" or "Add capacity"), margin → routes ("Review fares"), runway → finance.
+- Tuned after the first capture: utilization is scaled to a day of the time the planes have been in service (a 6-hour-old airline read 3.6 h, red), its band is 8–16 h (more flying is good up to the 18-hour day); runway past a year reads in years ("11 years", not "4391 days").
+- Landing toasts read money ("Net profit -$30.", was "+8.7863") and toasts follow the dark theme.
+- Checks: full gate green (web unit 635); e2e `today` (desktop and phone) with a 6-hour airline, clipped-control audit, first-hour, share-network, daily-objectives and world-events specs green.
+- Screenshots: [`before-cockpit-1440`](../media/s62/before-cockpit-1440.png) → [`after-cockpit-1440`](../media/s62/after-cockpit-1440.png); [`before-cockpit-390`](../media/s62/before-cockpit-390.png) → [`after-cockpit-390`](../media/s62/after-cockpit-390.png).
