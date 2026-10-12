@@ -820,3 +820,27 @@ describe("published timetables (S69)", () => {
     error.mockRestore();
   });
 });
+
+describe("setAlliancePartners (S73)", () => {
+  const ally = "b".repeat(64);
+
+  it("names partners (never oneself) and publishes them", async () => {
+    const { state } = createSliceState({ airline: makeAirline(["MAD"]), pubkey: "a".repeat(64) });
+    await expect(state.setAlliancePartners([ally, "a".repeat(64), "junk"])).resolves.toBe(true);
+    expect(state.airline?.alliancePartners).toEqual([ally]);
+  });
+
+  it("rolls back when publishing fails, and needs an airline", async () => {
+    const { publishActionWithChain } = await import("../actionChain");
+    const { state } = createSliceState({
+      airline: { ...makeAirline(["MAD"]), alliancePartners: [] },
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(publishActionWithChain).mockRejectedValueOnce(new Error("offline"));
+    await expect(state.setAlliancePartners([ally])).resolves.toBe(false);
+    expect(state.airline?.alliancePartners).toEqual([]);
+    error.mockRestore();
+    const empty = createSliceState({ airline: null });
+    await expect(empty.state.setAlliancePartners([ally])).resolves.toBe(false);
+  });
+});

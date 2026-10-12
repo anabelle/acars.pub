@@ -1,7 +1,7 @@
 # S73 — Alliances and codeshares
 
 > **Status:** ◐ in progress
-> **Next step:** S73.2 — store: replay ALLIANCE_SET; codeshare connections in the engine
+> **Next step:** S73.3 — web: alliance control, allies on the leaderboard, codeshare passengers on the hub card
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** — (next)
 >
@@ -24,7 +24,7 @@ Two airlines can ally: where one's route meets the other's at an airport, passen
 ## Steps (checkpoints)
 
 - [x] **S73.1** Core: `MAX_ALLIANCE_PARTNERS`, `CODESHARE_SHARE`, `parsePartners`, `mutualPartners`, `allianceStatus`; `AirlineEntity.alliancePartners`; tests.
-- [ ] **S73.2** Store: replay `ALLIANCE_SET`, `setAlliancePartners`, codeshare connections from allies' routes in engine and catch-up; tests.
+- [x] **S73.2** Store: replay `ALLIANCE_SET`, `setAlliancePartners`, codeshare connections from allies' routes in engine and catch-up; tests.
 - [ ] **S73.3** Web: alliance control on rivals' pages, allies on the leaderboard, codeshare passengers on the hub card; i18n; tests.
 - [ ] **S73.4** e2e (desktop and phone), screenshots, PR.
 
@@ -33,3 +33,10 @@ Two airlines can ally: where one's route meets the other's at an airport, passen
 2026-10-12 · brief · (this commit) · Written after the owner chose "alliances now" and a read of the S67 connection service (spokes per hub, bank quality, per-leg credit).
 
 2026-10-12 · S73.1 · (this commit) · **Alliance rules, in core.** `alliance.ts`: `MAX_ALLIANCE_PARTNERS` = 3, `CODESHARE_SHARE` = 0.7, `parsePartners` (unique valid pubkeys, never oneself, at most three), `allianceStatus` (none / proposed / invited / allied), `mutualPartners`. Types: `AirlineEntity.alliancePartners`, action `ALLIANCE_SET`. 3 tests; core 461/461, 100 % functions.
+
+2026-10-12 · S73.2 · (this commit) · **Alliances in the game.**
+
+- Replay: `ALLIANCE_SET` stores `airline.alliancePartners` (`parsePartners`: never oneself, at most three; garbage ignored; an empty list clears) with a timeline line.
+- Store: `setAlliancePartners` (optimistic, publishes, rolls back only the list on failure). `alliedRoutes(state)` (engine slice): routes of partners who name us back, from the world sync's `routesByOwner`.
+- Connections: `computeConnectionService(…, allyRoutes)` — at each airport where our route meets an ally's, markets neither flies direct (and within the S67 detour) get `CODESHARE_SHARE` of the connecting demand on our leg only; ally ends we already serve are left to our own banks; `HubConnections.codeshareWeekly`. `buildConnectionService` keys its hourly cache on ally routes too; the engine gets them through its context (`allyRoutes`).
+- Tests: replay (partners, self, garbage, clear), connections (our leg only, direct markets skipped, own banks unchanged, no-overlap cases), `alliedRoutes` (mutual only), slice (publish, rollback). Store 321/321; web 717/717 unchanged.

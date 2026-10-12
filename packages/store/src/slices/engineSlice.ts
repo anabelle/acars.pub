@@ -9,7 +9,9 @@ import {
   fpSub,
   GENESIS_TIME,
   getMaxRouteDistanceKm,
+  mutualPartners,
   nextBrandScore,
+  type Route,
   TICK_DURATION,
   TICKS_PER_MONTH,
 } from "@acars/core";
@@ -221,6 +223,8 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
       }
 
       const currentHubs = airline.hubs || [];
+      // Alliances (S73): routes of the partners who name us back, for codeshares.
+      const allyRoutes = alliedRoutes(get());
       const initialAirlineStatus = airline.status;
       const distanceLimitKm = getMaxRouteDistanceKm(airline.tier);
 
@@ -414,7 +418,7 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
             get().pubkey || "",
             currentBrandScore,
             distanceLimitKm,
-            { fleetPolicy: airline.maintenancePolicy, hubs: currentHubs },
+            { fleetPolicy: airline.maintenancePolicy, hubs: currentHubs, allyRoutes },
           );
         } catch (error) {
           processingError = true;
@@ -661,3 +665,17 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
     }
   },
 });
+
+/** Routes of the airline's active allies (S73): partners it names who name it back. */
+export function alliedRoutes(
+  state: Pick<AirlineState, "airline" | "pubkey" | "competitors" | "routesByOwner">,
+): Route[] {
+  const me = state.pubkey;
+  const mine = state.airline?.alliancePartners;
+  if (!me || !mine || mine.length === 0) return [];
+  return mutualPartners(
+    me,
+    mine,
+    (partner) => state.competitors.get(partner)?.alliancePartners,
+  ).flatMap((partner) => state.routesByOwner.get(partner) ?? []);
+}

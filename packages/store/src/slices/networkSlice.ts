@@ -19,6 +19,7 @@ import {
   getSuggestedFares,
   MAX_ROUTE_FREQUENCY_PER_WEEK,
   MIN_ROUTE_FREQUENCY_PER_WEEK,
+  parsePartners,
   ROUTE_SLOT_FEE,
   routeAt,
   TICK_DURATION,
@@ -72,6 +73,8 @@ export interface NetworkSlice {
   updateRouteFrequency: (routeId: string, frequencyPerWeek: number) => Promise<void>;
   /** Lines of flying (S66): a daily chain of legs for a plane; empty clears it. */
   setAircraftLine: (aircraftId: string, legs: LineLegRequest[]) => Promise<string | null>;
+  /** Name alliance partners (S73); allied only with those who name you back. True when published. */
+  setAlliancePartners: (partners: string[]) => Promise<boolean>;
   /**
    * Raises the route's weekly frequency to the suggestion for the planes on it
    * (S58); never lowers it. Returns the frequency it applied, or null.
@@ -1119,6 +1122,33 @@ export const createNetworkSlice: StateCreator<AirlineState, [], [], NetworkSlice
         routes: state.routes.map((rt) => (rt.id === routeId ? withTimetable(rt, previous) : rt)),
       }));
       console.error("Failed to sync frequency to Nostr:", e);
+    }
+  },
+
+  setAlliancePartners: async (partners: string[]) => {
+    const { airline, pubkey } = get();
+    if (!airline) return false;
+    const clean = parsePartners(partners, pubkey ?? undefined) ?? [];
+    const previous = airline.alliancePartners;
+    set({ airline: { ...airline, alliancePartners: clean } });
+    try {
+      await publishActionWithChain({
+        action: {
+          schemaVersion: 2,
+          action: "ALLIANCE_SET",
+          payload: { partners: clean, tick: useEngineStore.getState().tick },
+        },
+        get,
+        set,
+      });
+      return true;
+    } catch (e) {
+      // Merge-safe rollback: restore only the partner list.
+      set((state) => ({
+        airline: state.airline ? { ...state.airline, alliancePartners: previous } : state.airline,
+      }));
+      console.error("Failed to sync alliance to Nostr:", e);
+      return false;
     }
   },
 

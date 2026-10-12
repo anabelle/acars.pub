@@ -596,6 +596,8 @@ export interface EngineTickResult {
 export interface EngineMaintenanceContext {
   fleetPolicy?: MaintenancePolicy;
   hubs: readonly string[];
+  /** Allies' routes (S73): codeshare connections where they meet ours. */
+  allyRoutes?: readonly Route[];
 }
 
 const NO_MAINTENANCE_POLICY: EngineMaintenanceContext = { hubs: [] };
@@ -817,8 +819,12 @@ export function processFlightEngine(
   // Flights each route gets from planes on lines (S66), for market share.
   const lineServiceByRoute = buildLineService(fleet);
   // Connecting passengers through the airline's hubs (S67), once per game hour.
-  const connections = buildConnectionService(routes, fleet, tick, (iata) =>
-    getAirportMap().get(iata),
+  const connections = buildConnectionService(
+    routes,
+    fleet,
+    tick,
+    (iata) => getAirportMap().get(iata),
+    maintenance.allyRoutes,
   );
   const lineContext: LineEngineContext = {
     routeById,

@@ -27,6 +27,7 @@ import {
   MAX_ROUTE_FREQUENCY_PER_WEEK,
   MIN_ROUTE_FREQUENCY_PER_WEEK,
   type ObjectiveAirportLookup,
+  parsePartners,
   pruneObjectiveLedger,
   REPLACEABLE_ACTION_TYPES,
   ROUTE_SLOT_FEE,
@@ -1162,6 +1163,24 @@ export async function replayActionLog(params: {
             timing.when === "tomorrow"
               ? `Announced new fares for ${route.originIata} ↔ ${route.destinationIata} from 00:00 UTC tomorrow.`
               : `Updated fares for ${route.originIata} ↔ ${route.destinationIata}.`,
+        });
+        break;
+      }
+      case "ALLIANCE_SET": {
+        // Alliances (S73): the partners this airline names; mutual names make an alliance.
+        const partners = parsePartners(payload.partners, pubkey);
+        if (!partners) break;
+        airline = { ...airline, alliancePartners: partners };
+        updateLastTick(actionTick);
+        pushTimelineEvent({
+          id: `evt-action-${record.eventId}`,
+          tick: actionTick,
+          timestamp: eventTimestamp,
+          type: "route_change",
+          description:
+            partners.length > 0
+              ? `Alliance partners: ${partners.map((p) => `${p.slice(0, 8)}…`).join(", ")}.`
+              : "No alliance partners.",
         });
         break;
       }
