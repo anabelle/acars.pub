@@ -1284,5 +1284,42 @@
     "parkedMore_one": " One more plane waits too.",
     "parkedMore_other": " {{count}} more planes wait too.",
     "putToWork": "Put {{name}} to work"
+  },
+  "lastFlight": {
+    "title": "Last flight",
+    "cabinAria": "{{filled}} of {{seats}} seats taken",
+    "aboard": "{{filled}} / {{seats}} aboard · {{empty}} empty",
+    "perGlyph_one": "each mark is {{count}} seat",
+    "perGlyph_other": "each mark is {{count}} seats",
+    "receipt": "Receipt",
+    "net": "Net",
+    "seat": "seat {{seat}}",
+    "class": {
+      "first": "F",
+      "business": "J",
+      "economy": "Y"
+    },
+    "line": {
+      "first": "First class",
+      "business": "Business",
+      "economy": "Economy",
+      "ancillary": "Bags & meals",
+      "fuel": "Fuel",
+      "crew": "Crew",
+      "maintenance": "Maintenance",
+      "airport": "Airport fees",
+      "navigation": "Navigation",
+      "handling": "Handling",
+      "distribution": "Booking fees",
+      "leasing": "Lease",
+      "overhead": "Overhead"
+    },
+    "voice": {
+      "full": "Not one empty seat. Even the overhead bins were full.",
+      "roomy": "I had a whole row to myself. Lovely.",
+      "first": "Champagne before take-off. I could get used to this.",
+      "business": "Landed in time for the meeting, and I even slept.",
+      "smooth": "Smooth flight, friendly crew, on time."
+    }
   }
 }

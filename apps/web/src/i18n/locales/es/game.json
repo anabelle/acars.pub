@@ -1284,5 +1284,42 @@
     "parkedMore_one": " Otro avión espera también.",
     "parkedMore_other": " {{count}} aviones más esperan también.",
     "putToWork": "Pon a volar a {{name}}"
+  },
+  "lastFlight": {
+    "title": "Último vuelo",
+    "cabinAria": "{{filled}} de {{seats}} asientos ocupados",
+    "aboard": "{{filled}} / {{seats}} a bordo · {{empty}} libres",
+    "perGlyph_one": "cada marca es {{count}} asiento",
+    "perGlyph_other": "cada marca son {{count}} asientos",
+    "receipt": "Recibo",
+    "net": "Neto",
+    "seat": "asiento {{seat}}",
+    "class": {
+      "first": "F",
+      "business": "J",
+      "economy": "Y"
+    },
+    "line": {
+      "first": "Primera",
+      "business": "Business",
+      "economy": "Turista",
+      "ancillary": "Maletas y comidas",
+      "fuel": "Combustible",
+      "crew": "Tripulación",
+      "maintenance": "Mantenimiento",
+      "airport": "Tasas aeroportuarias",
+      "navigation": "Navegación",
+      "handling": "Handling",
+      "distribution": "Comisiones de venta",
+      "leasing": "Arrendamiento",
+      "overhead": "Gastos generales"
+    },
+    "voice": {
+      "full": "Ni un asiento libre. Hasta los compartimentos iban llenos.",
+      "roomy": "Tuve una fila entera para mí. Una delicia.",
+      "first": "Champán antes de despegar. Me podría acostumbrar.",
+      "business": "Llegué a tiempo a la reunión, y hasta dormí.",
+      "smooth": "Vuelo tranquilo, tripulación amable, puntual."
+    }
   }
 }
