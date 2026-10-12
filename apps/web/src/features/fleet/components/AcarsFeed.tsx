@@ -40,11 +40,11 @@ export function AcarsFeed({ messages, showPlane = false, testId, className }: Pr
         <span className="text-[10px] text-muted-foreground">{t("acars.subtitle")}</span>
       </div>
       {messages.length === 0 ? (
-        <p className="rounded-[3px] border border-cockpit-line bg-cockpit-bg px-2.5 py-2 font-avionics-mono text-[11px] uppercase text-muted-foreground">
+        <p className="rounded-[3px] border border-cockpit-line bg-cockpit-bg px-2.5 py-2 font-mono text-[11px] uppercase text-muted-foreground">
           {t("acars.empty")}
         </p>
       ) : (
-        <ol className="flex flex-col gap-1 rounded-[3px] border border-cockpit-line bg-cockpit-bg px-2.5 py-2 font-avionics-mono text-[11px] uppercase leading-snug">
+        <ol className="flex flex-col gap-1 rounded-[3px] border border-cockpit-line bg-cockpit-bg px-2.5 py-2 font-mono text-[11px] uppercase leading-snug">
           {messages.map((m) => (
             <li
               key={m.id}

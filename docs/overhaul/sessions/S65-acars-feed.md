@@ -42,3 +42,5 @@ Append one line per checkpoint (newest last). Format: `YYYY-MM-DD · step · com
 2026-10-12 · S65.2 · (this commit) · **The feed on screen.** `AcarsFeed` prints messages on the cockpit panel in B612 Mono: UTC time, (airline feed) the flight number as a link to the plane, the code coloured by phase (OUT/IN white, OFF/ON cyan, POS green), the body. `PlaneAcars` (last 8) sits in the plane panel under the last flight; `AirlineAcars` (last 12) under the cockpit instruments. `useAcarsFeed` re-derives once per game minute with the boards' flight numbers. Tests: component (rows, link opens the plane, empty state); feature suites 534/534.
 
 2026-10-12 · S65.3 WIP · (this commit) · e2e specs `acars` and `mobile-acars` written (cockpit feed shows OUT/OFF/ON/IN with PAX/LF; flight number opens the plane, whose panel lists its messages); first run in progress. Remaining: green run, screenshots, PR update.
+
+2026-10-12 · S65.3 WIP · (this commit) · First e2e run green on desktop and phone. The feed now uses `font-mono` (B612, tabular digits): B612 Mono spaced the punctuation ("05: 54Z"). Re-running for the final screenshots.
