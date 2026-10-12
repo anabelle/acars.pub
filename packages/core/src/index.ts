@@ -179,6 +179,8 @@ export * from "./booking.js";
 export * from "./groups.js";
 // Ranked entry (S72)
 export * from "./ranked.js";
+// Alliances (S73)
+export * from "./alliance.js";
 export type {
   AircraftInstance,
   AircraftModel,

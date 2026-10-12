@@ -247,6 +247,8 @@ export interface AirlineEntity {
    * storage and snapshots with the rest of the airline.
    */
   objectives?: import("./objectives.js").ObjectiveLedger;
+  /** Airlines this one names as alliance partners (S73); allied only when they name it back. */
+  alliancePartners?: string[];
 }
 
 // --- Route ---
@@ -475,6 +477,7 @@ export type GameActionType =
   | "ROUTE_UPDATE_FARES"
   | "ROUTE_UPDATE_FREQUENCY"
   | "AIRCRAFT_LINE_SET"
+  | "ALLIANCE_SET"
   | "AIRCRAFT_PURCHASE"
   | "AIRCRAFT_SELL"
   | "AIRCRAFT_BUYOUT"
