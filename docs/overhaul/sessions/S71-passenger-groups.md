@@ -1,9 +1,9 @@
 # S71 — Passenger groups (three light types)
 
-> **Status:** ◐ in progress
-> **Next step:** S71.4 — e2e (desktop and phone), screenshots, PR
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge the PR)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** — (next)
+> **PR:** #201 (with S68–S70)
 >
 > **Track:** People · **Size:** M (4 steps) · **Depends on:** D14 ✅ (2026-10-12: "three light types"), S63 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §4 People
 
@@ -26,7 +26,7 @@ Not every passenger is the same: holiday-makers chase price, families visiting r
 - [x] **S71.1** Core: `PassengerGroup`, `GROUP_ELASTICITY`, `groupMix(tag)`, `economyElasticity(mix)`, `dominantGroup`, `groupAt`; tests.
 - [x] **S71.2** Store/engine: economy elasticity from the destination's mix; projections follow; tests.
 - [x] **S71.3** Web: who flies (route card, fare editor), group voices; i18n; tests.
-- [ ] **S71.4** e2e (desktop and phone), screenshots, PR.
+- [x] **S71.4** e2e (desktop and phone), screenshots, PR.
 
 ## Progress log
 
@@ -37,3 +37,5 @@ Not every passenger is the same: holiday-makers chase price, families visiting r
 2026-10-12 · S71.2 · (this commit) · **Groups in the engine.** `computeFlightPassengers` prices economy with `economyElasticity(groupMix(destination.tags[0]))` (falls back to the old constant without an airport), so landings live and in catch-up, rivals' included, and every projection built on it follow. The web's own estimates follow too: `useRouteDemand` and the fare editor's elasticity hint use `destinationEconomyElasticity` (`utils/passengerGroups.ts`). Test: on MAD→TFS (beach) vs MAD→LHR (business city), the share of economy passengers kept at 1.5× the fare differs by exactly 1.5^(−1.37+0.925). The route-demand test's mock now matches economy by value (−1.195 ≈ −1.2). Store 312/312, web 699/699.
 
 2026-10-12 · S71.3 · (this commit) · **Who flies, seen and heard.** `WhoFlies` on the route card (under the fares) and in the fare editor: "Who flies: 70% holiday-makers · 20% visiting family · 10% business." plus the tone ("Price-sensitive: a fare rise loses many." / "Middling on price." / "Forgiving on price: they pay for the seat."). Landing voices: an ordinary flight (not full, not empty, no premium cabin story) now speaks as one of the groups flying to its destination, picked by `groupAt` from a hash of the event id ("holiday", "family", "commute" lines). `destinationMix` falls back to the general mix until the airport catalog loads. i18n en/es `groups.*` and three voices. Tests: tones, voice groups, catalog fallback. Web 703/703.
+
+2026-10-12 · S71.4 · (this commit) · **On screen.** e2e `passenger-groups.spec.ts` (1440) and `mobile-passenger-groups.spec.ts` (390): a Madrid airline launches MAD → BCN; the route card shows "Who flies: …% holiday-makers · …% visiting family · …% business." with its tone, and the fare editor shows the same line (Barcelona is a business city: "Forgiving on price"). Screenshots: `media/s71/who-flies-{1440,390}.png`. Ships in #201 (same branch).
