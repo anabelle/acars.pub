@@ -1,9 +1,9 @@
 # S73 — Alliances and codeshares
 
-> **Status:** ◐ in progress
-> **Next step:** S73.4 — e2e (desktop and phone), screenshots, PR
+> **Status:** ☑ done (awaiting merge)
+> **Next step:** — (merge the PR)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** — (next)
+> **PR:** #201 (with S68–S72, S74)
 >
 > **Track:** Social · **Size:** M (4 steps) · **Depends on:** D16 ✅ (2026-10-12 "later"; owner chose "alliances now" the same evening), S67 · **From:** [`../BLUEPRINT.md`](../BLUEPRINT.md) §4 Social, §5 game theory ("cooperation pays in a repeated game")
 
@@ -26,7 +26,7 @@ Two airlines can ally: where one's route meets the other's at an airport, passen
 - [x] **S73.1** Core: `MAX_ALLIANCE_PARTNERS`, `CODESHARE_SHARE`, `parsePartners`, `mutualPartners`, `allianceStatus`; `AirlineEntity.alliancePartners`; tests.
 - [x] **S73.2** Store: replay `ALLIANCE_SET`, `setAlliancePartners`, codeshare connections from allies' routes in engine and catch-up; tests.
 - [x] **S73.3** Web: alliance control on rivals' pages, allies on the leaderboard, codeshare passengers on the hub card; i18n; tests.
-- [ ] **S73.4** e2e (desktop and phone), screenshots, PR.
+- [x] **S73.4** e2e (desktop and phone), screenshots, PR.
 
 ## Progress log
 
@@ -47,3 +47,5 @@ Two airlines can ally: where one's route meets the other's at an airport, passen
 - `AllyBadge` ("Ally") next to allied airlines on the leaderboard.
 - Hub card: "N people a day connect here to your allies' flights." (`hub-codeshare`); a codeshare-only airport shows just that line. `useHubConnections` passes `alliedRoutes` (now `@acars/store/alliance`, exported) to the connection service.
 - i18n en/es `alliance.*`, `connections.codeshare_*`. Tests: control (propose/withdraw, accept/leave, full, hidden), badge, hub card with an ally. Web 722/722; store 323/323.
+
+2026-10-12 · S73.4 · (this commit) · **Two players, one alliance.** New e2e helper `sharedRelay.ts`: one fake relay shared by several pages that stores what is published (addressable and replaceable events replaced as relays do) and serves it back, live, to every matching subscription. e2e `alliances.spec.ts` (1440) and `mobile-alliances.spec.ts` (390): Alpha Air and Bravo Air are created in two browser contexts on that relay; Alpha proposes on Bravo's page; Bravo sees "They proposed an alliance to you." on Alpha's page and accepts; both see "Allies". (First run found that with two airlines on the board the first row isn't always yours: the spec picks the row marked "Your Airline".) Screenshots: `media/s73/alliance-invited-{1440,390}.png`, `media/s73/alliance-allied-{1440,390}.png`. Ships in #201 (same branch).
