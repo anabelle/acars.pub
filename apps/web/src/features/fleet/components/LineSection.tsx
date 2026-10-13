@@ -1,11 +1,14 @@
-import type { AircraftInstance, TimelineEvent } from "@acars/core";
+import type { AircraftInstance, Route, TimelineEvent } from "@acars/core";
 import { TICKS_PER_DAY, TICKS_PER_HOUR, utcTimeOfDayTicks } from "@acars/core";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { onTimePerformance } from "../utils/onTime";
+import { DutySummary } from "./DutySummary";
 import { LineBoard } from "./LineBoard";
 import { LineBuilder } from "./LineBuilder";
+
+const NO_ROUTES: Route[] = [];
 
 /**
  * The plane's day plan in its panel (S66): its line of flying on a 24-hour
@@ -18,6 +21,7 @@ export function LineSection({ aircraft }: { aircraft: AircraftInstance }) {
   const legs = aircraft.line?.legs ?? [];
   const block = legs.reduce((sum, leg) => sum + leg.durationTicks, 0) / TICKS_PER_HOUR;
   const timeline = useAirlineStore((s) => s.timeline) as TimelineEvent[] | undefined;
+  const routes = useAirlineStore((s) => s.routes) ?? NO_ROUTES;
   const onTime = useMemo(
     () =>
       onTimePerformance(timeline ?? [], {
@@ -38,6 +42,7 @@ export function LineSection({ aircraft }: { aircraft: AircraftInstance }) {
           </span>
         ) : null}
       </div>
+      {legs.length ? null : <DutySummary aircraft={aircraft} routes={routes} />}
       {legs.length ? (
         <>
           <p className="font-mono text-sm text-foreground" data-testid="line-route">
@@ -47,6 +52,9 @@ export function LineSection({ aircraft }: { aircraft: AircraftInstance }) {
             legs={legs}
             nowOffsetTicks={utcTimeOfDayTicks(minute * (TICKS_PER_HOUR / 60))}
           />
+          <p data-testid="line-repeats" className="text-[11px] text-muted-foreground">
+            {t("line.repeats")}
+          </p>
           {onTime ? (
             <p data-testid="line-on-time" className="font-mono text-[11px] text-muted-foreground">
               {t("line.onTime", {
@@ -58,7 +66,10 @@ export function LineSection({ aircraft }: { aircraft: AircraftInstance }) {
           ) : null}
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">{t("line.none")}</p>
+        <p className="text-sm text-muted-foreground">
+          {t("line.none")}
+          {aircraft.assignedRouteId ? ` ${t("line.replacesRoute")}` : ""}
+        </p>
       )}
       <button
         type="button"

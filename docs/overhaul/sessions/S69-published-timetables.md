@@ -1,7 +1,7 @@
 # S69 — Published timetables (changes take effect tomorrow)
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge the PR)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #201)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #201 (with S68)
 >
@@ -51,3 +51,5 @@ Fares and schedules are published, like a real airline's: a change made today ta
 - i18n en/es `timetable.*`. Tests: chip, hints, rival note, editor (now vs announce, seeded from the announcement), frequency (announce, new capacity). Web 689/689.
 
 2026-10-12 · S69.4 · (this commit) · **On screen, through midnight.** e2e `timetable.spec.ts` (1440) and `mobile-timetable.spec.ts` (390) with a new journey, `publishedRoute` (MAD → BCN launched at 23:30 UTC, clock run past midnight): one fewer round trip → "Announce for tomorrow" and the 00:00 UTC hint; an economy fare $10 lower → the card's chip reads "From 00:00 UTC: E $… · N/wk"; then the clock runs to the next 00:05 UTC and the chip is gone, the frequency and fare are in force. The same-day specs (route frequency, fare editor, what-if, first hour) still pass unchanged. Screenshots: `media/s69/timetable-announced-1440.png`, `media/s69/timetable-announced-390.png`. Ships in #201 with S68 (same branch).
+
+2026-10-12 · merged · — · Merged in #201 (with S68–S74).

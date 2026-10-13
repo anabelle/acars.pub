@@ -1,7 +1,7 @@
 # S70 — Booking curve (fares while filling, visual first)
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge the PR)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #201)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #201 (with S68, S69)
 >
@@ -40,3 +40,5 @@ Flights fill over the hours before departure, the way real ones do: departure bo
 - i18n en/es `bookings.*`. Tests: utils (counts, climbing, nulls), card (premium and plain wording, hidden cases), bar (filling mark). Web 697/697.
 
 2026-10-12 · S70.3 · (this commit) · **On screen.** e2e `booking-curve.spec.ts` (1440) and `mobile-booking-curve.spec.ts` (390): a two-route Madrid airline flies two hours, then the clock steps five minutes at a time until a plane turns around: its panel shows "Next departure HH:MM · bookings", "N of M seats sold", "more expected before departure" and a filling bar; Madrid's departures board shows a filling bar ("85% ↑"). Screenshots: `media/s70/next-departure-bookings-{1440,390}.png`, `media/s70/booking-bars-filling-{1440,390}.png`. Ships in #201 (same branch).
+
+2026-10-12 · merged · — · Merged in #201 (with S68–S74).

@@ -1,11 +1,12 @@
 import { fp } from "@acars/core";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const storeState = {
   airline: { tier: 1, brandScore: 0.5 },
   pubkey: "me",
   routes: [],
+  fleet: [],
   globalRouteRegistry: new Map(),
   openRoute: vi.fn(),
 };
@@ -26,7 +27,10 @@ vi.mock("@tanstack/react-virtual", () => ({
 vi.mock("@/shared/components/layout/panelScrollContext", () => ({
   usePanelScrollRef: () => ({ current: null }),
 }));
-vi.mock("@/shared/lib/useConfirm", () => ({ useConfirm: () => async () => false }));
+const confirm = vi.fn<(options: { title: string; description?: string }) => Promise<boolean>>(
+  async () => false,
+);
+vi.mock("@/shared/lib/useConfirm", () => ({ useConfirm: () => confirm }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 
 // Projected profit per day by destination; FAR has no aircraft with the range.
@@ -35,10 +39,20 @@ const recommend = vi.fn((input: { destinationIata: string }) => {
   const profit = PROFIT[input.destinationIata];
   return profit === null
     ? null
-    : { model: { name: "ATR 72-600" }, profitAfterLeasePerDay: fp(profit) };
+    : {
+        model: {
+          name: "ATR 72-600",
+          manufacturer: "ATR",
+          price: fp(26_000_000),
+          monthlyLease: fp(156_000),
+          deliveryTimeTicks: 60,
+        },
+        profitAfterLeasePerDay: fp(profit),
+      };
 });
 vi.mock("@/features/network/utils/routeRecommendation", () => ({
   NEW_ROUTE_WEEKLY_FREQUENCY: 7,
+  DAYS_PER_LEASE_MONTH: 30,
   recommendAircraftForRoute: (input: never) => recommend(input),
 }));
 
@@ -85,7 +99,7 @@ describe("OpportunitiesList", () => {
 
     const profits = screen.getAllByTestId("opportunity-profit").map((node) => node.textContent);
     expect(profits[0]).toContain("$4,800");
-    expect(profits[0]).toContain("with an ATR 72-600, after lease");
+    expect(profits[0]).toContain("with the ATR 72-600, after lease");
     expect(profits[3]).toContain("Out of range");
   });
 
@@ -99,5 +113,17 @@ describe("OpportunitiesList", () => {
         networkRoutes: [{ originIata: "MAD", destinationIata: "NEAR", frequencyPerWeek: 7 }],
       }),
     );
+  });
+
+  it("launches a route with its plane, asking once with the full cost", async () => {
+    render(<OpportunitiesList {...props} markets={[market("NEAR"), market("FAR")]} />);
+    const [near, far] = screen.getAllByTestId("opportunity-launch");
+    expect(near).toHaveTextContent("Launch route");
+    expect(far).toBeDisabled();
+    fireEvent.click(near);
+    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
+    const options = confirm.mock.calls[0][0];
+    expect(options.title).toContain("MAD → NEAR");
+    expect(options.description).toContain("lease deposit");
   });
 });

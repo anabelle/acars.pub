@@ -1067,8 +1067,17 @@ function PurchaseModal({
 
           {/* Footer Action */}
           <div className="flex shrink-0 min-w-0 flex-col gap-3 overflow-hidden border-t border-border/50 bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end sm:p-6">
-            <p className="truncate text-center text-xs text-muted-foreground sm:mr-auto sm:text-left">
-              {t("fleet.reviewConfiguration", { ns: "game" })}
+            <p
+              data-testid="order-total"
+              className={`text-center text-sm font-semibold sm:mr-auto sm:text-left ${canAfford ? "text-foreground" : "text-red-400"}`}
+            >
+              {purchaseType === "lease"
+                ? t("fleet.orderTotalLease", {
+                    ns: "game",
+                    amount: fpFormat(upfrontCost, 0),
+                    monthly: fpFormat(aircraft.monthlyLease, 0),
+                  })
+                : t("fleet.orderTotalBuy", { ns: "game", amount: fpFormat(upfrontCost, 0) })}
             </p>
             <button
               type="button"

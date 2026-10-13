@@ -62,8 +62,20 @@ function TopbarLoadFactor() {
   const timeline = useAirlineStore((s) => s.timeline);
   const pulse = useFinancialPulse(Array.isArray(timeline) ? timeline : []);
   const avgLoadFactor = pulse.avgLoadFactor;
+  // Nothing has landed yet: no figure, not a red 0%.
+  if (pulse.flightCount === 0) {
+    return (
+      <span
+        data-testid="topbar-load-factor"
+        className="mt-1 font-mono text-sm font-bold text-muted-foreground"
+      >
+        —
+      </span>
+    );
+  }
   return (
     <span
+      data-testid="topbar-load-factor"
       className={`mt-1 font-mono text-sm font-bold ${avgLoadFactor >= 0.8 ? "text-emerald-400" : avgLoadFactor >= 0.6 ? "text-amber-400" : "text-rose-400"}`}
     >
       {Math.round(avgLoadFactor * 100)}%

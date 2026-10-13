@@ -150,7 +150,9 @@ export function Ticker() {
 
       <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
         <span>{t("ticker.airlines")}</span>
-        <span className="text-foreground font-bold">{1 + competitors.size}</span>
+        <span className="text-foreground font-bold" data-testid="ticker-airlines">
+          {1 + competitors.size}
+        </span>
       </div>
 
       <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">

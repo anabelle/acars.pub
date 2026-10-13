@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setBackupCardOpen } from "../lib/backupCardVisibility";
 import { SecurityUpgradeBanner } from "./SecurityUpgradeBanner";
 
 type Selector<T> = (state: T) => unknown;
@@ -127,6 +128,14 @@ describe("SecurityUpgradeBanner", () => {
 
   it("shows once the airline has flown", () => {
     render(<SecurityUpgradeBanner />);
+    expect(screen.getByText(/first flight/i)).toBeInTheDocument();
+  });
+
+  it("steps aside while the keep-your-airline card is on screen", () => {
+    render(<SecurityUpgradeBanner />);
+    act(() => setBackupCardOpen(true));
+    expect(screen.queryByText(/first flight/i)).not.toBeInTheDocument();
+    act(() => setBackupCardOpen(false));
     expect(screen.getByText(/first flight/i)).toBeInTheDocument();
   });
 });

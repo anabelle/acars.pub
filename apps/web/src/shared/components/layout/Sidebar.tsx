@@ -50,7 +50,7 @@ const navItems: NavItem[] = [
 function resolveNavBadge(
   to: string,
   badges: ReturnType<typeof useNavBadges>,
-): { count: number; variant: "gray" | "red" } | null {
+): { count: number; variant: "gray" | "red"; prefix?: string } | null {
   if (to === "/fleet") {
     if (badges.fleetUnassigned > 0) return { count: badges.fleetUnassigned, variant: "red" };
     if (badges.fleetTotal > 0) return { count: badges.fleetTotal, variant: "gray" };
@@ -62,7 +62,9 @@ function resolveNavBadge(
     return null;
   }
   if (to === "/leaderboard") {
-    if (badges.leaderboardRank > 0) return { count: badges.leaderboardRank, variant: "gray" };
+    // A rank, not a count of things to look at: "#4".
+    if (badges.leaderboardRank > 0)
+      return { count: badges.leaderboardRank, variant: "gray", prefix: "#" };
     return null;
   }
   return null;
@@ -124,7 +126,15 @@ export function Sidebar() {
               }}
             >
               <item.icon className="h-6 w-6" />
-              {badge && <NavBadge count={badge.count} variant={badge.variant} />}
+              {badge && (
+                // On the icon when the bar is narrow; at the end of the row when labelled.
+                <NavBadge
+                  count={badge.count}
+                  variant={badge.variant}
+                  prefix={badge.prefix}
+                  className="md:order-last md:static md:ml-auto"
+                />
+              )}
               <span className="absolute left-14 z-50 rounded-md bg-popover px-2 py-1 text-xs font-semibold text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 pointer-events-none whitespace-nowrap md:hidden">
                 {t(item.labelKey)}
               </span>
@@ -191,6 +201,7 @@ export function MobileNav() {
                 <NavBadge
                   count={badge.count}
                   variant={badge.variant}
+                  prefix={badge.prefix}
                   className="min-w-[14px] h-3.5 text-[8px]"
                 />
               )}

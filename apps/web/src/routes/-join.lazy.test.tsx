@@ -48,4 +48,12 @@ describe("JoinPage", () => {
 
     expect(screen.getAllByText("Guest Onboarding").length).toBeGreaterThan(0);
   });
+
+  it("lists alliances as a live feature, not on the roadmap", () => {
+    mockUseAirlineStore.mockReturnValue({ airline: null, identityStatus: "guest" });
+    const { container } = render(<JoinPage />);
+    const roadmap = container.querySelector('section[aria-labelledby="join-roadmap-title"]');
+    expect(roadmap?.textContent).not.toMatch(/Alliances/);
+    expect(screen.getAllByText("Alliances").length).toBeGreaterThan(0);
+  });
 });

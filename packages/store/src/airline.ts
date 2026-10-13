@@ -1,4 +1,4 @@
-import { createLogger } from "@acars/core";
+import { createLogger, type FlightOffer } from "@acars/core";
 import type { ActionLogEntry } from "@acars/nostr";
 import { create } from "zustand";
 import { useEngineStore } from "./engine.js";
@@ -24,6 +24,34 @@ export * from "./types.js";
  * This keeps the player's entry in the unified maps in perfect sync
  * without requiring any changes to individual slice implementations.
  */
+/**
+ * The player's own airline is never a rival (S77). A world sync that read
+ * snapshots before the identity loaded can carry it in `competitors`, which
+ * counted it twice and let its own offers compete with it; whichever order
+ * the two land in, the write that leaves both known drops it.
+ */
+export function withoutSelfAsRival(
+  state: AirlineState,
+  partial: Partial<AirlineState>,
+): Partial<AirlineState> {
+  if (!partial) return partial;
+  const pubkey = ("pubkey" in partial ? partial.pubkey : state.pubkey) as string | null;
+  if (!pubkey) return partial;
+  const competitors = partial.competitors ?? state.competitors;
+  if (!competitors?.has(pubkey)) return partial;
+  const rivals = new Map(competitors);
+  rivals.delete(pubkey);
+  const registry = partial.globalRouteRegistry ?? state.globalRouteRegistry;
+  const offers = new Map<string, FlightOffer[]>();
+  for (const [key, list] of registry ?? []) {
+    offers.set(
+      key,
+      list.filter((offer) => offer.airlinePubkey !== pubkey),
+    );
+  }
+  return { ...partial, competitors: rivals, globalRouteRegistry: offers };
+}
+
 export const useAirlineStore = create<AirlineState>()((rawSet, get, api) => {
   const set: typeof rawSet = (partial, replace) => {
     if (replace) {
@@ -34,7 +62,9 @@ export const useAirlineStore = create<AirlineState>()((rawSet, get, api) => {
       return;
     }
 
-    rawSet((state) => {
+    rawSet((state) => withoutSelfAsRival(state, mirrorOwnFleet(state)));
+
+    function mirrorOwnFleet(state: AirlineState): Partial<AirlineState> {
       const nextPartial =
         typeof partial === "function"
           ? (partial as (s: AirlineState) => Partial<AirlineState>)(state)
@@ -72,7 +102,7 @@ export const useAirlineStore = create<AirlineState>()((rawSet, get, api) => {
       }
 
       return result as Partial<AirlineState>;
-    });
+    }
   };
 
   return {

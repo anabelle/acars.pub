@@ -4,7 +4,14 @@ import { useTranslation } from "react-i18next";
 import type { ConfirmOptions } from "@/shared/lib/confirm";
 import { ConfirmContext } from "@/shared/lib/confirm-context";
 
-const ConfirmProviderComponent = ({ children }: { children: React.ReactNode }) => {
+const ConfirmProviderComponent = ({
+  children,
+  subscribeNavigation,
+}: {
+  children: React.ReactNode;
+  /** Calls back on every navigation; a pending confirm is cancelled then. */
+  subscribeNavigation?: (onNavigate: () => void) => () => void;
+}) => {
   const { t } = useTranslation("common");
   const [request, setRequest] = React.useState<ConfirmOptions | null>(null);
   const resolverRef = React.useRef<((value: boolean) => void) | null>(null);
@@ -13,6 +20,8 @@ const ConfirmProviderComponent = ({ children }: { children: React.ReactNode }) =
 
   const confirm = React.useCallback((options: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
+      // A newer question replaces an unanswered one: that one counts as "no".
+      resolverRef.current?.(false);
       resolverRef.current = resolve;
       setRequest(options);
     });
@@ -23,6 +32,12 @@ const ConfirmProviderComponent = ({ children }: { children: React.ReactNode }) =
     resolverRef.current = null;
     setRequest(null);
   }, []);
+
+  // A question belongs to the page it was asked on: leaving the page cancels it.
+  React.useEffect(() => {
+    if (!request || !subscribeNavigation) return;
+    return subscribeNavigation(() => handleResolve(false));
+  }, [request, subscribeNavigation, handleResolve]);
 
   React.useEffect(() => {
     if (!request) return;

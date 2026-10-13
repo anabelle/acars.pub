@@ -1,9 +1,9 @@
 import {
+  type AircraftModel,
   type Airport,
   canonicalRouteKey,
   type FixedPoint,
   fpFormat,
-  ROUTE_SLOT_FEE,
   type Route,
   type Season,
   scaleToAddressableMarket,
@@ -12,10 +12,10 @@ import {
 import { HUB_CLASSIFICATIONS } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { CheckCircle2, PlusCircle, TrendingUp } from "lucide-react";
+import { CheckCircle2, PlaneTakeoff, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { modelLabel, useConfirmedLaunch } from "@/features/network/hooks/useConfirmedLaunch";
 import {
   FIRST_HOP_MAX_HOURS,
   flightHours,
@@ -28,7 +28,6 @@ import {
   recommendAircraftForRoute,
 } from "@/features/network/utils/routeRecommendation";
 import { usePanelScrollRef } from "@/shared/components/layout/panelScrollContext";
-import { useConfirm } from "@/shared/lib/useConfirm";
 
 export type ProspectMarket = {
   origin: Airport;
@@ -70,14 +69,13 @@ export function OpportunitiesList({
   const pubkey = useAirlineStore((s) => s.pubkey);
   const routes = useAirlineStore((s) => s.routes);
   const registry = useAirlineStore((s) => s.globalRouteRegistry);
-  const openRoute = useAirlineStore((s) => s.openRoute);
   // Re-project at most once per game hour; season, prosperity and fuel move slowly.
   const hourTick = useEngineStore((s) => Math.floor(s.tick / TICKS_PER_HOUR) * TICKS_PER_HOUR);
-  const confirm = useConfirm();
-  const [openingRouteIata, setOpeningRouteIata] = useState<string | null>(null);
+  const { state: launchState, launchWithConfirm } = useConfirmedLaunch();
+  const launching = launchState.phase === "running" ? launchState.plan.destinationIata : null;
 
   const ranked = useMemo(() => {
-    const models = new Map<ProspectMarket, string>();
+    const models = new Map<ProspectMarket, AircraftModel>();
     const hours = new Map<ProspectMarket, number>();
     const list = rankByProfitPerDay(markets, (market) => {
       if (!airline) return null;
@@ -101,13 +99,13 @@ export function OpportunitiesList({
         ],
       });
       if (!recommendation) return null;
-      models.set(market, recommendation.model.name);
+      models.set(market, recommendation.model);
       hours.set(market, flightHours(market.distance, recommendation.model.speedKmh));
       return recommendation.profitAfterLeasePerDay;
     });
     const entries = list.map((entry) => ({
       ...entry,
-      modelName: models.get(entry.market) ?? null,
+      model: models.get(entry.market) ?? null,
       hours: hours.get(entry.market) ?? null,
     }));
     // A first route should land in the first session (S55.1): short hops first.
@@ -141,7 +139,7 @@ export function OpportunitiesList({
         {opportunitiesVirtualizer.getVirtualItems().map((virtualItem) => {
           const market = ranked[virtualItem.index].market;
           const profitPerDay = ranked[virtualItem.index].profitPerDay;
-          const recommendedModel = ranked[virtualItem.index].modelName;
+          const recommendedModel = ranked[virtualItem.index].model;
           const hoursInAir = ranked[virtualItem.index].hours;
           const quickFirstHop =
             isFirstRoute &&
@@ -255,7 +253,7 @@ export function OpportunitiesList({
                         <span className="text-[10px] text-muted-foreground">
                           {t("routeManager.opportunities.withModel", {
                             ns: "game",
-                            model: recommendedModel,
+                            model: modelLabel(recommendedModel),
                           })}
                         </span>
                       )}
@@ -283,54 +281,30 @@ export function OpportunitiesList({
                   ) : !isViewingOther ? (
                     <button
                       type="button"
-                      onClick={async () => {
-                        const approved = await confirm({
-                          title: t("routeManager.openRouteConfirmTitle", { ns: "game" }),
-                          description: t("routeManager.openRouteConfirmDescription", {
-                            ns: "game",
-                            fee: fpFormat(ROUTE_SLOT_FEE, 0),
-                            origin: market.origin.iata,
-                            destination: market.destination.iata,
-                          }),
-                          confirmLabel: t("routeManager.openRouteConfirmLabel", {
-                            ns: "game",
-                          }),
+                      data-testid="opportunity-launch"
+                      onClick={() => {
+                        if (!recommendedModel) return;
+                        void launchWithConfirm({
+                          originIata: market.origin.iata,
+                          destinationIata: market.destination.iata,
+                          distanceKm: market.distance,
+                          model: recommendedModel,
                         });
-                        if (!approved) return;
-                        setOpeningRouteIata(market.destination.iata);
-                        try {
-                          await openRoute(
-                            market.origin.iata,
-                            market.destination.iata,
-                            market.distance,
-                          );
-                        } catch (error) {
-                          const message =
-                            error instanceof Error
-                              ? error.message
-                              : t("routeManager.unknownError", { ns: "game" });
-                          toast.error(t("routeManager.routeOpenFailed", { ns: "game" }), {
-                            description: message,
-                          });
-                        } finally {
-                          setOpeningRouteIata(null);
-                        }
                       }}
-                      disabled={!canOpenFromOrigin || openingRouteIata !== null}
-                      className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-primary/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      disabled={!canOpenFromOrigin || !recommendedModel || launching !== null}
+                      className="flex shrink-0 items-center justify-center gap-2 whitespace-nowrap px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold hover:scale-105 transition-all shadow-lg shadow-primary/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
-                      {openingRouteIata === market.destination.iata ? (
+                      {launching === market.destination.iata ? (
                         <>
                           <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                          {t("routeManager.opening", { ns: "game" })}
+                          {t("routeCard.launching", { ns: "game" })}
                         </>
                       ) : (
                         <>
-                          <PlusCircle className="h-4 w-4" />
-                          {t("routeManager.openRouteWithFee", {
-                            ns: "game",
-                            fee: fpFormat(ROUTE_SLOT_FEE, 0),
-                          })}
+                          <PlaneTakeoff className="h-4 w-4 shrink-0" />
+                          {recommendedModel
+                            ? t("routeManager.opportunities.launch", { ns: "game" })
+                            : t("routeManager.opportunities.outOfRange", { ns: "game" })}
                         </>
                       )}
                     </button>
@@ -368,7 +342,7 @@ export function OpportunitiesList({
                   />
                 </div>
                 {routeEconomics && (
-                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 text-[10px] font-mono">
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 text-[10px] font-mono">
                     <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
                       <div className="text-[9px] uppercase text-muted-foreground font-semibold">
                         {t("routeManager.opportunities.costPerFlight", { ns: "game" })}
@@ -383,17 +357,6 @@ export function OpportunitiesList({
                       </div>
                       <div className="mt-1 font-bold text-foreground">
                         {Math.round(routeEconomics.breakEvenLoadFactor * 100)}%
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                      <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                        {t("routeManager.opportunities.suggestedFleet", { ns: "game" })}
-                      </div>
-                      <div className="mt-1 font-bold text-foreground">
-                        {t("routeManager.opportunities.aircraftCount", {
-                          ns: "game",
-                          count: routeEconomics.recommendedAircraftCount,
-                        })}
                       </div>
                     </div>
                     <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">

@@ -48,7 +48,8 @@ afterEach(() => {
 describe("LineSection", () => {
   it("invites a day plan, auto-fills it from the base and saves it", async () => {
     render(<LineSection aircraft={plane} />);
-    expect(screen.getByText(/Flies one route back and forth/)).toBeInTheDocument();
+    expect(screen.getByTestId("aircraft-duty")).toHaveTextContent("Flies MAD ⇄ BCN back and forth");
+    expect(screen.getByText(/A day plan replaces its single route/)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("line-open"));
     expect(screen.getByRole("dialog")).toHaveTextContent("A day from MAD");
     expect(screen.getByTestId("line-save")).toBeDisabled();
@@ -101,5 +102,12 @@ describe("LineSection", () => {
     expect(screen.getByTestId("line-route")).toHaveTextContent("MAD→BCN→MAD");
     expect(screen.getAllByTestId("line-board-leg")).toHaveLength(2);
     expect(screen.getByTestId("line-open")).toHaveTextContent(/Edit day plan/);
+    expect(screen.getByTestId("line-repeats")).toHaveTextContent(/every day/);
+    expect(screen.queryByTestId("aircraft-duty")).toBeNull();
+  });
+
+  it("says a plane with nothing to fly is parked", () => {
+    render(<LineSection aircraft={{ ...plane, assignedRouteId: null } as AircraftInstance} />);
+    expect(screen.getByTestId("aircraft-duty")).toHaveTextContent("Parked at MAD");
   });
 });

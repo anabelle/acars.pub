@@ -2,6 +2,7 @@ import { useAirlineStore } from "@acars/store";
 import { ShieldAlert, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useBackupCardOpen } from "../lib/backupCardVisibility";
 import {
   dismissEphemeralBanner,
   isEphemeralBannerDismissed,
@@ -29,6 +30,7 @@ export function SecurityUpgradeBanner() {
   const [dismissedAccounts, setDismissedAccounts] = useState<Record<string, true>>({});
   const [securityRefreshToken, setSecurityRefreshToken] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const cardOpen = useBackupCardOpen();
 
   const dismissed = pubkey
     ? dismissedAccounts[pubkey] || isEphemeralBannerDismissed(pubkey)
@@ -43,7 +45,7 @@ export function SecurityUpgradeBanner() {
     });
   }, [pubkey]);
 
-  if (!hasLanded || dismissed || secured) return null;
+  if (!hasLanded || dismissed || secured || cardOpen) return null;
 
   function dismiss() {
     if (!pubkey) return;

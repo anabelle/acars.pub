@@ -1,7 +1,7 @@
 # S72 — Ranked entry (proof of work first)
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge the PR)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #201)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #201 (with S68–S71)
 >
@@ -49,3 +49,5 @@ Keys are free, so anyone can spin up a throwaway airline that dumps fares on you
 - Leaderboard: ranked airlines first (`rankedFirst`, each part in the metric's order), a Ranked / Unranked badge per row once proofs have loaded.
 - i18n en/es `rank.*`. Tests: card states, bridge (keys, reload, failure), order. Web 708/708.
 - e2e `ranked-entry.spec.ts` (1440) and `mobile-ranked-entry.spec.ts` (390): a Madrid airline opens a route, the card offers ranking, real 18-bit mining runs in the page and publishes to the fake relay, the card and the row turn Ranked. Screenshots: `media/s72/get-ranked-{1440,390}.png`, `media/s72/ranked-{1440,390}.png`. Ships in #201 (same branch).
+
+2026-10-12 · merged · — · Merged in #201 (with S68–S74).

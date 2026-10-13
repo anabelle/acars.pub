@@ -1,7 +1,7 @@
 # S68 — Weather oracle (METAR on Nostr)
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge the PR)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #201)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #201
 >
@@ -48,3 +48,5 @@ Real weather slows real airports: a thunderstorm at Dallas, fog at San Francisco
 - Tests: core (storm delays, no spill, counts), store (hour keys, retention, engine records weather delays only from the stormy origin), web (key, bridge, card, ACARS). Web suites 674/674, store 298/298.
 
 2026-10-12 · S68.4 · (this commit) · **Seen on screen.** e2e `weather.spec.ts` (1440) and `mobile-weather.spec.ts` (390): a fresh weather key signs an hour bundle inline (nostr-tools), a page-level fake relay serves it only to REQs for that author and d-tag, the client is pointed at the key through `localStorage.acars_weather_pubkey`, and Madrid's airport panel shows "IFR · TS · G38" with "expect delays". Screenshots: `media/s68/airport-weather-1440.png`, `media/s68/airport-weather-390.png`. Owner setup is in the S68.2 entry above.
+
+2026-10-12 · merged · — · Merged in #201 (with S68–S74).

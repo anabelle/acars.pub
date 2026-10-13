@@ -577,6 +577,8 @@ export const createEngineSlice: StateCreator<AirlineState, [], [], EngineSlice> 
           type: "delivery",
           aircraftId: ac.id,
           aircraftName: ac.name,
+          // Where it joined the fleet: its base at delivery, before it flies anywhere.
+          destinationIata: ac.baseAirportIata,
           description: `${ac.name} has been delivered and is ready for operations.`,
         });
         return { ...ac, status: "idle" as const };

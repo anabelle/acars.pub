@@ -101,7 +101,7 @@
     "noAircraft": "No aircraft in your fleet yet.",
     "noAircraftDesc": "Visit the Aircraft Dealer to purchase your first plane.",
     "assigned": "Assigned",
-    "unassigned": "Unassigned",
+    "unassigned": "Parked, no route",
     "condition": "Condition",
     "flightHours": "Flight Hours",
     "bookValue": "Book Value",
@@ -141,7 +141,7 @@
     "deniedPassengers": "{{count}} denied",
     "routeAssignment": "Route Assignment",
     "routeChangesLocked": "Route changes are locked while enroute.",
-    "unassignedIdle": "Unassigned (Idle)",
+    "unassignedIdle": "Parked (no route)",
     "healthy": "Healthy",
     "caution": "Caution",
     "outOfRange": "[OUT OF RANGE]",
@@ -235,7 +235,7 @@
     "insufficientFunds": "Insufficient Funds",
     "confirmOrder": "Confirm Order",
     "forSale": "For Sale: {{price}}",
-    "registryId": "Registry ID",
+    "registryId": "Registration",
     "currentLocation": "Current Location",
     "locationEnroute": "Enroute",
     "deliveryTo": "Delivery to",
@@ -304,7 +304,9 @@
       "owned": "In your fleet",
       "next": "Ready to order",
       "locked": "Tier {{tier}}"
-    }
+    },
+    "orderTotalBuy": "You pay {{amount}} now.",
+    "orderTotalLease": "You pay a {{amount}} deposit now, then {{monthly}} a month."
   },
   "network": {
     "title": "Network",
@@ -759,7 +761,7 @@
     "opportunities": {
       "profitPerDay": "Profit / day",
       "outOfRange": "Out of range",
-      "withModel": "with an {{model}}, after lease",
+      "withModel": "with the {{model}}, after lease",
       "totalMarket": "Total market",
       "addressable": "Addressable",
       "distance": "Distance",
@@ -776,7 +778,8 @@
       "fuelCrew": "Fuel {{fuel}} • Crew {{crew}}",
       "searchMinChars": "Type at least 2 characters to search…",
       "searchNoResults": "No airports found matching “{{query}}”",
-      "quickFirstHop": "First landing in ~{{hours}} h"
+      "quickFirstHop": "First landing in ~{{hours}} h",
+      "launch": "Launch route"
     },
     "card": {
       "distance": "Distance {{km}} km",
@@ -1268,13 +1271,13 @@
     "years_other": "{{count}} years"
   },
   "today": {
-    "title": "Today · {{date}}",
+    "title": "Last 24 h · to {{date}}",
     "earned": "earned",
     "flown_one": "{{count}} person flown",
     "flown_other": "{{count}} people flown",
     "landings_one": "{{count}} landing",
     "landings_other": "{{count}} landings",
-    "quiet": "A quiet day so far. Planes in the air will land with stories to tell.",
+    "quiet": "A quiet 24 hours so far. Planes in the air will land with stories to tell.",
     "now": "Now",
     "delivery": "Delivery",
     "deliveredAt": "Joined the fleet at {{airport}}.",
@@ -1369,7 +1372,7 @@
     "sectionTitle": "Day plan",
     "summary_one": "{{count}} leg · {{hours}} block h",
     "summary_other": "{{count}} legs · {{hours}} block h",
-    "none": "Flies one route back and forth. Plan a day over several routes to keep it busy.",
+    "none": "Plan a day over several routes to keep it busy all day.",
     "plan": "Plan a day",
     "edit": "Edit day plan",
     "kicker": "Day plan · {{name}}",
@@ -1409,7 +1412,10 @@
       "no-airline": "No airline.",
       "unknown-aircraft": "Unknown plane."
     },
-    "onTime": "On time {{pct}}% of {{count}} flights · average delay {{minutes}} min · 7 days"
+    "onTime": "On time {{pct}}% of {{count}} flights · average delay {{minutes}} min · 7 days",
+    "repeats": "Repeats every day at these UTC times, until you change it or give the plane one route.",
+    "replacesRoute": "A day plan replaces its single route.",
+    "flyOneRoute": "Fly one route instead"
   },
   "connections": {
     "title_one": "{{count}} person a day wants to connect through {{iata}} on two of your flights (seats permitting).",
@@ -1505,5 +1511,10 @@
     "leave": "Leave the alliance",
     "full": "At most {{count}} partners: leave one first.",
     "badge": "Ally"
+  },
+  "duty": {
+    "line": "Day plan {{path}}, every day",
+    "route": "Flies {{origin}} ⇄ {{destination}} back and forth",
+    "parked": "Parked at {{airport}}, nothing to fly"
   }
 }

@@ -1,7 +1,7 @@
 # S73 — Alliances and codeshares
 
-> **Status:** ☑ done (awaiting merge)
-> **Next step:** — (merge the PR)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #201)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #201 (with S68–S72, S74)
 >
@@ -49,3 +49,5 @@ Two airlines can ally: where one's route meets the other's at an airport, passen
 - i18n en/es `alliance.*`, `connections.codeshare_*`. Tests: control (propose/withdraw, accept/leave, full, hidden), badge, hub card with an ally. Web 722/722; store 323/323.
 
 2026-10-12 · S73.4 · (this commit) · **Two players, one alliance.** New e2e helper `sharedRelay.ts`: one fake relay shared by several pages that stores what is published (addressable and replaceable events replaced as relays do) and serves it back, live, to every matching subscription. e2e `alliances.spec.ts` (1440) and `mobile-alliances.spec.ts` (390): Alpha Air and Bravo Air are created in two browser contexts on that relay; Alpha proposes on Bravo's page; Bravo sees "They proposed an alliance to you." on Alpha's page and accepts; both see "Allies". (First run found that with two airlines on the board the first row isn't always yours: the spec picks the row marked "Your Airline".) Screenshots: `media/s73/alliance-invited-{1440,390}.png`, `media/s73/alliance-allied-{1440,390}.png`. Ships in #201 (same branch).
+
+2026-10-12 · merged · — · Merged in #201 (with S68–S74).

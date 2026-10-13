@@ -71,6 +71,10 @@ export function sharedRelay() {
   };
 
   return {
+    /** Everything the relay holds now, for assertions. */
+    published(): RelayEvent[] {
+      return [...events.values()];
+    },
     async attach(page: Page): Promise<void> {
       await page.routeWebSocket(/^wss?:\/\//, (ws) => {
         const socket = ++socketId;

@@ -157,6 +157,10 @@
       "competition": {
         "title": "One shared live world",
         "description": "Every airline flies on the same map. Rivals compete for the same passengers on the same routes, ranked on live leaderboards."
+      },
+      "alliances": {
+        "title": "Alliances",
+        "description": "Partner with other players: passengers connect across both networks, and each airline earns on the legs it flies."
       }
     },
     "roadmap": {
@@ -170,10 +174,6 @@
         "bitcoin": {
           "title": "Bitcoin rewards",
           "description": "Lightning zaps and prize pools."
-        },
-        "alliances": {
-          "title": "Alliances",
-          "description": "Codeshares and joint networks with other players."
         }
       }
     }

@@ -302,7 +302,10 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
         bootMark("world: rivals fetched", `${allSnapshots.size} snapshots`);
 
         const currentTick = useEngineStore.getState().tick;
-        const myPubkey = existingState.pubkey;
+        // Read after the fetch: on a reload the identity often loads while
+        // the snapshots are in flight, and the player's own must not pass
+        // for a rival's.
+        const myPubkey = get().pubkey ?? existingState.pubkey;
 
         const competitors = new Map<string, AirlineEntity>(existingState.competitors);
         const registry = new Map<string, FlightOffer[]>();
@@ -313,6 +316,9 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
 
         // Seed player data into the unified maps
         if (myPubkey) {
+          // A sync that ran before the identity loaded may have taken the
+          // player's own snapshot for a rival's: never count it as one.
+          competitors.delete(myPubkey);
           updatedFleetByOwner.set(myPubkey, existingState.fleet || []);
           updatedRoutesByOwner.set(myPubkey, existingState.routes || []);
         }
