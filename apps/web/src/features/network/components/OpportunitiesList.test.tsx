@@ -7,7 +7,9 @@ const storeState = {
   pubkey: "me",
   routes: [],
   fleet: [],
-  globalRouteRegistry: new Map(),
+  globalRouteRegistry: new Map([
+    ["MAD-NEAR", [{ airlinePubkey: "rival-1" }, { airlinePubkey: "me" }]],
+  ]) as Map<string, { airlinePubkey: string }[]>,
   openRoute: vi.fn(),
 };
 vi.mock("@acars/store", () => ({
@@ -46,6 +48,7 @@ const recommend = vi.fn((input: { destinationIata: string }) => {
           price: fp(26_000_000),
           monthlyLease: fp(156_000),
           deliveryTimeTicks: 60,
+          speedKmh: 500,
         },
         profitAfterLeasePerDay: fp(profit),
       };
@@ -56,6 +59,7 @@ vi.mock("@/features/network/utils/routeRecommendation", () => ({
   recommendAircraftForRoute: (input: never) => recommend(input),
 }));
 
+import { formatFlightTime } from "../utils/flightTime";
 import { OpportunitiesList, type ProspectMarket } from "./OpportunitiesList";
 
 const airport = (iata: string) =>
@@ -125,5 +129,24 @@ describe("OpportunitiesList", () => {
     const options = confirm.mock.calls[0][0];
     expect(options.title).toContain("MAD → NEAR");
     expect(options.description).toContain("lease deposit");
+  });
+
+  it("leads with flight time, profit and rivals; market numbers wait behind details (S78)", () => {
+    render(<OpportunitiesList {...props} markets={[market("NEAR"), market("MID")]} />);
+    const [mid, near] = screen.getAllByTestId("opportunity-flight-time");
+    expect(mid).toHaveTextContent("1 h");
+    expect(near).toHaveTextContent("500 km");
+    const rivals = screen.getAllByTestId("opportunity-rivals").map((node) => node.textContent);
+    // MID has nobody; NEAR has one rival (the player's own offer doesn't count).
+    expect(rivals).toEqual(["Rival airlinesNone", "Rival airlines1"]);
+    const details = screen.getAllByTestId("opportunity-details")[0] as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    expect(details).toHaveTextContent(/Total market/i);
+  });
+
+  it("formats flight time in hours and minutes", () => {
+    expect(formatFlightTime(0.75)).toBe("45 min");
+    expect(formatFlightTime(2)).toBe("2 h");
+    expect(formatFlightTime(1.84)).toBe("1 h 50 min");
   });
 });

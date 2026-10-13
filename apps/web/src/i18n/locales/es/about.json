@@ -1,6 +1,6 @@
 {
-  "title": "Acerca de",
-  "subtitle": "Juego de gestión de aerolíneas descentralizado y de código abierto en Nostr.",
+  "title": "Info",
+  "subtitle": "Cómo jugar, las palabras que verás y qué es ACARS.",
   "nostr": {
     "title": "Descentralizado en Nostr",
     "desc": "Todo el estado del juego vive en el protocolo Nostr — sin base de datos central, sin punto único de fallo. Tu aerolínea es tuya."
@@ -17,5 +17,39 @@
   "acarsDesc": "ACARS (Sistema de Comunicación y Reporte de Aeronaves) es un MMO de gestión de aerolíneas totalmente de código abierto y descentralizado construido sobre el protocolo Nostr.",
   "viewOnGithub": "Ver en GitHub",
   "learnNostr": "Aprende sobre Nostr",
-  "license": "Licencia MIT · Contribuciones bienvenidas"
+  "license": "Licencia MIT · Contribuciones bienvenidas",
+  "howTo": {
+    "title": "Cómo jugar",
+    "steps": [
+      "Elige una ruta desde tu hub: Rutas → Oportunidades, o toca una ciudad en el mapa. Lánzala: el avión se alquila por ti.",
+      "Espera la entrega (unos minutos); después el avión vuela solo, en tiempo real, incluso cuando no estás.",
+      "Cada aterrizaje gana dinero. Pasa de vez en cuando: la cabina muestra las últimas 24 horas y lo que te necesita.",
+      "Llena asientos: ajusta tarifas y vuelos por semana en cada ruta. Los cambios en una ruta ya a la venta empiezan a las 00:00 UTC.",
+      "Crece: más rutas y aviones, un plan del día para tener cada avión ocupado, un segundo hub. Rutas abiertas e ingresos desbloquean el siguiente nivel.",
+      "Otros jugadores vuelan el mismo mapa por los mismos pasajeros. Clasifícate, compárate en Rivales o forma una alianza."
+    ]
+  },
+  "glossary": {
+    "title": "Palabras que verás",
+    "items": [
+      [
+        "Asientos llenos",
+        "La parte de asientos vendidos en tus vuelos (las aerolíneas lo llaman factor de carga)."
+      ],
+      [
+        "Plan del día",
+        "La cadena de tramos de un avión, a las mismas horas UTC cada día. Sin él, un avión vuela una ruta de ida y vuelta."
+      ],
+      ["Nivel", "El tamaño de tu aerolínea. Desbloquea rutas más largas y aviones más grandes."],
+      [
+        "Clasificada",
+        "Una prueba única que impide que aerolíneas de usar y tirar hundan las tarifas; las clasificadas aparecen en el ranking."
+      ],
+      [
+        "Alianza",
+        "Dos aerolíneas que se nombran mutuamente: los pasajeros conectan entre ambas redes."
+      ]
+    ]
+  },
+  "aboutTitle": "Sobre ACARS"
 }

@@ -147,7 +147,7 @@ describe("RouteManager", () => {
     });
 
     render(<RouteManager />);
-    expect(screen.getByText("Network")).toBeInTheDocument();
+    expect(screen.getAllByText("Routes").length).toBeGreaterThan(0);
   });
 
   it("renders active and opportunities tabs", () => {

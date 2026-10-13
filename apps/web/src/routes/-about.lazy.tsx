@@ -19,6 +19,43 @@ export default function AboutPage() {
     <PanelLayout>
       <PanelHeader title={t("title")} subtitle={t("subtitle")} />
       <PanelBody className="space-y-6 pt-3 sm:pt-4">
+        {/* How to play first (S78): what a new player came here for. */}
+        <section data-testid="how-to-play" className="space-y-3">
+          <h2 className="text-lg font-black tracking-tight text-foreground">{t("howTo.title")}</h2>
+          <ol className="space-y-2">
+            {(t("howTo.steps", { returnObjects: true }) as string[]).map((step, index) => (
+              <li
+                key={step}
+                className="flex gap-3 rounded-xl border border-border/60 bg-background/95 p-3"
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 font-mono text-xs font-bold text-primary">
+                  {index + 1}
+                </span>
+                <span className="text-sm leading-relaxed text-foreground">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section data-testid="glossary" className="space-y-2">
+          <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            {t("glossary.title")}
+          </h2>
+          <dl className="space-y-2 text-sm">
+            {(t("glossary.items", { returnObjects: true }) as [string, string][]).map(
+              ([term, meaning]) => (
+                <div key={term}>
+                  <dt className="font-semibold text-foreground">{term}</dt>
+                  <dd className="text-xs leading-relaxed text-muted-foreground">{meaning}</dd>
+                </div>
+              ),
+            )}
+          </dl>
+        </section>
+
+        <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          {t("aboutTitle")}
+        </h2>
         {/* Description */}
         <section className="space-y-3">
           <p className="text-sm leading-relaxed text-muted-foreground">

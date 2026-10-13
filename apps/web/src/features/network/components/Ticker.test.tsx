@@ -114,8 +114,7 @@ describe("Ticker", () => {
     // Guests see world facts only.
     expect(screen.queryByTestId("ticker-next-landing")).not.toBeInTheDocument();
     // Memoized world totals: 3 + 4 aircraft across owners, 1 + 2 routes.
-    expect(screen.getByText("7")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByTestId("ticker-world")).toHaveTextContent(/7 planes · 3 routes/);
   });
 
   it("renders translated season labels in Spanish", async () => {

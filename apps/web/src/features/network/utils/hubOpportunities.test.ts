@@ -16,6 +16,7 @@ vi.mock("@/features/network/utils/routeRecommendation", () => ({
 import {
   candidateDestinations,
   computeHubOpportunities,
+  MIN_AIRLINER_RUNWAY_FT,
   OPPORTUNITY_MIN_KM,
   OpportunityCache,
   opportunityCacheKey,
@@ -47,6 +48,17 @@ describe("candidateDestinations()", () => {
     const list = candidateDestinations(hub, AIRPORTS, 4, new Set(), 10);
     expect(list.map((c) => c.airport.iata)).toEqual(["JFK", "CDG", "BCN", "LIS"]);
     expect(list.every((c) => c.distanceKm >= OPPORTUNITY_MIN_KM)).toBe(true);
+  });
+
+  it("leaves out general-aviation strips too short for an airliner (S78)", () => {
+    const hub = AIRPORTS[0];
+    const strip = { ...airport("ESH", 50.84, -0.3, 8_900_000), runwayLengthFt: 3385 } as Airport;
+    const field = { ...airport("LGW", 51.15, -0.19, 8_000_000), runwayLengthFt: 10_883 } as Airport;
+    const list = candidateDestinations(hub, [...AIRPORTS, strip, field], 4, new Set(), 10);
+    const codes = list.map((c) => c.airport.iata);
+    expect(codes).not.toContain("ESH");
+    expect(codes).toContain("LGW");
+    expect(MIN_AIRLINER_RUNWAY_FT).toBe(4000);
   });
 
   it("drops served destinations, out-of-range ones and the limit's overflow", () => {

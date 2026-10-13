@@ -148,7 +148,15 @@ export function WorkspaceContextBar() {
 
   const ModeIcon = mode.icon;
 
-  if (dismissed) return null;
+  // On the player's own airline, flying normally, each panel's header already
+  // says where they are: the bar only speaks for a special mode — a rival's
+  // airline, a guest, bankruptcy (S78).
+  const plainOwnAirline =
+    hasAirline &&
+    !isViewingOther &&
+    airlineStatus !== "chapter11" &&
+    airlineStatus !== "liquidated";
+  if (dismissed || plainOwnAirline) return null;
 
   return (
     // Hidden on phones: the floating mobile top bar occupies the top of the

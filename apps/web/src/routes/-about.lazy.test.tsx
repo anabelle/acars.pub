@@ -21,7 +21,15 @@ import AboutPage from "./-about.lazy";
 describe("About route", () => {
   it("renders about panel", () => {
     render(<AboutPage />);
-    expect(screen.getByText("About")).toBeInTheDocument();
+    expect(screen.getAllByText("Info").length).toBeGreaterThan(0);
+  });
+
+  it("opens on how to play, then the words a player will see (S78)", () => {
+    render(<AboutPage />);
+    const steps = screen.getByTestId("how-to-play").querySelectorAll("li");
+    expect(steps).toHaveLength(6);
+    expect(steps[0]).toHaveTextContent(/Pick a route/);
+    expect(screen.getByTestId("glossary")).toHaveTextContent(/Day plan/);
   });
 
   it("has a link to GitHub", () => {

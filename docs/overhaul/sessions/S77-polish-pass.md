@@ -1,9 +1,9 @@
 # S77 — Polish pass: play every main flow and fix what is broken or confusing
 
-> **Status:** ◑ in review
-> **Next step:** — (in review; after merge: mark merged, update STATUS)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #202)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #202
 >
 > **Track:** Polish · **Size:** M (6 steps) · **Depends on:** S68–S74 merged (#201) · **From:** owner, 2026-10-12: "check and play all main user flows … after so many deep changes it feels a bit sloppy, we should polish it harder before launching public nostr services"
 
@@ -61,3 +61,5 @@ A scripted playtest (desktop 1440 and phone 390) played a new player end to end 
 2026-10-12 · S77.6 (part 1) · (this commit) · **Replayed the playtest on the fixes; two more root causes.** The replay showed "Airlines 2" still after a reload: `syncWorld` read the pubkey before awaiting the snapshots, and on a reload the identity loads while they are in flight. Fixed for every order: `withoutSelfAsRival` in the store's `set` middleware drops the player's pubkey from `competitors` and their offers from `globalRouteRegistry` on any write that leaves both known (O(1) when absent), and `syncWorld` reads the pubkey after the fetch. Proven by e2e: with the fix disabled the new reload test reads "2". Also: delivery events carry `destinationIata` (the base at delivery), so the cockpit says a plane joined the fleet where it was delivered, not wherever it is now. e2e: `polish.spec.ts` (launch from opportunities with a plane + confirm with the lease deposit + fleet duty + registration; a confirm closes on navigation; one airline after reload) and `mobile-polish.spec.ts`; `sharedRelay.published()`; `ticker-airlines` test id. Unit: store 328/328 (+4), web 736/736, all packages green under coverage.
 
 2026-10-12 · S77.6 (part 2) · (this commit) · **Shorter launch button, screenshots, e2e green.** Each opportunity's button reads "Launch route" (the card already names the plane: "with the De Havilland Dash 8-Q400, after lease"); the long model name wrapped it onto four lines at 1440. Before/after screenshots in `media/s77/`. e2e on the final build: polish (desktop 3, phone 2), today, first-hour, route-launch, route-card, fleet purchase, smoke, key backup, lines, plane panel, opportunity map, ticker, route assign, home briefing, ux audit, alliances, mobile layout — all green (alliances and plane-panel timed out once under 3 workers and passed alone; the "today" pair failed once only because a concurrent run cleared `test-results`, then passed).
+
+2026-10-13 · merged · #202 · CI green (the desktop alliances e2e failed once on the first run: Bravo never loaded Alpha's page; it passed on the one re-run and never reproduced locally — watch it as a known intermittent).

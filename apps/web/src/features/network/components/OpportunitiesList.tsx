@@ -12,10 +12,11 @@ import {
 import { HUB_CLASSIFICATIONS } from "@acars/data";
 import { useAirlineStore, useEngineStore } from "@acars/store";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { CheckCircle2, PlaneTakeoff, TrendingUp } from "lucide-react";
+import { CheckCircle2, PlaneTakeoff } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { modelLabel, useConfirmedLaunch } from "@/features/network/hooks/useConfirmedLaunch";
+import { formatFlightTime } from "@/features/network/utils/flightTime";
 import {
   FIRST_HOP_MAX_HOURS,
   flightHours,
@@ -165,6 +166,9 @@ export function OpportunitiesList({
           const destinationCapacity = destinationMeta?.baseCapacityPerHour ?? null;
           const destinationSlotControlled = destinationMeta?.slotControlled ?? false;
           const routeEconomics = market.routeEconomics;
+          const rivalCount = (
+            registry?.get(canonicalRouteKey(market.origin.iata, market.destination.iata)) ?? []
+          ).filter((offer) => offer.airlinePubkey !== pubkey).length;
 
           return (
             <div
@@ -180,6 +184,7 @@ export function OpportunitiesList({
               }}
             >
               <div className="group relative rounded-2xl bg-card border border-border overflow-hidden p-5 transition-all hover:border-primary/50 mb-4">
+                {/* Where, how long, how much a day, who else flies it — then Launch (S78). */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-3 sm:gap-8">
                     <div className="flex flex-col">
@@ -193,7 +198,6 @@ export function OpportunitiesList({
                               </span>
                             )}
                         </span>
-                        <TrendingUp className="h-4 w-4 text-primary" />
                         {quickFirstHop && (
                           <span
                             data-testid="first-hop-badge"
@@ -211,33 +215,21 @@ export function OpportunitiesList({
                       </span>
                     </div>
 
-                    <div className="flex flex-col">
+                    <div className="flex flex-col" data-testid="opportunity-flight-time">
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                        {t("routeManager.opportunities.totalMarket", { ns: "game" })}
-                      </span>
-                      <span className="text-lg font-mono font-bold">
-                        {totalDemand.toLocaleString()}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                        {t("routeManager.opportunities.addressable", { ns: "game" })}
+                        {t("routeManager.opportunities.flightTime", { ns: "game" })}
                       </span>
                       <span className="text-lg font-mono font-bold text-foreground">
-                        {addressableTotal.toLocaleString()}
+                        {hoursInAir !== null && Number.isFinite(hoursInAir)
+                          ? formatFlightTime(hoursInAir)
+                          : `${Math.round(market.distance).toLocaleString()} km`}
                       </span>
+                      {hoursInAir !== null && Number.isFinite(hoursInAir) ? (
+                        <span className="text-[10px] text-muted-foreground">
+                          {Math.round(market.distance).toLocaleString()} km
+                        </span>
+                      ) : null}
                     </div>
-
-                    <div className="flex flex-col">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                        {t("routeManager.opportunities.distance", { ns: "game" })}
-                      </span>
-                      <span className="text-lg font-mono font-bold text-primary">
-                        {Math.round(market.distance).toLocaleString()} km
-                      </span>
-                    </div>
-
                     <div className="flex flex-col" data-testid="opportunity-profit">
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
                         {t("routeManager.opportunities.profitPerDay", { ns: "game" })}
@@ -258,19 +250,16 @@ export function OpportunitiesList({
                         </span>
                       )}
                     </div>
-                    {destinationCapacity && (
-                      <div className="flex flex-col">
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                          {t("routeManager.opportunities.destinationCapacity", { ns: "game" })}
-                        </span>
-                        <span className="text-xs font-semibold text-foreground">
-                          {t("units.perHour", { ns: "common", value: destinationCapacity })}
-                          {destinationSlotControlled
-                            ? ` • ${t("routeManager.opportunities.slotControlled", { ns: "game" })}`
-                            : ""}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex flex-col" data-testid="opportunity-rivals">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                        {t("routeManager.opportunities.rivals", { ns: "game" })}
+                      </span>
+                      <span className="text-lg font-mono font-bold text-foreground">
+                        {rivalCount === 0
+                          ? t("routeManager.opportunities.noRivals", { ns: "game" })
+                          : rivalCount}
+                      </span>
+                    </div>
                   </div>
 
                   {isAlreadyOpen ? (
@@ -318,61 +307,99 @@ export function OpportunitiesList({
                     })}
                   </div>
                 )}
-                <div className="mt-4 flex h-1 w-full rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full bg-zinc-500"
-                    style={{
-                      width: `${(market.demand.economy / (totalDemand || 1)) * 100}%`,
-                    }}
-                    title={t("routeManager.fareEditor.class.economy", { ns: "game" })}
-                  />
-                  <div
-                    className="h-full bg-blue-500"
-                    style={{
-                      width: `${(market.demand.business / (totalDemand || 1)) * 100}%`,
-                    }}
-                    title={t("routeManager.fareEditor.class.business", { ns: "game" })}
-                  />
-                  <div
-                    className="h-full bg-yellow-500"
-                    style={{
-                      width: `${(market.demand.first / (totalDemand || 1)) * 100}%`,
-                    }}
-                    title={t("routeManager.fareEditor.class.first", { ns: "game" })}
-                  />
-                </div>
-                {routeEconomics && (
-                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 text-[10px] font-mono">
-                    <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                      <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                        {t("routeManager.opportunities.costPerFlight", { ns: "game" })}
-                      </div>
-                      <div className="mt-1 font-bold text-foreground">
-                        {fpFormat(routeEconomics.costPerFlight, 0)}
-                      </div>
+                <details className="mt-3 group/details" data-testid="opportunity-details">
+                  <summary className="cursor-pointer select-none text-xs font-semibold text-muted-foreground hover:text-foreground">
+                    {t("routeManager.opportunities.details", { ns: "game" })}
+                  </summary>
+                  <div className="mt-3 flex flex-wrap items-center gap-3 sm:gap-8">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                        {t("routeManager.opportunities.totalMarket", { ns: "game" })}
+                      </span>
+                      <span className="text-lg font-mono font-bold">
+                        {totalDemand.toLocaleString()}
+                      </span>
                     </div>
-                    <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                      <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                        {t("routeManager.opportunities.breakEven", { ns: "game" })}
-                      </div>
-                      <div className="mt-1 font-bold text-foreground">
-                        {Math.round(routeEconomics.breakEvenLoadFactor * 100)}%
-                      </div>
+
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                        {t("routeManager.opportunities.addressable", { ns: "game" })}
+                      </span>
+                      <span className="text-lg font-mono font-bold text-foreground">
+                        {addressableTotal.toLocaleString()}
+                      </span>
                     </div>
-                    <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
-                      <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                        {t("routeManager.opportunities.costSplit", { ns: "game" })}
+
+                    {destinationCapacity && (
+                      <div className="flex flex-col">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                          {t("routeManager.opportunities.destinationCapacity", { ns: "game" })}
+                        </span>
+                        <span className="text-xs font-semibold text-foreground">
+                          {t("units.perHour", { ns: "common", value: destinationCapacity })}
+                          {destinationSlotControlled
+                            ? ` • ${t("routeManager.opportunities.slotControlled", { ns: "game" })}`
+                            : ""}
+                        </span>
                       </div>
-                      <div className="mt-1 text-[9px] text-muted-foreground">
-                        {t("routeManager.opportunities.fuelCrew", {
-                          ns: "game",
-                          fuel: fpFormat(routeEconomics.costBreakdown.fuel, 0),
-                          crew: fpFormat(routeEconomics.costBreakdown.crew, 0),
-                        })}
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
+                  <div className="mt-4 flex h-1 w-full rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full bg-zinc-500"
+                      style={{
+                        width: `${(market.demand.economy / (totalDemand || 1)) * 100}%`,
+                      }}
+                      title={t("routeManager.fareEditor.class.economy", { ns: "game" })}
+                    />
+                    <div
+                      className="h-full bg-blue-500"
+                      style={{
+                        width: `${(market.demand.business / (totalDemand || 1)) * 100}%`,
+                      }}
+                      title={t("routeManager.fareEditor.class.business", { ns: "game" })}
+                    />
+                    <div
+                      className="h-full bg-yellow-500"
+                      style={{
+                        width: `${(market.demand.first / (totalDemand || 1)) * 100}%`,
+                      }}
+                      title={t("routeManager.fareEditor.class.first", { ns: "game" })}
+                    />
+                  </div>
+                  {routeEconomics && (
+                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 text-[10px] font-mono">
+                      <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
+                        <div className="text-[9px] uppercase text-muted-foreground font-semibold">
+                          {t("routeManager.opportunities.costPerFlight", { ns: "game" })}
+                        </div>
+                        <div className="mt-1 font-bold text-foreground">
+                          {fpFormat(routeEconomics.costPerFlight, 0)}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
+                        <div className="text-[9px] uppercase text-muted-foreground font-semibold">
+                          {t("routeManager.opportunities.breakEven", { ns: "game" })}
+                        </div>
+                        <div className="mt-1 font-bold text-foreground">
+                          {Math.round(routeEconomics.breakEvenLoadFactor * 100)}%
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-border/30 bg-background/30 px-3 py-2">
+                        <div className="text-[9px] uppercase text-muted-foreground font-semibold">
+                          {t("routeManager.opportunities.costSplit", { ns: "game" })}
+                        </div>
+                        <div className="mt-1 text-[9px] text-muted-foreground">
+                          {t("routeManager.opportunities.fuelCrew", {
+                            ns: "game",
+                            fuel: fpFormat(routeEconomics.costBreakdown.fuel, 0),
+                            crew: fpFormat(routeEconomics.costBreakdown.crew, 0),
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </details>
               </div>
             </div>
           );

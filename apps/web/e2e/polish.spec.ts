@@ -93,3 +93,27 @@ test("after a reload the player's airline is counted once, not as its own rival"
   await expect(airlines).toHaveText("1");
   expect(problems.pageErrors).toEqual([]);
 });
+
+// S78: one clear screen at a time.
+test("a new airline's cockpit opens on its checklist, under plain chrome", async ({
+  page,
+  problems,
+}) => {
+  test.setTimeout(120_000);
+  await createAirline(page);
+  await navigateInApp(page, "/?panel=cockpit");
+  const checklist = page.getByTestId("first-hour-checklist");
+  await expect(checklist).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { level: 1, name: "Cockpit" })).toBeVisible();
+  // Nothing has flown: no empty gauges, no second "open a route" prompt.
+  await expect(page.getByText("Utilization")).toHaveCount(0);
+  await expect(page.getByTestId("cockpit-needs-you")).toHaveCount(0);
+  // The top bar says what the next tier needs, in words.
+  await expect(page.getByTestId("topbar-tier-next").last()).toHaveText(/more routes?/);
+  await page.screenshot({ path: "test-results/fresh-cockpit.png" });
+
+  await navigateInApp(page, "/info");
+  await expect(page.getByTestId("how-to-play")).toContainText("Pick a route");
+  await page.screenshot({ path: "test-results/fresh-info.png" });
+  expect(problems.pageErrors).toEqual([]);
+});

@@ -118,10 +118,11 @@ describe("Topbar", () => {
     render(<Topbar />);
     expect(screen.getAllByText("Test Air")).toHaveLength(2);
     expect(screen.getByText("TEST")).toBeInTheDocument();
-    expect(screen.getByText("Corporate Balance")).toBeInTheDocument();
+    expect(screen.getAllByText("Cash").length).toBeGreaterThan(0);
     // Tier 2 with nothing earned yet: progress towards tier 3 starts at 0%.
     expect(screen.getByTestId("topbar-tier")).toHaveTextContent("T2 → 3");
-    expect(screen.getByTestId("topbar-tier")).toHaveTextContent("Rev 0%");
+    // In words, what still stands in the way (S78): no route open yet.
+    expect(screen.getAllByTestId("topbar-tier-next")[0]).toHaveTextContent(/more routes?$/);
     // Nothing has landed yet: the load factor is blank, not a red 0%.
     for (const loadFactor of screen.getAllByTestId("topbar-load-factor")) {
       expect(loadFactor).toHaveTextContent("—");
