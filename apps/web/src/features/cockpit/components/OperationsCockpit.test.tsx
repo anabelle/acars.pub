@@ -85,12 +85,11 @@ afterEach(() => {
 });
 
 describe("OperationsCockpit relay card", () => {
-  it("hides the connection card while relays are healthy", () => {
+  it("shows no status cards on the player's own cockpit while relays are healthy", () => {
     render(<OperationsCockpit />);
-    const cards = screen.getByTestId("cockpit-status-cards");
-    expect(within(cards).getByText("Cash")).toBeInTheDocument();
-    expect(within(cards).queryByText("Connection")).not.toBeInTheDocument();
-    expect(cards).toHaveClass("2xl:grid-cols-3");
+    // Cash, routes and load factor live in the top bar and the instruments (S78).
+    expect(screen.queryByTestId("cockpit-status-cards")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connection")).not.toBeInTheDocument();
     expect(screen.queryByText("You're offline")).not.toBeInTheDocument();
   });
 
@@ -106,7 +105,7 @@ describe("OperationsCockpit relay card", () => {
     const cards = screen.getByTestId("cockpit-status-cards");
     expect(within(cards).getByText("Connection")).toBeInTheDocument();
     expect(within(cards).getByText("Offline")).toBeInTheDocument();
-    expect(cards).toHaveClass("2xl:grid-cols-4");
+    expect(within(cards).queryByText("Cash")).not.toBeInTheDocument();
     expect(screen.getByText("You're offline")).toBeInTheDocument();
   });
 });
@@ -161,5 +160,19 @@ describe("cockpit idle planes (S58)", () => {
     network.fleet = [atr("r2")];
     render(<OperationsCockpit />);
     expect(screen.queryByText("Put idle planes to work")).not.toBeInTheDocument();
+  });
+});
+
+describe("cockpit for a new airline (S78)", () => {
+  it("opens on the first-hour checklist, without empty instruments or filler", () => {
+    render(<OperationsCockpit />);
+    expect(screen.getByRole("heading", { level: 1, name: "Cockpit" })).toBeInTheDocument();
+    expect(screen.getByTestId("first-hour-checklist")).toBeInTheDocument();
+    // Nothing has flown: no instruments yet.
+    expect(screen.queryByText("Utilization")).not.toBeInTheDocument();
+    // No links that only repeat the sidebar.
+    expect(
+      screen.queryByText(/Check your finances|Check your rivals|Fine-tune your routes/),
+    ).not.toBeInTheDocument();
   });
 });

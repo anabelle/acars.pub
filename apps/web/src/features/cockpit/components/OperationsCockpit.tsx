@@ -268,48 +268,52 @@ export function OperationsCockpit() {
   const statusCards = useMemo<StatusItem[]>(() => {
     if (!activeAirline) return [];
 
-    const cards: StatusItem[] = [
-      {
-        title: t("cockpit.status.cashPosition", { ns: "game" }),
-        value: fpFormat(activeAirline.corporateBalance, 0),
-        detail: isViewingOther
-          ? t("cockpit.status.cashPositionCompetitor", { ns: "game" })
-          : t("cockpit.status.cashPositionDetail", { ns: "game" }),
-        icon: Wallet,
-        tone: activeAirline.corporateBalance >= 0 ? "good" : "danger",
-      },
-      {
-        title: t("cockpit.status.liveNetwork", { ns: "game" }),
-        value: numberFormatter.format(activeRoutes.length),
-        detail: t("cockpit.status.liveNetworkDetail", {
-          ns: "game",
-          fleet: numberFormatter.format(fleet.length),
-          hubs: numberFormatter.format(activeAirline.hubs.length),
-        }),
-        icon: Globe,
-        tone: activeRoutes.length > 0 ? "good" : "warn",
-      },
-      {
-        title: t("cockpit.status.loadFactor", { ns: "game" }),
-        value: `${Math.round(pulse.avgLoadFactor * 100)}%`,
-        detail:
-          pulse.flightCount > 0
-            ? t("cockpit.status.loadFactorDetail", {
-                ns: "game",
-                count: pulse.flightCount,
-              })
-            : t("cockpit.status.loadFactorEmpty", { ns: "game" }),
-        icon: Plane,
-        tone:
-          pulse.flightCount === 0
-            ? "neutral"
-            : pulse.avgLoadFactor >= 0.8
-              ? "good"
-              : pulse.avgLoadFactor >= 0.6
-                ? "warn"
-                : "danger",
-      },
-    ];
+    // The player's own cash, routes and load factor are in the top bar and the
+    // instruments; only a rival's cockpit needs them here (S78).
+    const cards: StatusItem[] = [];
+    if (isViewingOther)
+      cards.push(
+        {
+          title: t("cockpit.status.cashPosition", { ns: "game" }),
+          value: fpFormat(activeAirline.corporateBalance, 0),
+          detail: isViewingOther
+            ? t("cockpit.status.cashPositionCompetitor", { ns: "game" })
+            : t("cockpit.status.cashPositionDetail", { ns: "game" }),
+          icon: Wallet,
+          tone: activeAirline.corporateBalance >= 0 ? "good" : "danger",
+        },
+        {
+          title: t("cockpit.status.liveNetwork", { ns: "game" }),
+          value: numberFormatter.format(activeRoutes.length),
+          detail: t("cockpit.status.liveNetworkDetail", {
+            ns: "game",
+            fleet: numberFormatter.format(fleet.length),
+            hubs: numberFormatter.format(activeAirline.hubs.length),
+          }),
+          icon: Globe,
+          tone: activeRoutes.length > 0 ? "good" : "warn",
+        },
+        {
+          title: t("cockpit.status.loadFactor", { ns: "game" }),
+          value: `${Math.round(pulse.avgLoadFactor * 100)}%`,
+          detail:
+            pulse.flightCount > 0
+              ? t("cockpit.status.loadFactorDetail", {
+                  ns: "game",
+                  count: pulse.flightCount,
+                })
+              : t("cockpit.status.loadFactorEmpty", { ns: "game" }),
+          icon: Plane,
+          tone:
+            pulse.flightCount === 0
+              ? "neutral"
+              : pulse.avgLoadFactor >= 0.8
+                ? "good"
+                : pulse.avgLoadFactor >= 0.6
+                  ? "warn"
+                  : "danger",
+        },
+      );
     if (relaysDown) {
       cards.push({
         title: t("cockpit.status.relayState", { ns: "game" }),
@@ -431,6 +435,8 @@ export function OperationsCockpit() {
     unassignedRoutes.length,
   ]);
 
+  // Revenue only accrues on landings: "has flown its first flight". O(1).
+  const hasFlown = Number(activeAirline?.cumulativeRevenue ?? 0) > 0;
   const actions = useMemo<ActionItem[]>(() => {
     if (!activeAirline) {
       return [
@@ -548,6 +554,13 @@ export function OperationsCockpit() {
     underusedRouteIds,
     viewAs,
   ]);
+  // Only real warnings and things to do earn a section: "all good" is the
+  // story's job, and links to other panels are the sidebar's (S78).
+  const urgentActions = isViewingOther
+    ? actions
+    : actions.filter((item) => item.tone !== "neutral");
+  const needsAttention =
+    isViewingOther || insights.some((item) => item.tone !== "good") || urgentActions.length > 0;
 
   if (!activeAirline) {
     return (
@@ -661,16 +674,19 @@ export function OperationsCockpit() {
     <PanelLayout>
       {!isViewingOther ? (
         <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-background/95 px-4 py-3 sm:px-6">
-          {ownPubkey ? (
-            <ShareNetworkButton
-              pubkey={ownPubkey}
-              airline={activeAirline}
-              fleet={fleet}
-              routes={routes}
-            />
-          ) : (
-            <span />
-          )}
+          <h1 className="min-w-0 truncate text-xl font-black tracking-tight text-foreground">
+            {t("nav.map", { ns: "common" })}
+          </h1>
+          <div className="ml-auto flex items-center gap-2">
+            {ownPubkey ? (
+              <ShareNetworkButton
+                pubkey={ownPubkey}
+                airline={activeAirline}
+                fleet={fleet}
+                routes={routes}
+              />
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={() => navigate({ to: "/", search: { panel: "map" } })}
@@ -735,13 +751,7 @@ export function OperationsCockpit() {
       )}
 
       <div className="space-y-6 px-4 py-4 sm:px-6 sm:py-5">
-        {!isViewingOther ? (
-          <>
-            <TodayStory story={story} tick={minuteTick} />
-            <InstrumentPanel instruments={instruments} fixes={instrumentFixes} />
-            <AirlineAcars />
-          </>
-        ) : null}
+        {/* A new airline's one job comes first: the first-hour checklist (S78). */}
         {!isViewingOther && (
           <FirstHourChecklist
             routes={routes}
@@ -750,51 +760,65 @@ export function OperationsCockpit() {
             cumulativeRevenue={activeAirline.cumulativeRevenue}
           />
         )}
-        {!isViewingOther && <DailyObjectivesCard ledger={activeAirline.objectives} />}
-        {!isViewingOther && <WorldEventsCard routes={routes} />}
-        <section
-          className={cn(
-            // An odd last card spans the row in the two-column layout.
-            "grid gap-4 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2",
-            statusCards.length > 3
-              ? "2xl:grid-cols-4"
-              : "2xl:grid-cols-3 2xl:[&>*:last-child:nth-child(odd)]:col-span-1",
-          )}
-          data-testid="cockpit-status-cards"
-        >
-          {statusCards.map((item) => (
-            <HeaderCard key={item.title} item={item} />
-          ))}
-        </section>
-
-        <section className="grid gap-4 2xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,1fr)]">
-          <div className="rounded-3xl border border-border/60 bg-card/80 p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                  {t("cockpit.priorityKicker", { ns: "game" })}
-                </p>
-                <h2 className="mt-2 text-xl font-black tracking-tight text-foreground">
-                  {t("cockpit.priorityTitle", { ns: "game" })}
-                </h2>
+        {!isViewingOther ? <TodayStory story={story} tick={minuteTick} /> : null}
+        {needsAttention ? (
+          <section
+            data-testid="cockpit-needs-you"
+            className="grid gap-4 2xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,1fr)]"
+          >
+            <div className="rounded-3xl border border-border/60 bg-card/80 p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                    {t("cockpit.priorityKicker", { ns: "game" })}
+                  </p>
+                  <h2 className="mt-2 text-xl font-black tracking-tight text-foreground">
+                    {t("cockpit.priorityTitle", { ns: "game" })}
+                  </h2>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-background/70 p-3 text-primary">
+                  <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+                </div>
               </div>
-              <div className="rounded-2xl border border-border/60 bg-background/70 p-3 text-primary">
-                <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {insights.map((item) => (
+                  <InsightCard key={item.title} item={item} />
+                ))}
               </div>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {insights.map((item) => (
-                <InsightCard key={item.title} item={item} />
+
+            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-1">
+              {urgentActions.map((item) => (
+                <ActionCard key={item.title} item={item} />
               ))}
             </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-1">
-            {actions.map((item) => (
-              <ActionCard key={item.title} item={item} />
+          </section>
+        ) : null}
+        {/* Instruments and the message log say nothing until something has flown. */}
+        {!isViewingOther && hasFlown ? (
+          <>
+            <InstrumentPanel instruments={instruments} fixes={instrumentFixes} />
+            <AirlineAcars />
+          </>
+        ) : null}
+        {!isViewingOther && <DailyObjectivesCard ledger={activeAirline.objectives} />}
+        {!isViewingOther && <WorldEventsCard routes={routes} />}
+        {statusCards.length > 0 ? (
+          <section
+            className={cn(
+              // An odd last card spans the row in the two-column layout.
+              "grid gap-4 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2",
+              statusCards.length > 3
+                ? "2xl:grid-cols-4"
+                : "2xl:grid-cols-3 2xl:[&>*:last-child:nth-child(odd)]:col-span-1",
+            )}
+            data-testid="cockpit-status-cards"
+          >
+            {statusCards.map((item) => (
+              <HeaderCard key={item.title} item={item} />
             ))}
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         <section className="grid gap-4 xl:grid-cols-2">
           <div className="rounded-3xl border border-border/60 bg-card/80 p-5 shadow-sm">
