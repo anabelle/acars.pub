@@ -82,64 +82,65 @@ Ordered for a single owner with a limited budget: the highest impact per credit 
 row is useful on its own, so stopping after any row still leaves the game better.
 Parallel-safe groups are in [`README.md` §4](README.md#4-waves-what-can-run-in-parallel).
 
-| #   | Session | Priority | Steps | Why now                                                                                   |
-| --- | ------- | -------- | ----- | ----------------------------------------------------------------------------------------- |
-| 1   | S01     | P0       | 5     | Safety net. Prevents another silent black-map release; gives every UI step screenshots.   |
-| 2   | S20     | P0       | 5     | The first impression: honest landing, one CTA, mobile overlap fix, link previews.         |
-| 3   | S23     | P0       | 5     | First flight in ≤ 2 clicks; turns the airport panel into a decision card.                 |
-| 4   | S30     | P0       | 3     | Every check-in now tells a story. Cheap, standalone.                                      |
-| 5   | S02     | P0       | 4     | Makes every economy change measurable. Needed before S14/S10.                             |
-| 6   | S14     | P0       | 4     | Flights follow the route frequency (D8); fixes the 8–9× route-card error found by S02.    |
-| 7   | S10     | P0       | 5     | Fixes "every route is the same" and the fare exploit: the core of "dull" (D1 decided).    |
-| 8   | S21     | P1       | 4     | Two-field airline creation.                                                               |
-| 9   | S22     | P1       | 3     | One name per screen; honest status bar.                                                   |
-| 10  | S24     | P1       | 4     | Pricing shows profit; route-list i18n.                                                    |
-| 11  | S31     | P1       | 4     | Always-visible next goal and tier progress.                                               |
-| 12  | S40     | P1       | 4     | Real globe: the screenshot that sells the game.                                           |
-| 13  | S41     | P1       | 3     | Profit-colored living routes.                                                             |
-| 14  | S11     | P1       | 3     | Smooth oversupply; brand rewards good service.                                            |
-| 15  | S12     | P1       | 4     | Lease-vs-buy choice, tier pacing, milestones.                                             |
-| 16  | S04     | P1       | 4     | Start measuring before investing in growth.                                               |
-| 17  | S25     | P2       | 4     | Assign planes from anywhere.                                                              |
-| 18  | S13     | P2       | 3     | Auto-maintenance.                                                                         |
-| 19  | S44     | P2       | 3     | Liveries front and center + poster.                                                       |
-| 20  | S50     | P2       | 3     | Public airline pages with previews.                                                       |
-| 21  | S42     | P2       | 3     | Aircraft family icons.                                                                    |
-| 22  | S43     | P2       | 3     | Money and opportunity on the map.                                                         |
-| 23  | S34     | P2       | 4     | Installable app + notifications (needs D3).                                               |
-| 24  | S32     | P2       | 4     | Daily objectives (needs D6).                                                              |
-| 25  | S54     | P0       | 4     | Owner: "ultra sluggish all the time". Stop the constant full-globe redraws.               |
-| 26  | S33     | P2       | 3     | World events.                                                                             |
-| 27  | S51     | P2       | 3     | Share loop.                                                                               |
-| 28  | S26     | P3       | 4     | Guest sandbox.                                                                            |
-| 29  | S45     | P3       | 4     | 3D globe-first prototype (decision D4).                                                   |
-| 30  | S52     | P3       | 3     | Android release kit (needs D7).                                                           |
-| 31  | S53     | P3       | 2     | Tycoon-mode design doc (needs D5).                                                        |
-| 32  | S55     | P1       | 4     | Eventful 1:1 world: short first hops, event objectives, time-lapse, alerts (D5 = C).      |
-| 33  | S56     | P1       | 4     | Globe-first shell on MapLibre: briefing drawer, route cards, one card style (D4 = A).     |
-| 34  | S57     | P0       | 2     | Owner: "impossible to buy a plane" as a new player. Audit and fix the main flows.         |
-| 35  | S58     | P0       | 3     | Owner: "all my planes grounded most of the time". Planes fly their day (Blueprint v2).    |
-| 36  | S59     | P0       | 4     | Cockpit + Ramp foundation: tokens, fonts, textures, kit; retire neon (D17).               |
-| 37  | S60     | P0       | 3     | Livery-first plane panel (flight-tracker layout) and the hangar as a collection.          |
-| 38  | S61     | P1       | 4     | Delivery day, names, logbook and the spotter's book (collect planes with love).           |
-| 39  | S62     | P1       | 3     | Instruments and the check-in story: the cockpit opens on Today.                           |
-| 40  | S63     | P1       | 3     | Passengers visible: cabin by class, landing receipts, voices, turned away, booking bars.  |
-| 41  | S64     | P1       | 3     | What-if curves: profit/day against frequency and fares, sweet spot, max, share.           |
-| 42  | S65     | P1       | 3     | ACARS feed: OOOI and position messages derived from engine events, per plane and airline. |
-| 43  | S76     | P2       | 3     | Night globe (city lights, overlay fix) and opt-in sound.                                  |
-| 44  | S66     | P0       | 5     | Lines of flying: a plane flies a daily chain of legs; buffers and knock-on delays.        |
-| 45  | S67     | P1       | 4     | Hub banks and connecting passengers (aggregate, per leg; bank timing from lines).         |
-| 46  | S68     | P1       | 4     | Weather oracle: METAR bundles on Nostr from the world weather key; delays at airports.    |
-| 47  | S69     | P1       | 4     | Published timetables: fare and frequency changes on live routes take effect tomorrow.     |
-| 48  | S70     | P2       | 3     | Booking curve: flights fill toward departure on boards and the plane panel (visual, D13). |
-| 49  | S71     | P1       | 4     | Passenger groups: leisure, family, business — mix by destination sets price sensitivity.  |
-| 50  | S72     | P1       | 4     | Ranked entry: a signed proof-of-work event; unranked rivals can't undercut or rank.       |
-| 51  | S74     | P2       | 4     | Social: delivery picture posts, rivalry notes, friends league (all opt-in).               |
-| 52  | S73     | P2       | 4     | Alliances: mutual partners; codeshare connections where allies' routes meet.              |
-| 53  | S77     | P0       | 6     | Polish pass: play every main flow; fix what is broken, confusing or out of step.          |
-| 54  | S78     | P0       | 7     | Fresh eyes: one clear screen at a time — hierarchy, names, chrome, how to play.           |
+| #   | Session | Priority | Steps | Why now                                                                                     |
+| --- | ------- | -------- | ----- | ------------------------------------------------------------------------------------------- |
+| 1   | S01     | P0       | 5     | Safety net. Prevents another silent black-map release; gives every UI step screenshots.     |
+| 2   | S20     | P0       | 5     | The first impression: honest landing, one CTA, mobile overlap fix, link previews.           |
+| 3   | S23     | P0       | 5     | First flight in ≤ 2 clicks; turns the airport panel into a decision card.                   |
+| 4   | S30     | P0       | 3     | Every check-in now tells a story. Cheap, standalone.                                        |
+| 5   | S02     | P0       | 4     | Makes every economy change measurable. Needed before S14/S10.                               |
+| 6   | S14     | P0       | 4     | Flights follow the route frequency (D8); fixes the 8–9× route-card error found by S02.      |
+| 7   | S10     | P0       | 5     | Fixes "every route is the same" and the fare exploit: the core of "dull" (D1 decided).      |
+| 8   | S21     | P1       | 4     | Two-field airline creation.                                                                 |
+| 9   | S22     | P1       | 3     | One name per screen; honest status bar.                                                     |
+| 10  | S24     | P1       | 4     | Pricing shows profit; route-list i18n.                                                      |
+| 11  | S31     | P1       | 4     | Always-visible next goal and tier progress.                                                 |
+| 12  | S40     | P1       | 4     | Real globe: the screenshot that sells the game.                                             |
+| 13  | S41     | P1       | 3     | Profit-colored living routes.                                                               |
+| 14  | S11     | P1       | 3     | Smooth oversupply; brand rewards good service.                                              |
+| 15  | S12     | P1       | 4     | Lease-vs-buy choice, tier pacing, milestones.                                               |
+| 16  | S04     | P1       | 4     | Start measuring before investing in growth.                                                 |
+| 17  | S25     | P2       | 4     | Assign planes from anywhere.                                                                |
+| 18  | S13     | P2       | 3     | Auto-maintenance.                                                                           |
+| 19  | S44     | P2       | 3     | Liveries front and center + poster.                                                         |
+| 20  | S50     | P2       | 3     | Public airline pages with previews.                                                         |
+| 21  | S42     | P2       | 3     | Aircraft family icons.                                                                      |
+| 22  | S43     | P2       | 3     | Money and opportunity on the map.                                                           |
+| 23  | S34     | P2       | 4     | Installable app + notifications (needs D3).                                                 |
+| 24  | S32     | P2       | 4     | Daily objectives (needs D6).                                                                |
+| 25  | S54     | P0       | 4     | Owner: "ultra sluggish all the time". Stop the constant full-globe redraws.                 |
+| 26  | S33     | P2       | 3     | World events.                                                                               |
+| 27  | S51     | P2       | 3     | Share loop.                                                                                 |
+| 28  | S26     | P3       | 4     | Guest sandbox.                                                                              |
+| 29  | S45     | P3       | 4     | 3D globe-first prototype (decision D4).                                                     |
+| 30  | S52     | P3       | 3     | Android release kit (needs D7).                                                             |
+| 31  | S53     | P3       | 2     | Tycoon-mode design doc (needs D5).                                                          |
+| 32  | S55     | P1       | 4     | Eventful 1:1 world: short first hops, event objectives, time-lapse, alerts (D5 = C).        |
+| 33  | S56     | P1       | 4     | Globe-first shell on MapLibre: briefing drawer, route cards, one card style (D4 = A).       |
+| 34  | S57     | P0       | 2     | Owner: "impossible to buy a plane" as a new player. Audit and fix the main flows.           |
+| 35  | S58     | P0       | 3     | Owner: "all my planes grounded most of the time". Planes fly their day (Blueprint v2).      |
+| 36  | S59     | P0       | 4     | Cockpit + Ramp foundation: tokens, fonts, textures, kit; retire neon (D17).                 |
+| 37  | S60     | P0       | 3     | Livery-first plane panel (flight-tracker layout) and the hangar as a collection.            |
+| 38  | S61     | P1       | 4     | Delivery day, names, logbook and the spotter's book (collect planes with love).             |
+| 39  | S62     | P1       | 3     | Instruments and the check-in story: the cockpit opens on Today.                             |
+| 40  | S63     | P1       | 3     | Passengers visible: cabin by class, landing receipts, voices, turned away, booking bars.    |
+| 41  | S64     | P1       | 3     | What-if curves: profit/day against frequency and fares, sweet spot, max, share.             |
+| 42  | S65     | P1       | 3     | ACARS feed: OOOI and position messages derived from engine events, per plane and airline.   |
+| 43  | S76     | P2       | 3     | Night globe (city lights, overlay fix) and opt-in sound.                                    |
+| 44  | S66     | P0       | 5     | Lines of flying: a plane flies a daily chain of legs; buffers and knock-on delays.          |
+| 45  | S67     | P1       | 4     | Hub banks and connecting passengers (aggregate, per leg; bank timing from lines).           |
+| 46  | S68     | P1       | 4     | Weather oracle: METAR bundles on Nostr from the world weather key; delays at airports.      |
+| 47  | S69     | P1       | 4     | Published timetables: fare and frequency changes on live routes take effect tomorrow.       |
+| 48  | S70     | P2       | 3     | Booking curve: flights fill toward departure on boards and the plane panel (visual, D13).   |
+| 49  | S71     | P1       | 4     | Passenger groups: leisure, family, business — mix by destination sets price sensitivity.    |
+| 50  | S72     | P1       | 4     | Ranked entry: a signed proof-of-work event; unranked rivals can't undercut or rank.         |
+| 51  | S74     | P2       | 4     | Social: delivery picture posts, rivalry notes, friends league (all opt-in).                 |
+| 52  | S73     | P2       | 4     | Alliances: mutual partners; codeshare connections where allies' routes meet.                |
+| 53  | S77     | P0       | 6     | Polish pass: play every main flow; fix what is broken, confusing or out of step.            |
+| 54  | S78     | P0       | 7     | Fresh eyes: one clear screen at a time — hierarchy, names, chrome, how to play.             |
+| 55  | S79     | P0       | 1     | Aircraft images work again: Imagen was shut down; OpenAI first, Gemini image models second. |
 
-**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196), S60 is merged (#198); S61–S65 and S76 are merged (#199); the owner decided D9–D16 and D18 on 2026-10-12 (all as recommended; D13 visual first) and deferred S75 (3D camera, "not now"); S66 (lines of flying) and S67 (hub banks and connections) are merged (#200); S68 (weather oracle, D11), S69 (published timetables, D12), S70 (booking curve, D13 visual), S71 (passenger groups, D14), S72 (ranked entry, D15), S73 (alliances; the owner chose "now" on 2026-10-12) and S74 (opt-in social posts, D18) are merged (#201); S75 is deferred ("not now"); S52 waits for D7. S77 (polish pass, owner: "polish it harder before launching public nostr services") is merged (#202). S78 (fresh eyes, owner: "be not afraid of changes to improve ux") is merged (#203) — [`sessions/S78-fresh-eyes.md`](sessions/S78-fresh-eyes.md) — [`sessions/S77-polish-pass.md`](sessions/S77-polish-pass.md).
+**Next wave (2026-10-10):** the consolidated plan is [`BLUEPRINT.md`](BLUEPRINT.md): pillars, systems, game theory, the "Cockpit + Ramp" art direction, sessions S58–S76 and decisions D9–D18. How to build it safely and cheaply: [`IMPLEMENTATION.md`](IMPLEMENTATION.md). Briefs are written as each session starts; S58 is merged (#195), S59 is merged (#196), S60 is merged (#198); S61–S65 and S76 are merged (#199); the owner decided D9–D16 and D18 on 2026-10-12 (all as recommended; D13 visual first) and deferred S75 (3D camera, "not now"); S66 (lines of flying) and S67 (hub banks and connections) are merged (#200); S68 (weather oracle, D11), S69 (published timetables, D12), S70 (booking curve, D13 visual), S71 (passenger groups, D14), S72 (ranked entry, D15), S73 (alliances; the owner chose "now" on 2026-10-12) and S74 (opt-in social posts, D18) are merged (#201); S75 is deferred ("not now"); S52 waits for D7. S77 (polish pass, owner: "polish it harder before launching public nostr services") is merged (#202). S78 (fresh eyes, owner: "be not afraid of changes to improve ux") is merged (#203). **S79 (aircraft images: Imagen was shut down; OpenAI or Gemini) is in review** — [`sessions/S79-image-generation.md`](sessions/S79-image-generation.md) — [`sessions/S78-fresh-eyes.md`](sessions/S78-fresh-eyes.md) — [`sessions/S77-polish-pass.md`](sessions/S77-polish-pass.md).
 
 **Milestones to celebrate** (each is a coherent, shippable state):
 

@@ -1,9 +1,9 @@
 import type { AircraftModel, AirlineEntity, Airport } from "@acars/core";
 import { getAirports } from "@acars/data";
 
-// Model candidates sent to the server proxy (tries in order)
-const MODEL_CANDIDATES = ["imagen-4.0-generate-001", "imagen-3.0-generate-002"];
-const GENERATE_TIMEOUT_MS = 20_000;
+// The server proxy picks the provider and models (S79); OpenAI image models
+// can take most of a minute, so the client waits longer than one attempt.
+const GENERATE_TIMEOUT_MS = 100_000;
 const LIVERY_PROXY_ENDPOINTS = ["/api/generate-livery"];
 
 /**
@@ -484,7 +484,7 @@ export async function generateLiveryImage(prompt: string): Promise<Blob> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({ prompt, models: MODEL_CANDIDATES }),
+        body: JSON.stringify({ prompt }),
       });
 
       if (!res.ok) {
