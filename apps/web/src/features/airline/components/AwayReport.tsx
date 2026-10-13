@@ -10,6 +10,7 @@ import { playTimeLapse } from "@/features/airline/lib/timeLapseState";
 import type { RouteResult, TimelineSummary } from "@/features/airline/utils/summarizeTimeline";
 import { buildTimeLapse } from "@/features/airline/utils/timeLapse";
 import { ModalPortal } from "@/shared/components/ModalPortal";
+import { useDialogFocus } from "@/shared/hooks/useDialogFocus";
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -97,14 +98,7 @@ export function AwayReportDialog({
     playTimeLapse(lapse);
   };
 
-  React.useEffect(() => {
-    closeRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useDialogFocus(closeRef, onClose);
 
   return (
     <ModalPortal>

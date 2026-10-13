@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SocialPostDialog } from "@/features/share/SocialPostDialog";
 import { ModalPortal } from "@/shared/components/ModalPortal";
+import { useDialogFocus } from "@/shared/hooks/useDialogFocus";
 import { isCatchupBatch } from "@/shared/lib/catchupBatch";
 import { navigateToAircraft } from "@/shared/lib/permalinkNavigation";
 import { modelLabel } from "@/shared/theme/livery";
@@ -76,15 +77,8 @@ function CeremonyDialog({
   const model = getAircraftById(aircraft.modelId);
   const type = model ? modelLabel(model.manufacturer, model.name) : aircraft.modelId;
 
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      // The post preview (S74) handles its own Escape.
-      if (event.key === "Escape" && !posting) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, posting]);
+  // The post preview (S74) handles its own Escape.
+  useDialogFocus(closeRef, onClose, posting);
 
   return (
     <ModalPortal>
