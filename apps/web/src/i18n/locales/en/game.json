@@ -268,7 +268,9 @@
       "dueNow": "Service due at the next turnaround",
       "groundsIn_one": "Grounds in ~{{count}} day unless serviced",
       "groundsIn_other": "Grounds in ~{{count}} days unless serviced",
-      "groundsNow": "Grounding: service it now"
+      "groundsNow": "Grounding: service it now",
+      "settings": "Settings",
+      "summary": "services at {{pct}}%"
     },
     "hangar": {
       "list": "List",

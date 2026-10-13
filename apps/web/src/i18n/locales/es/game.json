@@ -268,7 +268,9 @@
       "dueNow": "Revisión en la próxima escala",
       "groundsIn_one": "Queda en tierra en ~{{count}} día si no se revisa",
       "groundsIn_other": "Queda en tierra en ~{{count}} días si no se revisa",
-      "groundsNow": "En tierra: revísalo ahora"
+      "groundsNow": "En tierra: revísalo ahora",
+      "settings": "Ajustes",
+      "summary": "revisa al {{pct}}%"
     },
     "hangar": {
       "list": "Lista",

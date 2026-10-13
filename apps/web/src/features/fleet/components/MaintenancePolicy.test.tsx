@@ -36,6 +36,9 @@ describe("MaintenancePolicyControl", () => {
   it("changes threshold and hub-only", async () => {
     store.policy = ON;
     render(<MaintenancePolicyControl />);
+    // One line by default (S78): the options open from Settings.
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("maintenance-policy-settings"));
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "0.6" } });
     await waitFor(() =>
       expect(setMaintenancePolicy).toHaveBeenCalledWith({ ...ON, minCondition: 0.6 }),

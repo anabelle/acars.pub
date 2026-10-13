@@ -1,7 +1,7 @@
 # S78 — Fresh eyes: one clear screen at a time
 
 > **Status:** ◐ in progress
-> **Next step:** S78.4 — fleet: planes first; auto-maintenance as one line that opens its settings.
+> **Next step:** S78.5 — Info opens on "How to play" in six steps.
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -27,7 +27,7 @@ S77 fixed what was broken. This pass fixes the hierarchy: every screen says one 
 - [x] **S78.1** Cockpit: titled "Cockpit"; the first-hour checklist first; instruments and ACARS only once something has flown; the player's own status cards gone (except the offline card); "what to fix first" only when something needs the player, without links that repeat the sidebar; tests.
 - [x] **S78.2** One name per place: panel titles are the menu's names; the context bar shows only when viewing a rival; tests.
 - [x] **S78.3** Top bar diet: cash, load factor and next tier in words; brand and relays move out; ticker groups the world's counts; tests.
-- [ ] **S78.4** Fleet: planes first; auto-maintenance is one line that opens its settings; tests.
+- [x] **S78.4** Fleet: planes first; auto-maintenance is one line that opens its settings; tests.
 - [ ] **S78.5** Info opens on "How to play" in six steps; tests.
 - [ ] **S78.6** Opportunity cards: where, flight time, profit a day and rivals first; the market numbers behind "Details"; tests.
 - [ ] **S78.7** e2e (desktop and phone), before/after screenshots, PR.
@@ -39,3 +39,5 @@ S77 fixed what was broken. This pass fixes the hierarchy: every screen says one 
 2026-10-13 · S78.2 · (this commit) · **One name per place.** Panel titles are the menu's names in both languages: Routes (was Network), Fleet (Fleet Manager), Rivals (Leaderboard), Finance (Finance Overview), Info (About). The context bar under the top bar no longer shows on the player's own airline in normal play (each panel header already says where they are); it still speaks for a rival's airline, a guest or a bankrupt airline. Tests: WorkspaceContextBar 3 (new); about and route-manager titles updated.
 
 2026-10-13 · S78.3 · (this commit) · **Top bar diet.** Three readouts instead of six: Cash, Next tier and Seats filled (was Corporate balance, Brand, Tier with two micro-bars, Avg load factor, "9 relays online"). The tier says, in words, what still stands in the way — "2 more routes", then "$2.9M more revenue", then "Ready to move up" — with the full requirement in the tooltip. Brand lives in Finance. The relay count only shows when relays are down (the ticker's LIVE dot covers the normal state; the live region stays for screen readers). Ticker: "World 1 airline · 3 planes · 2 routes" as one item, so world counts never pass for the player's own; "Status: Normal operations" only appears during a catch-up. en + es. Tests: Topbar, Ticker updated.
+
+2026-10-13 · S78.4 · (this commit) · **Planes first.** Fleet-wide auto-maintenance is one line above the planes: "Auto-maintenance [Off]" (or "[On] services at 40%") and a Settings toggle; the explanation, threshold and hub-only options open from Settings. The switch stays one tap away. en + es. Tests: maintenance policy updated (options hidden until Settings).
