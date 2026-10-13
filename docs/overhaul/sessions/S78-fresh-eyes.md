@@ -1,7 +1,7 @@
 # S78 — Fresh eyes: one clear screen at a time
 
-> **Status:** ◐ in progress
-> **Next step:** S78.7 — replay the playtest on the build, e2e desktop and phone, before/after screenshots, PR.
+> **Status:** ◑ in review
+> **Next step:** — (in review; after merge: mark merged, update STATUS)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -30,7 +30,7 @@ S77 fixed what was broken. This pass fixes the hierarchy: every screen says one 
 - [x] **S78.4** Fleet: planes first; auto-maintenance is one line that opens its settings; tests.
 - [x] **S78.5** Info opens on "How to play" in six steps; tests.
 - [x] **S78.6** Opportunity cards: where, flight time, profit a day and rivals first; the market numbers behind "Details"; tests.
-- [ ] **S78.7** e2e (desktop and phone), before/after screenshots, PR.
+- [x] **S78.7** e2e (desktop and phone), before/after screenshots, PR.
 
 ## Progress log
 
@@ -47,3 +47,5 @@ S77 fixed what was broken. This pass fixes the hierarchy: every screen says one 
 2026-10-13 · S78.6 · (this commit) · **Opportunity cards decide in one glance.** Each card shows the city, the flight time ("1 h 50 min", distance under it), profit a day with the plane, and how many rival airlines fly it ("None" or a count; the player's own offer doesn't count), then Launch route. Total market, addressable passengers, destination capacity and slots, the class-mix bar and the per-flight costs moved into a closed "Market details". The decorative trend icon is gone. `formatFlightTime` exported. en + es. Tests: opportunities +2.
 
 2026-10-13 · S78.7 (part 1) · (this commit) · **What the replay on S78.1–6 still showed.** (a) A new airline's cockpit said "open your first route" twice (checklist and "What to fix first"): while the first-hour checklist shows, the no-routes insight and the open-a-route action stay out. (b) London's top first-route suggestions were Shoreham and Lydd, general-aviation strips (3,385 ft) that inherit the metro population: `candidateDestinations` (opportunities list and globe heat) now skips runways under 4,000 ft (`MIN_AIRLINER_RUNWAY_FT`; unknown runways stay). No engine rule changed. (c) The airline's flight board on a phone overflowed (seven fixed columns ≈ 376 px), so the flight column collapsed and its plane icon sat over the origin code: on phones it shows status, flight, from, to and time; type and seats are on wider screens and in the plane panel; the duplicate yellow "Flights" bar is gone. Tests: cockpit +1 assertion, hub opportunities +1.
+
+2026-10-13 · S78.7 (part 2) · (this commit) · **Green and in review.** Full e2e suite on the final build: 101 passed, 1 skipped (desktop and phone). New e2e: a new airline's cockpit opens on its checklist with no empty gauges and no second prompt, the top bar's next tier in words, Info opens on how to play. Lint and typecheck clean; web unit 743/743. Screenshots in `media/s78/`.
