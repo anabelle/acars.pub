@@ -170,6 +170,8 @@ describe("cockpit for a new airline (S78)", () => {
     expect(screen.getByTestId("first-hour-checklist")).toBeInTheDocument();
     // Nothing has flown: no instruments yet.
     expect(screen.queryByText("Utilization")).not.toBeInTheDocument();
+    // The checklist owns "open your first route": no second section saying it.
+    expect(screen.queryByTestId("cockpit-needs-you")).not.toBeInTheDocument();
     // No links that only repeat the sidebar.
     expect(
       screen.queryByText(/Check your finances|Check your rivals|Fine-tune your routes/),

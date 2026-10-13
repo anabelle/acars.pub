@@ -61,6 +61,14 @@ export function opportunityCacheKey(
 }
 
 /** The most populous airports in the tier's range from `hub`, not yet served from it. */
+/**
+ * The shortest runway a scheduled airliner here can use (an ATR 42 needs about
+ * 3,700 ft). Shorter strips are general-aviation fields that only inherit their
+ * metro area's population (S78: Shoreham, Lydd topped London's list). Unknown
+ * runways stay in.
+ */
+export const MIN_AIRLINER_RUNWAY_FT = 4000;
+
 export function candidateDestinations(
   hub: Airport,
   airports: readonly Airport[],
@@ -72,6 +80,7 @@ export function candidateDestinations(
   const inRange: Array<{ airport: Airport; distanceKm: number }> = [];
   for (const airport of airports) {
     if (airport.iata === hub.iata || served.has(airport.iata)) continue;
+    if (airport.runwayLengthFt != null && airport.runwayLengthFt < MIN_AIRLINER_RUNWAY_FT) continue;
     const distanceKm = haversineDistance(
       hub.latitude,
       hub.longitude,

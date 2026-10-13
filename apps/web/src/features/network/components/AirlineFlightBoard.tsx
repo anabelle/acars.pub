@@ -1,6 +1,5 @@
 import { useActiveAirline, useEngineStore } from "@acars/store";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Plane } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -26,7 +25,7 @@ function AirlineFidsRow({ flight, style }: { flight: AirlineFlightRow; style?: C
   return (
     <div
       style={style}
-      className="grid grid-cols-[68px_1fr_44px_44px_52px_72px_36px] items-center gap-1.5 border-b border-slate-700/60 px-3 py-1.5 text-[11px] font-mono hover:bg-white/[0.03] transition-colors"
+      className="grid grid-cols-[60px_minmax(0,1fr)_36px_36px_64px] sm:grid-cols-[68px_minmax(0,1fr)_44px_44px_52px_72px_36px] items-center gap-1.5 border-b border-slate-700/60 px-3 py-1.5 text-[11px] font-mono hover:bg-white/[0.03] transition-colors"
     >
       <span
         className={`font-bold uppercase tracking-wide text-[10px] leading-tight ${STATUS_CLASS[flight.statusTone]}`}
@@ -63,11 +62,14 @@ function AirlineFidsRow({ flight, style }: { flight: AirlineFlightRow; style?: C
       >
         {flight.destinationIata}
       </button>
-      <span className="text-slate-400 text-[10px]">{flight.aircraft}</span>
+      {/* A phone has no room for the type and seats columns: the plane panel has both. */}
+      <span className="hidden text-slate-400 text-[10px] sm:block">{flight.aircraft}</span>
       <span className="text-slate-100 font-semibold text-right tabular-nums">
         {flight.timeLabel}
       </span>
-      <BookingBar percent={loadFactor} filling={flight.filling} />
+      <span className="hidden sm:block">
+        <BookingBar percent={loadFactor} filling={flight.filling} />
+      </span>
     </div>
   );
 }
@@ -118,23 +120,17 @@ export function AirlineFlightBoard() {
         </span>
       </div>
 
-      {/* Section bar */}
-      <div className="flex items-center gap-2 bg-amber-500/90 px-3 py-1.5">
-        <Plane className="h-3 w-3 text-slate-950" />
-        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-950 font-mono">
-          {t("airlineFlightBoard.title", { ns: "game" })}
-        </span>
-      </div>
-
       {/* Column headers */}
-      <div className="grid grid-cols-[68px_1fr_44px_44px_52px_72px_36px] gap-1.5 border-b border-slate-600 bg-slate-800/80 px-3 py-1 text-[9px] uppercase tracking-[0.15em] text-slate-400 font-mono font-semibold">
+      <div className="grid grid-cols-[60px_minmax(0,1fr)_36px_36px_64px] sm:grid-cols-[68px_minmax(0,1fr)_44px_44px_52px_72px_36px] gap-1.5 border-b border-slate-600 bg-slate-800/80 px-3 py-1 text-[9px] uppercase tracking-[0.15em] text-slate-400 font-mono font-semibold">
         <span>{t("flightBoard.status", { ns: "game" })}</span>
         <span>{t("flightBoard.flight", { ns: "game" })}</span>
         <span>{t("flightBoard.from", { ns: "game" })}</span>
         <span>{t("flightBoard.to", { ns: "game" })}</span>
-        <span>{t("flightBoard.aircraft", { ns: "game" })}</span>
+        <span className="hidden sm:block">{t("flightBoard.aircraft", { ns: "game" })}</span>
         <span className="text-right">{t("airlineFlightBoard.time", { ns: "game" })}</span>
-        <span className="text-right">{t("flightBoard.loadFactor", { ns: "game" })}</span>
+        <span className="hidden text-right sm:block">
+          {t("flightBoard.loadFactor", { ns: "game" })}
+        </span>
       </div>
 
       {/* Rows */}

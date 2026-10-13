@@ -36,6 +36,7 @@ import { SoundSettingsCard } from "@/features/sound/SoundSettingsCard";
 import { PanelLayout } from "@/shared/components/layout/PanelLayout";
 import { useRelayHealth } from "@/shared/hooks/useRelayHealth";
 import { cn } from "@/shared/lib/utils";
+import { deriveFirstHourChecklist } from "../utils/firstHourChecklist";
 import { computeInstruments } from "../utils/instruments";
 import { buildTodayStory } from "../utils/todayStory";
 import { DailyObjectivesCard } from "./DailyObjectivesCard";
@@ -326,6 +327,21 @@ export function OperationsCockpit() {
     return cards;
   }, [activeAirline, activeRoutes.length, fleet.length, isViewingOther, pulse, relaysDown, t]);
 
+  // While the first-hour checklist shows, it owns "open your first route":
+  // the cockpit doesn't say it twice (S78).
+  const checklistActive = useMemo(
+    () =>
+      !!activeAirline &&
+      !isViewingOther &&
+      !deriveFirstHourChecklist({
+        routes,
+        fleet,
+        timeline,
+        cumulativeRevenue: activeAirline.cumulativeRevenue,
+      }).complete,
+    [activeAirline, isViewingOther, routes, fleet, timeline],
+  );
+
   const insights = useMemo<InsightItem[]>(() => {
     if (!activeAirline) return [];
 
@@ -368,7 +384,7 @@ export function OperationsCockpit() {
         tone: "danger",
       });
     }
-    if (activeRoutes.length === 0) {
+    if (activeRoutes.length === 0 && !checklistActive) {
       items.push({
         title: t("cockpit.insights.noRoutes", { ns: "game" }),
         description: t("cockpit.insights.noRoutesDesc", { ns: "game" }),
@@ -422,6 +438,7 @@ export function OperationsCockpit() {
 
     return items.slice(0, 4);
   }, [
+    checklistActive,
     activeAirline,
     activeRoutes.length,
     fleet.length,
@@ -480,7 +497,7 @@ export function OperationsCockpit() {
 
     const items: ActionItem[] = [];
 
-    if (activeRoutes.length === 0) {
+    if (activeRoutes.length === 0 && !checklistActive) {
       items.push({
         title: t("cockpit.actions.openRoute", { ns: "game" }),
         description: t("cockpit.actions.openRouteDesc", { ns: "game" }),
@@ -544,6 +561,7 @@ export function OperationsCockpit() {
 
     return items.slice(0, 4);
   }, [
+    checklistActive,
     activeAirline,
     activeRoutes.length,
     applySuggestedFrequency,
