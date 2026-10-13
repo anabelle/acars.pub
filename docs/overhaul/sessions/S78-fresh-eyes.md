@@ -1,7 +1,7 @@
 # S78 — Fresh eyes: one clear screen at a time
 
 > **Status:** ◐ in progress
-> **Next step:** S78.2 — one name per place; drop the context bar for the player's own airline.
+> **Next step:** S78.3 — top bar diet: cash, load factor, next tier in words; ticker groups the world's counts.
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -25,7 +25,7 @@ S77 fixed what was broken. This pass fixes the hierarchy: every screen says one 
 ## Steps (checkpoints)
 
 - [x] **S78.1** Cockpit: titled "Cockpit"; the first-hour checklist first; instruments and ACARS only once something has flown; the player's own status cards gone (except the offline card); "what to fix first" only when something needs the player, without links that repeat the sidebar; tests.
-- [ ] **S78.2** One name per place: panel titles are the menu's names; the context bar shows only when viewing a rival; tests.
+- [x] **S78.2** One name per place: panel titles are the menu's names; the context bar shows only when viewing a rival; tests.
 - [ ] **S78.3** Top bar diet: cash, load factor and next tier in words; brand and relays move out; ticker groups the world's counts; tests.
 - [ ] **S78.4** Fleet: planes first; auto-maintenance is one line that opens its settings; tests.
 - [ ] **S78.5** Info opens on "How to play" in six steps; tests.
@@ -35,3 +35,5 @@ S77 fixed what was broken. This pass fixes the hierarchy: every screen says one 
 ## Progress log
 
 2026-10-13 · brief + S78.1 · (this commit) · **The cockpit says one thing first.** For the player's own airline: an h1 "Cockpit" with the share button beside the close button; the first-hour checklist on top (it hides itself when done); the Last-24-h story; "What to fix first" only when an insight is not "all good" or an action is not a plain link (tune routes / finances / rivals links dropped: the sidebar has them); instruments and the ACARS log only after the first landing; daily goals and world events; status cards only for a rival's cockpit, plus the connection card when offline. A rival's cockpit is unchanged. Tests: cockpit +1, relay-card tests updated.
+
+2026-10-13 · S78.2 · (this commit) · **One name per place.** Panel titles are the menu's names in both languages: Routes (was Network), Fleet (Fleet Manager), Rivals (Leaderboard), Finance (Finance Overview), Info (About). The context bar under the top bar no longer shows on the player's own airline in normal play (each panel header already says where they are); it still speaks for a rival's airline, a guest or a bankrupt airline. Tests: WorkspaceContextBar 3 (new); about and route-manager titles updated.

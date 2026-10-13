@@ -21,7 +21,7 @@ import AboutPage from "./-about.lazy";
 describe("About route", () => {
   it("renders about panel", () => {
     render(<AboutPage />);
-    expect(screen.getByText("About")).toBeInTheDocument();
+    expect(screen.getAllByText("Info").length).toBeGreaterThan(0);
   });
 
   it("has a link to GitHub", () => {
