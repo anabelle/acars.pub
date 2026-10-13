@@ -864,7 +864,13 @@
       "ready": "En vivo",
       "connecting": "Conectando",
       "offline": "Sin conexión"
-    }
+    },
+    "airlinesCount_one": "aerolínea",
+    "airlinesCount_other": "aerolíneas",
+    "planesCount_one": "{{value}} avión",
+    "planesCount_other": "{{value}} aviones",
+    "routesCount_one": "{{value}} ruta",
+    "routesCount_other": "{{value}} rutas"
   },
   "airportPanel": {
     "title": "Aeropuerto",

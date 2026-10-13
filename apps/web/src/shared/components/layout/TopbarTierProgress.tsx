@@ -1,24 +1,18 @@
-import { fpFormat, getTierProgress } from "@acars/core";
+import { fpFormat, fpSub, fpToNumber, getTierProgress } from "@acars/core";
 import { useAirlineStore } from "@acars/store";
 import { useTranslation } from "react-i18next";
 
-function MiniBar({ pct, met, label }: { pct: number; met: boolean; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5 whitespace-nowrap" title={label}>
-      <span className="relative h-1 w-12 shrink-0 overflow-hidden rounded-full bg-border">
-        <span
-          className={`absolute inset-y-0 left-0 rounded-full ${met ? "bg-emerald-400" : "bg-primary"}`}
-          style={{ width: `${pct}%` }}
-        />
-      </span>
-      <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">{label}</span>
-    </span>
-  );
-}
+const compactMoney = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
 /**
- * Compact progress towards the next tier (overhaul S31): cumulative revenue
- * and active routes, the two requirements in `TIER_THRESHOLDS`. Primitive
+ * Progress towards the next tier, in words (S78): what still stands in the
+ * way — routes first, they are what a player can act on now — instead of two
+ * unlabeled micro-bars. The full requirement is in the tooltip. Primitive
  * selectors, so it re-renders only when those numbers change.
  */
 export function TopbarTierProgress() {
@@ -39,9 +33,20 @@ export function TopbarTierProgress() {
     );
   }
 
+  const routesLeft = Math.max(0, (progress.routesTarget ?? 0) - activeRoutes);
+  const revenueLeft =
+    progress.revenueTarget === null
+      ? 0
+      : Math.max(0, fpToNumber(fpSub(progress.revenueTarget, cumulativeRevenue as never)));
+  const next = !progress.routesMet
+    ? t("topbar.tierRoutesLeft", { count: routesLeft })
+    : !progress.revenueMet
+      ? t("topbar.tierRevenueLeft", { amount: compactMoney.format(revenueLeft) })
+      : t("topbar.tierReady");
+
   return (
     <span
-      className="mt-1 flex flex-col gap-0.5 md:items-end"
+      className="mt-1 flex flex-col md:items-end"
       data-testid="topbar-tier"
       title={t("topbar.tierTitle", {
         next: progress.nextTier,
@@ -53,17 +58,11 @@ export function TopbarTierProgress() {
         {t("topbar.tierLabel", { tier })}{" "}
         <span className="text-muted-foreground">→ {progress.nextTier}</span>
       </span>
-      <span className="flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
-        <MiniBar
-          pct={progress.revenuePct}
-          met={progress.revenueMet}
-          label={t("topbar.tierRevenue", { pct: progress.revenuePct })}
-        />
-        <MiniBar
-          pct={progress.routesPct}
-          met={progress.routesMet}
-          label={t("topbar.tierRoutes", { pct: progress.routesPct })}
-        />
+      <span
+        className="text-[10px] font-semibold text-muted-foreground"
+        data-testid="topbar-tier-next"
+      >
+        {next}
       </span>
     </span>
   );

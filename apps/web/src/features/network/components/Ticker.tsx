@@ -148,21 +148,18 @@ export function Ticker() {
         </div>
       )}
 
-      <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
-        <span>{t("ticker.airlines")}</span>
-        <span className="text-foreground font-bold" data-testid="ticker-airlines">
-          {1 + competitors.size}
+      {/* The whole world's counts, read as one item so they never pass for the player's own (S78). */}
+      <div
+        className="hidden sm:flex items-center space-x-2 border-r border-border pr-6"
+        data-testid="ticker-world"
+      >
+        <span>{t("ticker.world")}</span>
+        <span className="text-foreground font-bold">
+          <span data-testid="ticker-airlines">{1 + competitors.size}</span>{" "}
+          {t("ticker.airlinesCount", { count: 1 + competitors.size })} ·{" "}
+          {t("ticker.planesCount", { count: worldFleetCount, value: worldFleetCount })} ·{" "}
+          {t("ticker.routesCount", { count: worldRouteCount, value: worldRouteCount })}
         </span>
-      </div>
-
-      <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
-        <span>{t("ticker.planes")}</span>
-        <span className="text-foreground font-bold">{worldFleetCount}</span>
-      </div>
-
-      <div className="hidden sm:flex items-center space-x-2 border-r border-border pr-6">
-        <span>{t("ticker.routes")}</span>
-        <span className="text-foreground font-bold">{worldRouteCount}</span>
       </div>
 
       <div className="hidden md:flex items-center space-x-2 border-r border-border pr-6">
@@ -175,9 +172,10 @@ export function Ticker() {
           {(prosperity * 100).toFixed(1)}%
         </span>
       </div>
-      <div className="flex items-center space-x-2 shrink-0">
-        <span>{t("ticker.status")}</span>
-        {catchup ? (
+      {/* Normal operations is the normal state: only a catch-up is news. */}
+      {catchup ? (
+        <div className="flex items-center space-x-2 shrink-0">
+          <span>{t("ticker.status")}</span>
           <span className="text-amber-400">
             {t("ticker.catchingUp", {
               phase: catchup.phase === "player" ? t("ticker.yourAirline") : t("ticker.world"),
@@ -187,10 +185,8 @@ export function Ticker() {
               ),
             })}
           </span>
-        ) : (
-          <span className="text-green-500">{t("ticker.normalOperations")}</span>
-        )}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -93,7 +93,6 @@ export function Topbar() {
   const airlineName = useAirlineStore((s) => s.airline?.name ?? null);
   const airlineCallsign = useAirlineStore((s) => s.airline?.callsign ?? null);
   const airlineIcao = useAirlineStore((s) => s.airline?.icaoCode ?? null);
-  const airlineBrandScore = useAirlineStore((s) => s.airline?.brandScore ?? 0);
   const isViewingOther = useAirlineStore((s) =>
     Boolean(s.viewedPubkey && s.viewedPubkey !== s.pubkey),
   );
@@ -565,8 +564,9 @@ export function Topbar() {
               data-testid="topbar-metrics"
               className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:items-center md:space-x-6"
             >
+              {/* Connected is the normal state, shown by the ticker's LIVE dot; only an outage speaks here (S78). */}
               <output
-                className="col-span-2 flex min-h-11 items-center gap-2 rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:border-0 md:bg-transparent md:p-0"
+                className={`col-span-2 min-h-11 items-center gap-2 rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:border-0 md:bg-transparent md:p-0 ${isConnected ? "sr-only" : "flex"}`}
                 aria-live="polite"
                 title={
                   isConnected
@@ -589,14 +589,6 @@ export function Topbar() {
                 </span>
                 <span className="mt-1 flex items-baseline gap-1.5">
                   <TopbarBalanceTicker />
-                </span>
-              </div>
-              <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
-                <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
-                  {t("topbar.brand")}
-                </span>
-                <span className="mt-1 font-mono text-sm font-bold text-foreground md:text-right">
-                  {(airlineBrandScore * 10).toFixed(1)}
                 </span>
               </div>
               <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
@@ -687,8 +679,9 @@ export function Topbar() {
               data-testid="topbar-metrics"
               className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:items-center md:space-x-6"
             >
+              {/* Connected is the normal state, shown by the ticker's LIVE dot; only an outage speaks here (S78). */}
               <output
-                className="col-span-2 flex min-h-11 items-center gap-2 rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:border-0 md:bg-transparent md:p-0"
+                className={`col-span-2 min-h-11 items-center gap-2 rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:border-0 md:bg-transparent md:p-0 ${isConnected ? "sr-only" : "flex"}`}
                 aria-live="polite"
                 title={
                   isConnected
@@ -711,14 +704,6 @@ export function Topbar() {
                 </span>
                 <span className="mt-1 flex items-baseline gap-1.5">
                   <TopbarBalanceTicker />
-                </span>
-              </div>
-              <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">
-                <span className="text-[10px] leading-none font-semibold uppercase text-muted-foreground">
-                  {t("topbar.brand")}
-                </span>
-                <span className="mt-1 font-mono text-sm font-bold text-foreground md:text-right">
-                  {(airlineBrandScore * 10).toFixed(1)}
                 </span>
               </div>
               <div className="flex min-h-11 flex-col justify-center rounded-xl border border-border/60 bg-background/60 px-3 py-2 md:min-h-0 md:items-end md:border-0 md:bg-transparent md:p-0">

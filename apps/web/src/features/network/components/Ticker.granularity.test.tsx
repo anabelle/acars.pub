@@ -105,9 +105,9 @@ describe("Ticker selector granularity", () => {
       </Profiler>,
     );
     // 2 + 2 aircraft across owners, 1 + 2 routes, 1 + 1 airlines.
-    expect(screen.getByText("4")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByTestId("ticker-world")).toHaveTextContent(
+      /^World2 airlines · 4 planes · 3 routes$/,
+    );
   });
 
   it("does not re-render on unrelated airline-store updates (fine selectors)", () => {
@@ -136,7 +136,7 @@ describe("Ticker selector granularity", () => {
       });
     });
     expect(renderCount).toBe(initialCount + 1);
-    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByTestId("ticker-world")).toHaveTextContent(/4 planes/);
   });
 
   it("re-renders when a selected engine slice (tick) changes", () => {
