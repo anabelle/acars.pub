@@ -3,7 +3,7 @@
 > **Status:** ◑ in review
 > **Next step:** — (owner: set `OPENAI_API_KEY` in Cloudflare Pages for Production and Preview; merge)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #204
 >
 > **Track:** Fix · **Size:** S (1 step) · **From:** owner, 2026-10-13: "i think image generation is failing" … "if it costs lets just use the openai subs which im paying fo"
 
@@ -29,3 +29,5 @@ A ChatGPT subscription does not include API access: the OpenAI API is billed sep
 ## Progress log
 
 2026-10-13 · S79.1 · (this commit) · Diagnosed live (production 502 after the key check; preview missing the key), confirmed the Imagen shutdowns on Google's deprecations page, moved generation to `imageProviders.ts` with OpenAI first and Gemini `generateContent` second; function and dev proxy share it; 424 instead of a masked 502. Tests: imageProviders 5 (new). Typecheck (web, functions), lint, fleet tests green.
+
+2026-10-13 · branch · (this commit) · The owner asked why every PR lists ~200 commits: the post-merge `merge -s ours` reset carried every already-squashed commit forward. The branch was rebuilt on `origin/main` with only this session's commits (force-push with lease, same tree); IMPLEMENTATION.md now says to restart the branch from main after a merge.
