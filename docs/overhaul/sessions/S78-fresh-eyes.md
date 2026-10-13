@@ -1,9 +1,9 @@
 # S78 — Fresh eyes: one clear screen at a time
 
-> **Status:** ◑ in review
-> **Next step:** — (in review; after merge: mark merged, update STATUS)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #203)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** —
+> **PR:** #203
 >
 > **Track:** Polish · **Size:** M (7 steps) · **Depends on:** S77 merged (#202) · **From:** owner, 2026-10-13: "still strange things and confusing feel, give it another pass with fresh eyes, be not afraid of changes to improve ux"
 
@@ -49,3 +49,5 @@ S77 fixed what was broken. This pass fixes the hierarchy: every screen says one 
 2026-10-13 · S78.7 (part 1) · (this commit) · **What the replay on S78.1–6 still showed.** (a) A new airline's cockpit said "open your first route" twice (checklist and "What to fix first"): while the first-hour checklist shows, the no-routes insight and the open-a-route action stay out. (b) London's top first-route suggestions were Shoreham and Lydd, general-aviation strips (3,385 ft) that inherit the metro population: `candidateDestinations` (opportunities list and globe heat) now skips runways under 4,000 ft (`MIN_AIRLINER_RUNWAY_FT`; unknown runways stay). No engine rule changed. (c) The airline's flight board on a phone overflowed (seven fixed columns ≈ 376 px), so the flight column collapsed and its plane icon sat over the origin code: on phones it shows status, flight, from, to and time; type and seats are on wider screens and in the plane panel; the duplicate yellow "Flights" bar is gone. Tests: cockpit +1 assertion, hub opportunities +1.
 
 2026-10-13 · S78.7 (part 2) · (this commit) · **Green and in review.** Full e2e suite on the final build: 101 passed, 1 skipped (desktop and phone). New e2e: a new airline's cockpit opens on its checklist with no empty gauges and no second prompt, the top bar's next tier in words, Info opens on how to play. Lint and typecheck clean; web unit 743/743. Screenshots in `media/s78/`.
+
+2026-10-13 · merged · #203 · CI green on the first run (verify, e2e, Pages).
