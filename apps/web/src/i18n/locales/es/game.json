@@ -781,7 +781,11 @@
       "searchMinChars": "Escribe al menos 2 caracteres para buscar…",
       "searchNoResults": "Ningún aeropuerto coincide con «{{query}}»",
       "quickFirstHop": "Primer aterrizaje en ~{{hours}} h",
-      "launch": "Lanzar ruta"
+      "launch": "Lanzar ruta",
+      "flightTime": "Vuelo",
+      "rivals": "Aerolíneas rivales",
+      "noRivals": "Ninguna",
+      "details": "Detalles del mercado"
     },
     "card": {
       "distance": "Distancia {{km}} km",

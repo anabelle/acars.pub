@@ -1,7 +1,7 @@
 # S78 — Fresh eyes: one clear screen at a time
 
 > **Status:** ◐ in progress
-> **Next step:** S78.6 — opportunity cards: where, flight time, profit a day and rivals first; market numbers behind Details.
+> **Next step:** S78.7 — replay the playtest on the build, e2e desktop and phone, before/after screenshots, PR.
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** —
 >
@@ -29,7 +29,7 @@ S77 fixed what was broken. This pass fixes the hierarchy: every screen says one 
 - [x] **S78.3** Top bar diet: cash, load factor and next tier in words; brand and relays move out; ticker groups the world's counts; tests.
 - [x] **S78.4** Fleet: planes first; auto-maintenance is one line that opens its settings; tests.
 - [x] **S78.5** Info opens on "How to play" in six steps; tests.
-- [ ] **S78.6** Opportunity cards: where, flight time, profit a day and rivals first; the market numbers behind "Details"; tests.
+- [x] **S78.6** Opportunity cards: where, flight time, profit a day and rivals first; the market numbers behind "Details"; tests.
 - [ ] **S78.7** e2e (desktop and phone), before/after screenshots, PR.
 
 ## Progress log
@@ -43,3 +43,5 @@ S77 fixed what was broken. This pass fixes the hierarchy: every screen says one 
 2026-10-13 · S78.4 · (this commit) · **Planes first.** Fleet-wide auto-maintenance is one line above the planes: "Auto-maintenance [Off]" (or "[On] services at 40%") and a Settings toggle; the explanation, threshold and hub-only options open from Settings. The switch stays one tap away. en + es. Tests: maintenance policy updated (options hidden until Settings).
 
 2026-10-13 · S78.5 · (this commit) · **How to play.** Info opens on six numbered steps (pick a route and launch it; delivery, then it flies on its own in real time; check in on the cockpit; fill seats with fares and frequency, changes to live routes at 00:00 UTC; grow with routes, planes, day plans, hubs and tiers; rivals, ranking, alliances), then "Words you'll see" (seats filled, day plan, tier, ranked, alliance), then the About section as before. en + es. Tests: about +1.
+
+2026-10-13 · S78.6 · (this commit) · **Opportunity cards decide in one glance.** Each card shows the city, the flight time ("1 h 50 min", distance under it), profit a day with the plane, and how many rival airlines fly it ("None" or a count; the player's own offer doesn't count), then Launch route. Total market, addressable passengers, destination capacity and slots, the class-mix bar and the per-flight costs moved into a closed "Market details". The decorative trend icon is gone. `formatFlightTime` exported. en + es. Tests: opportunities +2.
