@@ -11,8 +11,9 @@ import {
 } from "@/features/cockpit/utils/firstHourChecklist";
 import { MilestonePostDialog } from "@/features/share/MilestonePostDialog";
 import { firstJetAdded, type PostableMilestone } from "@/features/share/milestonePosts";
-import { ModalPortal } from "@/shared/components/ModalPortal";
 import i18n from "@/i18n";
+import { ModalPortal } from "@/shared/components/ModalPortal";
+import { useDialogFocus } from "@/shared/hooks/useDialogFocus";
 import { isCatchupBatch } from "@/shared/lib/catchupBatch";
 
 type Snapshot = Pick<AirlineState, "airline" | "routes" | "fleet" | "timeline">;
@@ -134,14 +135,7 @@ function TierUpDialog({
   const maxKm = getMaxRouteDistanceKm(tier);
   const maxHubs = getMaxHubs(tier);
 
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useDialogFocus(closeRef, onClose);
 
   const unlocks = [
     Number.isFinite(maxKm)

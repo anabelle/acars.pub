@@ -50,7 +50,8 @@ Wave B (S66–S74) only after its decision; Wave C (S75–S76) last.
 
 - **Screenshots in the PR** (owner, 2026-10-11): for UI changes, embed the changed screens at 1440 and 390 (before/after when it helps) under the summary, linked from the committed `docs/overhaul/media/sNN/` files (`https://github.com/<owner>/<repo>/blob/<sha>/<path>?raw=true`). Images do not count toward the line limit.
 - **PR body ≤ 12 lines**: 2–4 summary bullets, a one-line test result, a link to the brief. No step-by-step narration (that's the brief's progress log).
-- **Squash merge message**: the repository's default squash message is **Pull request title and description** (set 2026-10-10). Old already-merged commits left on the session branch by the `merge -s ours` reset no longer reach the merge message, so the reset stays as it is (no force-push needed). Keep PR bodies short: the body is the merge message.
+- **Squash merge message**: the repository's default squash message is **Pull request title and description** (set 2026-10-10). Keep PR bodies short: the body is the merge message.
+- **After a PR merges** (owner, 2026-10-13: "why all prs asking me to squash like 200 commits"): restart the session branch from main — `git fetch origin main && git checkout -B <branch> origin/main && git push --force-with-lease origin <branch>` — instead of the old `merge -s ours` reset, which carried every already-squashed commit into the next PR. A follow-up PR then lists only its own commits. If commits were already added on top of an old reset, cherry-pick just those onto `origin/main` and force-push with lease.
 
 ## 5. Session checklist (copy into each brief)
 

@@ -6,30 +6,17 @@
  *   2. Per-IP rate limiting — max N requests per sliding window.
  *   3. Prompt format validation — rejects non-livery prompts.
  *
- * Reads `GEMINI_API_KEY` from the server-side environment (NOT prefixed
- * with VITE_, so it never leaks into the client bundle).
+ * Reads `OPENAI_API_KEY` and/or `GEMINI_API_KEY` from the server-side
+ * environment (NOT prefixed with VITE_, so they never leak into the client
+ * bundle).
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin, ViteDevServer } from "vite";
 import { isValidAircraftImagePrompt } from "../src/features/fleet/services/aircraftImagePromptValidation";
-
-const DEFAULT_MODELS = ["imagen-4.0-generate-001", "imagen-3.0-generate-002"];
-const ALLOWED_MODELS = new Set(DEFAULT_MODELS);
-const MAX_MODELS = 3;
-const GEMINI_TIMEOUT_MS = 15_000;
+import { generateAircraftImage, hasImageKey } from "../src/features/fleet/services/imageProviders";
 
 /** Maximum prompt length (chars). Longest realistic livery prompt is ~700 chars. */
 const MAX_PROMPT_LENGTH = 1200;
-
-interface Prediction {
-  bytesBase64Encoded?: string;
-  mimeType?: string;
-  safetyAttributes?: { contentType?: string };
-}
-
-interface PredictResponse {
-  predictions?: Prediction[];
-}
 
 // ---------------------------------------------------------------------------
 // Origin validation
@@ -141,16 +128,23 @@ export default function geminiProxy(): Plugin {
             return;
           }
 
-          // --- API key ---
-          const apiKey = process.env.GEMINI_API_KEY;
-          if (!apiKey) {
+          // --- API keys ---
+          const keys = {
+            openai: process.env.OPENAI_API_KEY,
+            gemini: process.env.GOOGLE_API ?? process.env.GEMINI_API_KEY,
+          };
+          if (!hasImageKey(keys)) {
             res.writeHead(500);
-            res.end(JSON.stringify({ error: "GEMINI_API_KEY env var is not set" }));
+            res.end(
+              JSON.stringify({
+                error: "Image API secret is not configured (set OPENAI_API_KEY or GEMINI_API_KEY)",
+              }),
+            );
             return;
           }
 
           // --- Parse body ---
-          let body: { prompt: string; models?: string[] };
+          let body: { prompt: string };
           try {
             body = JSON.parse(await readBody(req));
           } catch {
@@ -172,82 +166,15 @@ export default function geminiProxy(): Plugin {
             return;
           }
 
-          // --- Model selection ---
-          const models =
-            Array.isArray(body.models) && body.models.every((m) => typeof m === "string")
-              ? body.models.filter((m) => ALLOWED_MODELS.has(m)).slice(0, MAX_MODELS)
-              : DEFAULT_MODELS;
-
-          const modelsToTry = models.length > 0 ? models : DEFAULT_MODELS;
-          let lastError = "";
-
-          for (const model of modelsToTry) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${apiKey}`;
-
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
-            try {
-              const apiRes = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                signal: controller.signal,
-                body: JSON.stringify({
-                  instances: [{ prompt: body.prompt }],
-                  parameters: {
-                    sampleCount: 1,
-                    aspectRatio: "16:9",
-                    outputOptions: { mimeType: "image/png" },
-                  },
-                }),
-              });
-
-              if (apiRes.status === 429) {
-                lastError = "Rate limited";
-                continue;
-              }
-
-              if (!apiRes.ok) {
-                const text = await apiRes.text();
-                if (text.includes("not found") || apiRes.status === 404) {
-                  lastError = `Model ${model} not found`;
-                  continue;
-                }
-                lastError = text;
-                continue;
-              }
-
-              const data = (await apiRes.json()) as PredictResponse;
-              const prediction = data.predictions?.find(
-                (p) =>
-                  p.bytesBase64Encoded && p.safetyAttributes?.contentType !== "Positive Prompt",
-              );
-
-              if (!prediction?.bytesBase64Encoded) {
-                lastError = `Model ${model} returned no image`;
-                continue;
-              }
-
-              res.writeHead(200, { "Content-Type": "application/json" });
-              res.end(
-                JSON.stringify({
-                  imageBase64: prediction.bytesBase64Encoded,
-                  mimeType: prediction.mimeType ?? "image/png",
-                }),
-              );
-              return;
-            } catch (err) {
-              if (err instanceof Error && err.name === "AbortError") {
-                lastError = "Upstream image request timed out";
-                continue;
-              }
-              lastError = err instanceof Error ? err.message : "Unknown error";
-            } finally {
-              clearTimeout(timeout);
-            }
+          // --- Generate (each configured provider's models, in order) ---
+          const result = await generateAircraftImage(body.prompt, keys);
+          if (result.ok) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(result.image));
+            return;
           }
-
-          res.writeHead(502);
-          res.end(JSON.stringify({ error: lastError || "All models failed" }));
+          res.writeHead(424);
+          res.end(JSON.stringify({ error: result.error }));
         },
       );
     },

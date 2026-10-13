@@ -3,10 +3,11 @@ import { TICKS_PER_HOUR } from "@acars/core";
 import { getAircraftById } from "@acars/data";
 import { type LineLegRequest, useAirlineStore } from "@acars/store";
 import { Minus, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ModalPortal } from "@/shared/components/ModalPortal";
+import { useDialogFocus } from "@/shared/hooks/useDialogFocus";
 import { cn } from "@/shared/lib/utils";
 import {
   autoFillLine,
@@ -44,14 +45,7 @@ export function LineBuilder({
   const [saving, setSaving] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useDialogFocus(closeRef, onClose);
 
   if (!model) return null;
   const plan = planLine(draft, routes, model, start);

@@ -1,5 +1,6 @@
 /**
- * Root-level Cloudflare Pages Function — Gemini Imagen API proxy.
+ * Root-level Cloudflare Pages Function — aircraft image proxy (OpenAI first
+ * when `OPENAI_API_KEY` is set, then Gemini; see `imageProviders.ts`).
  *
  * Security layers:
  *   1. Origin validation — only requests from acars.pub / localhost are accepted.
@@ -13,7 +14,14 @@
  * `context.env` at runtime.
  */
 
+import {
+  generateAircraftImage,
+  hasImageKey,
+  type ImageKeys,
+} from "../../apps/web/src/features/fleet/services/imageProviders";
+
 interface Env {
+  OPENAI_API_KEY?: string;
   GOOGLE_API?: string;
   GEMINI_API_KEY?: string;
   CF_PAGES_BRANCH?: string;
@@ -21,25 +29,11 @@ interface Env {
 
 interface RequestBody {
   prompt: string;
-  models?: string[];
-}
-
-interface PredictionResponse {
-  predictions?: Array<{
-    bytesBase64Encoded?: string;
-    mimeType?: string;
-    safetyAttributes?: { contentType?: string };
-  }>;
 }
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-const DEFAULT_MODELS = ["imagen-4.0-generate-001", "imagen-3.0-generate-002"];
-const ALLOWED_MODELS = new Set(DEFAULT_MODELS);
-const MAX_MODELS = 3;
-const GEMINI_TIMEOUT_MS = 15_000;
 
 /** Maximum prompt length (chars). Longest realistic livery prompt is ~700 chars. */
 const MAX_PROMPT_LENGTH = 1200;
@@ -163,26 +157,23 @@ function isValidAircraftImagePrompt(prompt: string): boolean {
 // API key resolution
 // ---------------------------------------------------------------------------
 
-function resolveApiKey(env: Env): string | undefined {
-  // 1. Explicit CF Pages bindings
+function resolveKeys(env: Env): ImageKeys {
   // Server-side only. Never read VITE_* variables here: anything prefixed
-  // VITE_ is inlined into the client bundle at build time by Vite, so a
-  // VITE_GEMINI_API_KEY fallback would leak the secret to every browser.
-  const fromBindings = env.GOOGLE_API ?? env.GEMINI_API_KEY;
-  if (fromBindings) return fromBindings;
-
-  // 2. Fallback: process.env (available with nodejs_compat)
+  // VITE_ is inlined into the client bundle at build time by Vite.
+  let processEnv: Record<string, string | undefined> = {};
   try {
     const p = (globalThis as Record<string, unknown>).process as
       | { env?: Record<string, string> }
       | undefined;
-    if (p?.env) {
-      return p.env.GOOGLE_API ?? p.env.GEMINI_API_KEY;
-    }
+    if (p?.env) processEnv = p.env;
   } catch {
     /* not available */
   }
-  return undefined;
+  return {
+    openai: env.OPENAI_API_KEY ?? processEnv.OPENAI_API_KEY,
+    gemini:
+      env.GOOGLE_API ?? env.GEMINI_API_KEY ?? processEnv.GOOGLE_API ?? processEnv.GEMINI_API_KEY,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -210,15 +201,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return Response.json({ error: "Rate limit exceeded. Try again in a minute." }, { status: 429 });
   }
 
-  // --- API key ---
+  // --- API keys ---
   const env = context.env ?? ({} as Env);
-  const apiKey = resolveApiKey(env);
-  if (!apiKey) {
+  const keys = resolveKeys(env);
+  if (!hasImageKey(keys)) {
     const branch = env.CF_PAGES_BRANCH ?? "unknown";
     return Response.json(
       {
-        error: "Gemini API secret is not configured",
-        hint: "Ensure secrets are set for BOTH Production and Preview environments in the CF Pages dashboard",
+        error: "Image API secret is not configured",
+        hint: "Set OPENAI_API_KEY (or GEMINI_API_KEY) for BOTH Production and Preview in the CF Pages dashboard",
         branch,
       },
       { status: 500 },
@@ -242,79 +233,17 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return Response.json({ error: "Invalid prompt format" }, { status: 400 });
   }
 
-  // --- Model selection ---
-  const models =
-    Array.isArray(body.models) && body.models.length > 0
-      ? body.models
-          .filter(
-            (model): model is string => typeof model === "string" && ALLOWED_MODELS.has(model),
-          )
-          .slice(0, MAX_MODELS)
-      : DEFAULT_MODELS;
-
-  const modelsToTry = models.length > 0 ? models : DEFAULT_MODELS;
-  let lastError = "";
-
-  // --- Call Gemini Imagen API (try models in order) ---
-  for (const model of modelsToTry) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${apiKey}`;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          instances: [{ prompt: body.prompt }],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio: "16:9",
-            outputOptions: { mimeType: "image/png" },
-          },
-        }),
-      });
-
-      if (res.status === 429) {
-        lastError = "Rate limited";
-        continue;
-      }
-
-      if (!res.ok) {
-        const text = await res.text();
-        if (text.includes("not found") || res.status === 404) {
-          lastError = `Model ${model} not found`;
-          continue;
-        }
-        lastError = text;
-        continue;
-      }
-
-      const data = (await res.json()) as PredictionResponse;
-      const prediction = data.predictions?.find(
-        (p) => p.bytesBase64Encoded && p.safetyAttributes?.contentType !== "Positive Prompt",
-      );
-
-      if (!prediction?.bytesBase64Encoded) {
-        lastError = `Model ${model} returned no image`;
-        continue;
-      }
-
-      return Response.json({
-        imageBase64: prediction.bytesBase64Encoded,
-        mimeType: prediction.mimeType ?? "image/png",
-      });
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        lastError = "Upstream image request timed out";
-        continue;
-      }
-      lastError = err instanceof Error ? err.message : "Unknown error";
-    } finally {
-      clearTimeout(timeout);
-    }
+  // --- Generate (each configured provider's models, in order) ---
+  const result = await generateAircraftImage(body.prompt, keys);
+  if (result.ok) {
+    return Response.json({
+      imageBase64: result.image.imageBase64,
+      mimeType: result.image.mimeType,
+      provider: result.image.provider,
+      model: result.image.model,
+    });
   }
-
-  return Response.json({ error: lastError || "All models failed" }, { status: 502 });
+  // 424, not 502: Cloudflare replaces 502 bodies with its own page, which hid
+  // the real reason (S79: the Imagen models had been shut down).
+  return Response.json({ error: result.error }, { status: 424 });
 };
