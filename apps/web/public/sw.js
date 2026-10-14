@@ -6,6 +6,9 @@
  *   persisted airline state.
  * - Hashed build assets (/assets/*): cache first. Their names change with
  *   their content, so a cached copy is never stale. The cache is capped.
+ *   Only real assets are kept: a missing file comes back as the SPA page
+ *   (HTML, status 200), and caching that would break the app on this device
+ *   for good ("Unable to preload CSS"). v2 drops caches v1 may have poisoned.
  * - Other same-origin static files (icons, manifest, maplibre worker):
  *   served from cache when present, refreshed in the background.
  * - Never touched: non-GET requests, /api/* (Pages Functions), relays and
@@ -17,9 +20,9 @@
  * its scope covers the whole app.
  */
 
-const SHELL_CACHE = "acars-shell-v1";
-const ASSET_CACHE = "acars-assets-v1";
-const STATIC_CACHE = "acars-static-v1";
+const SHELL_CACHE = "acars-shell-v2";
+const ASSET_CACHE = "acars-assets-v2";
+const STATIC_CACHE = "acars-static-v2";
 const CACHES = [SHELL_CACHE, ASSET_CACHE, STATIC_CACHE];
 const SHELL_URL = "/";
 const MAX_ASSETS = 150;
@@ -81,11 +84,17 @@ async function page(request) {
   }
 }
 
+/** A real build asset, not the HTML page served for a missing file. */
+function isAssetResponse(response) {
+  const type = response.headers.get("content-type") || "";
+  return response.ok && !type.includes("text/html");
+}
+
 async function asset(request) {
   const cached = await caches.match(request);
-  if (cached) return cached;
+  if (cached && isAssetResponse(cached)) return cached;
   const response = await fetch(request);
-  if (response.ok) {
+  if (isAssetResponse(response)) {
     const cache = await caches.open(ASSET_CACHE);
     await cache.put(request, response.clone());
     trimAssets();
