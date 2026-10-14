@@ -1,7 +1,7 @@
 # S80 — The app never sticks on a broken cached file
 
-> **Status:** ◑ in review
-> **Next step:** — (merge; after the deploy, affected browsers heal on their next visit)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #205; affected browsers heal on their next visit)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #205
 >
@@ -21,3 +21,5 @@
 ## Progress log
 
 - 2026-10-14 · S80.1 · fix + unit tests (6) + a browser check against the built app with a Pages-style SPA fallback: the `-v1` cache is deleted, a missing file is not cached, the real file is cached once it exists.
+- 2026-10-14 · S80.2 · CI's `verify` hit a flaky S72 test (`rank.test.ts`: the fake signer's one-second nudge kept the 6-bit work about 1 run in 64); it now nudges until the work is gone.
+- 2026-10-14 · merged · #205 · CI green (verify, e2e, Pages).
