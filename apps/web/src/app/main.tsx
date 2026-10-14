@@ -19,14 +19,18 @@ import { OfflineBanner } from "@/shared/components/feedback/OfflineBanner";
 import { TimelineToastBridge } from "@/shared/components/feedback/TimelineToastBridge";
 import { ToastHost } from "@/shared/components/feedback/ToastHost";
 import { startBootDiagnostics } from "@/shared/lib/bootDiagnostics";
-import { registerServiceWorker } from "@/shared/lib/serviceWorker";
+import { registerServiceWorker, reloadOnStaleChunks } from "@/shared/lib/serviceWorker";
 import { ConfirmProvider } from "@/shared/lib/useConfirm";
+
 // Initialize i18n before rendering so the detected locale's lazy bundles are
 // loaded before any component that uses useTranslation mounts
 import { initI18n } from "../i18n";
 
 // Startup trace marks and long-task counting (`?boot=1` shows them).
 startBootDiagnostics();
+
+// A tab opened before a deploy reloads once when one of its files is gone.
+reloadOnStaleChunks();
 
 // Create a new router instance
 const router = createRouter({

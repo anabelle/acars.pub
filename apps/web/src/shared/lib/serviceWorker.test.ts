@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { registerServiceWorker } from "./serviceWorker";
+import { registerServiceWorker, reloadOnStaleChunks } from "./serviceWorker";
 
 function fakeWindow() {
   const listeners: Record<string, () => void> = {};
@@ -26,7 +26,7 @@ describe("registerServiceWorker()", () => {
     expect(attempted).toBe(true);
     expect(register).not.toHaveBeenCalled();
     fireLoad();
-    expect(register).toHaveBeenCalledWith("/sw.js");
+    expect(register).toHaveBeenCalledWith("/sw.js", { updateViaCache: "none" });
   });
 
   it("registers right away when the page has already loaded", () => {
@@ -38,7 +38,7 @@ describe("registerServiceWorker()", () => {
       windowLike,
       documentLike: { readyState: "complete" },
     });
-    expect(register).toHaveBeenCalledWith("/sw.js");
+    expect(register).toHaveBeenCalledWith("/sw.js", { updateViaCache: "none" });
   });
 
   it("logs a failed registration instead of throwing", async () => {
@@ -64,5 +64,49 @@ describe("registerServiceWorker()", () => {
     ).toBe(false);
     // jsdom (the test run) is not a production build.
     expect(registerServiceWorker()).toBe(false);
+  });
+});
+
+describe("reloadOnStaleChunks()", () => {
+  function setup(start = 1_000_000) {
+    let handler: ((event: Event) => void) | undefined;
+    const stored = new Map<string, string>();
+    let clock = start;
+    const reload = vi.fn();
+    reloadOnStaleChunks({
+      windowLike: {
+        addEventListener: (_type: string, listener: (event: Event) => void) => {
+          handler = listener;
+        },
+      } as unknown as Window,
+      storage: { getItem: (k) => stored.get(k) ?? null, setItem: (k, v) => stored.set(k, v) },
+      reload,
+      now: () => clock,
+    });
+    const fire = () => {
+      const event = { preventDefault: vi.fn() } as unknown as Event;
+      handler?.(event);
+      return event;
+    };
+    return { fire, reload, advance: (ms: number) => (clock += ms) };
+  }
+
+  it("reloads once when a file from an older deploy is gone", () => {
+    const { fire, reload } = setup();
+    const event = fire();
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(event.preventDefault).toHaveBeenCalled();
+  });
+
+  it("does not loop: a second failure within a minute surfaces the error", () => {
+    const { fire, reload, advance } = setup();
+    fire();
+    advance(5_000);
+    const event = fire();
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    advance(60_000);
+    fire();
+    expect(reload).toHaveBeenCalledTimes(2);
   });
 });

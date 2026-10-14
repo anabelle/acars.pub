@@ -41,8 +41,13 @@ vi.mock("@nostr-dev-kit/ndk", () => ({
     async sign() {
       const rest = { ...this.raw };
       delete rest.pubkey;
-      if (weakenOnSign) rest.created_at = (rest.created_at as number) + 1;
       this.signed = finalizeEvent(rest as never, sk);
+      // A signer that alters the event: nudge it until the id loses the
+      // 6-bit work (/^0[0-3]/), so the refusal never rests on chance.
+      while (weakenOnSign && /^0[0-3]/.test(this.signed.id)) {
+        rest.created_at = (rest.created_at as number) + 1;
+        this.signed = finalizeEvent(rest as never, sk);
+      }
     }
     rawEvent() {
       return this.signed;
@@ -111,14 +116,9 @@ describe("publishRankProof (S72)", () => {
     signer = null;
     await expect(publishRankProof(mined)).rejects.toThrow("No signer");
     signer = {};
-    // A signer that alters the event can't keep the work (almost surely).
+    // A signer that alters the event loses the work: refuse, publish nothing.
     weakenOnSign = true;
-    let failures = 0;
-    for (let i = 0; i < 3; i++) {
-      await publishRankProof(mined).catch(() => {
-        failures += 1;
-      });
-    }
-    expect(failures).toBeGreaterThan(0);
+    await expect(publishRankProof(mined)).rejects.toThrow("lost its work");
+    expect(published).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 # S79 — Aircraft images work again (OpenAI or Gemini)
 
-> **Status:** ◑ in review
-> **Next step:** — (owner: set `OPENAI_API_KEY` in Cloudflare Pages for Production and Preview; merge)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #204; owner: a billed key in Cloudflare Pages, Production and Preview — Gemini via the AI Pro credits, or OpenAI)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #204
 >
@@ -33,3 +33,5 @@ A ChatGPT subscription does not include API access: the OpenAI API is billed sep
 2026-10-13 · branch · (this commit) · The owner asked why every PR lists ~200 commits: the post-merge `merge -s ours` reset carried every already-squashed commit forward. The branch was rebuilt on `origin/main` with only this session's commits (force-push with lease, same tree); IMPLEMENTATION.md now says to restart the branch from main after a merge.
 
 2026-10-13 · S79.2 · (this commit) · **Owner: "plan a day → select a route dropdown, the focus jumps to the close button insistently and closes the dropdown".** The day planner focused its close button in an effect keyed on `onClose`; the plane panel re-renders every game tick with a fresh `onClose`, so every tick stole focus back and shut the open select. `useDialogFocus` (shared/hooks) focuses once when a dialog opens and reads the latest `onClose`/escape-disabled through refs; the day planner, milestone celebrations, away report and delivery ceremony (same pattern) use it. Tests: useDialogFocus 2 (focus survives re-renders; Escape uses the latest onClose, not while disabled).
+
+2026-10-13 · merged · #204 · CI green (verify, e2e, Pages). Images return once a billed key is set.
