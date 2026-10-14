@@ -51,7 +51,7 @@
   },
   "lint-staged": {
     "**/*.{ts,tsx,js,jsx,cjs,mjs,json,css,scss,html}": [
-      "bash -lc 'for f in \"$@\"; do if [ \"$f\" != \"packages/data/src/airports.ts\" ]; then printf \"%s\\n\" \"$f\"; fi; done | xargs -r biome format --write' --"
+      "bash -lc 'for f in \"$@\"; do case \"$f\" in *packages/data/src/airports.ts|*public/maplibre/*) ;; *) printf \"%s\\n\" \"$f\";; esac; done | xargs -r biome format --write' --"
     ],
     "**/*.{md,mdx,yml,yaml}": [
       "prettier --write"
