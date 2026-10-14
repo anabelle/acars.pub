@@ -3,7 +3,7 @@
 > **Status:** ◑ in review
 > **Next step:** — (merge; after the deploy, affected browsers heal on their next visit)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** (opening)
+> **PR:** #205
 >
 > **Track:** Fix · **Size:** S (1 step) · **From:** owner, 2026-10-14: "the site is not loading" … "error preloading worldmap css, deploy ok?"
 
