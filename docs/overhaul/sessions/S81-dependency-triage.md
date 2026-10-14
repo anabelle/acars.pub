@@ -1,9 +1,9 @@
 # S81 — Dependency triage: production updates, Dependabot by risk
 
-> **Status:** ◑ in review
-> **Next step:** — (merge; Dependabot then closes #192 on its own)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #206; Dependabot closes #192 on its own)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** (opening)
+> **PR:** #206
 >
 > **Track:** Maintenance · **Size:** S (1 step) · **From:** owner, 2026-10-14: "can you audit and triage open prs" … "all 3"
 
@@ -25,3 +25,4 @@
 
 - 2026-10-14 · S81.1 · updates + icon + worker recopy + guard test + Dependabot groups. Typecheck, lint (0 errors), 1,869 unit tests, build, and e2e on desktop and mobile (map, first hour, aircraft icons, night globe, ACARS, fleet purchase, layout, meta) pass.
 - 2026-10-14 · S81.2 · the pre-commit formatter had rewritten the vendored worker (and the 6.9 copy before it); `lint-staged` now skips `public/maplibre/`, the 6.14 worker ships byte for byte (`maplibre-gl-shared.mjs` is empty upstream in 6.14). Map e2e re-run on the exact file: pass.
+- 2026-10-14 · merged · #206 · CI green (verify, e2e, Pages). #197 and #118 closed with a note.
