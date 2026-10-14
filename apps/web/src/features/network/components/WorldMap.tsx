@@ -27,7 +27,10 @@ import { parseMapLoad, syntheticFleet } from "@/features/network/utils/synthetic
 // HUD keeps living. The worker also imports `./maplibre-gl-shared.mjs`
 // relative to its own URL, so both files must ship with their ORIGINAL
 // names side by side: they are copied to public/maplibre/ (verbatim from
-// maplibre-gl@6.9.0 dist) and WORKER_URL points at the stable copy.
+// the installed maplibre-gl dist) and WORKER_URL points at the stable copy.
+// The copies must match the installed version, or the worker can't read
+// what the main thread sends ("can't deserialize unregistered class");
+// maplibreWorkerCopy.test.ts fails when a bump forgets to recopy them.
 maplibreConfig.WORKER_URL = "/maplibre/maplibre-gl-worker.mjs";
 
 import { Moon, Sun, TrendingUp } from "lucide-react";

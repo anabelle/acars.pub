@@ -5,8 +5,13 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    # Minor and patch updates come grouped (one dev PR, one prod PR); each
+    # major update comes alone, so a migration (TypeScript, Tailwind, Vite…)
+    # is its own reviewable PR instead of blocking the routine bumps.
     groups:
       dev-deps:
         dependency-type: "development"
+        update-types: ["minor", "patch"]
       prod-deps:
         dependency-type: "production"
+        update-types: ["minor", "patch"]
