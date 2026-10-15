@@ -3,7 +3,7 @@
 > **Status:** ◑ in review
 > **Next step:** — (merge)
 > **Branch:** `claude/zen-darwin-3op878`
-> **PR:** (opening)
+> **PR:** #217
 >
 > **Track:** Fix · **Size:** S (1 step) · **From:** owner, 2026-10-15: "los aviones no vuelan correctamente durante ese replay, sino que saltan de un aeropuerto al destino, al origen, al destino, sin los pasos intermedios"
 
