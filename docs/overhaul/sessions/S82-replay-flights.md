@@ -1,7 +1,7 @@
 # S82 — The away replay flies its planes
 
-> **Status:** ◑ in review
-> **Next step:** — (merge)
+> **Status:** ☑ merged
+> **Next step:** — (merged in #217)
 > **Branch:** `claude/zen-darwin-3op878`
 > **PR:** #217
 >
@@ -22,3 +22,4 @@
 ## Progress log
 
 - 2026-10-15 · S82.1 · fix + e2e: `away-report.spec.ts` now requires a replayed plane mid-leg (progress strictly between 0.02 and 0.98) and the `/?panel=map` URL. **Proof:** with the loop reading the stale prop, the spec fails (no plane ever mid-flight); with the fix it passes. Unit tests (map 133, airline 76), typecheck, lint; e2e away report, map and perf probe on desktop and mobile pass. Screenshots: `media/s82/replay-mid-flight-{1440,390}.png` (the 390 one from a temporary mobile copy of the spec).
+- 2026-10-15 · merged · #217 · CI green (verify, e2e, Pages).
