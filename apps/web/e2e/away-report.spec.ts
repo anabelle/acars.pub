@@ -69,20 +69,38 @@ test("the away report replays the missed flights on the map (S55.3)", async ({
   await expect(report).toBeVisible({ timeout: 180_000 });
   await report.getByTestId("away-report-watch").click();
   await expect(report).toHaveCount(0);
+  // It plays on the bare map, so no panel covers it on a phone (S82).
+  await expect(page).toHaveURL(/panel=map/);
 
   // The replay plays the night in at most 30 s: flights land as it runs.
   const bar = page.getByTestId("time-lapse-bar");
   await expect(bar).toBeVisible();
   const total = Number(await bar.getAttribute("data-total"));
   expect(total).toBeGreaterThan(1);
-  await page.clock.fastForward(10_000);
-  await expect
-    .poll(async () => Number(await bar.getAttribute("data-landed")), { timeout: 30_000 })
-    .toBeGreaterThan(0);
+  // The planes fly their legs on the replay's clock (S82): some are drawn
+  // partway along, not parked at either end of the route.
+  const progress = () =>
+    page.evaluate(
+      () =>
+        (window as { __acarsMapStats?: { flightProgress?: number[] } }).__acarsMapStats
+          ?.flightProgress ?? [],
+    );
+  const midFlight: number[] = [];
+  for (let step = 0; step < 20 && midFlight.length === 0; step++) {
+    await page.clock.fastForward(500);
+    await page.waitForTimeout(300);
+    midFlight.push(...(await progress()).filter((p) => p > 0.02 && p < 0.98));
+  }
+  expect(midFlight.length).toBeGreaterThan(0);
 
   if (process.env.TIME_LAPSE_SCREENSHOT) {
     await page.screenshot({ path: process.env.TIME_LAPSE_SCREENSHOT });
   }
+
+  await page.clock.fastForward(10_000);
+  await expect
+    .poll(async () => Number(await bar.getAttribute("data-landed")), { timeout: 30_000 })
+    .toBeGreaterThan(0);
 
   // It ends by itself and hands the map back to the live airline (the stop
   // button is covered by the component test; the clock keeps running here).

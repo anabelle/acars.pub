@@ -275,6 +275,9 @@ export function Globe({
   const latestOnMapClick = useRef(onMapClick);
   const latestShowWorld = useRef(showWorld);
   const latestPlayerRouteCount = useRef(playerRoutes.length);
+  // The clock is swapped while a time-lapse plays (S55.3): read it through a
+  // ref, or the animation loop keeps the clock it started with (S82).
+  const latestEngineClock = useRef(engineClock);
 
   // Keep refs in sync with props (avoid stale closures in RAF loop).
   // Consolidated into one effect to avoid 11 separate scheduler entries.
@@ -287,6 +290,7 @@ export function Globe({
     latestPlayerRouteCount.current = playerRoutes.length;
     latestTick.current = tick;
     latestTickProgress.current = tickProgress;
+    latestEngineClock.current = engineClock;
     latestFleet.current = fleet;
     latestGlobalFleet.current = competitorFleet;
     latestPlayerLivery.current = playerLivery;
@@ -304,6 +308,7 @@ export function Globe({
     playerRoutes.length,
     tick,
     tickProgress,
+    engineClock,
     fleet,
     competitorFleet,
     playerLivery,
@@ -809,6 +814,7 @@ export function Globe({
       resolveColor: (ac: AircraftInstance) => { primary?: string; secondary?: string } | undefined,
       baseSize: number,
       now: number,
+      progressOut?: number[],
     ): Feature[] => {
       const features: Feature[] = [];
       for (const ac of targetFleet) {
@@ -849,6 +855,7 @@ export function Globe({
           1800;
         const strobeOn = (now + idPhase) % 1800 < 500 ? 1 : 0;
 
+        progressOut?.push(progress);
         features.push({
           type: "Feature",
           geometry: { type: "Point", coordinates: coords },
@@ -936,9 +943,11 @@ export function Globe({
       lastFrame = now;
 
       const bounds = map.getBounds();
-      const currentTick = engineClock?.current.tick ?? latestTick.current;
-      const currentProgress = engineClock?.current.tickProgress ?? latestTickProgress.current;
+      const clockSource = latestEngineClock.current;
+      const currentTick = clockSource?.current.tick ?? latestTick.current;
+      const currentProgress = clockSource?.current.tickProgress ?? latestTickProgress.current;
 
+      const playerProgress: number[] = [];
       const flightFeatures = processFleet(
         latestFleet.current,
         currentTick,
@@ -947,6 +956,7 @@ export function Globe({
         () => latestPlayerLivery.current || undefined,
         1.1,
         now,
+        playerProgress,
       );
       // "My network" view: rivals' aircraft are hidden, so don't interpolate them.
       const globalFlightFeatures = !latestShowWorld.current
@@ -975,6 +985,7 @@ export function Globe({
       clock = plan.next;
       if (planWrites(plan)) stats.requests++;
       if (plan.uploadFlights) {
+        stats.flightProgress = playerProgress;
         (map.getSource("flights") as maplibregl.GeoJSONSource)?.setData({
           type: "FeatureCollection",
           features: flightFeatures,

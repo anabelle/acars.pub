@@ -269,15 +269,18 @@ export function AwayReportDialog({
           ) : null}
 
           {lapse ? (
-            <button
-              type="button"
+            // The replay plays on the bare map (S82): on a phone any panel
+            // would cover it, on a desktop it gets the whole globe.
+            <Link
+              to="/"
+              search={{ panel: "map" }}
               onClick={watch}
               data-testid="away-report-watch"
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/50 bg-primary/10 px-4 py-2.5 text-sm font-bold text-primary hover:bg-primary/20"
             >
               <History className="h-4 w-4" aria-hidden="true" />
               {t("awayReport.watch", { ns: "game", count: lapse.legs.length })}
-            </button>
+            </Link>
           ) : null}
 
           <div className="flex flex-col gap-2 sm:flex-row-reverse">

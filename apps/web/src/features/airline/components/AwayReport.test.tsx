@@ -161,7 +161,10 @@ describe("AwayReportDialog", () => {
     useAirlineStore.setState({ timeline: [landing("l1", 3_000), landing("l2", 6_000)] });
     const onClose = vi.fn();
     render(<AwayReportDialog summary={base} onClose={onClose} />);
-    fireEvent.click(screen.getByRole("button", { name: "Watch what happened (2 flights)" }));
+    const watch = screen.getByRole("link", { name: "Watch what happened (2 flights)" });
+    // It plays on the bare map, where no panel covers it (S82).
+    expect(watch).toHaveAttribute("href", "/?panel=map");
+    fireEvent.click(watch);
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(timeLapse.playTimeLapse).toHaveBeenCalledWith(
       expect.objectContaining({ startTick: 1_500, endTick: 6_000 }),
