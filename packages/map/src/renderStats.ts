@@ -12,6 +12,12 @@ export interface MapRenderStats {
   requests: number;
   /** Whether low-power rendering is on (S54.3). */
   lowPower: boolean;
+  /**
+   * How far along its leg (0–1) each of the player's drawn flights was in
+   * the last upload, so a spec can tell planes in flight from planes parked
+   * at an end of their route (the S82 time-lapse check).
+   */
+  flightProgress: number[];
 }
 
 type StatsGlobal = { __acarsMapStats?: MapRenderStats };
@@ -19,7 +25,7 @@ type StatsGlobal = { __acarsMapStats?: MapRenderStats };
 /** The page-wide counters (on `globalThis`, i.e. `window`), created on first use. */
 export function mapRenderStats(): MapRenderStats {
   const g = globalThis as StatsGlobal;
-  g.__acarsMapStats ??= { renders: 0, requests: 0, lowPower: false };
+  g.__acarsMapStats ??= { renders: 0, requests: 0, lowPower: false, flightProgress: [] };
   return g.__acarsMapStats;
 }
 
