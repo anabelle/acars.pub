@@ -1687,14 +1687,13 @@ export async function replayActionLog(params: {
     ledgerTick,
   );
 
-  let fleet = Array.from(fleetById.values());
+  const fleet = Array.from(fleetById.values());
   const routes = Array.from(routesById.values());
 
   const orderedTimeline = sortedTimeline();
   timeline.length = 0;
   timeline.push(...orderedTimeline.slice(0, MAX_TIMELINE_EVENTS));
 
-  fleet = Array.from(fleetById.values());
   if (airline) {
     // Use authoritative fleet/route IDs from the most recent TICK_UPDATE
     // when available.  This ensures counts match what the airline owner
