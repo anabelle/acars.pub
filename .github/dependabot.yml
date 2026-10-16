@@ -30,3 +30,7 @@ updates:
       # 5 existing files; needs a code pass to split those exports out.
       - dependency-name: eslint-plugin-react-refresh
         versions: [">= 0.5.0"]
+      # #222: tsc 6 rejects CSS side-effect imports (TS2882 in
+      # packages/map Globe.tsx); needs a dedicated migration PR.
+      - dependency-name: typescript
+        versions: [">= 6.0.0"]
