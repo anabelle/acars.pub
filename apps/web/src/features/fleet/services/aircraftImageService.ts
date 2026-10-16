@@ -41,7 +41,7 @@ function hexToColorName(hex: string): string {
   }
 
   const d = max - min;
-  let hue = 0;
+  let hue: number;
   if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) * 60;
   else if (max === g) hue = ((b - r) / d + 2) * 60;
   else hue = ((r - g) / d + 4) * 60;
@@ -504,7 +504,7 @@ export async function generateLiveryImage(prompt: string): Promise<Blob> {
       break;
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        throw new Error("Livery generation request timed out");
+        throw new Error("Livery generation request timed out", { cause: error });
       }
       throw error;
     } finally {

@@ -51,7 +51,7 @@ export async function flushOutbox(): Promise<void> {
   if (!storageAvailable()) return;
   flushInFlight = (async () => {
     const { db } = await import("./db.js");
-    let entries: OutboxRecord[] = [];
+    let entries: OutboxRecord[];
     try {
       entries = await db.outbox.toArray();
     } catch (e) {

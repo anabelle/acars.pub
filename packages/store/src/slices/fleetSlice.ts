@@ -345,7 +345,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         };
       });
       console.error("Failed to sync ferry flight to Nostr:", e);
-      throw new Error("Failed to sync ferry flight.");
+      throw new Error("Failed to sync ferry flight.", { cause: e });
     }
   },
 
@@ -497,7 +497,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         };
       });
       console.error("Failed to sync aircraft selling or marketplace listing to Nostr:", e);
-      throw new Error("Failed to sync fleet change to Nostr.");
+      throw new Error("Failed to sync fleet change to Nostr.", { cause: e });
     }
   },
 
@@ -884,7 +884,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         };
       });
       console.error("Listing failed:", e);
-      throw new Error("Failed to publish listing to Nostr.");
+      throw new Error("Failed to publish listing to Nostr.", { cause: e });
     }
   },
 
@@ -934,7 +934,7 @@ export const createFleetSlice: StateCreator<AirlineState, [], [], FleetSlice> = 
         ),
       }));
       console.error("Cancellation failed:", e);
-      throw new Error("Failed to remove listing from Nostr.");
+      throw new Error("Failed to remove listing from Nostr.", { cause: e });
     }
   },
 

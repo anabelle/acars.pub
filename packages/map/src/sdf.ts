@@ -39,7 +39,10 @@ function edt1d(
   z[0] = -INF;
   z[1] = INF;
   f[0] = grid[offset];
-  for (let q = 1, k = 0, s = 0; q < length; q++) {
+  // `s` is always assigned inside the do-while before its first read; eslint 10
+  // (no-useless-assignment) correctly flags the old `s = 0` initializer as dead.
+  let s: number;
+  for (let q = 1, k = 0; q < length; q++) {
     f[q] = grid[offset + q * stride];
     const q2 = q * q;
     do {

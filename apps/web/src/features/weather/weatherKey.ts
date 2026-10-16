@@ -4,7 +4,7 @@
  * `localStorage.acars_weather_pubkey` overrides it for testing. Empty: calm.
  */
 export function weatherPubkey(): string {
-  let override = "";
+  let override: string;
   try {
     override = window.localStorage.getItem("acars_weather_pubkey") ?? "";
   } catch {
