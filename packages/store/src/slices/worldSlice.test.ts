@@ -18,6 +18,7 @@ vi.mock("@acars/nostr", async (importOriginal) => {
   return {
     ...mod,
     loadAllSnapshots: vi.fn(() => Promise.resolve(new Map())),
+    loadActionLog: vi.fn(() => Promise.resolve([])),
     getNDK: vi.fn(() => ({})),
     NDKEvent: vi.fn(),
     MARKETPLACE_KIND: 30079,
@@ -510,5 +511,139 @@ describe("syncCompetitor", () => {
     ]);
 
     expect(syncWorldSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("peer owner binding (security)", () => {
+  const ATTACKER = "a".repeat(64);
+  const RANKED = "b".repeat(64);
+  const ME = "player-pubkey";
+
+  beforeEach(async () => {
+    engine.tick = 100;
+    _resetWorldFlags();
+    const nostr = await import("@acars/nostr");
+    vi.mocked(nostr.loadAllSnapshots).mockReset();
+    vi.mocked(nostr.loadAllSnapshots).mockResolvedValue(new Map());
+    vi.mocked(nostr.loadActionLog).mockReset();
+    vi.mocked(nostr.loadActionLog).mockResolvedValue([]);
+    vi.mocked(nostr.deleteMarketplaceListing).mockClear();
+  });
+
+  it("rejects a snapshot whose airline names another identity as CEO", async () => {
+    const { loadAllSnapshots } = await import("@acars/nostr");
+    const payload = await makeSnapshotPayload({
+      tick: 100,
+      airline: { ...makeAirline(RANKED, 100), routeIds: [] },
+      fleet: [],
+      routes: [],
+    });
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(new Map([[ATTACKER, payload]]));
+    const { state } = createSliceState();
+    await state.syncWorld({ force: true });
+    expect(state.competitors.has(ATTACKER)).toBe(false);
+    expect(state.competitors.has(RANKED)).toBe(false);
+  });
+
+  it("rejects a snapshot carrying an aircraft owned by someone else", async () => {
+    const { loadAllSnapshots } = await import("@acars/nostr");
+    const payload = await makeSnapshotPayload({
+      tick: 100,
+      airline: makeAirline(ATTACKER, 100),
+      fleet: [makeAircraft("ac-foreign", RANKED)],
+      routes: [],
+    });
+    vi.mocked(loadAllSnapshots).mockResolvedValueOnce(new Map([[ATTACKER, payload]]));
+    const { state } = createSliceState();
+    await state.syncWorld({ force: true });
+    expect(state.competitors.has(ATTACKER)).toBe(false);
+  });
+
+  it("stamps the authenticated owner on route offers", async () => {
+    const { buildRouteOffers } = await import("./worldSlice");
+    const registry = new Map();
+    const airline = makeAirline(RANKED, 100);
+    const aircraft = makeAircraft("ac-1", ATTACKER);
+    buildRouteOffers(
+      registry,
+      ATTACKER,
+      airline,
+      [aircraft],
+      [
+        {
+          id: "rt-1",
+          airlinePubkey: ATTACKER,
+          originIata: "JFK",
+          destinationIata: "LAX",
+          distanceKm: 4000,
+          assignedAircraftIds: ["ac-1"],
+          fareEconomy: fp(100),
+          fareBusiness: fp(200),
+          fareFirst: fp(300),
+          status: "active",
+        } as never,
+      ],
+    );
+    const offers = [...registry.values()].flat();
+    expect(offers).toHaveLength(1);
+    expect(offers[0].airlinePubkey).toBe(ATTACKER);
+  });
+
+  const listedSetup = async (buyActions: unknown[]) => {
+    const nostr = await import("@acars/nostr");
+    const price = fp(25000);
+    const mine: AircraftInstance = {
+      ...makeAircraft("listed-1", ME),
+      listingPrice: price,
+      purchasedAtTick: 50,
+    };
+    const claim: AircraftInstance = { ...makeAircraft("listed-1", ATTACKER), purchasePrice: price };
+    const payload = await makeSnapshotPayload({
+      tick: 100,
+      airline: { ...makeAirline(ATTACKER, 100), fleetIds: ["listed-1"] },
+      fleet: [claim],
+      routes: [],
+    });
+    vi.mocked(nostr.loadAllSnapshots).mockResolvedValueOnce(new Map([[ATTACKER, payload]]));
+    vi.mocked(nostr.loadActionLog).mockResolvedValue(buyActions as never);
+    const { state } = createSliceState({
+      airline: makeAirline(ME, 100),
+      fleet: [mine],
+    });
+    await state.syncWorld({ force: true });
+    return { state, nostr, price };
+  };
+
+  const buyAction = (author: string, price: number, tick = 90, id = "buy-1") => ({
+    event: { id, created_at: 1000, author: { pubkey: author } },
+    action: {
+      schemaVersion: 2,
+      action: "AIRCRAFT_BUY_USED",
+      payload: { instanceId: "listed-1", listingId: "l-1", modelId: "atr72-600", price, tick },
+    },
+  });
+
+  it("does not settle a sale from an unproven snapshot claim", async () => {
+    const { state, nostr } = await listedSetup([]);
+    expect(state.fleet.map((ac) => ac.id)).toEqual(["listed-1"]);
+    expect(nostr.deleteMarketplaceListing).not.toHaveBeenCalled();
+    expect(nostr.loadActionLog).toHaveBeenCalledWith({ authors: [ATTACKER], maxPages: 2 });
+  });
+
+  it("does not settle on a buy signed by a non-claimant or at another price or before acquisition", async () => {
+    const { state, nostr } = await listedSetup([
+      buyAction(RANKED, fp(25000) as number),
+      buyAction(ATTACKER, fp(1) as number, 90, "buy-cheap"),
+      buyAction(ATTACKER, fp(25000) as number, 10, "buy-stale"),
+    ]);
+    expect(state.fleet.map((ac) => ac.id)).toEqual(["listed-1"]);
+    expect(nostr.deleteMarketplaceListing).not.toHaveBeenCalled();
+  });
+
+  it("settles when the claimant signed a matching purchase", async () => {
+    const { state, nostr, price } = await listedSetup([buyAction(ATTACKER, fp(25000) as number)]);
+    expect(state.fleet).toHaveLength(0);
+    expect(state.airline?.corporateBalance).toBe(fp(1000000000) + price);
+    expect(nostr.deleteMarketplaceListing).toHaveBeenCalledWith(ME, "listed-1");
   });
 });

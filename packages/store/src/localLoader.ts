@@ -62,7 +62,7 @@ export async function hydrateIdentityFromStorage(
       // local actions newer than the remote snapshot are lost until the
       // next snapshot publish. A proper three-way merge over the shared
       // action log is future work.
-      const snapshotCheckpoint = await verifySnapshotPayload(remote);
+      const snapshotCheckpoint = await verifySnapshotPayload(remote, pubkey);
       bootMark("identity: saved state verified", snapshotCheckpoint ? "ok" : "rejected");
       const localTick = currentAirline?.lastTick ?? 0;
 
