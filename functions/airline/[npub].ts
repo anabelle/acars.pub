@@ -7,7 +7,9 @@
  * with a short timeout and cached briefly. No new storage. Any failure
  * falls back to a generic ACARS card, never an error page.
  *
- * Kept dependency-free except for the shared pure helpers in ogMeta.ts.
+ * Kept dependency-free except for the shared pure helpers in ogMeta.ts and
+ * the signature gate in ogVerify.ts (nostr-tools): relay answers are
+ * untrusted, so only signed checkpoints by the requested airline count.
  */
 import {
   type AirlineSummary,
@@ -18,6 +20,10 @@ import {
   injectMeta,
   latestSummary,
 } from "../../apps/web/src/features/airline/utils/ogMeta";
+import {
+  authenticCheckpointEvents,
+  type UnverifiedRelayEvent,
+} from "../../apps/web/src/features/airline/utils/ogVerify";
 
 /** Relays tried in order (first answer wins). */
 export const OG_RELAYS = ["wss://nostr.acars.pub", "wss://relay.damus.io", "wss://nos.lol"];
@@ -69,11 +75,7 @@ export async function handleAirlinePage(
 
 // --- relay reading (Workers runtime) -----------------------------------------
 
-interface RelayEvent {
-  created_at: number;
-  content: string;
-  tags: string[][];
-}
+type RelayEvent = UnverifiedRelayEvent;
 
 interface WorkerSocket {
   accept(): void;
@@ -147,7 +149,7 @@ export async function loadSummaryFromRelays(
   read: (relay: string, pubkey: string) => Promise<RelayEvent[]> = readCheckpointEvents,
 ): Promise<AirlineSummary | null> {
   for (const relay of relays) {
-    const summary = latestSummary(await read(relay, pubkey));
+    const summary = latestSummary(authenticCheckpointEvents(await read(relay, pubkey), pubkey));
     if (summary) return summary;
   }
   return null;
