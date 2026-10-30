@@ -33,6 +33,7 @@ import { reconcileFleetToTick } from "../FlightEngine";
 import { computeRejectedBuyEventIds } from "../marketplaceReplay";
 import { rivalRoutesNewOnYourPairs } from "../rivalRoutes";
 import { scopeActionsToCheckpoint } from "../scopeActions";
+import { selectProvenSales, UNPROVEN_CLAIM_RECHECK_MS } from "../marketplaceSettlement";
 import { verifySnapshotPayload } from "../snapshotValidation";
 import type { AirlineState } from "../types";
 
@@ -76,6 +77,9 @@ const competitorLastFullSync = new Map<string, number>();
  */
 const rejectedSnapshotSig = new Map<string, string>();
 
+/** `${claimant}:${aircraftId}` → last time a sale claim was found unproven. */
+const unprovenClaimCheckedAt = new Map<string, number>();
+
 /**
  * Per-owner projection memo for projectCompetitorFleet: records the tick an
  * owner's fleet was last projected to AND the fleet array reference that was
@@ -101,6 +105,7 @@ export function _resetWorldFlags() {
   competitorLastFullSync.clear();
   rejectedSnapshotSig.clear();
   ownerProjection.clear();
+  unprovenClaimCheckedAt.clear();
 }
 
 const applyMonthlyCosts = (
@@ -141,9 +146,15 @@ const applyMonthlyCosts = (
  * Add a player's active routes to the global route registry as flight
  * offers. Shared by the full `syncWorld` pass and the incremental
  * `syncCompetitor` replay so both paths compute offers identically.
+ *
+ * `ownerPubkey` is the authenticated owner (the snapshot's signing author /
+ * the replayed author) and is stamped on every offer. Never derive the
+ * offer principal from `airline.ceoPubkey`: rank-based fare policy keys on
+ * it, and the body is publisher-controlled.
  */
 export const buildRouteOffers = (
   registry: Map<string, FlightOffer[]>,
+  ownerPubkey: string,
   airline: AirlineEntity,
   fleet: AircraftInstance[],
   routes: Route[],
@@ -181,7 +192,7 @@ export const buildRouteOffers = (
     if (frequency === 0) continue;
 
     const offer: FlightOffer = {
-      airlinePubkey: airline.ceoPubkey,
+      airlinePubkey: ownerPubkey,
       fareEconomy: route.fareEconomy,
       fareBusiness: route.fareBusiness,
       fareFirst: route.fareFirst,
@@ -336,9 +347,10 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             // CRITICAL: peer snapshots are untrusted input. The payload is
             // decompressed, shape-validated via parseCheckpoint, hash-verified
             // (recomputed state hash must match BOTH the checkpoint body and
-            // the relay-carried hash) and clamped (fleet <= 5000, balance in
-            // [-$10B, $10B]). Anything that fails is DISCARDED, not ingested.
-            const snapshotCheckpoint = await verifySnapshotPayload(payload);
+            // the relay-carried hash), clamped (fleet <= 5000, balance in
+            // [-$10B, $10B]) and owner-bound to its signing author `pubkey`.
+            // Anything that fails is DISCARDED, not ingested.
+            const snapshotCheckpoint = await verifySnapshotPayload(payload, pubkey);
             if (!snapshotCheckpoint) {
               rejectedSnapshotSig.set(pubkey, payloadSig);
               worldLogger.warn(
@@ -432,7 +444,7 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
             competitorLastFullSync.set(pubkey, Date.now());
 
             // Update global route registry
-            buildRouteOffers(registry, finalAirline, finalFleet, routes);
+            buildRouteOffers(registry, pubkey, finalAirline, finalFleet, routes);
           } catch (e) {
             worldLogger.warn(`Failed parsing snapshot for competitor ${pubkey}`, e);
           }
@@ -545,7 +557,13 @@ export const createWorldSlice: StateCreator<AirlineState, [], [], WorldSlice> = 
           else updatedRegistry.set(key, kept);
         }
       }
-      buildRouteOffers(updatedRegistry, replayed.airline, replayed.fleet, replayed.routes);
+      buildRouteOffers(
+        updatedRegistry,
+        competitorPubkey,
+        replayed.airline,
+        replayed.fleet,
+        replayed.routes,
+      );
 
       set({
         competitors: updatedCompetitors,
@@ -570,39 +588,83 @@ async function settleMarketplaceSales(
   get: () => AirlineState,
   set: (partial: Partial<AirlineState> | ((state: AirlineState) => Partial<AirlineState>)) => void,
 ): Promise<void> {
-  const { airline, fleet, routes, timeline, pubkey, fleetByOwner } = get();
-  if (!airline || !pubkey) return;
+  const { airline: initialAirline, fleet: initialFleet, pubkey, fleetByOwner } = get();
+  if (!initialAirline || !pubkey) return;
 
-  // Build a map of competitor aircraft: ID -> { ownerPubkey, purchasePrice }
-  const competitorAircraft = new Map<string, { ownerPubkey: string; purchasePrice: FixedPoint }>();
+  // Competitor snapshots that list one of our aircraft are only CLAIMS
+  // (snapshot bodies are publisher-authored). Collect every claimant whose
+  // recorded purchasePrice matches our listing price (within 1 FP unit).
+  const listed = initialFleet.filter((ac) => ac.listingPrice != null && ac.listingPrice > 0);
+  if (listed.length === 0) return;
+  const listedById = new Map(listed.map((ac) => [ac.id, ac]));
+  const tolerance = fpRaw(1);
+  const claimantsByAircraft = new Map<string, Set<string>>();
   for (const [ownerPubkey, ownerFleet] of fleetByOwner) {
     if (ownerPubkey === pubkey) continue;
-    for (const ac of ownerFleet) {
-      competitorAircraft.set(ac.id, { ownerPubkey, purchasePrice: ac.purchasePrice });
+    for (const claimed of ownerFleet) {
+      const ours = listedById.get(claimed.id);
+      if (!ours) continue;
+      const priceDiff =
+        claimed.purchasePrice >= ours.listingPrice!
+          ? fpSub(claimed.purchasePrice, ours.listingPrice!)
+          : fpSub(ours.listingPrice!, claimed.purchasePrice);
+      if (priceDiff > tolerance) {
+        console.warn(
+          `[WorldSlice] Settlement rejected for ${ours.id}: buyer price ${fpFormat(claimed.purchasePrice)} != listing ${fpFormat(ours.listingPrice!)}`,
+        );
+        continue;
+      }
+      const set = claimantsByAircraft.get(claimed.id) ?? new Set<string>();
+      set.add(ownerPubkey);
+      claimantsByAircraft.set(claimed.id, set);
+    }
+  }
+  if (claimantsByAircraft.size === 0) return;
+
+  // A claim settles only with a buyer-signed AIRCRAFT_BUY_USED for that
+  // aircraft at our price (see marketplaceSettlement.ts). Throttle repeat
+  // lookups of claims that stayed unproven.
+  const now = Date.now();
+  const claimants = new Set<string>();
+  for (const [aircraftId, owners] of claimantsByAircraft) {
+    for (const owner of owners) {
+      const key = `${owner}:${aircraftId}`;
+      const last = unprovenClaimCheckedAt.get(key);
+      if (last !== undefined && now - last < UNPROVEN_CLAIM_RECHECK_MS) continue;
+      claimants.add(owner);
+    }
+  }
+  if (claimants.size === 0) return;
+
+  let buyActions: ActionLogEntry[];
+  try {
+    const { loadActionLog } = await import("@acars/nostr");
+    buyActions = await loadActionLog({ authors: [...claimants], maxPages: 2 });
+  } catch (e) {
+    console.warn("[WorldSlice] Could not load buyer actions for settlement proof:", e);
+    return;
+  }
+  const proven = selectProvenSales(listed, claimantsByAircraft, buyActions);
+  const provenIds = new Set(proven.map((sale) => sale.aircraftId));
+  for (const [aircraftId, owners] of claimantsByAircraft) {
+    if (provenIds.has(aircraftId)) continue;
+    for (const owner of owners) {
+      if (!claimants.has(owner)) continue;
+      unprovenClaimCheckedAt.set(`${owner}:${aircraftId}`, now);
+      console.warn(
+        `[WorldSlice] Ignoring unproven claim on listed aircraft ${aircraftId} by ${owner.slice(0, 8)}… (no matching signed purchase).`,
+      );
     }
   }
 
-  // Find our listed aircraft that now appear in a competitor's fleet,
-  // AND verify the buyer paid the correct price (within 1 FP unit tolerance).
-  const soldAircraft = fleet.filter((ac) => {
-    if (ac.listingPrice == null || ac.listingPrice <= 0) return false;
-    const buyerEntry = competitorAircraft.get(ac.id);
-    if (!buyerEntry) return false;
-    // Verify the buyer's recorded purchasePrice matches our listingPrice.
-    // Allow at most a 1-unit raw fixed-point delta for rounding differences.
-    const priceDiff =
-      buyerEntry.purchasePrice >= ac.listingPrice
-        ? fpSub(buyerEntry.purchasePrice, ac.listingPrice)
-        : fpSub(ac.listingPrice, buyerEntry.purchasePrice);
-    const tolerance = fpRaw(1);
-    if (priceDiff > tolerance) {
-      console.warn(
-        `[WorldSlice] Settlement rejected for ${ac.id}: buyer price ${fpFormat(buyerEntry.purchasePrice)} != listing ${fpFormat(ac.listingPrice)}`,
-      );
-      return false;
-    }
-    return true;
-  });
+  // Re-read: the action-log fetch awaited, so state may have moved on.
+  const latest = get();
+  const airline = latest.airline;
+  if (!airline || latest.pubkey !== pubkey) return;
+  const { fleet, routes, timeline } = latest;
+  const soldAircraft = fleet.filter(
+    (ac) => provenIds.has(ac.id) && ac.listingPrice === listedById.get(ac.id)?.listingPrice,
+  );
 
   if (soldAircraft.length === 0) return;
 

@@ -1,4 +1,5 @@
 import { nip19 } from "nostr-tools";
+import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import { describe, expect, it, vi } from "vitest";
 import {
   handleAirlinePage,
@@ -9,7 +10,8 @@ import {
 } from "../../../../../../functions/airline/[npub]";
 import { CHECKPOINT_D_TAG } from "./ogMeta";
 
-const HEX = "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d";
+const SECRET = generateSecretKey();
+const HEX = getPublicKey(SECRET);
 const NPUB = nip19.npubEncode(HEX);
 const SHELL = `<!doctype html><html><head><title>ACARS</title>
 <meta property="og:title" content="ACARS" /></head><body><div id="root"></div></body></html>`;
@@ -29,6 +31,17 @@ const checkpointEvent = (name: string, created_at = 1) => ({
   content: JSON.stringify({ airline: { name } }),
   tags: [["d", CHECKPOINT_D_TAG]],
 });
+
+const signedCheckpoint = (secret: Uint8Array, name: string, created_at = 1) =>
+  finalizeEvent(
+    {
+      kind: 30078,
+      created_at,
+      tags: [["d", CHECKPOINT_D_TAG]],
+      content: JSON.stringify({ airline: { name } }),
+    },
+    secret,
+  );
 
 describe("handleAirlinePage()", () => {
   const request = new Request(`https://acars.pub/airline/${NPUB}`);
@@ -116,10 +129,52 @@ describe("relay reading", () => {
   });
 
   it("tries relays in order until one has the airline", async () => {
-    const read = vi.fn(async (relay: string) => (relay === "b" ? [checkpointEvent("Found")] : []));
+    const read = vi.fn(async (relay: string) =>
+      relay === "b" ? [signedCheckpoint(SECRET, "Found")] : [],
+    );
     expect((await loadSummaryFromRelays(HEX, ["a", "b", "c"], read))?.name).toBe("Found");
     expect(read).toHaveBeenCalledTimes(2);
     expect(await loadSummaryFromRelays(HEX, ["a"], async () => [])).toBeNull();
+  });
+});
+
+describe("loadSummaryFromRelays() authenticity (forged relay answers)", () => {
+  const OTHER = generateSecretKey();
+
+  it("ignores unsigned, foreign-author, wrong-kind and tampered events", async () => {
+    const forgedUnsigned = {
+      ...checkpointEvent("Forged"),
+      pubkey: HEX,
+      kind: 30078,
+      id: "0".repeat(64),
+      sig: "0".repeat(128),
+    };
+    const foreignAuthor = signedCheckpoint(OTHER, "Foreign");
+    const wrongKind = finalizeEvent(
+      {
+        kind: 1,
+        created_at: 5,
+        tags: [["d", CHECKPOINT_D_TAG]],
+        content: JSON.stringify({ airline: { name: "Kind1" } }),
+      },
+      SECRET,
+    );
+    const tampered = {
+      ...signedCheckpoint(SECRET, "Original"),
+      content: JSON.stringify({ airline: { name: "Tampered" } }),
+    };
+    for (const bad of [forgedUnsigned, foreignAuthor, wrongKind, tampered]) {
+      expect(await loadSummaryFromRelays(HEX, ["evil"], async () => [bad])).toBeNull();
+    }
+  });
+
+  it("falls through a forging relay to the next one with a genuine checkpoint", async () => {
+    const read = vi.fn(async (relay: string) =>
+      relay === "evil"
+        ? [signedCheckpoint(OTHER, "Forged", 99)]
+        : [signedCheckpoint(SECRET, "Genuine")],
+    );
+    expect((await loadSummaryFromRelays(HEX, ["evil", "good"], read))?.name).toBe("Genuine");
   });
 });
 

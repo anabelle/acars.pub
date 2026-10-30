@@ -163,7 +163,13 @@ describe("rivals' announced fares (S69)", () => {
     });
     const registry = new Map<string, FlightOffer[]>();
     if (!replay.airline) throw new Error("no airline");
-    buildRouteOffers(registry, replay.airline, replay.fleet, replay.routes);
+    buildRouteOffers(
+      registry,
+      replay.airline.ceoPubkey,
+      replay.airline,
+      replay.fleet,
+      replay.routes,
+    );
     const [offer] = [...registry.values()].flat();
     expect(offer?.fareEconomy).toBe(fp(100));
     expect(offer?.next).toEqual({
@@ -179,7 +185,7 @@ describe("rivals' announced fares (S69)", () => {
       pending: { effectiveTick: day2, frequencyPerWeek: 3 },
     }));
     const other = new Map<string, FlightOffer[]>();
-    buildRouteOffers(other, replay.airline, replay.fleet, freqOnly);
+    buildRouteOffers(other, replay.airline.ceoPubkey, replay.airline, replay.fleet, freqOnly);
     expect([...other.values()].flat()[0]?.next).toBeUndefined();
   });
 });

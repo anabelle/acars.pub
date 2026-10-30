@@ -28,17 +28,32 @@ const MAX_SNAPSHOT_BALANCE = fp(10_000_000_000);
  *     so a tampered or corrupted body cannot be ingested.
  *  3. Defensive clamps: fleet size <= MAX_SNAPSHOT_FLEET and corporate
  *     balance within [-$10B, $10B]. Out-of-range snapshots are rejected.
+ *  4. Ownership: the state must describe only the airline of
+ *     `expectedAuthor` — the signing author of the snapshot event (or the
+ *     identity being hydrated). `airline.ceoPubkey`, every
+ *     `route.airlinePubkey` and every `aircraft.ownerPubkey` must equal it.
+ *     The state hash only proves internal consistency of publisher-chosen
+ *     bytes; without this check a publisher could embed another player's
+ *     (e.g. ranked) identity or claim another player's aircraft.
  *
  * Returns the verified Checkpoint, or null when the snapshot must be
  * discarded (the caller is expected to warn and keep prior state).
  */
-export async function verifySnapshotPayload(payload: SnapshotPayload): Promise<Checkpoint | null> {
+export async function verifySnapshotPayload(
+  payload: SnapshotPayload,
+  expectedAuthor: string,
+): Promise<Checkpoint | null> {
   try {
     const decompressedStr = await decompressSnapshotString(payload.compressedData);
     const { parseCheckpoint } = await import("@acars/nostr");
     const parsed = parseCheckpoint(JSON.parse(decompressedStr));
     if (!parsed) {
       logger.warn("Discarding snapshot: envelope failed parseCheckpoint validation");
+      return null;
+    }
+
+    if (!isOwnedBy(parsed, expectedAuthor)) {
+      logger.warn(`Discarding snapshot: state is not owned by its author ${expectedAuthor}`);
       return null;
     }
 
@@ -76,4 +91,20 @@ export async function verifySnapshotPayload(payload: SnapshotPayload): Promise<C
     logger.warn("Discarding snapshot: decompress/parse threw", e);
     return null;
   }
+}
+
+/**
+ * True when every owner field in the checkpoint is exactly `author`.
+ * Missing or malformed owner fields fail closed.
+ */
+export function isOwnedBy(checkpoint: Checkpoint, author: string): boolean {
+  if (typeof author !== "string" || author.length === 0) return false;
+  if (checkpoint.airline?.ceoPubkey !== author) return false;
+  for (const route of checkpoint.routes) {
+    if (!route || route.airlinePubkey !== author) return false;
+  }
+  for (const aircraft of checkpoint.fleet) {
+    if (!aircraft || aircraft.ownerPubkey !== author) return false;
+  }
+  return true;
 }
