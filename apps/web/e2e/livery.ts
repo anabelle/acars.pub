@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 /** The test painting's bytes (also served as an uploaded image, S74). */
 export const PAINTING_BYTES = readFileSync(
@@ -28,15 +28,25 @@ export async function stubLivery(page: Page): Promise<() => number> {
 }
 
 /**
- * Closes the delivery-day ceremony if it is showing (S61): a leased plane is
- * delivered minutes after a launch, and its welcome sits over the map until
+ * Closes all pending delivery-day ceremonies (S61): leased planes are
+ * delivered minutes after a launch, and their welcomes sit over the map until
  * the player continues, exactly as a real player would.
  */
 export async function continuePastDelivery(page: Page): Promise<void> {
   const ceremony = page.getByTestId("delivery-ceremony");
-  // Several planes can arrive together: each gets its own ceremony in turn.
-  for (let i = 0; i < 8 && (await ceremony.isVisible().catch(() => false)); i++) {
-    await ceremony.getByRole("button", { name: /^(continue|continuar)$/i }).click();
-    await page.waitForTimeout(300);
-  }
+  // DeliveryCeremony renders only the queue head; closing it mounts the next plane's dialog.
+  // Drain until none remain, rather than stopping after an arbitrary number of aircraft.
+  await expect
+    .poll(
+      async () => {
+        if (await ceremony.count()) {
+          await ceremony
+            .getByRole("button", { name: /^(continue|continuar)$/i })
+            .click({ timeout: 2_000 });
+        }
+        return ceremony.count();
+      },
+      { timeout: 30_000, message: "all pending delivery ceremonies should be dismissed" },
+    )
+    .toBe(0);
 }
