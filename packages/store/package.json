@@ -15,8 +15,8 @@
     "@acars/core": "workspace:*",
     "@acars/data": "workspace:*",
     "@acars/nostr": "workspace:^",
-    "dexie": "^4.4.6",
-    "zustand": "^5.0.15"
+    "dexie": "^4.4.7",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
