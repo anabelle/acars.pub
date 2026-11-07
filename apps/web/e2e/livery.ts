@@ -34,6 +34,8 @@ export async function stubLivery(page: Page): Promise<() => number> {
  */
 export async function continuePastDelivery(page: Page): Promise<void> {
   const ceremony = page.getByTestId("delivery-ceremony");
+  const timeout = 30_000;
+  const deadline = Date.now() + timeout;
   // DeliveryCeremony renders only the queue head; closing it mounts the next plane's dialog.
   // Drain until none remain, rather than stopping after an arbitrary number of aircraft.
   await expect
@@ -42,11 +44,13 @@ export async function continuePastDelivery(page: Page): Promise<void> {
         if (await ceremony.count()) {
           await ceremony
             .getByRole("button", { name: /^(continue|continuar)$/i })
-            .click({ timeout: 2_000 });
+            // A short click timeout escapes expect.poll instead of being retried.
+            // Let actionability and input dispatch use the remaining queue budget.
+            .click({ timeout: Math.max(1, deadline - Date.now()) });
         }
         return ceremony.count();
       },
-      { timeout: 30_000, message: "all pending delivery ceremonies should be dismissed" },
+      { timeout, message: "all pending delivery ceremonies should be dismissed" },
     )
     .toBe(0);
 }

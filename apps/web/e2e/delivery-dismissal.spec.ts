@@ -7,6 +7,25 @@ test("delivery dismissal is a no-op when no ceremonies are pending", async ({ pa
   await expect(page.getByTestId("delivery-ceremony")).toHaveCount(0);
 });
 
+test("delivery dismissal allows a slow Continue within the overall budget", async ({ page }) => {
+  await page.setContent(
+    '<div data-testid="delivery-ceremony"><button disabled>Continue</button></div>',
+  );
+  await page.evaluate(() => {
+    const button = document.querySelector("button");
+    if (!button) throw new Error("missing Continue fixture");
+    button.addEventListener("click", () => button.parentElement?.remove());
+    // Exceed the old per-click limit without exceeding the queue's overall budget.
+    setTimeout(() => {
+      button.disabled = false;
+    }, 2_500);
+  });
+
+  await continuePastDelivery(page);
+
+  await expect(page.getByTestId("delivery-ceremony")).toHaveCount(0);
+});
+
 test("delivery dismissal drains more than eight queued ceremonies", async ({ page }) => {
   // Model DeliveryCeremony's keyed queue: closing one dialog replaces it with the next.
   // Use DOM-only fixtures here to exercise the helper independently of aircraft delivery timing.
