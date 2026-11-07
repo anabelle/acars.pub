@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { launchRoute } from "./journeys";
-import { PAINTING_BYTES, stubLivery } from "./livery";
+import { continuePastDelivery, PAINTING_BYTES, stubLivery } from "./livery";
 import { createAirline, MADRID_PLAYER, navigateInApp } from "./signup";
 
 test.use(MADRID_PLAYER);
@@ -63,10 +63,11 @@ test("a player posts the livery reveal and ranks the people they follow", async 
   await preview.getByRole("button", { name: "Post", exact: true }).click();
   await expect(page.getByText("Posted to Nostr")).toBeVisible({ timeout: 30_000 });
   await expect(preview).toHaveCount(0);
-  await ceremony.getByRole("button", { name: /continue/i }).click();
-
   await navigateInApp(page, "/leaderboard");
   const league = page.getByTestId("leaderboard-league");
+  await expect(league).toBeVisible();
+  await continuePastDelivery(page);
+  await expect(ceremony).toHaveCount(0);
   await league.getByRole("button", { name: "People I follow" }).click();
   await expect(league.getByRole("button", { name: "People I follow" })).toHaveAttribute(
     "aria-pressed",
