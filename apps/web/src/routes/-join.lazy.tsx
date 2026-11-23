@@ -1,6 +1,6 @@
 import { useAirlineStore } from "@acars/store";
 import { useNavigate } from "@tanstack/react-router";
-import { Clock, Globe, Handshake, Map as MapIcon, Plane, ShieldCheck, Users } from "lucide-react";
+import { Globe, Plane } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { GuestKeyOnboarding } from "@/features/identity/components/GuestKeyOnboarding";
@@ -13,32 +13,26 @@ export default function JoinPage() {
   const features = useMemo(
     () => [
       {
-        icon: Clock,
         title: t("join.features.realTimeFlights.title", { ns: "common" }),
         description: t("join.features.realTimeFlights.description", { ns: "common" }),
       },
       {
-        icon: MapIcon,
         title: t("join.features.network.title", { ns: "common" }),
         description: t("join.features.network.description", { ns: "common" }),
       },
       {
-        icon: Plane,
         title: t("join.features.fleet.title", { ns: "common" }),
         description: t("join.features.fleet.description", { ns: "common" }),
       },
       {
-        icon: ShieldCheck,
         title: t("join.features.decentralized.title", { ns: "common" }),
         description: t("join.features.decentralized.description", { ns: "common" }),
       },
       {
-        icon: Users,
         title: t("join.features.competition.title", { ns: "common" }),
         description: t("join.features.competition.description", { ns: "common" }),
       },
       {
-        icon: Handshake,
         title: t("join.features.alliances.title", { ns: "common" }),
         description: t("join.features.alliances.description", { ns: "common" }),
       },
@@ -71,9 +65,9 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="pointer-events-auto relative flex min-h-screen w-full flex-col overflow-auto bg-background/95">
+    <div className="pointer-events-auto relative flex min-h-screen w-full flex-col overflow-auto bg-background">
       {/* Header */}
-      <header className="flex items-center gap-3 border-b border-border/60 bg-background/95 px-6 py-4">
+      <header className="flex items-center gap-3 border-b border-border/60 bg-background px-6 py-4">
         <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/20 text-xs font-bold text-primary">
           AT
         </div>
@@ -106,30 +100,23 @@ export default function JoinPage() {
           </div>
 
           {/* Onboarding card */}
-          <div className="w-full max-w-sm rounded-2xl border border-border/60 bg-background/95 p-6 shadow-2xl">
+          <div className="w-full max-w-sm rounded-2xl border border-border/60 bg-background p-6 shadow-2xl">
             <GuestKeyOnboarding onExistingAccount={handleExistingAccount} />
           </div>
         </section>
 
-        {/* Feature grid */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="flex gap-3 rounded-xl border border-border/50 bg-background/95 p-4"
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <f.icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">{f.title}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {f.description}
-                </p>
-              </div>
-            </div>
+        {/* Guest-safe prose: the ticker needs a home airport and the leaderboard
+            needs the panel scroll context and initialized world subscriptions. */}
+        <ul data-testid="join-features" className="divide-y divide-border text-left">
+          {features.map((feature) => (
+            <li key={feature.title} className="py-4 first:pt-0">
+              <h3 className="text-sm font-semibold text-foreground">{feature.title}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                {feature.description}
+              </p>
+            </li>
           ))}
-        </section>
+        </ul>
 
         {/* Roadmap: planned, not shipped */}
         <section

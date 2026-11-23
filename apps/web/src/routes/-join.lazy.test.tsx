@@ -52,6 +52,12 @@ describe("JoinPage", () => {
   it("lists alliances as a live feature, not on the roadmap", () => {
     mockUseAirlineStore.mockReturnValue({ airline: null, identityStatus: "guest" });
     const { container } = render(<JoinPage />);
+    const features = container.querySelector('[data-testid="join-features"]');
+    expect(features?.tagName).toBe("UL");
+    expect(features?.querySelectorAll("li")).toHaveLength(6);
+    expect(features?.querySelectorAll("svg")).toHaveLength(0);
+    expect(container.firstElementChild).toHaveClass("bg-background");
+    expect(container.firstElementChild?.className).not.toMatch(/backdrop-blur/);
     const roadmap = container.querySelector('section[aria-labelledby="join-roadmap-title"]');
     expect(roadmap?.textContent).not.toMatch(/Alliances/);
     expect(screen.getAllByText("Alliances").length).toBeGreaterThan(0);

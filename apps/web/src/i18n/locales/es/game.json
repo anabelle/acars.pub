@@ -321,7 +321,7 @@
   "cockpit": {
     "kicker": "Cabina",
     "title": "{{name}} de un vistazo",
-    "subtitle": "Todo sobre tu aerolínea en un solo lugar: qué cambió, qué te necesita y qué hacer después. {{competitors}} aerolíneas rivales están volando ahora.",
+    "subtitle": "Tu aerolínea desde que te fuiste",
     "competitorBadge": "Viendo a un rival",
     "competitorTitle": "Mirando {{name}}",
     "competitorSubtitle": "Puedes mirar pero no cambiar nada mientras ves otra aerolínea. Compara su tamaño, caja y rutas, y luego vuelve a la tuya.",

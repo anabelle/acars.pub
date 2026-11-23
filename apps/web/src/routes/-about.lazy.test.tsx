@@ -46,8 +46,13 @@ describe("About route", () => {
     expect(nostrLink).toHaveAttribute("href", "https://nostr.com");
   });
 
-  it("renders highlight cards", () => {
+  it("renders highlights as plain prose with an honest roadmap disclaimer", () => {
     render(<AboutPage />);
+    const highlights = screen.getByTestId("about-highlights");
+    expect(highlights.tagName).toBe("UL");
+    expect(highlights.querySelectorAll("li")).toHaveLength(3);
+    expect(highlights.querySelectorAll("svg")).toHaveLength(0);
+    expect(highlights).toHaveTextContent("Not in the game yet.");
     expect(screen.getByText("Decentralized on Nostr")).toBeInTheDocument();
     expect(screen.getByText("Real-Time Aviation Sim")).toBeInTheDocument();
     expect(screen.getByText("Bitcoin & Lightning")).toBeInTheDocument();

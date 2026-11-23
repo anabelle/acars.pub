@@ -50,13 +50,10 @@
   },
   "guest": {
     "title": "Inicia tu aerolínea",
-    "subtitle": "Sin cuenta, sin descarga, sin conocimiento de cripto necesario. Tu progreso se guarda automáticamente.",
+    "subtitle": "Empieza en tu navegador. Tu progreso se guarda automáticamente.",
     "creating": "Creando tu cuenta…",
-    "playFree": "Juega gratis — sin registro requerido",
-    "realTimeFlights": "Vuelos en tiempo real",
-    "realTimeFlightsDesc": "Las rutas se resuelven en horas reales",
-    "noAds": "Sin anuncios",
-    "noAdsDesc": "Sin pagar para ganar, sin temporizadores de energía",
+    "playFree": "Juega gratis",
+    "fairPlay": "Juega gratis, con las mismas reglas para todas las aerolíneas.",
     "haveNostrAccount": "Ya tengo una cuenta de Nostr →"
   },
   "security": {

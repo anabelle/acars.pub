@@ -1,5 +1,5 @@
 import { useAirlineStore } from "@acars/store";
-import { Loader2, Plane, ShieldCheck, Sparkles } from "lucide-react";
+import { Loader2, Plane, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 /**
@@ -46,23 +46,7 @@ export function GuestKeyOnboarding({ onExistingAccount }: { onExistingAccount?: 
 
       {error && <p className="text-center text-[11px] font-medium text-rose-400">{error}</p>}
 
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { icon: Plane, label: t("guest.realTimeFlights"), sub: t("guest.realTimeFlightsDesc") },
-          { icon: ShieldCheck, label: t("guest.noAds"), sub: t("guest.noAdsDesc") },
-        ].map((item) => (
-          <div
-            key={item.label}
-            className="flex flex-col gap-1 rounded-lg border border-border/50 bg-background/95 p-3"
-          >
-            <div className="flex items-center gap-1.5">
-              <item.icon className="h-3.5 w-3.5 text-primary/70" />
-              <span className="text-[11px] font-semibold text-foreground">{item.label}</span>
-            </div>
-            <span className="text-[10px] leading-snug text-muted-foreground">{item.sub}</span>
-          </div>
-        ))}
-      </div>
+      <p className="text-xs leading-relaxed text-muted-foreground">{t("guest.fairPlay")}</p>
 
       {onExistingAccount && (
         <button
