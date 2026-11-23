@@ -60,7 +60,7 @@ describe("i18n", () => {
   it("loads Spanish identity namespace", async () => {
     await i18n.changeLanguage("es");
     expect(i18n.t("creator.title", { ns: "identity" })).toBe("Lanza Tu Aerolínea");
-    expect(i18n.t("guest.playFree", { ns: "identity" })).toBe("Empieza a jugar gratis");
+    expect(i18n.t("guest.playFree", { ns: "identity" })).toBe("Juega gratis");
     expect(i18n.t("access.corporateLockedTitle", { ns: "identity" })).toBe(
       "Aquí viven las finanzas de tu aerolínea",
     );
