@@ -321,7 +321,7 @@
   "cockpit": {
     "kicker": "Cockpit",
     "title": "{{name}} at a glance",
-    "subtitle": "Everything about your airline in one place: what changed, what needs you, and what to do next. {{competitors}} rival airlines are flying right now.",
+    "subtitle": "Your airline since you left",
     "competitorBadge": "Viewing a rival",
     "competitorTitle": "Looking at {{name}}",
     "competitorSubtitle": "You can look but not change anything while you view another airline. Compare their size, cash and routes, then head back to your own.",

@@ -50,13 +50,10 @@
   },
   "guest": {
     "title": "Start your airline",
-    "subtitle": "No account, no download, no crypto knowledge needed. Your progress is saved automatically.",
+    "subtitle": "Start in your browser. Your progress is saved automatically.",
     "creating": "Creating your account…",
-    "playFree": "Play for free — no sign-up required",
-    "realTimeFlights": "Real-time flights",
-    "realTimeFlightsDesc": "Routes resolve in actual hours",
-    "noAds": "No ads",
-    "noAdsDesc": "No pay-to-win, no energy timers",
+    "playFree": "Start playing for free",
+    "fairPlay": "Free to play, with the same rules for every airline.",
     "haveNostrAccount": "I already have a Nostr account →"
   },
   "security": {

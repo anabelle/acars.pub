@@ -1,4 +1,4 @@
-import { ExternalLink, Globe, Plane, Zap } from "lucide-react";
+import { ExternalLink, Globe } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LanguageSelector } from "@/shared/components/layout/LanguageSelector";
 import { PanelBody, PanelHeader, PanelLayout } from "@/shared/components/layout/PanelLayout";
@@ -15,9 +15,9 @@ function GithubMark({ className }: { className?: string }) {
 }
 
 const highlightKeys = [
-  { icon: Globe, titleKey: "nostr.title", descKey: "nostr.desc" },
-  { icon: Plane, titleKey: "realtime.title", descKey: "realtime.desc" },
-  { icon: Zap, titleKey: "bitcoin.title", descKey: "bitcoin.desc" },
+  { titleKey: "nostr.title", descKey: "nostr.desc" },
+  { titleKey: "realtime.title", descKey: "realtime.desc" },
+  { titleKey: "bitcoin.title", descKey: "bitcoin.desc" },
 ];
 
 export default function AboutPage() {
@@ -72,25 +72,17 @@ export default function AboutPage() {
           </p>
         </section>
 
-        {/* Highlights */}
-        <section className="space-y-3">
+        {/* Plain prose stays readable before a guest has initialized an airline. */}
+        <ul data-testid="about-highlights" className="divide-y divide-border text-left">
           {highlightKeys.map((item) => (
-            <div
-              key={item.titleKey}
-              className="flex gap-3 rounded-xl border border-border/60 bg-background/95 p-3"
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <item.icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">{t(item.titleKey)}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {t(item.descKey)}
-                </p>
-              </div>
-            </div>
+            <li key={item.titleKey} className="py-3 first:pt-0">
+              <h3 className="text-sm font-semibold text-foreground">{t(item.titleKey)}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                {t(item.descKey)}
+              </p>
+            </li>
           ))}
-        </section>
+        </ul>
 
         {/* Language Selector */}
         <section className="flex items-center justify-between rounded-xl border border-border/60 bg-background/95 px-4 py-3">

@@ -134,27 +134,27 @@
     "airlineDescription": "La aerolínea de un jugador: red, flota y cifras. Comparte el enlace."
   },
   "join": {
-    "badge": "Gratis para jugar · No se necesita cuenta",
+    "badge": "Juega gratis",
     "heroTitleLineOne": "Construye la",
     "heroTitleLineTwo": "aerolínea más poderosa del mundo.",
-    "heroDescription": "Un tycoon aéreo gratuito y de código abierto sobre un mapa mundial en vivo. Rutas reales, tiempos de vuelo reales, aerolíneas rivales — y tus aviones siguen volando mientras no estás. Sin anuncios, sin pagar para ganar.",
-    "footer": "Código abierto · Licencia MIT · Impulsado por el protocolo Nostr",
+    "heroDescription": "Un tycoon aéreo gratuito y de código abierto sobre un mapa mundial en vivo. Elige rutas, amplía tu flota y compite por pasajeros. Tus aviones siguen volando mientras no estás.",
+    "footer": "Código abierto bajo la licencia MIT. Construido sobre Nostr.",
     "features": {
       "realTimeFlights": {
-        "title": "Vuelos en tiempo real",
-        "description": "Las rutas se resuelven en tiempo real. Un vuelo transatlántico de 7 horas tarda 7 horas reales — vuelve cuando quieras."
+        "title": "Vuelos al ritmo del reloj",
+        "description": "Un vuelo transatlántico de 7 horas tarda 7 horas. Vuelve cuando quieras."
       },
       "network": {
-        "title": "Rutas reales, demanda real",
-        "description": "Abre rutas entre más de 6.000 aeropuertos reales. La demanda de pasajeros sigue datos reales de población y economía, y cambia con las estaciones."
+        "title": "Rutas y demanda de pasajeros",
+        "description": "Abre rutas entre más de 6.000 aeropuertos reales. La demanda de pasajeros sigue datos de población y economía, y cambia con las estaciones."
       },
       "fleet": {
-        "title": "Una flota real",
-        "description": "35 aviones reales, desde turbohélices hasta el A380, que se desbloquean a medida que crece tu aerolínea. Arrienda o compra, mantén y comercia en el mercado de segunda mano."
+        "title": "Amplía tu flota",
+        "description": "35 aviones, desde turbohélices hasta el A380, que se desbloquean a medida que crece tu aerolínea. Arrienda o compra, mantén y comercia en el mercado de segunda mano."
       },
       "decentralized": {
-        "title": "Tuya para siempre",
-        "description": "Tu aerolínea vive en la red abierta de Nostr — sin servidor de juego central, y nadie te la puede quitar."
+        "title": "Tus claves, tu aerolínea",
+        "description": "Tus claves firman las acciones de tu aerolínea en la red abierta de Nostr."
       },
       "competition": {
         "title": "Un mismo mundo en vivo",

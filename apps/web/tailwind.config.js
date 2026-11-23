@@ -83,9 +83,8 @@ export default {
       fontFamily: {
         // Cockpit + Ramp type (S59): B612 for text and data, Overpass caps for signs.
         sans: ['"B612"', "ui-sans-serif", "system-ui", "sans-serif"],
-        // Figures read in proportional B612 with tabular digits: B612 Mono gives
-        // punctuation a full cell ("$92, 650. 00"). Codes use font-avionics-mono.
-        mono: ['"B612"', "ui-sans-serif", "system-ui", "sans-serif"],
+        // Flight data and identifiers retain fixed-width cockpit typography.
+        mono: ['"B612 Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
         avionics: ['"B612"', "ui-sans-serif", "system-ui", "sans-serif"],
         "avionics-mono": ['"B612 Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
         sign: ['"Overpass"', '"B612"', "ui-sans-serif", "sans-serif"],

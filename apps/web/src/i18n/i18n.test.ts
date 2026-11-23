@@ -60,9 +60,7 @@ describe("i18n", () => {
   it("loads Spanish identity namespace", async () => {
     await i18n.changeLanguage("es");
     expect(i18n.t("creator.title", { ns: "identity" })).toBe("Lanza Tu Aerolínea");
-    expect(i18n.t("guest.playFree", { ns: "identity" })).toBe(
-      "Juega gratis — sin registro requerido",
-    );
+    expect(i18n.t("guest.playFree", { ns: "identity" })).toBe("Empieza a jugar gratis");
     expect(i18n.t("access.corporateLockedTitle", { ns: "identity" })).toBe(
       "Aquí viven las finanzas de tu aerolínea",
     );
@@ -76,7 +74,7 @@ describe("i18n", () => {
       "Abrir cabina de vuelo",
     );
     expect(i18n.t("join.features.realTimeFlights.title", { ns: "common" })).toBe(
-      "Vuelos en tiempo real",
+      "Vuelos al ritmo del reloj",
     );
     expect(i18n.t("hubPicker.dialogTitle", { ns: "game" })).toBe("Elegir un aeropuerto hub");
     expect(i18n.t("fleet.searchPlaceholder", { ns: "game" })).toBe("Buscar flota activa…");

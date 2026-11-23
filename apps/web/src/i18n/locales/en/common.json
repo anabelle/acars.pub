@@ -134,27 +134,27 @@
     "airlineDescription": "A player's airline: network, fleet and stats. Share the link."
   },
   "join": {
-    "badge": "Free to play · No account needed",
+    "badge": "Free to play",
     "heroTitleLineOne": "Build the world's",
     "heroTitleLineTwo": "most powerful airline.",
-    "heroDescription": "A free, open-source airline tycoon on a live world map. Real routes, real flight times, rival airlines — and your planes keep flying while you're away. No ads, no pay-to-win.",
-    "footer": "Open source · MIT License · Powered by the Nostr protocol",
+    "heroDescription": "A free, open-source airline tycoon on a live world map. Choose routes, build your fleet, and compete for passengers. Your planes keep flying while you're away.",
+    "footer": "Open source under the MIT License. Built on Nostr.",
     "features": {
       "realTimeFlights": {
-        "title": "Real-time flights",
-        "description": "Routes resolve in actual real-world time. A 7-hour transatlantic flight takes 7 real hours — check in anytime."
+        "title": "Flights on the clock",
+        "description": "A 7-hour transatlantic flight takes 7 hours. Check in anytime."
       },
       "network": {
-        "title": "Real routes, real demand",
-        "description": "Open routes between 6,000+ real airports. Passenger demand follows real population and economy data, and shifts with the seasons."
+        "title": "Routes and passenger demand",
+        "description": "Open routes between 6,000+ real airports. Passenger demand follows population and economic data, and shifts with the seasons."
       },
       "fleet": {
-        "title": "A real fleet",
-        "description": "35 real aircraft, from turboprops to the A380, unlocked as your airline grows. Lease or buy, maintain, and trade on the used market."
+        "title": "Build your fleet",
+        "description": "35 aircraft, from turboprops to the A380, unlocked as your airline grows. Lease or buy, maintain, and trade on the used market."
       },
       "decentralized": {
-        "title": "Yours to keep",
-        "description": "Your airline lives on the open Nostr network — no central game server, and nobody can take it away from you."
+        "title": "Your keys, your airline",
+        "description": "Your keys sign your airline’s actions on the open Nostr network."
       },
       "competition": {
         "title": "One shared live world",
